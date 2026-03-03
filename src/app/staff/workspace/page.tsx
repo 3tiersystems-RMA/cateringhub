@@ -235,15 +235,31 @@ export default function StaffWorkspacePage() {
       };
 
       if (editingProduct) {
-        const { error } = await supabase
+        const { error, data: updateData } = await supabase
           .from('products')
           .update(payload)
-          .eq('id', editingProduct.id);
-        if (error) { setFormError(error.message); setSaving(false); return; }
+          .eq('id', editingProduct.id)
+          .select();
+        if (error) {
+          console.error('Update error:', JSON.stringify(error));
+          setFormError(`Update failed: ${error.message}`);
+          setSaving(false);
+          return;
+        }
+        if (!updateData || updateData.length === 0) {
+          setFormError('Update was blocked — you may not have permission to edit this product. Please ensure your account has staff access.');
+          setSaving(false);
+          return;
+        }
         setFormSuccess('Product updated successfully!');
       } else {
         const { error } = await supabase.from('products').insert(payload);
-        if (error) { setFormError(error.message); setSaving(false); return; }
+        if (error) {
+          console.error('Insert error:', JSON.stringify(error));
+          setFormError(error.message);
+          setSaving(false);
+          return;
+        }
         setFormSuccess('Product created successfully!');
       }
 
