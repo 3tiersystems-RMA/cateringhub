@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import AppLogo from '@/components/ui/AppLogo';
 
 type BucketType = 'product-images' | 'event-photos';
-type WorkspaceTab = 'products' | 'media';
+type WorkspaceTab = 'products' | 'media' | 'orders';
 type ProductCategory = 'Catering Packages' | 'Prepared Meals' | 'À La Carte';
 
 interface StorageFile {
@@ -882,6 +882,23 @@ export default function StaffWorkspacePage() {
                 )}
               </label>
             </div>
+          </div>
+        )}
+
+        {/* ── ORDERS TAB ── */}
+        {activeTab === 'orders' && (
+          <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-[#DDD5C8]">
+            <div className="text-5xl mb-4">📋</div>
+            <h2 className="text-xl font-bold text-[#1A1612] mb-2">Orders Management</h2>
+            <p className="text-[#8C8278] text-sm mb-6 text-center max-w-sm">
+              View and manage all customer orders from the dedicated Orders page.
+            </p>
+            <a
+              href="/staff/orders"
+              className="bg-[#C4622D] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors"
+            >
+              Go to Orders
+            </a>
           </div>
         )}
       </main>
