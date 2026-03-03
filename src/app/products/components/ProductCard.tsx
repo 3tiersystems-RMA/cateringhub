@@ -91,7 +91,7 @@ export default function ProductCard({ product }: ProductCardProps) {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xl font-semibold text-[#1A1612]">
-              ${product.price}
+              R{product.price}
             </p>
             <p className="text-xs text-[#B5ADA5] font-mono">{product.unit}</p>
             {product.minOrder && (

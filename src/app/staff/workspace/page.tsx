@@ -526,7 +526,7 @@ export default function StaffWorkspacePage() {
                         </select>
                       </div>
                       <div>
-                        <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Price ($) *</label>
+                        <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Price (R) *</label>
                         <input
                           type="number"
                           value={form.price}
@@ -768,7 +768,7 @@ export default function StaffWorkspacePage() {
                       <p className="text-xs text-[#8C8278] line-clamp-2 mb-3">{product.description}</p>
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-lg font-bold text-[#1A1612]">${product.price}</p>
+                          <p className="text-lg font-bold text-[#1A1612]">R{product.price}</p>
                           <p className="text-xs text-[#B0A89E]">{product.unit}</p>
                         </div>
                         <div className="flex gap-2">

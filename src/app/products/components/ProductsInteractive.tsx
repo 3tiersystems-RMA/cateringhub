@@ -314,7 +314,7 @@ function ProductsContent() {
         <div className="mt-16 bg-[#EDE7DA] border border-[#DDD5C8] rounded-4xl p-8 md:p-10">
           <div className="grid md:grid-cols-3 gap-8">
             {[
-              { icon: "TruckIcon" as const, title: "Delivery Included", desc: "Free delivery on orders over $200. $15 flat fee under $200." },
+              { icon: "TruckIcon" as const, title: "Delivery Included", desc: "Free delivery on orders over R200. R15 flat fee under R200." },
               { icon: "ClockIcon" as const, title: "48-Hour Lead Time", desc: "Most orders require 48 hours notice. Rush orders available for a fee." },
               { icon: "PhoneIcon" as const, title: "Custom Quotes", desc: "Need something special? Call us at (555) 123-4567 for a custom menu." },
             ].map((item) => (

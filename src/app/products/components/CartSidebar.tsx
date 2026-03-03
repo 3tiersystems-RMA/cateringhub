@@ -178,7 +178,7 @@ export default function CartSidebar() {
                         </div>
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-semibold text-[#1A1612]">
-                            ${(item.product.price * item.quantity).toFixed(2)}
+                            R{(item.product.price * item.quantity).toFixed(2)}
                           </span>
                           <button
                             onClick={() => removeItem(item.product.id)}
@@ -201,19 +201,19 @@ export default function CartSidebar() {
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between text-[#5C5347]">
                     <span>Subtotal</span>
-                    <span>${subtotal.toFixed(2)}</span>
+                    <span>R{subtotal.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-[#5C5347]">
                     <span>Delivery</span>
-                    <span>${delivery.toFixed(2)}</span>
+                    <span>R{delivery.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-[#5C5347]">
                     <span>Tax (8%)</span>
-                    <span>${tax.toFixed(2)}</span>
+                    <span>R{tax.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between font-semibold text-[#1A1612] text-base pt-2 border-t border-[#DDD5C8]">
                     <span>Total</span>
-                    <span>${total.toFixed(2)}</span>
+                    <span>R{total.toFixed(2)}</span>
                   </div>
                 </div>
                 <button
@@ -349,10 +349,10 @@ export default function CartSidebar() {
                     Deposit (25%)
                   </p>
                   <p className="text-2xl font-display font-semibold mb-1">
-                    ${(total * 0.25).toFixed(2)}
+                    R{(total * 0.25).toFixed(2)}
                   </p>
                   <p className="text-xs text-white/40">
-                    Balance of ${(total * 0.75).toFixed(2)} due at delivery
+                    Balance of R{(total * 0.75).toFixed(2)} due at delivery
                   </p>
                   <div className="mt-4 flex items-center gap-2">
                     <div className="w-8 h-5 bg-[#D4A853] rounded-sm opacity-80" />
@@ -428,11 +428,11 @@ export default function CartSidebar() {
               <div className="bg-[#EDE7DA] rounded-2xl p-4 space-y-1.5 text-sm">
                 <div className="flex justify-between text-[#5C5347]">
                   <span>Order Total</span>
-                  <span>${total.toFixed(2)}</span>
+                  <span>R{total.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between font-semibold text-[#1A1612]">
                   <span>Deposit Due Now</span>
-                  <span className="text-[#C4622D]">${(total * 0.25).toFixed(2)}</span>
+                  <span className="text-[#C4622D]">R{(total * 0.25).toFixed(2)}</span>
                 </div>
               </div>
             </div>
@@ -454,7 +454,7 @@ export default function CartSidebar() {
                 ) : (
                   <>
                     <Icon name="LockClosedIcon" size={14} />
-                    Pay ${(total * 0.25).toFixed(2)} Deposit
+                    Pay R{(total * 0.25).toFixed(2)} Deposit
                   </>
                 )}
               </button>

@@ -196,7 +196,7 @@ export default function FeaturedMenu() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-lg font-semibold text-[#1A1612]">
-                      ${item?.price}
+                      R{item?.price}
                       <span className="text-xs text-[#8C8278] font-normal ml-1">/serving</span>
                     </p>
                     <div className="flex items-center gap-1 mt-0.5">
