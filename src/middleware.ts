@@ -35,6 +35,13 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // Protect /staff/orders - redirect to login if not authenticated
+  if (pathname.startsWith('/staff/orders') && !user) {
+    const url = request.nextUrl.clone();
+    url.pathname = '/staff/login';
+    return NextResponse.redirect(url);
+  }
+
   // Redirect authenticated users away from login page
   if (pathname === '/staff/login' && user) {
     const url = request.nextUrl.clone();

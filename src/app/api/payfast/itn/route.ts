@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PAYFAST_CONFIG, getPayFastHost, validateITNSignature, ITNPayload } from "@/lib/payfast";
+import { createClient } from "@supabase/supabase-js";
 
 async function validatePayFastIP(req: NextRequest): Promise<boolean> {
   const validHosts = [
@@ -38,6 +39,14 @@ async function validateWithPayFast(
     console.error("PayFast server validation error:", error);
     return false;
   }
+}
+
+function createSupabaseAdmin() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  return createClient(supabaseUrl, serviceKey, {
+    auth: { persistSession: false },
+  });
 }
 
 export async function POST(req: NextRequest) {
@@ -92,11 +101,64 @@ export async function POST(req: NextRequest) {
 
     if (payment_status === "COMPLETE") {
       console.log(`PayFast payment COMPLETE: Order ${m_payment_id}, PF ID: ${pf_payment_id}, Amount: R${amount_gross}`);
-      // TODO: Update order status in your database here
-      // e.g., await supabase.from('orders').update({ status: 'paid' }).eq('order_id', m_payment_id)
+
+      // Parse order data from custom fields stored during initiation
+      let orderData: {
+        customerName: string;
+        customerEmail: string;
+        customerPhone: string;
+        items: Array<{ id: string; name: string; quantity: number; price: number; unit: string }>;
+        subtotal: number;
+        deliveryFee: number;
+        total: number;
+        eventDate: string;
+        deliveryAddress: string;
+        notes: string;
+      } | null = null;
+
+      try {
+        if (pfData.custom_str2) {
+          orderData = JSON.parse(decodeURIComponent(pfData.custom_str2));
+        }
+      } catch (e) {
+        console.error("Failed to parse order data from custom_str2:", e);
+      }
+
+      // Create order record in Supabase
+      const supabase = createSupabaseAdmin();
+      const { error: insertError } = await supabase.from("orders").upsert(
+        {
+          m_payment_id: m_payment_id || null,
+          payfast_transaction_id: pf_payment_id || null,
+          customer_name: orderData?.customerName || pfData.name_first ? `${pfData.name_first || ''} ${pfData.name_last || ''}`.trim() : 'Unknown',
+          customer_email: orderData?.customerEmail || pfData.email_address || '',
+          customer_phone: orderData?.customerPhone || '',
+          items: orderData?.items || [],
+          subtotal: orderData?.subtotal || 0,
+          delivery_fee: orderData?.deliveryFee || 0,
+          total: parseFloat(amount_gross || '0'),
+          payment_status: 'paid',
+          fulfillment_status: 'new',
+          event_date: orderData?.eventDate || null,
+          delivery_address: orderData?.deliveryAddress || '',
+          notes: orderData?.notes || '',
+        },
+        { onConflict: 'm_payment_id', ignoreDuplicates: false }
+      );
+
+      if (insertError) {
+        console.error("Failed to create order record:", insertError.message);
+      } else {
+        console.log(`Order record created/updated for payment ${m_payment_id}`);
+      }
     } else if (payment_status === "CANCELLED") {
       console.log(`PayFast payment CANCELLED: Order ${m_payment_id}`);
-      // TODO: Handle cancellation in your database
+      // Update order status to failed if record exists
+      const supabase = createSupabaseAdmin();
+      await supabase
+        .from("orders")
+        .update({ payment_status: "failed" })
+        .eq("m_payment_id", m_payment_id || "");
     }
 
     return new NextResponse("OK", { status: 200 });

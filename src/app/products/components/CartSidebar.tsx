@@ -66,6 +66,20 @@ export default function CartSidebar() {
           amount: deposit.toFixed(2),
           itemName: "CateringHub Deposit",
           itemDescription: itemNames.slice(0, 255),
+          // Extended order data for ITN webhook
+          items: items.map((i) => ({
+            id: i.product.id,
+            name: i.product.name,
+            quantity: i.quantity,
+            price: i.product.price,
+            unit: i.product.unit,
+          })),
+          subtotal,
+          deliveryFee: delivery,
+          total,
+          eventDate: form.date,
+          deliveryAddress: form.address,
+          notes: form.notes,
         }),
       });
 

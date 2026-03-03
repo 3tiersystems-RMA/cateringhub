@@ -10,7 +10,22 @@ import {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { name, email, phone, amount, itemName, itemDescription } = body;
+    const {
+      name,
+      email,
+      phone,
+      amount,
+      itemName,
+      itemDescription,
+      // Extended order data
+      items,
+      subtotal,
+      deliveryFee,
+      total,
+      eventDate,
+      deliveryAddress,
+      notes,
+    } = body;
 
     if (!name || !email || !amount) {
       return NextResponse.json(
@@ -33,6 +48,21 @@ export async function POST(req: NextRequest) {
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://cateringhu2257.builtwithrocket.new";
 
+    // Encode order data for ITN webhook
+    const orderPayload = {
+      customerName: name,
+      customerEmail: email,
+      customerPhone: phone || '',
+      items: items || [],
+      subtotal: subtotal || 0,
+      deliveryFee: deliveryFee || 0,
+      total: total || parseFloat(amount),
+      eventDate: eventDate || '',
+      deliveryAddress: deliveryAddress || '',
+      notes: notes || '',
+    };
+    const encodedOrderData = encodeURIComponent(JSON.stringify(orderPayload));
+
     const formData = buildPayFastFormData({
       merchantId: PAYFAST_CONFIG.merchantId,
       merchantKey: PAYFAST_CONFIG.merchantKey,
@@ -48,6 +78,7 @@ export async function POST(req: NextRequest) {
       itemName: itemName || "CateringHub Order",
       itemDescription: itemDescription || "",
       customStr1: orderId,
+      customStr2: encodedOrderData.slice(0, 255),
       emailConfirmation: "1",
       confirmationAddress: email,
     });

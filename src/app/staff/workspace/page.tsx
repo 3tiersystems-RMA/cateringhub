@@ -408,6 +408,15 @@ export default function StaffWorkspacePage() {
           </div>
           <div className="flex items-center gap-3">
             <span className="hidden sm:block text-sm text-[#8C8278]">{user?.email}</span>
+            <a
+              href="/staff/orders"
+              className="text-sm font-medium text-[#5C5347] hover:text-[#1A1612] transition-colors px-3 py-1.5 rounded-lg hover:bg-[#F5F0E8] flex items-center gap-1.5"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25ZM6.75 12h.008v.008H6.75V12Zm0 3h.008v.008H6.75V15Zm0 3h.008v.008H6.75V18Z" />
+              </svg>
+              Orders
+            </a>
             <button
               onClick={handleSignOut}
               className="text-sm font-medium text-[#C4622D] hover:text-[#A04E22] transition-colors px-3 py-1.5 rounded-lg hover:bg-[#F5F0E8]"
@@ -439,6 +448,14 @@ export default function StaffWorkspacePage() {
               }`}
             >
               📸 Media Library
+            </button>
+            <button
+              onClick={() => setActiveTab('orders')}
+              className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${
+                activeTab === 'orders' ?'border-[#C4622D] text-[#C4622D]' :'border-transparent text-[#8C8278] hover:text-[#5C5347]'
+              }`}
+            >
+              📋 Orders
             </button>
           </div>
         </div>
@@ -861,81 +878,9 @@ export default function StaffWorkspacePage() {
                 {uploading ? (
                   <><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Uploading...</>
                 ) : (
-                  <><svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>Choose Images</>
+                  <><svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v6" /></svg>Upload Images</>
                 )}
               </label>
-            </div>
-
-            {uploadSuccess && (
-              <div className="mb-4 bg-green-50 border border-green-200 text-green-700 text-sm rounded-xl px-4 py-3 flex items-center gap-2">
-                <svg className="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                {uploadSuccess}
-              </div>
-            )}
-            {uploadError && (
-              <div className="mb-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">
-                {uploadError}
-              </div>
-            )}
-
-            {/* Files Grid */}
-            <div className="bg-white rounded-2xl border border-[#DDD5C8] overflow-hidden">
-              <div className="px-6 py-4 border-b border-[#EDE7DA] flex items-center justify-between">
-                <h2 className="font-semibold text-[#1A1612]">{buckets.find((b) => b.id === activeBucket)?.label}</h2>
-                <span className="text-sm text-[#8C8278]">
-                  {mediaLoading ? 'Loading...' : `${files.length} image${files.length !== 1 ? 's' : ''}`}
-                </span>
-              </div>
-              {mediaLoading ? (
-                <div className="flex items-center justify-center py-16">
-                  <svg className="animate-spin h-8 w-8 text-[#C4622D]" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                </div>
-              ) : files.length === 0 ? (
-                <div className="text-center py-16">
-                  <div className="text-5xl mb-3">{activeBucket === 'product-images' ? '🍽️' : '📸'}</div>
-                  <p className="text-[#5C5347] font-medium">No images yet</p>
-                  <p className="text-[#B0A89E] text-sm mt-1">Upload your first image using the area above</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 p-6">
-                  {files.map((file) => (
-                    <div
-                      key={file.name}
-                      className="group relative bg-[#F5F0E8] rounded-xl overflow-hidden aspect-square border border-[#EDE7DA] hover:border-[#C4622D] transition-all duration-200"
-                    >
-                      {file.signedUrl ? (
-                        <img src={file.signedUrl} alt={file.name} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-3xl">🖼️</div>
-                      )}
-                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col items-center justify-center gap-2 p-2">
-                        <p className="text-white text-xs text-center font-medium leading-tight line-clamp-2">
-                          {file.name.replace(/^\d+_/, '')}
-                        </p>
-                        <p className="text-white/70 text-xs">{formatFileSize(file.metadata?.size)}</p>
-                        <div className="flex gap-2 mt-1">
-                          {file.signedUrl && (
-                            <a href={file.signedUrl} download target="_blank" rel="noopener noreferrer"
-                              className="bg-white/20 hover:bg-white/30 text-white text-xs px-3 py-1.5 rounded-lg transition-colors">
-                              View
-                            </a>
-                          )}
-                          <button
-                            onClick={() => handleDeleteFile(file.name)}
-                            disabled={deletingId === file.name}
-                            className="bg-red-500/80 hover:bg-red-600 text-white text-xs px-3 py-1.5 rounded-lg transition-colors disabled:opacity-60"
-                          >
-                            {deletingId === file.name ? '...' : 'Delete'}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
           </div>
         )}
