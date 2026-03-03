@@ -190,44 +190,45 @@ WITH CHECK (
 );
 
 -- 10. Mock Staff User
+-- Uses only the minimal columns guaranteed to exist in all Supabase auth.users versions
 DO $$
 DECLARE
-    staff_uuid UUID := gen_random_uuid();
+    staff_uuid UUID;
 BEGIN
-    -- Insert into auth.users using only the core columns that exist in all Supabase versions
-    INSERT INTO auth.users (
-        id,
-        instance_id,
-        aud,
-        email,
-        encrypted_password,
-        email_confirmed_at,
-        created_at,
-        updated_at,
-        raw_user_meta_data,
-        raw_app_meta_data,
-        is_sso_user,
-        is_anonymous
-    ) VALUES (
-        staff_uuid,
-        '00000000-0000-0000-0000-000000000000',
-        'authenticated',
-        'staff@cateringhub.com',
-        crypt('Staff@2024!', gen_salt('bf', 10)),
-        now(),
-        now(),
-        now(),
-        jsonb_build_object('full_name', 'CateringHub Staff', 'role', 'staff'),
-        jsonb_build_object('provider', 'email', 'providers', ARRAY['email']::TEXT[]),
-        false,
-        false
-    )
-    ON CONFLICT (email) DO NOTHING;
+    -- Check if user already exists to avoid duplicate errors
+    SELECT id INTO staff_uuid FROM auth.users WHERE email = 'staff@cateringhub.com';
 
-    -- Also insert the user_profile directly in case trigger doesn't fire
+    IF staff_uuid IS NULL THEN
+        staff_uuid := gen_random_uuid();
+
+        INSERT INTO auth.users (
+            id,
+            instance_id,
+            aud,
+            email,
+            encrypted_password,
+            email_confirmed_at,
+            created_at,
+            updated_at,
+            raw_user_meta_data,
+            raw_app_meta_data
+        ) VALUES (
+            staff_uuid,
+            '00000000-0000-0000-0000-000000000000',
+            'authenticated',
+            'staff@cateringhub.com',
+            crypt('Staff@2024!', gen_salt('bf', 10)),
+            now(),
+            now(),
+            now(),
+            jsonb_build_object('full_name', 'CateringHub Staff', 'role', 'staff'),
+            jsonb_build_object('provider', 'email', 'providers', ARRAY['email']::TEXT[])
+        );
+    END IF;
+
+    -- Insert user_profile directly (handles cases where trigger may not fire)
     INSERT INTO public.user_profiles (id, email, full_name, role)
-    SELECT staff_uuid, 'staff@cateringhub.com', 'CateringHub Staff', 'staff'::public.staff_role
-    WHERE EXISTS (SELECT 1 FROM auth.users WHERE email = 'staff@cateringhub.com')
+    VALUES (staff_uuid, 'staff@cateringhub.com', 'CateringHub Staff', 'staff'::public.staff_role)
     ON CONFLICT (email) DO NOTHING;
 
 EXCEPTION
