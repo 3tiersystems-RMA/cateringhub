@@ -49,7 +49,7 @@ AS $$
         SELECT 1 FROM public.user_profiles up
         WHERE up.id = auth.uid()
         AND up.is_active = true
-        AND up.role IN ('admin', 'staff')
+        AND up.role IN ('admin'::public.staff_role, 'staff'::public.staff_role)
     )
 $$;
 
