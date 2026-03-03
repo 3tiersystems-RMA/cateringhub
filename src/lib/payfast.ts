@@ -20,14 +20,14 @@ export function generateSignature(
   let pfOutput = "";
   for (const key in data) {
     if (data[key] !== "") {
-      pfOutput += `${key}=${encodeURIComponent(data[key].trim()).replace(/%20/g, "+")}&`;
+      pfOutput += `${key}=${encodeURIComponent(data[key].trim())}&`;
     }
   }
   // Remove trailing ampersand
   let getString = pfOutput.slice(0, -1);
 
-  if (passphrase) {
-    getString += `&passphrase=${encodeURIComponent(passphrase.trim()).replace(/%20/g, "+")}`;
+  if (passphrase && passphrase.trim() !== "") {
+    getString += `&passphrase=${encodeURIComponent(passphrase.trim())}`;
   }
 
   return crypto.createHash("md5").update(getString).digest("hex");
@@ -111,7 +111,7 @@ export function validateITNSignature(
   let pfParamString = "";
   for (const key in pfData) {
     if (key !== "signature") {
-      pfParamString += `${key}=${encodeURIComponent(pfData[key] || "").replace(/%20/g, "+")}&`;
+      pfParamString += `${key}=${encodeURIComponent(pfData[key] || "")}&`;
     } else {
       break;
     }
@@ -119,8 +119,8 @@ export function validateITNSignature(
   pfParamString = pfParamString.slice(0, -1);
 
   let tempParamString = pfParamString;
-  if (passphrase) {
-    tempParamString += `&passphrase=${encodeURIComponent(passphrase).replace(/%20/g, "+")}`;
+  if (passphrase && passphrase.trim() !== "") {
+    tempParamString += `&passphrase=${encodeURIComponent(passphrase.trim())}`;
   }
 
   const signature = crypto.createHash("md5").update(tempParamString).digest("hex");
