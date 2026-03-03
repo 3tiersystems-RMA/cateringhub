@@ -7,6 +7,22 @@ import { useCart } from "./CartContext";
 
 type CheckoutStep = "cart" | "details" | "payment" | "confirmation";
 
+type PaymentMethod = "all" | "cc" | "ef" | "eft";
+
+interface PaymentMethodOption {
+  id: PaymentMethod;
+  label: string;
+  description: string;
+  icon: string;
+}
+
+const PAYMENT_METHODS: PaymentMethodOption[] = [
+  { id: "all", label: "All Methods", description: "Card, EFT, Instant EFT & more", icon: "CreditCardIcon" },
+  { id: "cc", label: "Credit / Debit Card", description: "Visa, Mastercard, Amex", icon: "CreditCardIcon" },
+  { id: "ef", label: "EFT", description: "Electronic Funds Transfer", icon: "BanknotesIcon" },
+  { id: "eft", label: "Instant EFT", description: "Pay instantly via your bank", icon: "BoltIcon" },
+];
+
 export default function CartSidebar() {
   const { items, removeItem, updateQty, subtotal, totalItems, isOpen, setIsOpen, clearCart } = useCart();
   const [step, setStep] = useState<CheckoutStep>("cart");
@@ -18,39 +34,77 @@ export default function CartSidebar() {
     address: "",
     notes: "",
   });
-  const [payForm, setPayForm] = useState({
-    cardName: "",
-    cardNumber: "",
-    expiry: "",
-    cvv: "",
-  });
+  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>("all");
   const [processing, setProcessing] = useState(false);
+  const [payError, setPayError] = useState("");
 
   const tax = subtotal * 0.08;
   const delivery = subtotal > 0 ? 15 : 0;
   const total = subtotal + tax + delivery;
+  const deposit = total * 0.25;
 
   const handleDetailsSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setStep("payment");
   };
 
-  const handlePayment = async (e: React.FormEvent) => {
+  const handlePayFastCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
     setProcessing(true);
-    // TODO: Connect to payment processor (Stripe, Square, etc.)
-    // await stripe.createPaymentIntent({ amount: total * 100, currency: 'usd' })
-    await new Promise((r) => setTimeout(r, 2000)); // mock delay
-    setProcessing(false);
-    setStep("confirmation");
-    clearCart();
+    setPayError("");
+
+    try {
+      const itemNames = items.map((i) => `${i.product.name} x${i.quantity}`).join(", ");
+
+      const res = await fetch("/api/payfast/initiate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: form.name,
+          email: form.email,
+          phone: form.phone,
+          amount: deposit.toFixed(2),
+          itemName: "CateringHub Deposit",
+          itemDescription: itemNames.slice(0, 255),
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Failed to initiate payment");
+      }
+
+      // Build and auto-submit the PayFast form
+      const form_el = document.createElement("form");
+      form_el.method = "POST";
+      form_el.action = data.actionUrl;
+
+      // Add payment method if not "all"
+      if (selectedMethod !== "all") {
+        const pmInput = document.createElement("input");
+        pmInput.type = "hidden";
+        pmInput.name = "payment_method";
+        pmInput.value = selectedMethod;
+        form_el.appendChild(pmInput);
+      }
+
+      Object.entries(data.formData as Record<string, string>).forEach(([key, value]) => {
+        const input = document.createElement("input");
+        input.type = "hidden";
+        input.name = key;
+        input.value = value;
+        form_el.appendChild(input);
+      });
+
+      document.body.appendChild(form_el);
+      clearCart();
+      form_el.submit();
+    } catch (err) {
+      setPayError(err instanceof Error ? err.message : "Payment initiation failed. Please try again.");
+      setProcessing(false);
+    }
   };
-
-  const formatCard = (val: string) =>
-    val.replace(/\D/g, "").slice(0, 16).replace(/(.{4})/g, "$1 ").trim();
-
-  const formatExpiry = (val: string) =>
-    val.replace(/\D/g, "").slice(0, 4).replace(/(.{2})/, "$1/");
 
   if (!isOpen) return null;
 
@@ -103,7 +157,7 @@ export default function CartSidebar() {
                     s === step
                       ? "bg-[#C4622D] text-white"
                       : (["cart", "details", "payment"].indexOf(step) > i)
-                      ? "bg-[#1A1612] text-white" :"bg-[#EDE7DA] text-[#8C8278]"
+                      ? "bg-[#1A1612] text-white" : "bg-[#EDE7DA] text-[#8C8278]"
                   }`}
                 >
                   {(["cart", "details", "payment"].indexOf(step) > i) ? (
@@ -271,7 +325,7 @@ export default function CartSidebar() {
                     required
                     value={form.phone}
                     onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                    placeholder="(555) 000-0000"
+                    placeholder="082 000 0000"
                     className="w-full bg-white border border-[#DDD5C8] rounded-xl px-4 py-3 text-sm text-[#1A1612] placeholder-[#B5ADA5] focus:outline-none focus:border-[#C4622D] transition-colors"
                   />
                 </div>
@@ -297,7 +351,7 @@ export default function CartSidebar() {
                     required
                     value={form.address}
                     onChange={(e) => setForm({ ...form, address: e.target.value })}
-                    placeholder="123 Main St, City, State, ZIP"
+                    placeholder="123 Main St, Johannesburg, 2000"
                     className="w-full bg-white border border-[#DDD5C8] rounded-xl px-4 py-3 text-sm text-[#1A1612] placeholder-[#B5ADA5] focus:outline-none focus:border-[#C4622D] transition-colors"
                   />
                 </div>
@@ -329,98 +383,76 @@ export default function CartSidebar() {
 
         {/* ─── STEP: PAYMENT ─── */}
         {step === "payment" && (
-          <form onSubmit={handlePayment} className="flex-1 flex flex-col overflow-hidden">
+          <form onSubmit={handlePayFastCheckout} className="flex-1 flex flex-col overflow-hidden">
             <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
               {/* Security badge */}
               <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
                 <Icon name="ShieldCheckIcon" size={16} className="text-green-600 flex-shrink-0" />
                 <p className="text-xs text-green-700 font-medium">
-                  256-bit SSL encrypted · PCI compliant payment portal
-                  {/* TODO: Replace with real payment processor (Stripe, Square, Authorize.net) */}
+                  256-bit SSL encrypted · Powered by PayFast · PCI DSS Compliant
                 </p>
               </div>
 
-              {/* Card preview */}
+              {/* Deposit summary card */}
               <div className="bg-gradient-to-br from-[#1A1612] to-[#3D342D] rounded-2xl p-5 text-white relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-[#C4622D]/20 rounded-full -translate-y-8 translate-x-8" />
                 <div className="absolute bottom-0 left-0 w-24 h-24 bg-[#D4A853]/10 rounded-full translate-y-8 -translate-x-8" />
                 <div className="relative z-10">
                   <p className="text-xs text-white/40 font-mono uppercase tracking-widest mb-4">
-                    Deposit (25%)
+                    Deposit Due Now (25%)
                   </p>
                   <p className="text-2xl font-display font-semibold mb-1">
-                    R{(total * 0.25).toFixed(2)}
+                    R{deposit.toFixed(2)}
                   </p>
                   <p className="text-xs text-white/40">
                     Balance of R{(total * 0.75).toFixed(2)} due at delivery
                   </p>
                   <div className="mt-4 flex items-center gap-2">
                     <div className="w-8 h-5 bg-[#D4A853] rounded-sm opacity-80" />
-                    <p className="text-sm text-white/60 font-mono tracking-widest">
-                      {payForm.cardNumber || "**** **** **** ****"}
-                    </p>
+                    <p className="text-sm text-white/60 font-mono tracking-widest">PayFast</p>
                   </div>
                 </div>
               </div>
 
-              {/* Card fields */}
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">
-                    Name on Card *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={payForm.cardName}
-                    onChange={(e) => setPayForm({ ...payForm, cardName: e.target.value })}
-                    placeholder="Jennifer Martinez"
-                    className="w-full bg-white border border-[#DDD5C8] rounded-xl px-4 py-3 text-sm text-[#1A1612] placeholder-[#B5ADA5] focus:outline-none focus:border-[#C4622D] transition-colors"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">
-                    Card Number *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={payForm.cardNumber}
-                    onChange={(e) => setPayForm({ ...payForm, cardNumber: formatCard(e.target.value) })}
-                    placeholder="4242 4242 4242 4242"
-                    maxLength={19}
-                    className="w-full bg-white border border-[#DDD5C8] rounded-xl px-4 py-3 text-sm text-[#1A1612] placeholder-[#B5ADA5] focus:outline-none focus:border-[#C4622D] transition-colors font-mono tracking-widest"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">
-                      Expiry *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={payForm.expiry}
-                      onChange={(e) => setPayForm({ ...payForm, expiry: formatExpiry(e.target.value) })}
-                      placeholder="MM/YY"
-                      maxLength={5}
-                      className="w-full bg-white border border-[#DDD5C8] rounded-xl px-4 py-3 text-sm text-[#1A1612] placeholder-[#B5ADA5] focus:outline-none focus:border-[#C4622D] transition-colors font-mono"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">
-                      CVV *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={payForm.cvv}
-                      onChange={(e) => setPayForm({ ...payForm, cvv: e.target.value.replace(/\D/g, "").slice(0, 4) })}
-                      placeholder="123"
-                      maxLength={4}
-                      className="w-full bg-white border border-[#DDD5C8] rounded-xl px-4 py-3 text-sm text-[#1A1612] placeholder-[#B5ADA5] focus:outline-none focus:border-[#C4622D] transition-colors font-mono"
-                    />
-                  </div>
+              {/* Payment Method Selection */}
+              <div>
+                <p className="text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-3">
+                  Select Payment Method
+                </p>
+                <div className="space-y-2">
+                  {PAYMENT_METHODS.map((method) => (
+                    <button
+                      key={method.id}
+                      type="button"
+                      onClick={() => setSelectedMethod(method.id)}
+                      className={`w-full flex items-center gap-3 p-3.5 rounded-xl border-2 transition-all text-left ${
+                        selectedMethod === method.id
+                          ? "border-[#C4622D] bg-[#C4622D]/5"
+                          : "border-[#DDD5C8] bg-white hover:border-[#C4622D]/40"
+                      }`}
+                    >
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                        selectedMethod === method.id ? "bg-[#C4622D] text-white" : "bg-[#EDE7DA] text-[#8C8278]"
+                      }`}>
+                        <Icon name={method.icon} size={16} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-semibold ${
+                          selectedMethod === method.id ? "text-[#C4622D]" : "text-[#1A1612]"
+                        }`}>{method.label}</p>
+                        <p className="text-xs text-[#8C8278]">{method.description}</p>
+                      </div>
+                      <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 ${
+                        selectedMethod === method.id
+                          ? "border-[#C4622D] bg-[#C4622D]"
+                          : "border-[#DDD5C8]"
+                      }`}>
+                        {selectedMethod === method.id && (
+                          <div className="w-full h-full rounded-full bg-white scale-50" />
+                        )}
+                      </div>
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -432,9 +464,17 @@ export default function CartSidebar() {
                 </div>
                 <div className="flex justify-between font-semibold text-[#1A1612]">
                   <span>Deposit Due Now</span>
-                  <span className="text-[#C4622D]">R{(total * 0.25).toFixed(2)}</span>
+                  <span className="text-[#C4622D]">R{deposit.toFixed(2)}</span>
                 </div>
               </div>
+
+              {/* Error message */}
+              {payError && (
+                <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+                  <Icon name="ExclamationCircleIcon" size={16} className="text-red-500 flex-shrink-0 mt-0.5" />
+                  <p className="text-xs text-red-600">{payError}</p>
+                </div>
+              )}
             </div>
 
             <div className="px-6 py-5 border-t border-[#DDD5C8]">
@@ -449,23 +489,23 @@ export default function CartSidebar() {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
                     </svg>
-                    Processing...
+                    Redirecting to PayFast...
                   </>
                 ) : (
                   <>
                     <Icon name="LockClosedIcon" size={14} />
-                    Pay R{(total * 0.25).toFixed(2)} Deposit
+                    Pay R{deposit.toFixed(2)} via PayFast
                   </>
                 )}
               </button>
               <p className="text-xs text-center text-[#B5ADA5] mt-3">
-                By placing your order you agree to our Terms of Service
+                You will be redirected to PayFast to complete your payment securely
               </p>
             </div>
           </form>
         )}
 
-        {/* ─── STEP: CONFIRMATION ─── */}
+        {/* ─── STEP: CONFIRMATION (fallback, normally handled by /checkout/success) ─── */}
         {step === "confirmation" && (
           <div className="flex-1 flex flex-col items-center justify-center px-6 py-10 text-center gap-6">
             <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center">
