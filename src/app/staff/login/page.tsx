@@ -109,13 +109,6 @@ export default function StaffLoginPage() {
               )}
             </button>
           </form>
-
-          {/* Demo credentials */}
-          <div className="mt-6 p-4 bg-[#F5F0E8] rounded-xl border border-[#DDD5C8]">
-            <p className="text-xs font-semibold text-[#5C5347] mb-2">Demo Staff Credentials</p>
-            <p className="text-xs text-[#8C8278]">Email: <span className="font-mono text-[#C4622D]">staff@cateringhub.com</span></p>
-            <p className="text-xs text-[#8C8278]">Password: <span className="font-mono text-[#C4622D]">Staff@2024!</span></p>
-          </div>
         </div>
 
         <p className="text-center text-xs text-[#B0A89E] mt-6">

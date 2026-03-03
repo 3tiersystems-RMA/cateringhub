@@ -14,7 +14,7 @@ interface AppLogoProps {
 }
 
 function AppLogo({
-  src = '/assets/images/Cardamom_Logo__BW_-1772542343000.png',
+  src = '/assets/images/Cardamom_Logo_BW_-1772542343000.png',
   text,
   iconName = 'SparklesIcon',
   size = 64,
