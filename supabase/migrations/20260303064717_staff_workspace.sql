@@ -194,22 +194,42 @@ DO $$
 DECLARE
     staff_uuid UUID := gen_random_uuid();
 BEGIN
+    -- Insert into auth.users using only the core columns that exist in all Supabase versions
     INSERT INTO auth.users (
-        id, instance_id, aud, email, encrypted_password, email_confirmed_at,
-        created_at, updated_at, raw_user_meta_data, raw_app_meta_data,
-        is_sso_user, is_anonymous, confirmation_token, confirmation_sent_at,
-        recovery_token, recovery_sent_at, email_change_token_new, email_change,
-        email_change_sent_at, email_change_token_current, email_change_confirm_status,
-        reauthentication_token, reauthentication_sent_at, phone, phone_change,
-        phone_change_token, phone_change_sent_at
+        id,
+        instance_id,
+        aud,
+        email,
+        encrypted_password,
+        email_confirmed_at,
+        created_at,
+        updated_at,
+        raw_user_meta_data,
+        raw_app_meta_data,
+        is_sso_user,
+        is_anonymous
     ) VALUES (
-        staff_uuid, '00000000-0000-0000-0000-000000000000', 'authenticated',
-        'staff@cateringhub.com', crypt('Staff@2024!', gen_salt('bf', 10)), now(), now(), now(),
+        staff_uuid,
+        '00000000-0000-0000-0000-000000000000',
+        'authenticated',
+        'staff@cateringhub.com',
+        crypt('Staff@2024!', gen_salt('bf', 10)),
+        now(),
+        now(),
+        now(),
         jsonb_build_object('full_name', 'CateringHub Staff', 'role', 'staff'),
         jsonb_build_object('provider', 'email', 'providers', ARRAY['email']::TEXT[]),
-        false, false, '', null, '', null, '', '', null, '', 0, '', null, null, '', '', null
+        false,
+        false
     )
-    ON CONFLICT (id) DO NOTHING;
+    ON CONFLICT (email) DO NOTHING;
+
+    -- Also insert the user_profile directly in case trigger doesn't fire
+    INSERT INTO public.user_profiles (id, email, full_name, role)
+    SELECT staff_uuid, 'staff@cateringhub.com', 'CateringHub Staff', 'staff'::public.staff_role
+    WHERE EXISTS (SELECT 1 FROM auth.users WHERE email = 'staff@cateringhub.com')
+    ON CONFLICT (email) DO NOTHING;
+
 EXCEPTION
     WHEN OTHERS THEN
         RAISE NOTICE 'Mock user creation skipped: %', SQLERRM;
