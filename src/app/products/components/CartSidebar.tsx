@@ -37,6 +37,7 @@ export default function CartSidebar() {
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>("all");
   const [processing, setProcessing] = useState(false);
   const [payError, setPayError] = useState("");
+  const [phoneError, setPhoneError] = useState("");
 
   const tax = subtotal * 0.08;
   const delivery = subtotal > 0 ? 15 : 0;
@@ -45,6 +46,14 @@ export default function CartSidebar() {
 
   const handleDetailsSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    // Validate phone: strip spaces/dashes, must be 10 digits starting with 0 OR +27 followed by 9 digits
+    const stripped = form.phone.replace(/[\s\-()]/g, "");
+    const isValid = /^0[0-9]{9}$/.test(stripped) || /^\+27[0-9]{9}$/.test(stripped);
+    if (!isValid) {
+      setPhoneError("Enter a valid SA number: 0XXXXXXXXX or +27XXXXXXXXX (10 digits)");
+      return;
+    }
+    setPhoneError("");
     setStep("payment");
   };
 
@@ -338,10 +347,16 @@ export default function CartSidebar() {
                     type="tel"
                     required
                     value={form.phone}
-                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                    placeholder="082 000 0000"
-                    className="w-full bg-white border border-[#DDD5C8] rounded-xl px-4 py-3 text-sm text-[#1A1612] placeholder-[#B5ADA5] focus:outline-none focus:border-[#C4622D] transition-colors"
+                    onChange={(e) => { setForm({ ...form, phone: e.target.value }); setPhoneError(""); }}
+                    placeholder="0821234567"
+                    className={`w-full bg-white border rounded-xl px-4 py-3 text-sm text-[#1A1612] placeholder-[#B5ADA5] focus:outline-none transition-colors ${
+                      phoneError ? "border-red-400 focus:border-red-500" : "border-[#DDD5C8] focus:border-[#C4622D]"
+                    }`}
                   />
+                  {phoneError && (
+                    <p className="mt-1 text-xs text-red-500">{phoneError}</p>
+                  )}
+                  <p className="mt-1 text-xs text-[#B5ADA5]">Format: 0821234567 or +27821234567</p>
                 </div>
                 <div className="col-span-2">
                   <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">

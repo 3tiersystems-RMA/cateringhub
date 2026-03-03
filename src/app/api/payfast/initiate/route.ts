@@ -46,6 +46,19 @@ export async function POST(req: NextRequest) {
     const nameFirst = nameParts[0] || name;
     const nameLast = nameParts.slice(1).join(" ") || "";
 
+    // Normalize cell number to PayFast format: 0XXXXXXXXX (10 digits)
+    const normalizeCellNumber = (raw: string): string => {
+      const stripped = raw.replace(/[\s\-()]/g, "");
+      if (/^\+27[0-9]{9}$/.test(stripped)) {
+        return "0" + stripped.slice(3); // +27821234567 → 0821234567
+      }
+      if (/^0[0-9]{9}$/.test(stripped)) {
+        return stripped; // already correct
+      }
+      return ""; // invalid — omit from payload
+    };
+    const cellNumber = normalizeCellNumber(phone || "");
+
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://cateringhu2257.builtwithrocket.new";
 
     // Encode order data for ITN webhook
@@ -72,7 +85,7 @@ export async function POST(req: NextRequest) {
       nameFirst,
       nameLast,
       emailAddress: email,
-      cellNumber: phone || "",
+      cellNumber: cellNumber,
       mPaymentId: orderId,
       amount: parseFloat(amount).toFixed(2),
       itemName: itemName || "CateringHub Order",
