@@ -190,48 +190,20 @@ WITH CHECK (
 );
 
 -- 10. Mock Staff User
--- Uses only the minimal columns guaranteed to exist in all Supabase auth.users versions
-DO $$
-DECLARE
-    staff_uuid UUID;
-BEGIN
-    -- Check if user already exists to avoid duplicate errors
-    SELECT id INTO staff_uuid FROM auth.users WHERE email = 'staff@cateringhub.com';
-
-    IF staff_uuid IS NULL THEN
-        staff_uuid := gen_random_uuid();
-
-        INSERT INTO auth.users (
-            id,
-            instance_id,
-            aud,
-            email,
-            encrypted_password,
-            email_confirmed_at,
-            created_at,
-            updated_at,
-            raw_user_meta_data,
-            raw_app_meta_data
-        ) VALUES (
-            staff_uuid,
-            '00000000-0000-0000-0000-000000000000',
-            'authenticated',
-            'staff@cateringhub.com',
-            crypt('Staff@2024!', gen_salt('bf', 10)),
-            now(),
-            now(),
-            now(),
-            jsonb_build_object('full_name', 'CateringHub Staff', 'role', 'staff'),
-            jsonb_build_object('provider', 'email', 'providers', ARRAY['email']::TEXT[])
-        );
-    END IF;
-
-    -- Insert user_profile directly (handles cases where trigger may not fire)
-    INSERT INTO public.user_profiles (id, email, full_name, role)
-    VALUES (staff_uuid, 'staff@cateringhub.com', 'CateringHub Staff', 'staff'::public.staff_role)
-    ON CONFLICT (email) DO NOTHING;
-
-EXCEPTION
-    WHEN OTHERS THEN
-        RAISE NOTICE 'Mock user creation skipped: %', SQLERRM;
-END $$;
+-- NOTE: Direct auth.users INSERT is intentionally skipped here.
+-- Supabase's auth.users table has system-managed columns (like "role") that
+-- vary by version and cannot be reliably inserted via SQL migrations.
+--
+-- TO CREATE YOUR STAFF USER:
+-- Go to Supabase Dashboard → Authentication → Users → "Add user" → "Create new user"
+-- Email:    staff@cateringhub.com
+-- Password: Staff@2024!
+--
+-- The trigger "on_auth_user_created" will automatically create the user_profiles
+-- row with role='staff' when the user is created through the dashboard.
+--
+-- Alternatively, after creating the user via the dashboard, run this to set the profile:
+-- INSERT INTO public.user_profiles (id, email, full_name, role)
+-- SELECT id, email, 'CateringHub Staff', 'staff'::public.staff_role
+-- FROM auth.users WHERE email = 'staff@cateringhub.com'
+-- ON CONFLICT (email) DO NOTHING;
