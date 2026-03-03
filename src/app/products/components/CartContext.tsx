@@ -1,18 +1,34 @@
 "use client";
 
 import { createContext, useContext, useState, useCallback, ReactNode } from "react";
-import type { Product } from "./ProductsData";
+
+export interface CartProduct {
+  id: string;
+  name: string;
+  category: string;
+  price: number;
+  unit: string;
+  image: string;
+  imageAlt: string;
+  tags: string[];
+  rating: number;
+  reviews: number;
+  description: string;
+  minOrder?: number;
+  badge?: string;
+  available: boolean;
+}
 
 export interface CartItem {
-  product: Product;
+  product: CartProduct;
   quantity: number;
 }
 
 interface CartContextType {
   items: CartItem[];
-  addItem: (product: Product, qty?: number) => void;
-  removeItem: (productId: number) => void;
-  updateQty: (productId: number, qty: number) => void;
+  addItem: (product: CartProduct, qty?: number) => void;
+  removeItem: (productId: string) => void;
+  updateQty: (productId: string, qty: number) => void;
   clearCart: () => void;
   totalItems: number;
   subtotal: number;
@@ -26,7 +42,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [isOpen, setIsOpen] = useState(false);
 
-  const addItem = useCallback((product: Product, qty = 1) => {
+  const addItem = useCallback((product: CartProduct, qty = 1) => {
     setItems((prev) => {
       const existing = prev.find((i) => i.product.id === product.id);
       if (existing) {
@@ -39,11 +55,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setIsOpen(true);
   }, []);
 
-  const removeItem = useCallback((productId: number) => {
+  const removeItem = useCallback((productId: string) => {
     setItems((prev) => prev.filter((i) => i.product.id !== productId));
   }, []);
 
-  const updateQty = useCallback((productId: number, qty: number) => {
+  const updateQty = useCallback((productId: string, qty: number) => {
     if (qty <= 0) {
       setItems((prev) => prev.filter((i) => i.product.id !== productId));
     } else {

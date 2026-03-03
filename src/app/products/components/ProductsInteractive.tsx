@@ -5,7 +5,27 @@ import Icon from "@/components/ui/AppIcon";
 import ProductCard from "./ProductCard";
 import CartSidebar from "./CartSidebar";
 import { CartProvider, useCart } from "./CartContext";
-import { products, categories, type Category } from "./ProductsData";
+import { createClient } from "@/lib/supabase/client";
+
+type Category = "All" | "Catering Packages" | "Prepared Meals" | "À La Carte";
+const categories: readonly Category[] = ["All", "Catering Packages", "Prepared Meals", "À La Carte"];
+
+interface Product {
+  id: string;
+  name: string;
+  category: "Catering Packages" | "Prepared Meals" | "À La Carte";
+  price: number;
+  unit: string;
+  image: string;
+  imageAlt: string;
+  tags: string[];
+  rating: number;
+  reviews: number;
+  description: string;
+  minOrder?: number;
+  badge?: string;
+  available: boolean;
+}
 
 function CartButton() {
   const { totalItems, setIsOpen } = useCart();
@@ -43,7 +63,64 @@ function ProductsContent() {
   const [activeCategory, setActiveCategory] = useState<Category>("All");
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<"default" | "price-asc" | "price-desc" | "rating">("default");
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
   const sectionRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      setLoading(true);
+      try {
+        const supabase = createClient();
+        const { data, error } = await supabase
+          .from('products')
+          .select('*')
+          .eq('available', true)
+          .order('sort_order', { ascending: true });
+
+        if (error || !data || data.length === 0) {
+          setProducts([]);
+          setLoading(false);
+          return;
+        }
+
+        const withImages = await Promise.all(
+          data.map(async (p) => {
+            let imageUrl = '/assets/images/no_image.png';
+            if (p.image_path) {
+              const { data: urlData } = supabase.storage
+                .from('product-images')
+                .getPublicUrl(p.image_path);
+              imageUrl = urlData?.publicUrl || imageUrl;
+            }
+            return {
+              id: p.id,
+              name: p.name,
+              category: p.category as Product['category'],
+              price: p.price,
+              unit: p.unit,
+              image: imageUrl,
+              imageAlt: `${p.name} - ${p.category}`,
+              tags: p.tags || [],
+              rating: 4.8,
+              reviews: 0,
+              description: p.description,
+              minOrder: p.min_order || undefined,
+              badge: p.badge || undefined,
+              available: p.available,
+            } as Product;
+          })
+        );
+        setProducts(withImages);
+      } catch (err) {
+        console.log('Error fetching products:', err);
+        setProducts([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProducts();
+  }, []);
 
   const filtered = useMemo(() => {
     let result = products;
@@ -72,7 +149,7 @@ function ProductsContent() {
       default:
         return result;
     }
-  }, [activeCategory, search, sortBy]);
+  }, [activeCategory, search, sortBy, products]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -177,7 +254,7 @@ function ProductsContent() {
         {/* Results count */}
         <div className="flex items-center justify-between mb-6">
           <p className="text-sm text-[#8C8278] font-mono">
-            {filtered.length} item{filtered.length !== 1 ? "s" : ""} found
+            {loading ? 'Loading products...' : `${filtered.length} item${filtered.length !== 1 ? "s" : ""} found`}
           </p>
           {(search || activeCategory !== "All") && (
             <button
@@ -190,66 +267,63 @@ function ProductsContent() {
         </div>
 
         {/* Product Grid */}
-        <div
-          ref={sectionRef}
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5"
-        >
-          {filtered.length > 0 ? (
-            filtered.map((product, i) => (
-              <div
-                key={`${product.category}-${product.id}`}
-                className="pc-reveal"
-                style={{
-                  opacity: 0,
-                  transform: "translateY(24px)",
-                  transition: `opacity 0.6s cubic-bezier(0.16,1,0.3,1) ${i * 0.05}s, transform 0.6s cubic-bezier(0.16,1,0.3,1) ${i * 0.05}s`,
-                }}
-              >
-                <ProductCard product={product} />
+        {loading ? (
+          <div className="flex items-center justify-center py-24">
+            <svg className="animate-spin h-10 w-10 text-[#C4622D]" viewBox="0 0 24 24" fill="none">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+          </div>
+        ) : (
+          <div
+            ref={sectionRef}
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5"
+          >
+            {filtered.length > 0 ? (
+              filtered.map((product, i) => (
+                <div
+                  key={`${product.category}-${product.id}`}
+                  className="pc-reveal"
+                  style={{
+                    opacity: 0,
+                    transform: "translateY(24px)",
+                    transition: `opacity 0.6s cubic-bezier(0.16,1,0.3,1) ${i * 0.05}s, transform 0.6s cubic-bezier(0.16,1,0.3,1) ${i * 0.05}s`,
+                  }}
+                >
+                  <ProductCard product={product} />
+                </div>
+              ))
+            ) : (
+              <div className="col-span-full flex flex-col items-center justify-center py-24 gap-4">
+                <div className="w-16 h-16 rounded-full bg-[#EDE7DA] flex items-center justify-center">
+                  <Icon name="FaceFrownIcon" size={28} className="text-[#B5ADA5]" />
+                </div>
+                <p className="text-[#8C8278] text-base font-medium">No items match your search.</p>
+                <button
+                  onClick={() => { setSearch(""); setActiveCategory("All"); }}
+                  className="text-sm font-semibold text-[#C4622D] hover:underline"
+                >
+                  Clear filters
+                </button>
               </div>
-            ))
-          ) : (
-            <div className="col-span-full flex flex-col items-center justify-center py-24 gap-4">
-              <div className="w-16 h-16 rounded-full bg-[#EDE7DA] flex items-center justify-center">
-                <Icon name="FaceFrownIcon" size={28} className="text-[#B5ADA5]" />
-              </div>
-              <p className="text-[#8C8278] text-base font-medium">No items match your search.</p>
-              <button
-                onClick={() => { setSearch(""); setActiveCategory("All"); }}
-                className="text-sm font-semibold text-[#C4622D] hover:underline"
-              >
-                Clear filters
-              </button>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
 
         {/* Bottom Info Banner */}
         <div className="mt-16 bg-[#EDE7DA] border border-[#DDD5C8] rounded-4xl p-8 md:p-10">
           <div className="grid md:grid-cols-3 gap-8">
             {[
-              {
-                icon: "TruckIcon" as const,
-                title: "Delivery Included",
-                desc: "Free delivery on orders over $200. $15 flat fee under $200.",
-              },
-              {
-                icon: "ClockIcon" as const,
-                title: "48-Hour Lead Time",
-                desc: "Most orders require 48 hours notice. Rush orders available for a fee.",
-              },
-              {
-                icon: "PhoneIcon" as const,
-                title: "Custom Quotes",
-                desc: "Need something special? Call us at (555) 123-4567 for a custom menu.",
-              },
+              { icon: "TruckIcon" as const, title: "Delivery Included", desc: "Free delivery on orders over $200. $15 flat fee under $200." },
+              { icon: "ClockIcon" as const, title: "48-Hour Lead Time", desc: "Most orders require 48 hours notice. Rush orders available for a fee." },
+              { icon: "PhoneIcon" as const, title: "Custom Quotes", desc: "Need something special? Call us at (555) 123-4567 for a custom menu." },
             ].map((item) => (
               <div key={item.title} className="flex gap-4">
                 <div className="w-10 h-10 rounded-2xl bg-[#C4622D]/10 border border-[#C4622D]/20 flex items-center justify-center flex-shrink-0">
                   <Icon name={item.icon} size={18} className="text-[#C4622D]" />
                 </div>
                 <div>
-                  <h4 className="font-semibold text-[#1A1612] text-sm mb-1">{item.title}</h4>
+                  <p className="font-semibold text-[#1A1612] text-sm mb-1">{item.title}</p>
                   <p className="text-xs text-[#8C8278] leading-relaxed">{item.desc}</p>
                 </div>
               </div>

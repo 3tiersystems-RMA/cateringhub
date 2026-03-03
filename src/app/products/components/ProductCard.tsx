@@ -3,11 +3,11 @@
 import { useState } from "react";
 import AppImage from "@/components/ui/AppImage";
 import Icon from "@/components/ui/AppIcon";
-import type { Product } from "./ProductsData";
+import type { CartProduct } from "./CartContext";
 import { useCart } from "./CartContext";
 
 interface ProductCardProps {
-  product: Product;
+  product: CartProduct;
 }
 
 export default function ProductCard({ product }: ProductCardProps) {
