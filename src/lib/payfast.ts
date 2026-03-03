@@ -9,7 +9,16 @@ export const PAYFAST_CONFIG = {
 
 export function getPayFastHost(): string {
   return PAYFAST_CONFIG.sandbox
-    ? "sandbox.payfast.co.za" :"www.payfast.co.za";
+    ? "sandbox.payfast.co.za" : "www.payfast.co.za";
+}
+
+/**
+ * Matches PHP urlencode() — spaces become "+", everything else percent-encoded.
+ * PayFast's server uses PHP urlencode() when verifying the signature, so we must
+ * produce the same encoding here.
+ */
+function phpUrlencode(value: string): string {
+  return encodeURIComponent(value).replace(/%20/g, "+");
 }
 
 export function generateSignature(
@@ -20,14 +29,14 @@ export function generateSignature(
   let pfOutput = "";
   for (const key in data) {
     if (data[key] !== "") {
-      pfOutput += `${key}=${encodeURIComponent(data[key].trim())}&`;
+      pfOutput += `${key}=${phpUrlencode(data[key].trim())}&`;
     }
   }
   // Remove trailing ampersand
   let getString = pfOutput.slice(0, -1);
 
   if (passphrase && passphrase.trim() !== "") {
-    getString += `&passphrase=${encodeURIComponent(passphrase.trim())}`;
+    getString += `&passphrase=${phpUrlencode(passphrase.trim())}`;
   }
 
   return crypto.createHash("md5").update(getString).digest("hex");
@@ -111,7 +120,7 @@ export function validateITNSignature(
   let pfParamString = "";
   for (const key in pfData) {
     if (key !== "signature") {
-      pfParamString += `${key}=${encodeURIComponent(pfData[key] || "")}&`;
+      pfParamString += `${key}=${phpUrlencode(pfData[key] || "")}&`;
     } else {
       break;
     }
@@ -120,7 +129,7 @@ export function validateITNSignature(
 
   let tempParamString = pfParamString;
   if (passphrase && passphrase.trim() !== "") {
-    tempParamString += `&passphrase=${encodeURIComponent(passphrase.trim())}`;
+    tempParamString += `&passphrase=${phpUrlencode(passphrase.trim())}`;
   }
 
   const signature = crypto.createHash("md5").update(tempParamString).digest("hex");
