@@ -2,22 +2,11 @@
 -- Adds super_admin to staff_role ENUM, updates RLS policies and is_staff_member function
 
 -- 1. Add 'super_admin' to the staff_role ENUM
--- We must recreate the type with the new value since ALTER TYPE ADD VALUE has transaction limitations
-DO $$
-BEGIN
-    -- Only add if not already present
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_enum
-        WHERE enumlabel = 'super_admin'
-        AND enumtypid = (
-            SELECT oid FROM pg_type WHERE typname = 'staff_role' AND typnamespace = 'public'::regnamespace
-        )
-    ) THEN
-        ALTER TYPE public.staff_role ADD VALUE 'super_admin';
-    END IF;
-END $$;
+-- ALTER TYPE ADD VALUE must run outside a transaction block in Supabase migrations
+ALTER TYPE public.staff_role ADD VALUE IF NOT EXISTS 'super_admin';
 
 -- 2. Update is_staff_member() to include super_admin
+-- Use text comparison to avoid referencing the new enum value before it is committed
 CREATE OR REPLACE FUNCTION public.is_staff_member()
 RETURNS BOOLEAN
 LANGUAGE sql
@@ -28,7 +17,7 @@ AS $$
         SELECT 1 FROM public.user_profiles up
         WHERE up.id = auth.uid()
         AND up.is_active = true
-        AND up.role IN ('admin'::public.staff_role, 'staff'::public.staff_role, 'super_admin'::public.staff_role)
+        AND up.role::text IN ('admin', 'staff', 'super_admin')
     )
 $$;
 
@@ -43,7 +32,7 @@ AS $$
         SELECT 1 FROM public.user_profiles up
         WHERE up.id = auth.uid()
         AND up.is_active = true
-        AND up.role = 'super_admin'::public.staff_role
+        AND up.role::text = 'super_admin'
     )
 $$;
 
