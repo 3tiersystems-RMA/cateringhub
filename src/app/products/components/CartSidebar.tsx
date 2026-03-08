@@ -46,11 +46,14 @@ export default function CartSidebar() {
 
   const handleDetailsSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Validate phone: strip spaces/dashes, must be 10 digits starting with 0 OR +27 followed by 9 digits
-    const stripped = form.phone.replace(/[\s\-()]/g, "");
-    const isValid = /^0[0-9]{9}$/.test(stripped) || /^\+27[0-9]{9}$/.test(stripped);
-    if (!isValid) {
-      setPhoneError("Enter a valid SA number: 0XXXXXXXXX or +27XXXXXXXXX (10 digits)");
+    // Validate phone: must be exactly 10 digits starting with 0
+    const stripped = form.phone.replace(/\D/g, "");
+    if (stripped.length !== 10) {
+      setPhoneError("Mobile number must be exactly 10 digits");
+      return;
+    }
+    if (stripped[0] !== "0") {
+      setPhoneError("Mobile number must start with 0 (e.g. 0821234567)");
       return;
     }
     setPhoneError("");
@@ -354,9 +357,16 @@ export default function CartSidebar() {
                   <input
                     type="tel"
                     required
+                    inputMode="numeric"
                     value={form.phone}
-                    onChange={(e) => { setForm({ ...form, phone: e.target.value }); setPhoneError(""); }}
+                    onChange={(e) => {
+                      // Allow only digits, max 10
+                      const digits = e.target.value.replace(/\D/g, "").slice(0, 10);
+                      setForm({ ...form, phone: digits });
+                      setPhoneError("");
+                    }}
                     placeholder="0821234567"
+                    maxLength={10}
                     className={`w-full bg-white border rounded-xl px-4 py-3 text-sm text-[#1A1612] placeholder-[#B5ADA5] focus:outline-none transition-colors ${
                       phoneError ? "border-red-400 focus:border-red-500" : "border-[#DDD5C8] focus:border-[#C4622D]"
                     }`}
@@ -364,7 +374,7 @@ export default function CartSidebar() {
                   {phoneError && (
                     <p className="mt-1 text-xs text-red-500">{phoneError}</p>
                   )}
-                  <p className="mt-1 text-xs text-[#B5ADA5]">Format: 0821234567 or +27821234567</p>
+                  <p className="mt-1 text-xs text-[#B5ADA5]">Format: 0821234567</p>
                 </div>
                 <div className="col-span-2">
                   <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">
