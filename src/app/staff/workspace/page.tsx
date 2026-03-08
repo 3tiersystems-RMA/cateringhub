@@ -122,6 +122,8 @@ export default function StaffWorkspacePage() {
   const [inviting, setInviting] = useState(false);
   const [staffActionId, setStaffActionId] = useState<string | null>(null);
   const [staffActionMsg, setStaffActionMsg] = useState('');
+  const [resetPasswordId, setResetPasswordId] = useState<string | null>(null);
+  const [resetPasswordMsg, setResetPasswordMsg] = useState('');
 
   useEffect(() => {
     const init = async () => {
@@ -253,6 +255,31 @@ export default function StaffWorkspacePage() {
       setStaffActionMsg('An unexpected error occurred.');
     } finally {
       setStaffActionId(null);
+    }
+  };
+
+  const handleResetPassword = async (member: StaffMember) => {
+    if (member.id === user?.id) return;
+    setResetPasswordId(member.id);
+    setResetPasswordMsg('');
+    setStaffActionMsg('');
+    try {
+      const response = await fetch('/api/staff/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: member.id, email: member.email }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        setStaffActionMsg(result.error || 'Failed to send password reset email.');
+        return;
+      }
+      setResetPasswordMsg(`Password reset email sent to ${member.email}`);
+      setTimeout(() => setResetPasswordMsg(''), 5000);
+    } catch (err) {
+      setStaffActionMsg('An unexpected error occurred.');
+    } finally {
+      setResetPasswordId(null);
     }
   };
 
@@ -576,7 +603,7 @@ export default function StaffWorkspacePage() {
               className="text-sm font-medium text-[#5C5347] hover:text-[#1A1612] transition-colors px-3 py-1.5 rounded-lg hover:bg-[#F5F0E8] flex items-center gap-1.5"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25ZM6.75 12h.008v.008H6.75V12Zm0 3h.008v.008H6.75V15Zm0 3h.008v.008H6.75V18Z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125H8.25ZM6.75 12h.008v.008H6.75V12Zm0 3h.008v.008H6.75V15Zm0 3h.008v.008H6.75V18Z" />
               </svg>
               Orders
             </a>
@@ -1058,10 +1085,10 @@ export default function StaffWorkspacePage() {
 
             {/* Feedback */}
             {uploadError && (
-              <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3 mb-4">{uploadError}</div>
+              <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">{uploadError}</div>
             )}
             {uploadSuccess && (
-              <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-xl px-4 py-3 mb-4">{uploadSuccess}</div>
+              <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-xl px-4 py-3">{uploadSuccess}</div>
             )}
 
             {/* Files Grid */}
@@ -1226,6 +1253,15 @@ export default function StaffWorkspacePage() {
               <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3 mb-4">{staffActionMsg}</div>
             )}
 
+            {resetPasswordMsg && (
+              <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-xl px-4 py-3 mb-4 flex items-center gap-2">
+                <svg className="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                {resetPasswordMsg}
+              </div>
+            )}
+
             {/* Staff Table */}
             {staffLoading ? (
               <div className="flex items-center justify-center py-20">
@@ -1294,24 +1330,40 @@ export default function StaffWorkspacePage() {
                     </div>
 
                     {/* Actions */}
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 flex-wrap">
                       {member.id === user?.id ? (
                         <span className="text-xs text-[#B0A89E] italic">Your account</span>
                       ) : member.is_active ? (
-                        <button
-                          onClick={() => handleSuspendStaff(member)}
-                          disabled={staffActionId === member.id}
-                          className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors disabled:opacity-50 flex items-center gap-1.5"
-                        >
-                          {staffActionId === member.id ? (
-                            <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
-                          ) : (
-                            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-                            </svg>
-                          )}
-                          Suspend
-                        </button>
+                        <>
+                          <button
+                            onClick={() => handleSuspendStaff(member)}
+                            disabled={staffActionId === member.id || resetPasswordId === member.id}
+                            className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                          >
+                            {staffActionId === member.id ? (
+                              <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                            ) : (
+                              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                              </svg>
+                            )}
+                            Suspend
+                          </button>
+                          <button
+                            onClick={() => handleResetPassword(member)}
+                            disabled={resetPasswordId === member.id || staffActionId === member.id}
+                            className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                          >
+                            {resetPasswordId === member.id ? (
+                              <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                            ) : (
+                              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.865a8.25 8.25 0 0 1 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+                              </svg>
+                            )}
+                            Reset Password
+                          </button>
+                        </>
                       ) : (
                         <button
                           onClick={() => handleReinstateStaff(member)}
@@ -1338,7 +1390,8 @@ export default function StaffWorkspacePage() {
             <div className="mt-6 bg-purple-50 border border-purple-200 rounded-xl p-4">
               <p className="text-sm font-semibold text-purple-800 mb-1">ℹ️ Super Admin Access</p>
               <p className="text-xs text-purple-700 leading-relaxed">
-                As Super Admin, you can invite staff members (Admin or Staff role), suspend their access, or reinstate suspended accounts.
+                As Super Admin, you can invite staff members (Admin or Staff role), suspend their access, reinstate suspended accounts, or reset their password.
+                Resetting a password sends a secure email link to the staff member — they must set a new password before logging in again.
                 Suspended staff will see an &quot;Account suspended — Contact your Admin&quot; message when they attempt to log in.
                 You cannot suspend your own account.
               </p>
