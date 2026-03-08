@@ -19,7 +19,7 @@ export default function StaffLoginPage() {
 
     try {
       const supabase = createClient();
-      const { error: signInError } = await supabase.auth.signInWithPassword({
+      const { data: authData, error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
@@ -27,6 +27,22 @@ export default function StaffLoginPage() {
       if (signInError) {
         setError('Invalid email or password. Please try again.');
         return;
+      }
+
+      // Check if account is active (suspended check)
+      if (authData?.user) {
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('is_active')
+          .eq('id', authData.user.id)
+          .single();
+
+        if (profile && profile.is_active === false) {
+          // Sign out immediately — suspended user should not have a session
+          await supabase.auth.signOut();
+          setError('Account suspended — Contact your Admin');
+          return;
+        }
       }
 
       router.push('/staff/workspace');
@@ -55,7 +71,13 @@ export default function StaffLoginPage() {
           <form onSubmit={handleLogin} className="space-y-5">
             {/* Error */}
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
+              <div className={`border text-sm rounded-lg px-4 py-3 ${
+                error.includes('suspended')
+                  ? 'bg-amber-50 border-amber-300 text-amber-800' :'bg-red-50 border-red-200 text-red-700'
+              }`}>
+                {error.includes('suspended') && (
+                  <span className="font-semibold block mb-0.5">⚠️ Access Denied</span>
+                )}
                 {error}
               </div>
             )}

@@ -6,8 +6,9 @@ import { createClient } from '@/lib/supabase/client';
 import AppLogo from '@/components/ui/AppLogo';
 
 type BucketType = 'product-images' | 'event-photos';
-type WorkspaceTab = 'products' | 'media' | 'orders';
+type WorkspaceTab = 'products' | 'media' | 'orders' | 'staff';
 type ProductCategory = 'Catering Packages' | 'Prepared Meals' | 'À La Carte';
+type StaffRole = 'admin' | 'staff' | 'super_admin';
 
 interface StorageFile {
   name: string;
@@ -34,6 +35,15 @@ interface Product {
   imageUrl?: string;
 }
 
+interface StaffMember {
+  id: string;
+  email: string;
+  full_name: string;
+  role: StaffRole;
+  is_active: boolean;
+  created_at: string;
+}
+
 const CATEGORIES: ProductCategory[] = ['Catering Packages', 'Prepared Meals', 'À La Carte'];
 
 const emptyForm = {
@@ -49,6 +59,24 @@ const emptyForm = {
   featured: false,
 };
 
+const emptyInviteForm = {
+  full_name: '',
+  email: '',
+  role: 'staff' as StaffRole,
+};
+
+function RoleBadge({ role }: { role: StaffRole }) {
+  const config: Record<StaffRole, { label: string; className: string }> = {
+    super_admin: { label: 'Super Admin', className: 'bg-purple-100 text-purple-700 border border-purple-200' },
+    admin: { label: 'Admin', className: 'bg-blue-100 text-blue-700 border border-blue-200' },
+    staff: { label: 'Staff', className: 'bg-[#F5F0E8] text-[#5C5347] border border-[#DDD5C8]' },
+  };
+  const { label, className } = config[role] || config.staff;
+  return (
+    <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${className}`}>{label}</span>
+  );
+}
+
 export default function StaffWorkspacePage() {
   const router = useRouter();
   const supabase = createClient();
@@ -56,6 +84,7 @@ export default function StaffWorkspacePage() {
   const productImageRef = useRef<HTMLInputElement>(null);
 
   const [user, setUser] = useState<any>(null);
+  const [userProfile, setUserProfile] = useState<StaffMember | null>(null);
   const [activeTab, setActiveTab] = useState<WorkspaceTab>('products');
 
   // Media Library state
@@ -83,6 +112,17 @@ export default function StaffWorkspacePage() {
   const [uploadingProductImage, setUploadingProductImage] = useState(false);
   const [filterCategory, setFilterCategory] = useState<string>('All');
 
+  // Staff Management state
+  const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
+  const [staffLoading, setStaffLoading] = useState(false);
+  const [showInviteForm, setShowInviteForm] = useState(false);
+  const [inviteForm, setInviteForm] = useState(emptyInviteForm);
+  const [inviteError, setInviteError] = useState('');
+  const [inviteSuccess, setInviteSuccess] = useState('');
+  const [inviting, setInviting] = useState(false);
+  const [staffActionId, setStaffActionId] = useState<string | null>(null);
+  const [staffActionMsg, setStaffActionMsg] = useState('');
+
   useEffect(() => {
     const init = async () => {
       const { data: { user: currentUser } } = await supabase.auth.getUser();
@@ -91,10 +131,130 @@ export default function StaffWorkspacePage() {
         return;
       }
       setUser(currentUser);
+
+      // Load user profile to determine role
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('id', currentUser.id)
+        .single();
+      if (profile) setUserProfile(profile as StaffMember);
+
       await loadProducts();
     };
     init();
   }, []);
+
+  const isSuperAdmin = userProfile?.role === 'super_admin';
+
+  // ─── Staff Management ────────────────────────────────────────────────────────
+
+  const loadStaffMembers = async () => {
+    setStaffLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) {
+        console.log('Load staff error:', error.message);
+        setStaffMembers([]);
+        return;
+      }
+      setStaffMembers((data || []) as StaffMember[]);
+    } catch (err) {
+      console.log('Unexpected error loading staff:', err);
+      setStaffMembers([]);
+    } finally {
+      setStaffLoading(false);
+    }
+  };
+
+  const handleInviteStaff = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setInviteError('');
+    setInviteSuccess('');
+
+    if (!inviteForm.full_name.trim()) { setInviteError('Full name is required.'); return; }
+    if (!inviteForm.email.trim()) { setInviteError('Email is required.'); return; }
+
+    setInviting(true);
+    try {
+      // Use Supabase admin invite — sends magic link email to the new staff member
+      const response = await fetch('/api/staff/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: inviteForm.email.trim(),
+          full_name: inviteForm.full_name.trim(),
+          role: inviteForm.role,
+        }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        setInviteError(result.error || 'Failed to send invitation.');
+        return;
+      }
+
+      setInviteSuccess(`Invitation sent to ${inviteForm.email}!`);
+      setInviteForm(emptyInviteForm);
+      await loadStaffMembers();
+      setTimeout(() => {
+        setShowInviteForm(false);
+        setInviteSuccess('');
+      }, 2000);
+    } catch (err) {
+      setInviteError('An unexpected error occurred.');
+    } finally {
+      setInviting(false);
+    }
+  };
+
+  const handleSuspendStaff = async (member: StaffMember) => {
+    if (member.id === user?.id) return;
+    setStaffActionId(member.id);
+    setStaffActionMsg('');
+    try {
+      const { error } = await supabase
+        .from('user_profiles')
+        .update({ is_active: false })
+        .eq('id', member.id);
+      if (error) {
+        setStaffActionMsg('Failed to suspend account.');
+        return;
+      }
+      setStaffMembers((prev) =>
+        prev.map((m) => m.id === member.id ? { ...m, is_active: false } : m)
+      );
+    } catch (err) {
+      setStaffActionMsg('An unexpected error occurred.');
+    } finally {
+      setStaffActionId(null);
+    }
+  };
+
+  const handleReinstateStaff = async (member: StaffMember) => {
+    setStaffActionId(member.id);
+    setStaffActionMsg('');
+    try {
+      const { error } = await supabase
+        .from('user_profiles')
+        .update({ is_active: true })
+        .eq('id', member.id);
+      if (error) {
+        setStaffActionMsg('Failed to reinstate account.');
+        return;
+      }
+      setStaffMembers((prev) =>
+        prev.map((m) => m.id === member.id ? { ...m, is_active: true } : m)
+      );
+    } catch (err) {
+      setStaffActionMsg('An unexpected error occurred.');
+    } finally {
+      setStaffActionId(null);
+    }
+  };
 
   // ─── Products ───────────────────────────────────────────────────────────────
 
@@ -407,7 +567,10 @@ export default function StaffWorkspacePage() {
             <span className="hidden sm:block text-sm font-medium text-[#8C8278]">Staff Workspace</span>
           </div>
           <div className="flex items-center gap-3">
-            <span className="hidden sm:block text-sm text-[#8C8278]">{user?.email}</span>
+            <div className="hidden sm:flex items-center gap-2">
+              <span className="text-sm text-[#8C8278]">{user?.email}</span>
+              {userProfile && <RoleBadge role={userProfile.role} />}
+            </div>
             <a
               href="/staff/orders"
               className="text-sm font-medium text-[#5C5347] hover:text-[#1A1612] transition-colors px-3 py-1.5 rounded-lg hover:bg-[#F5F0E8] flex items-center gap-1.5"
@@ -432,11 +595,11 @@ export default function StaffWorkspacePage() {
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-[#1A1612] mb-1">Staff Workspace</h1>
           <p className="text-[#8C8278] text-sm mb-6">Manage your products, prices, and media library</p>
-          <div className="flex gap-2 border-b border-[#DDD5C8]">
+          <div className="flex gap-2 border-b border-[#DDD5C8] flex-wrap">
             <button
               onClick={() => setActiveTab('products')}
               className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${
-                activeTab === 'products' ?'border-[#C4622D] text-[#C4622D]' :'border-transparent text-[#8C8278] hover:text-[#5C5347]'
+                activeTab === 'products' ? 'border-[#C4622D] text-[#C4622D]' : 'border-transparent text-[#8C8278] hover:text-[#5C5347]'
               }`}
             >
               🍽️ Products & Pricing
@@ -444,7 +607,7 @@ export default function StaffWorkspacePage() {
             <button
               onClick={() => { setActiveTab('media'); if (files.length === 0) loadFiles(activeBucket); }}
               className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${
-                activeTab === 'media' ?'border-[#C4622D] text-[#C4622D]' :'border-transparent text-[#8C8278] hover:text-[#5C5347]'
+                activeTab === 'media' ? 'border-[#C4622D] text-[#C4622D]' : 'border-transparent text-[#8C8278] hover:text-[#5C5347]'
               }`}
             >
               📸 Media Library
@@ -452,11 +615,21 @@ export default function StaffWorkspacePage() {
             <button
               onClick={() => setActiveTab('orders')}
               className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${
-                activeTab === 'orders' ?'border-[#C4622D] text-[#C4622D]' :'border-transparent text-[#8C8278] hover:text-[#5C5347]'
+                activeTab === 'orders' ? 'border-[#C4622D] text-[#C4622D]' : 'border-transparent text-[#8C8278] hover:text-[#5C5347]'
               }`}
             >
               📋 Orders
             </button>
+            {isSuperAdmin && (
+              <button
+                onClick={() => { setActiveTab('staff'); if (staffMembers.length === 0) loadStaffMembers(); }}
+                className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${
+                  activeTab === 'staff' ? 'border-purple-600 text-purple-600' : 'border-transparent text-[#8C8278] hover:text-[#5C5347]'
+                }`}
+              >
+                👥 Staff Management
+              </button>
+            )}
           </div>
         </div>
 
@@ -878,10 +1051,61 @@ export default function StaffWorkspacePage() {
                 {uploading ? (
                   <><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Uploading...</>
                 ) : (
-                  <><svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v6" /></svg>Upload Images</>
+                  <><svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 013 3h10a3 3 0 013-3v-1m-4-8l-4-4m0 0L8 8m4-4v6" /></svg>Upload Images</>
                 )}
               </label>
             </div>
+
+            {/* Feedback */}
+            {uploadError && (
+              <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3 mb-4">{uploadError}</div>
+            )}
+            {uploadSuccess && (
+              <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-xl px-4 py-3 mb-4">{uploadSuccess}</div>
+            )}
+
+            {/* Files Grid */}
+            {mediaLoading ? (
+              <div className="flex items-center justify-center py-20">
+                <svg className="animate-spin h-8 w-8 text-[#C4622D]" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+              </div>
+            ) : files.length === 0 ? (
+              <div className="text-center py-16 bg-white rounded-2xl border border-[#DDD5C8]">
+                <div className="text-4xl mb-3">{activeBucket === 'product-images' ? '🍽️' : '📸'}</div>
+                <p className="text-[#5C5347] font-semibold">No images yet</p>
+                <p className="text-[#B0A89E] text-sm mt-1">Upload your first image above</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                {files.map((file) => (
+                  <div key={file.name} className="group relative bg-white rounded-xl border border-[#DDD5C8] overflow-hidden hover:border-[#C4622D]/40 hover:shadow-md transition-all">
+                    <div className="aspect-square bg-[#F5F0E8] overflow-hidden">
+                      {file.signedUrl ? (
+                        <img src={file.signedUrl} alt={file.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-3xl">🖼️</div>
+                      )}
+                    </div>
+                    <div className="p-2">
+                      <p className="text-xs text-[#5C5347] font-medium truncate">{file.name}</p>
+                      <p className="text-xs text-[#B0A89E]">{formatFileSize(file.metadata?.size)}</p>
+                    </div>
+                    <button
+                      onClick={() => handleDeleteFile(file.name)}
+                      disabled={deletingId === file.name}
+                      className="absolute top-2 right-2 w-7 h-7 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 disabled:opacity-50"
+                    >
+                      {deletingId === file.name ? (
+                        <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                      ) : '✕'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -899,6 +1123,226 @@ export default function StaffWorkspacePage() {
             >
               Go to Orders
             </a>
+          </div>
+        )}
+
+        {/* ── STAFF MANAGEMENT TAB ── */}
+        {activeTab === 'staff' && isSuperAdmin && (
+          <div>
+            {/* Invite Modal */}
+            {showInviteForm && (
+              <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4">
+                <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
+                  <div className="flex items-center justify-between px-6 py-4 border-b border-[#EDE7DA]">
+                    <h2 className="font-bold text-[#1A1612] text-lg">Invite Staff Member</h2>
+                    <button
+                      onClick={() => { setShowInviteForm(false); setInviteError(''); setInviteSuccess(''); }}
+                      className="w-8 h-8 rounded-full bg-[#F5F0E8] flex items-center justify-center text-[#8C8278] hover:bg-[#EDE7DA] transition-colors"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <form onSubmit={handleInviteStaff} className="p-6 space-y-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Full Name *</label>
+                      <input
+                        type="text"
+                        value={inviteForm.full_name}
+                        onChange={(e) => setInviteForm({ ...inviteForm, full_name: e.target.value })}
+                        placeholder="e.g. Jane Smith"
+                        className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Email Address *</label>
+                      <input
+                        type="email"
+                        value={inviteForm.email}
+                        onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
+                        placeholder="jane@example.com"
+                        className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Role *</label>
+                      <select
+                        value={inviteForm.role}
+                        onChange={(e) => setInviteForm({ ...inviteForm, role: e.target.value as StaffRole })}
+                        className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors bg-white"
+                      >
+                        <option value="staff">Staff — Products & Services access</option>
+                        <option value="admin">Admin — Full workspace access</option>
+                      </select>
+                    </div>
+                    {inviteError && (
+                      <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">{inviteError}</div>
+                    )}
+                    {inviteSuccess && (
+                      <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-xl px-4 py-3">{inviteSuccess}</div>
+                    )}
+                    <div className="flex gap-3 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => { setShowInviteForm(false); setInviteError(''); setInviteSuccess(''); }}
+                        className="flex-1 py-2.5 rounded-xl border border-[#DDD5C8] text-sm font-semibold text-[#5C5347] hover:bg-[#F5F0E8] transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={inviting}
+                        className="flex-1 py-2.5 rounded-xl bg-purple-600 text-white text-sm font-semibold hover:bg-purple-700 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                      >
+                        {inviting ? (
+                          <><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Sending...</>
+                        ) : 'Send Invitation'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {/* Staff Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+              <div>
+                <h2 className="text-lg font-bold text-[#1A1612]">Staff Members</h2>
+                <p className="text-sm text-[#8C8278] mt-0.5">Manage access for all staff members</p>
+              </div>
+              <button
+                onClick={() => { setShowInviteForm(true); setInviteError(''); setInviteSuccess(''); }}
+                className="flex items-center gap-2 bg-purple-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-purple-700 transition-colors shadow-sm"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                </svg>
+                Invite Staff Member
+              </button>
+            </div>
+
+            {staffActionMsg && (
+              <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3 mb-4">{staffActionMsg}</div>
+            )}
+
+            {/* Staff Table */}
+            {staffLoading ? (
+              <div className="flex items-center justify-center py-20">
+                <svg className="animate-spin h-8 w-8 text-purple-600" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+              </div>
+            ) : staffMembers.length === 0 ? (
+              <div className="text-center py-20 bg-white rounded-2xl border border-[#DDD5C8]">
+                <div className="text-5xl mb-3">👥</div>
+                <p className="text-[#5C5347] font-semibold">No staff members found</p>
+                <p className="text-[#B0A89E] text-sm mt-1">Invite your first staff member above</p>
+              </div>
+            ) : (
+              <div className="bg-white rounded-2xl border border-[#DDD5C8] overflow-hidden">
+                {/* Table Header */}
+                <div className="hidden md:grid grid-cols-5 gap-4 px-6 py-3 bg-[#F5F0E8] border-b border-[#DDD5C8] text-xs font-semibold text-[#8C8278] uppercase tracking-wider">
+                  <div className="col-span-2">Name / Email</div>
+                  <div>Role</div>
+                  <div>Status</div>
+                  <div>Actions</div>
+                </div>
+
+                {staffMembers.map((member, idx) => (
+                  <div
+                    key={member.id}
+                    className={`px-6 py-4 flex flex-col md:grid md:grid-cols-5 md:items-center gap-3 md:gap-4 ${
+                      idx < staffMembers.length - 1 ? 'border-b border-[#EDE7DA]' : ''
+                    } ${
+                      !member.is_active ? 'bg-red-50/30' : ''
+                    }`}
+                  >
+                    {/* Name / Email */}
+                    <div className="col-span-2 flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full bg-[#F5F0E8] flex items-center justify-center text-sm font-bold text-[#C4622D] flex-shrink-0">
+                        {member.full_name?.charAt(0)?.toUpperCase() || member.email?.charAt(0)?.toUpperCase() || '?'}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-[#1A1612] truncate">
+                          {member.full_name || '—'}
+                          {member.id === user?.id && (
+                            <span className="ml-1.5 text-xs font-normal text-[#8C8278]">(you)</span>
+                          )}
+                        </p>
+                        <p className="text-xs text-[#8C8278] truncate">{member.email}</p>
+                      </div>
+                    </div>
+
+                    {/* Role */}
+                    <div>
+                      <RoleBadge role={member.role} />
+                    </div>
+
+                    {/* Status */}
+                    <div>
+                      <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full ${
+                        member.is_active
+                          ? 'bg-green-100 text-green-700' :'bg-red-100 text-red-700'
+                      }`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${
+                          member.is_active ? 'bg-green-500' : 'bg-red-500'
+                        }`} />
+                        {member.is_active ? 'Active' : 'Suspended'}
+                      </span>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex gap-2">
+                      {member.id === user?.id ? (
+                        <span className="text-xs text-[#B0A89E] italic">Your account</span>
+                      ) : member.is_active ? (
+                        <button
+                          onClick={() => handleSuspendStaff(member)}
+                          disabled={staffActionId === member.id}
+                          className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                        >
+                          {staffActionId === member.id ? (
+                            <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                          ) : (
+                            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                            </svg>
+                          )}
+                          Suspend
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleReinstateStaff(member)}
+                          disabled={staffActionId === member.id}
+                          className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-green-50 text-green-700 hover:bg-green-100 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                        >
+                          {staffActionId === member.id ? (
+                            <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                          ) : (
+                            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          )}
+                          Reinstate
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Info Box */}
+            <div className="mt-6 bg-purple-50 border border-purple-200 rounded-xl p-4">
+              <p className="text-sm font-semibold text-purple-800 mb-1">ℹ️ Super Admin Access</p>
+              <p className="text-xs text-purple-700 leading-relaxed">
+                As Super Admin, you can invite staff members (Admin or Staff role), suspend their access, or reinstate suspended accounts.
+                Suspended staff will see an &quot;Account suspended — Contact your Admin&quot; message when they attempt to log in.
+                You cannot suspend your own account.
+              </p>
+            </div>
           </div>
         )}
       </main>
