@@ -42,7 +42,6 @@ export default function CartSidebar() {
   const tax = subtotal * 0.08;
   const delivery = subtotal > 0 ? 15 : 0;
   const total = subtotal + tax + delivery;
-  const deposit = total * 0.25;
 
   const handleDetailsSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,8 +74,8 @@ export default function CartSidebar() {
           name: form.name,
           email: form.email,
           phone: form.phone,
-          amount: deposit.toFixed(2),
-          itemName: "CateringHub Deposit",
+          amount: total.toFixed(2),
+          itemName: "CateringHub Order",
           itemDescription: itemNames.slice(0, 255),
           // Extended order data for ITN webhook
           items: items.map((i) => ({
@@ -312,7 +311,7 @@ export default function CartSidebar() {
                   </button>
                 </div>
                 <p className="text-xs text-center text-[#B5ADA5]">
-                  25% deposit required to confirm booking
+                  Full payment required to confirm booking
                 </p>
               </div>
             )}
@@ -440,19 +439,16 @@ export default function CartSidebar() {
                 </p>
               </div>
 
-              {/* Deposit summary card */}
+              {/* Payment summary card */}
               <div className="bg-gradient-to-br from-[#1A1612] to-[#3D342D] rounded-2xl p-5 text-white relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-[#C4622D]/20 rounded-full -translate-y-8 translate-x-8" />
                 <div className="absolute bottom-0 left-0 w-24 h-24 bg-[#D4A853]/10 rounded-full translate-y-8 -translate-x-8" />
                 <div className="relative z-10">
                   <p className="text-xs text-white/40 font-mono uppercase tracking-widest mb-4">
-                    Deposit Due Now (25%)
+                    Total Due Now
                   </p>
                   <p className="text-2xl font-display font-semibold mb-1">
-                    R{deposit.toFixed(2)}
-                  </p>
-                  <p className="text-xs text-white/40">
-                    Balance of R{(total * 0.75).toFixed(2)} due at delivery
+                    R{total.toFixed(2)}
                   </p>
                   <div className="mt-4 flex items-center gap-2">
                     <div className="w-8 h-5 bg-[#D4A853] rounded-sm opacity-80" />
@@ -505,13 +501,9 @@ export default function CartSidebar() {
 
               {/* Order total recap */}
               <div className="bg-[#EDE7DA] rounded-2xl p-4 space-y-1.5 text-sm">
-                <div className="flex justify-between text-[#5C5347]">
-                  <span>Order Total</span>
-                  <span>R{total.toFixed(2)}</span>
-                </div>
                 <div className="flex justify-between font-semibold text-[#1A1612]">
-                  <span>Deposit Due Now</span>
-                  <span className="text-[#C4622D]">R{deposit.toFixed(2)}</span>
+                  <span>Total Due Now</span>
+                  <span className="text-[#C4622D]">R{total.toFixed(2)}</span>
                 </div>
               </div>
 
@@ -541,7 +533,7 @@ export default function CartSidebar() {
                 ) : (
                   <>
                     <Icon name="LockClosedIcon" size={14} />
-                    Pay R{deposit.toFixed(2)} via PayFast
+                    Pay R{total.toFixed(2)} via PayFast
                   </>
                 )}
               </button>
@@ -580,7 +572,7 @@ export default function CartSidebar() {
                 <span className="font-semibold text-[#1A1612]">{form.date || "TBD"}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-[#8C8278]">Deposit Paid</span>
+                <span className="text-[#8C8278]">Payment</span>
                 <span className="font-semibold text-green-600">✓ Processed</span>
               </div>
             </div>
