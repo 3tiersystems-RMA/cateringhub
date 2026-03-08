@@ -293,13 +293,21 @@ export default function CartSidebar() {
                     <span>R{total.toFixed(2)}</span>
                   </div>
                 </div>
-                <button
-                  onClick={() => setStep("details")}
-                  className="w-full bg-[#C4622D] text-white py-3.5 rounded-full font-semibold text-sm hover:bg-[#A04E22] transition-all shadow-terra hover:shadow-terra-lg flex items-center justify-center gap-2"
-                >
-                  Proceed to Details
-                  <Icon name="ArrowRightIcon" size={16} />
-                </button>
+                <div className="flex flex-col gap-2">
+                  <button
+                    onClick={() => { setIsOpen(false); }}
+                    className="w-full border border-[#C4622D] text-[#C4622D] py-3.5 rounded-full font-semibold text-sm hover:bg-[#F5EDE6] transition-all flex items-center justify-center gap-2"
+                  >
+                    Continue Shopping
+                  </button>
+                  <button
+                    onClick={() => setStep("details")}
+                    className="w-full bg-[#C4622D] text-white py-3.5 rounded-full font-semibold text-sm hover:bg-[#A04E22] transition-all shadow-terra hover:shadow-terra-lg flex items-center justify-center gap-2"
+                  >
+                    Enter your Details
+                    <Icon name="ArrowRightIcon" size={16} />
+                  </button>
+                </div>
                 <p className="text-xs text-center text-[#B5ADA5]">
                   25% deposit required to confirm booking
                 </p>
