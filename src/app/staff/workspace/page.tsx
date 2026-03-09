@@ -7,7 +7,7 @@ import AppLogo from '@/components/ui/AppLogo';
 import { useInactivityTimer } from '@/hooks/useInactivityTimer';
 
 type BucketType = 'product-images' | 'event-photos';
-type WorkspaceTab = 'products' | 'media' | 'orders' | 'staff';
+type WorkspaceTab = 'products' | 'media' | 'orders' | 'staff' | 'homepage_cards';
 type ProductCategory = 'Catering Packages' | 'Prepared Meals' | 'À La Carte';
 type StaffRole = 'admin' | 'staff' | 'super_admin';
 
@@ -44,6 +44,37 @@ interface StaffMember {
   is_active: boolean;
   created_at: string;
 }
+
+interface HomepageCard {
+  id: string;
+  card_type: 'todays_special' | 'next_booking' | 'customer_review';
+  title: string;
+  subtitle: string | null;
+  description: string | null;
+  price: number | null;
+  price_unit: string | null;
+  badge_label: string | null;
+  event_date: string | null;
+  guest_count: number | null;
+  prep_percentage: number | null;
+  reviewer_name: string | null;
+  reviewer_event: string | null;
+  rating: number | null;
+  is_visible: boolean;
+  display_order: number;
+}
+
+const CARD_TYPE_LABELS: Record<HomepageCard['card_type'], string> = {
+  todays_special: "Today's Special",
+  next_booking: 'Next Booking',
+  customer_review: 'Customer Review',
+};
+
+const CARD_TYPE_ICONS: Record<HomepageCard['card_type'], string> = {
+  todays_special: '🍽️',
+  next_booking: '📅',
+  customer_review: '⭐',
+};
 
 const CATEGORIES: ProductCategory[] = ['Catering Packages', 'Prepared Meals', 'À La Carte'];
 
@@ -189,6 +220,17 @@ export default function StaffWorkspacePage() {
   const [staffActionMsg, setStaffActionMsg] = useState('');
   const [resetPasswordId, setResetPasswordId] = useState<string | null>(null);
   const [resetPasswordMsg, setResetPasswordMsg] = useState('');
+
+  // Homepage Cards state
+  const [homepageCards, setHomepageCards] = useState<HomepageCard[]>([]);
+  const [cardsLoading, setCardsLoading] = useState(false);
+  const [editingCard, setEditingCard] = useState<HomepageCard | null>(null);
+  const [showCardForm, setShowCardForm] = useState(false);
+  const [cardForm, setCardForm] = useState<Partial<HomepageCard>>({});
+  const [cardFormError, setCardFormError] = useState('');
+  const [cardFormSuccess, setCardFormSuccess] = useState('');
+  const [savingCard, setSavingCard] = useState(false);
+  const [togglingCardId, setTogglingCardId] = useState<string | null>(null);
 
   useEffect(() => {
     const init = async () => {
@@ -654,6 +696,115 @@ export default function StaffWorkspacePage() {
     { id: 'event-photos', label: 'Event Photos', description: 'Marketing photos from events', icon: '📸' },
   ];
 
+  // ─── Homepage Cards ──────────────────────────────────────────────────────────
+
+  const loadHomepageCards = async () => {
+    setCardsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('homepage_cards')
+        .select('*')
+        .order('display_order', { ascending: true });
+      if (error) {
+        console.log('Load homepage cards error:', error.message);
+        setHomepageCards([]);
+        return;
+      }
+      setHomepageCards((data || []) as HomepageCard[]);
+    } catch (err) {
+      console.log('Unexpected error loading homepage cards:', err);
+      setHomepageCards([]);
+    } finally {
+      setCardsLoading(false);
+    }
+  };
+
+  const openCardEditForm = (card: HomepageCard) => {
+    setEditingCard(card);
+    setCardForm({
+      title: card.title,
+      description: card.description,
+      price: card.price,
+      price_unit: card.price_unit,
+      badge_label: card.badge_label,
+      event_date: card.event_date,
+      guest_count: card.guest_count,
+      prep_percentage: card.prep_percentage,
+      reviewer_name: card.reviewer_name,
+      reviewer_event: card.reviewer_event,
+      rating: card.rating,
+      is_visible: card.is_visible,
+    });
+    setCardFormError('');
+    setCardFormSuccess('');
+    setShowCardForm(true);
+  };
+
+  const handleSaveCard = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCard) return;
+    setCardFormError('');
+    setCardFormSuccess('');
+
+    if (!cardForm.title?.trim()) {
+      setCardFormError('Title is required.');
+      return;
+    }
+
+    setSavingCard(true);
+    try {
+      const payload: Partial<HomepageCard> = {
+        title: cardForm.title?.trim() || '',
+        description: cardForm.description?.trim() || null,
+        price: cardForm.price !== undefined ? Number(cardForm.price) || null : null,
+        price_unit: cardForm.price_unit?.trim() || null,
+        badge_label: cardForm.badge_label?.trim() || null,
+        event_date: cardForm.event_date?.trim() || null,
+        guest_count: cardForm.guest_count !== undefined ? Number(cardForm.guest_count) || null : null,
+        prep_percentage: cardForm.prep_percentage !== undefined ? Number(cardForm.prep_percentage) || null : null,
+        reviewer_name: cardForm.reviewer_name?.trim() || null,
+        reviewer_event: cardForm.reviewer_event?.trim() || null,
+        rating: cardForm.rating !== undefined ? Number(cardForm.rating) || null : null,
+        is_visible: cardForm.is_visible ?? true,
+      };
+
+      const { error } = await supabase
+        .from('homepage_cards')
+        .update(payload)
+        .eq('id', editingCard.id);
+
+      if (error) {
+        setCardFormError(`Save failed: ${error.message}`);
+        return;
+      }
+
+      setCardFormSuccess('Card updated successfully!');
+      await loadHomepageCards();
+      setTimeout(() => {
+        setShowCardForm(false);
+        setCardFormSuccess('');
+      }, 1200);
+    } catch (err) {
+      setCardFormError('An unexpected error occurred.');
+    } finally {
+      setSavingCard(false);
+    }
+  };
+
+  const handleToggleCardVisibility = async (card: HomepageCard) => {
+    setTogglingCardId(card.id);
+    const { error } = await supabase
+      .from('homepage_cards')
+      .update({ is_visible: !card.is_visible })
+      .eq('id', card.id);
+    if (!error) {
+      setHomepageCards((prev) =>
+        prev.map((c) => c.id === card.id ? { ...c, is_visible: !c.is_visible } : c)
+      );
+    }
+    setTogglingCardId(null);
+  };
+
   return (
     <div className="min-h-screen bg-[#F5F0E8]">
       {/* Inactivity Warning Modal */}
@@ -729,16 +880,22 @@ export default function StaffWorkspacePage() {
             >
               📋 Orders
             </button>
-            {isSuperAdmin && (
-              <button
-                onClick={() => { setActiveTab('staff'); if (staffMembers.length === 0) loadStaffMembers(); }}
-                className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${
-                  activeTab === 'staff' ? 'border-purple-600 text-purple-600' : 'border-transparent text-[#8C8278] hover:text-[#5C5347]'
-                }`}
-              >
-                👥 Staff Management
-              </button>
-            )}
+            <button
+              onClick={() => { setActiveTab('staff'); if (staffMembers.length === 0) loadStaffMembers(); }}
+              className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${
+                activeTab === 'staff' ? 'border-purple-600 text-purple-600' : 'border-transparent text-[#8C8278] hover:text-[#5C5347]'
+              }`}
+            >
+              👥 Staff Management
+            </button>
+            <button
+              onClick={() => { setActiveTab('homepage_cards'); if (homepageCards.length === 0) loadHomepageCards(); }}
+              className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${
+                activeTab === 'homepage_cards' ? 'border-[#C4622D] text-[#C4622D]' : 'border-transparent text-[#8C8278] hover:text-[#5C5347]'
+              }`}
+            >
+              🏠 Homepage Cards
+            </button>
           </div>
         </div>
 
@@ -1218,6 +1375,335 @@ export default function StaffWorkspacePage() {
           </div>
         )}
 
+        {/* ── HOMEPAGE CARDS TAB ── */}
+        {activeTab === 'homepage_cards' && (
+          <div>
+            {/* Card Edit Modal */}
+            {showCardForm && editingCard && (
+              <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto py-8 px-4">
+                <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl">
+                  <div className="flex items-center justify-between px-6 py-4 border-b border-[#EDE7DA]">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">{CARD_TYPE_ICONS[editingCard.card_type]}</span>
+                      <h2 className="font-bold text-[#1A1612] text-lg">
+                        Edit {CARD_TYPE_LABELS[editingCard.card_type]}
+                      </h2>
+                    </div>
+                    <button
+                      onClick={() => setShowCardForm(false)}
+                      className="w-8 h-8 rounded-full bg-[#F5F0E8] flex items-center justify-center text-[#8C8278] hover:bg-[#EDE7DA] transition-colors"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <form onSubmit={handleSaveCard} className="p-6 space-y-4">
+
+                    {/* Visibility Toggle */}
+                    <label className="flex items-center gap-3 cursor-pointer p-3 bg-[#F5F0E8] rounded-xl">
+                      <div
+                        onClick={() => setCardForm({ ...cardForm, is_visible: !cardForm.is_visible })}
+                        className={`w-10 h-6 rounded-full transition-colors relative flex-shrink-0 ${
+                          cardForm.is_visible ? 'bg-[#C4622D]' : 'bg-[#DDD5C8]'
+                        }`}
+                      >
+                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${
+                          cardForm.is_visible ? 'translate-x-5' : 'translate-x-1'
+                        }`} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-[#3D3530]">Visible on Homepage</p>
+                        <p className="text-xs text-[#8C8278]">{cardForm.is_visible ? 'This card is showing on the live site' : 'This card is hidden from the live site'}</p>
+                      </div>
+                    </label>
+
+                    {/* Title (all card types) */}
+                    <div>
+                      <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">
+                        {editingCard.card_type === 'next_booking' ? 'Event Name *' : 'Title *'}
+                      </label>
+                      <input
+                        type="text"
+                        value={cardForm.title || ''}
+                        onChange={(e) => setCardForm({ ...cardForm, title: e.target.value })}
+                        placeholder={editingCard.card_type === 'next_booking' ? 'e.g. Corporate Lunch' : 'e.g. Pan-Seared Salmon'}
+                        className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
+                        required
+                      />
+                    </div>
+
+                    {/* Today's Special fields */}
+                    {editingCard.card_type === 'todays_special' && (
+                      <>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Price</label>
+                            <input
+                              type="number"
+                              value={cardForm.price ?? ''}
+                              onChange={(e) => setCardForm({ ...cardForm, price: e.target.value ? Number(e.target.value) : null })}
+                              placeholder="28"
+                              min="0"
+                              step="0.01"
+                              className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Price Unit</label>
+                            <input
+                              type="text"
+                              value={cardForm.price_unit || ''}
+                              onChange={(e) => setCardForm({ ...cardForm, price_unit: e.target.value })}
+                              placeholder="serving"
+                              className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Badge Label</label>
+                          <input
+                            type="text"
+                            value={cardForm.badge_label || ''}
+                            onChange={(e) => setCardForm({ ...cardForm, badge_label: e.target.value })}
+                            placeholder="e.g. Limited, New, Popular"
+                            className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    {/* Next Booking fields */}
+                    {editingCard.card_type === 'next_booking' && (
+                      <>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Event Date</label>
+                            <input
+                              type="text"
+                              value={cardForm.event_date || ''}
+                              onChange={(e) => setCardForm({ ...cardForm, event_date: e.target.value })}
+                              placeholder="e.g. Feb 24"
+                              className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Guest Count</label>
+                            <input
+                              type="number"
+                              value={cardForm.guest_count ?? ''}
+                              onChange={(e) => setCardForm({ ...cardForm, guest_count: e.target.value ? Number(e.target.value) : null })}
+                              placeholder="80"
+                              min="1"
+                              className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Prep Completion (%)</label>
+                          <input
+                            type="number"
+                            value={cardForm.prep_percentage ?? ''}
+                            onChange={(e) => setCardForm({ ...cardForm, prep_percentage: e.target.value ? Number(e.target.value) : null })}
+                            placeholder="75"
+                            min="0"
+                            max="100"
+                            className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
+                          />
+                          {cardForm.prep_percentage !== null && cardForm.prep_percentage !== undefined && (
+                            <div className="mt-2 h-1.5 bg-[#EDE7DA] rounded-full">
+                              <div
+                                className="h-1.5 bg-[#C4622D] rounded-full transition-all"
+                                style={{ width: `${Math.min(100, Math.max(0, Number(cardForm.prep_percentage)))}%` }}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )}
+
+                    {/* Customer Review fields */}
+                    {editingCard.card_type === 'customer_review' && (
+                      <>
+                        <div>
+                          <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Reviewer Quote</label>
+                          <textarea
+                            value={cardForm.description || ''}
+                            onChange={(e) => setCardForm({ ...cardForm, description: e.target.value })}
+                            placeholder="The food was absolutely stunning..."
+                            rows={3}
+                            className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors resize-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Rating (1–5 stars)</label>
+                          <div className="flex gap-2">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <button
+                                key={star}
+                                type="button"
+                                onClick={() => setCardForm({ ...cardForm, rating: star })}
+                                className={`text-2xl transition-transform hover:scale-110 ${
+                                  (cardForm.rating || 0) >= star ? 'text-[#D4A853]' : 'text-[#DDD5C8]'
+                                }`}
+                              >
+                                ★
+                              </button>
+                            ))}
+                            <span className="text-sm text-[#8C8278] self-center ml-1">{cardForm.rating || 0}/5</span>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Reviewer Name</label>
+                            <input
+                              type="text"
+                              value={cardForm.reviewer_name || ''}
+                              onChange={(e) => setCardForm({ ...cardForm, reviewer_name: e.target.value })}
+                              placeholder="e.g. Sarah M."
+                              className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Event Type</label>
+                            <input
+                              type="text"
+                              value={cardForm.reviewer_event || ''}
+                              onChange={(e) => setCardForm({ ...cardForm, reviewer_event: e.target.value })}
+                              placeholder="e.g. Wedding"
+                              className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
+                            />
+                          </div>
+                        </div>
+                      </>
+                    )}
+
+                    {/* Feedback */}
+                    {cardFormError && (
+                      <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">
+                        {cardFormError}
+                      </div>
+                    )}
+                    {cardFormSuccess && (
+                      <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-xl px-4 py-3">
+                        {cardFormSuccess}
+                      </div>
+                    )}
+
+                    {/* Actions */}
+                    <div className="flex gap-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowCardForm(false)}
+                        className="flex-1 py-2.5 rounded-xl border border-[#DDD5C8] text-sm font-semibold text-[#5C5347] hover:bg-[#F5F0E8] transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={savingCard}
+                        className="flex-1 py-2.5 rounded-xl bg-[#C4622D] text-white text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                      >
+                        {savingCard ? (
+                          <><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Saving...</>
+                        ) : 'Save Changes'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {/* Cards Header */}
+            <div className="mb-6">
+              <h2 className="text-lg font-bold text-[#1A1612]">Homepage Hero Cards</h2>
+              <p className="text-sm text-[#8C8278] mt-0.5">Control what appears in the floating cards on the homepage hero section</p>
+            </div>
+
+            {/* Cards List */}
+            {cardsLoading ? (
+              <div className="flex items-center justify-center py-20">
+                <svg className="animate-spin h-8 w-8 text-[#C4622D]" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+              </div>
+            ) : homepageCards.length === 0 ? (
+              <div className="text-center py-20 bg-white rounded-2xl border border-[#DDD5C8]">
+                <div className="text-5xl mb-3">🏠</div>
+                <p className="text-[#5C5347] font-semibold">No homepage cards found</p>
+                <p className="text-[#B0A89E] text-sm mt-1">Run the database migration to seed the default cards</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {homepageCards.map((card) => (
+                  <div
+                    key={card.id}
+                    className="bg-white rounded-2xl border border-[#DDD5C8] p-5 flex items-center gap-4 hover:border-[#C4622D]/40 hover:shadow-sm transition-all duration-200"
+                  >
+                    {/* Icon */}
+                    <div className="w-12 h-12 rounded-xl bg-[#F5F0E8] flex items-center justify-center text-2xl flex-shrink-0">
+                      {CARD_TYPE_ICONS[card.card_type]}
+                    </div>
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <p className="text-xs font-mono text-[#C4622D] uppercase tracking-wider">
+                          {CARD_TYPE_LABELS[card.card_type]}
+                        </p>
+                      </div>
+                      <p className="font-semibold text-[#1A1612] text-sm truncate">{card.title}</p>
+                      <p className="text-xs text-[#8C8278] mt-0.5">
+                        {card.card_type === 'todays_special' && card.price && `$${card.price}${card.price_unit ? ` / ${card.price_unit}` : ''}${card.badge_label ? ` · ${card.badge_label}` : ''}`}
+                        {card.card_type === 'next_booking' && `${card.event_date || ''}${card.event_date && card.guest_count ? ' · ' : ''}${card.guest_count ? `${card.guest_count} guests` : ''}${card.prep_percentage !== null ? ` · ${card.prep_percentage}% prep` : ''}`}
+                        {card.card_type === 'customer_review' && `${card.rating ? '★'.repeat(card.rating) : ''} ${card.reviewer_name || ''}${card.reviewer_event ? ` · ${card.reviewer_event}` : ''}`}
+                      </p>
+                    </div>
+
+                    {/* Visibility Toggle */}
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <button
+                        onClick={() => handleToggleCardVisibility(card)}
+                        disabled={togglingCardId === card.id}
+                        className={`text-xs font-semibold px-3 py-1.5 rounded-full transition-colors disabled:opacity-50 ${
+                          card.is_visible
+                            ? 'bg-green-500 text-white hover:bg-green-600' :'bg-[#8C8278] text-white hover:bg-[#5C5347]'
+                        }`}
+                        title={card.is_visible ? 'Click to hide' : 'Click to show'}
+                      >
+                        {togglingCardId === card.id ? (
+                          <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                        ) : card.is_visible ? 'Visible' : 'Hidden'}
+                      </button>
+
+                      {/* Edit Button */}
+                      <button
+                        onClick={() => openCardEditForm(card)}
+                        className="w-9 h-9 rounded-xl bg-[#F5F0E8] flex items-center justify-center text-[#5C5347] hover:bg-[#EDE7DA] transition-colors"
+                        title="Edit card"
+                      >
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Info box */}
+            <div className="mt-6 bg-[#F5F0E8] border border-[#DDD5C8] rounded-xl p-4">
+              <p className="text-sm font-semibold text-[#3D3530] mb-1">ℹ️ About Homepage Cards</p>
+              <p className="text-xs text-[#5C5347] leading-relaxed">
+                These three cards appear in the floating panel on the right side of the homepage hero section.
+                Toggle visibility to show or hide individual cards on the live site. Click Edit to update the card content.
+                Changes take effect immediately on the live homepage.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* ── ORDERS TAB ── */}
         {activeTab === 'orders' && (
           <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-[#DDD5C8]">
@@ -1332,11 +1818,11 @@ export default function StaffWorkspacePage() {
             </div>
 
             {staffActionMsg && (
-              <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3 mb-4">{staffActionMsg}</div>
+              <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">{staffActionMsg}</div>
             )}
 
             {resetPasswordMsg && (
-              <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-xl px-4 py-3 mb-4 flex items-center gap-2">
+              <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-xl px-4 py-3 flex items-center gap-2">
                 <svg className="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l3.75 3.75m0 0l3.75 3.75m0 0l-3.75-3.75M3.75 12h11.25" />
                 </svg>
