@@ -12,13 +12,18 @@ function StaffLoginForm() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [infoMessage, setInfoMessage] = useState('');
 
   useEffect(() => {
     const errorParam = searchParams.get('error');
+    const reasonParam = searchParams.get('reason');
     if (errorParam === 'link_expired') {
       setError('Your password reset link has expired or is invalid. Please request a new one from the Staff Management page.');
     } else if (errorParam === 'auth_error') {
       setError('Authentication failed. Please try again or request a new password reset link.');
+    }
+    if (reasonParam === 'timeout') {
+      setInfoMessage('You were logged out due to inactivity.');
     }
   }, [searchParams]);
 
@@ -79,6 +84,14 @@ function StaffLoginForm() {
         {/* Card */}
         <div className="bg-white rounded-2xl shadow-lg border border-[#DDD5C8] p-8">
           <form onSubmit={handleLogin} className="space-y-5">
+            {/* Inactivity info message */}
+            {infoMessage && (
+              <div className="bg-amber-50 border border-amber-300 text-amber-800 text-sm rounded-lg px-4 py-3">
+                <span className="font-semibold block mb-0.5">⏱ Session Expired</span>
+                {infoMessage}
+              </div>
+            )}
+
             {/* Error */}
             {error && (
               <div className={`border text-sm rounded-lg px-4 py-3 ${

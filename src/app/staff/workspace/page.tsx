@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import AppLogo from '@/components/ui/AppLogo';
+import { useInactivityTimer } from '@/hooks/useInactivityTimer';
 
 type BucketType = 'product-images' | 'event-photos';
 type WorkspaceTab = 'products' | 'media' | 'orders' | 'staff';
@@ -74,6 +75,70 @@ function RoleBadge({ role }: { role: StaffRole }) {
   const { label, className } = config[role] || config.staff;
   return (
     <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${className}`}>{label}</span>
+  );
+}
+
+// ─── Inactivity Warning Modal ─────────────────────────────────────────────────
+function InactivityWarningModal({
+  countdown,
+  onStayLoggedIn,
+  onLogOut,
+}: {
+  countdown: number;
+  onStayLoggedIn: () => void;
+  onLogOut: () => void;
+}) {
+  const minutes = Math.floor(countdown / 60);
+  const seconds = countdown % 60;
+  const timeStr = minutes > 0
+    ? `${minutes}:${String(seconds).padStart(2, '0')}`
+    : `${seconds}s`;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-2xl border border-[#DDD5C8] w-full max-w-md mx-4 p-8">
+        {/* Icon */}
+        <div className="flex justify-center mb-4">
+          <div className="w-14 h-14 rounded-full bg-amber-100 flex items-center justify-center">
+            <svg className="w-7 h-7 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+            </svg>
+          </div>
+        </div>
+
+        {/* Title */}
+        <h2 className="text-xl font-bold text-[#1A1612] text-center mb-2">Session Expiring Soon</h2>
+
+        {/* Message */}
+        <p className="text-[#5C5347] text-sm text-center mb-5">
+          You have been inactive for 3 minutes. You will be automatically logged out in 2 minutes.
+        </p>
+
+        {/* Countdown */}
+        <div className="flex justify-center mb-6">
+          <div className="bg-[#F5F0E8] border border-[#DDD5C8] rounded-xl px-6 py-3 text-center">
+            <p className="text-xs text-[#8C8278] mb-1 font-medium uppercase tracking-wide">Logging out in</p>
+            <p className="text-3xl font-bold text-[#C4622D] tabular-nums">{timeStr}</p>
+          </div>
+        </div>
+
+        {/* Buttons */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <button
+            onClick={onStayLoggedIn}
+            className="flex-1 bg-[#C4622D] text-white py-3 rounded-xl font-semibold text-sm hover:bg-[#A04E22] transition-all duration-200"
+          >
+            Stay Logged In
+          </button>
+          <button
+            onClick={onLogOut}
+            className="flex-1 bg-white text-[#5C5347] border border-[#DDD5C8] py-3 rounded-xl font-semibold text-sm hover:bg-[#F5F0E8] transition-all duration-200"
+          >
+            Log Out Now
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -148,6 +213,12 @@ export default function StaffWorkspacePage() {
   }, []);
 
   const isSuperAdmin = userProfile?.role === 'super_admin';
+
+  // Inactivity timer — exempt super_admin, only active once profile is loaded
+  const profileLoaded = userProfile !== null || user === null;
+  const { showWarning, countdown, stayLoggedIn, logOutNow } = useInactivityTimer({
+    enabled: profileLoaded && !isSuperAdmin && !!user,
+  });
 
   // ─── Staff Management ────────────────────────────────────────────────────────
 
@@ -585,6 +656,15 @@ export default function StaffWorkspacePage() {
 
   return (
     <div className="min-h-screen bg-[#F5F0E8]">
+      {/* Inactivity Warning Modal */}
+      {showWarning && (
+        <InactivityWarningModal
+          countdown={countdown}
+          onStayLoggedIn={stayLoggedIn}
+          onLogOut={logOutNow}
+        />
+      )}
+
       {/* Header */}
       <header className="bg-white border-b border-[#DDD5C8] sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 md:px-8 h-16 flex items-center justify-between">
@@ -621,7 +701,9 @@ export default function StaffWorkspacePage() {
         {/* Page Title + Tabs */}
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-[#1A1612] mb-1">Staff Workspace</h1>
-          <p className="text-[#8C8278] text-sm mb-6">Manage your products, prices, and media library</p>
+          <p className="text-[#8C8278] text-sm mb-6 text-center max-w-sm">
+            Manage your products, prices, and media library
+          </p>
           <div className="flex gap-2 border-b border-[#DDD5C8] flex-wrap">
             <button
               onClick={() => setActiveTab('products')}
@@ -1078,7 +1160,7 @@ export default function StaffWorkspacePage() {
                 {uploading ? (
                   <><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Uploading...</>
                 ) : (
-                  <><svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 013 3h10a3 3 0 013-3v-1m-4-8l-4-4m0 0L8 8m4-4v6" /></svg>Upload Images</>
+                  <><svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 013 3h10a3 3 0 013-3v-1m-4-6l-4-4m0 0L8 8m4-4v6" /></svg>Upload Images</>
                 )}
               </label>
             </div>
@@ -1256,7 +1338,7 @@ export default function StaffWorkspacePage() {
             {resetPasswordMsg && (
               <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-xl px-4 py-3 mb-4 flex items-center gap-2">
                 <svg className="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l3.75 3.75m0 0l3.75 3.75m0 0l-3.75-3.75M3.75 12h11.25" />
                 </svg>
                 {resetPasswordMsg}
               </div>
@@ -1358,7 +1440,7 @@ export default function StaffWorkspacePage() {
                               <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
                             ) : (
                               <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.865a8.25 8.25 0 0 1 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.865a8.25 8.25 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                               </svg>
                             )}
                             Reset Password
