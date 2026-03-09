@@ -1,16 +1,26 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import AppLogo from '@/components/ui/AppLogo';
 
-export default function StaffLoginPage() {
+function StaffLoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    const errorParam = searchParams.get('error');
+    if (errorParam === 'link_expired') {
+      setError('Your password reset link has expired or is invalid. Please request a new one from the Staff Management page.');
+    } else if (errorParam === 'auth_error') {
+      setError('Authentication failed. Please try again or request a new password reset link.');
+    }
+  }, [searchParams]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,10 +83,14 @@ export default function StaffLoginPage() {
             {error && (
               <div className={`border text-sm rounded-lg px-4 py-3 ${
                 error.includes('suspended')
-                  ? 'bg-amber-50 border-amber-300 text-amber-800' :'bg-red-50 border-red-200 text-red-700'
+                  ? 'bg-amber-50 border-amber-300 text-amber-800' : error.includes('expired') || error.includes('invalid')
+                  ? 'bg-orange-50 border-orange-300 text-orange-800' :'bg-red-50 border-red-200 text-red-700'
               }`}>
                 {error.includes('suspended') && (
                   <span className="font-semibold block mb-0.5">⚠️ Access Denied</span>
+                )}
+                {(error.includes('expired') || error.includes('invalid')) && (
+                  <span className="font-semibold block mb-0.5">🔗 Link Expired</span>
                 )}
                 {error}
               </div>
@@ -138,5 +152,17 @@ export default function StaffLoginPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function StaffLoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#F5F0E8] flex items-center justify-center">
+        <div className="animate-spin h-8 w-8 border-4 border-[#C4622D] border-t-transparent rounded-full" />
+      </div>
+    }>
+      <StaffLoginForm />
+    </Suspense>
   );
 }

@@ -38,5 +38,6 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return NextResponse.redirect(`${origin}/staff/login`);
+  // Both flows failed — redirect to login with error indicator
+  return NextResponse.redirect(`${origin}/staff/login?error=link_expired`);
 }

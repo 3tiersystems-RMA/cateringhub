@@ -8,6 +8,7 @@ import FeaturedMenu from "./components/FeaturedMenu";
 import TestimonialSection from "./components/TestimonialSection";
 import HowItWorksSection from "./components/HowItWorksSection";
 import ContactBanner from "./components/ContactBanner";
+import AuthErrorHandler from "./components/AuthErrorHandler";
 
 export const metadata: Metadata = {
   title: "CateringHub — Chef-Crafted Catering & Meal Prep",
@@ -19,6 +20,7 @@ export const metadata: Metadata = {
 export default function Homepage() {
   return (
     <>
+      <AuthErrorHandler />
       <Header />
       <main>
         <HeroSection />
