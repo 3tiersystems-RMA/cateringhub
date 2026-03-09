@@ -163,10 +163,12 @@ export default function HeroSection() {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-lg font-display font-semibold text-white">
-                      R{specialCard.price}
-                      {specialCard.price_unit && (
-                        <span className="text-xs text-white/50 font-sans font-normal"> / {specialCard.price_unit}</span>
-                      )}
+                      {specialCard.price != null
+                        ? <>R{specialCard.price}{specialCard.price_unit && <span className="text-xs text-white/50 font-sans font-normal"> / {specialCard.price_unit}</span>}</>
+                        : specialCard.subtitle
+                          ? specialCard.subtitle.replace(/\$/g, 'R')
+                          : null
+                      }
                     </span>
                     {specialCard.badge_label && (
                       <span className="text-xs bg-[#C4622D]/25 text-[#D97B4A] px-2.5 py-1 rounded-full border border-[#C4622D]/30">
