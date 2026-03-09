@@ -1234,7 +1234,7 @@ export default function StaffWorkspacePage() {
                             title="Edit"
                           >
                             <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m0 0l3.536 3.536m0 0l-3.75-3.75M3.75 12h11.25" />
                             </svg>
                           </button>
                           <button
@@ -1654,7 +1654,7 @@ export default function StaffWorkspacePage() {
                       </div>
                       <p className="font-semibold text-[#1A1612] text-sm truncate">{card.title}</p>
                       <p className="text-xs text-[#8C8278] mt-0.5">
-                        {card.card_type === 'todays_special' && card.price && `$${card.price}${card.price_unit ? ` / ${card.price_unit}` : ''}${card.badge_label ? ` · ${card.badge_label}` : ''}`}
+                        {card.card_type === 'todays_special' && card.price && `R${card.price}${card.price_unit ? ` / ${card.price_unit}` : ''}${card.badge_label ? ` · ${card.badge_label}` : ''}`}
                         {card.card_type === 'next_booking' && `${card.event_date || ''}${card.event_date && card.guest_count ? ' · ' : ''}${card.guest_count ? `${card.guest_count} guests` : ''}${card.prep_percentage !== null ? ` · ${card.prep_percentage}% prep` : ''}`}
                         {card.card_type === 'customer_review' && `${card.rating ? '★'.repeat(card.rating) : ''} ${card.reviewer_name || ''}${card.reviewer_event ? ` · ${card.reviewer_event}` : ''}`}
                       </p>
@@ -1667,7 +1667,7 @@ export default function StaffWorkspacePage() {
                         disabled={togglingCardId === card.id}
                         className={`text-xs font-semibold px-3 py-1.5 rounded-full transition-colors disabled:opacity-50 ${
                           card.is_visible
-                            ? 'bg-green-500 text-white hover:bg-green-600' :'bg-[#8C8278] text-white hover:bg-[#5C5347]'
+                            ? 'bg-green-500 text-white' :'bg-[#8C8278] text-white'
                         }`}
                         title={card.is_visible ? 'Click to hide' : 'Click to show'}
                       >
@@ -1683,7 +1683,7 @@ export default function StaffWorkspacePage() {
                         title="Edit card"
                       >
                         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m0 0l3.536 3.536m0 0l-3.75-3.75M3.75 12h11.25" />
                         </svg>
                       </button>
                     </div>
@@ -1824,7 +1824,7 @@ export default function StaffWorkspacePage() {
             {resetPasswordMsg && (
               <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-xl px-4 py-3 flex items-center gap-2">
                 <svg className="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l3.75 3.75m0 0l3.75 3.75m0 0l-3.75-3.75M3.75 12h11.25" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l3.75 3.75m0 0L8 8m4-4v6" />
                 </svg>
                 {resetPasswordMsg}
               </div>

@@ -163,7 +163,7 @@ export default function HeroSection() {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-lg font-display font-semibold text-white">
-                      ${specialCard.price}
+                      R{specialCard.price}
                       {specialCard.price_unit && (
                         <span className="text-xs text-white/50 font-sans font-normal"> / {specialCard.price_unit}</span>
                       )}
