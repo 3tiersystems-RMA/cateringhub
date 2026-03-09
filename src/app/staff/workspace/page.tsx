@@ -948,7 +948,7 @@ export default function StaffWorkspacePage() {
                           >
                             {productImagePreview ? 'Change Image' : 'Upload Image'}
                           </button>
-                          <p className="text-xs text-[#B0A89E] mt-1.5">JPG, PNG, WebP · Max 10MB</p>
+                          <p className="text-xs text-[#B0A89E] mt-1">JPG, PNG, WebP · Max 10MB</p>
                           {uploadingProductImage && (
                             <p className="text-xs text-[#C4622D] mt-1">Uploading image...</p>
                           )}
@@ -1654,7 +1654,13 @@ export default function StaffWorkspacePage() {
                       </div>
                       <p className="font-semibold text-[#1A1612] text-sm truncate">{card.title}</p>
                       <p className="text-xs text-[#8C8278] mt-0.5">
-                        {card.card_type === 'todays_special' && card.price && `R${card.price}${card.price_unit ? ` / ${card.price_unit}` : ''}${card.badge_label ? ` · ${card.badge_label}` : ''}`}
+                        {card.card_type === 'todays_special' && (
+                          card.price
+                            ? `R${card.price}${card.price_unit ? ` / ${card.price_unit}` : ''}${card.badge_label ? ` · ${card.badge_label}` : ''}`
+                            : card.subtitle
+                              ? card.subtitle.replace(/\$/g, 'R')
+                              : ''
+                        )}
                         {card.card_type === 'next_booking' && `${card.event_date || ''}${card.event_date && card.guest_count ? ' · ' : ''}${card.guest_count ? `${card.guest_count} guests` : ''}${card.prep_percentage !== null ? ` · ${card.prep_percentage}% prep` : ''}`}
                         {card.card_type === 'customer_review' && `${card.rating ? '★'.repeat(card.rating) : ''} ${card.reviewer_name || ''}${card.reviewer_event ? ` · ${card.reviewer_event}` : ''}`}
                       </p>
