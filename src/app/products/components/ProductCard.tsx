@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import AppImage from "@/components/ui/AppImage";
 import Icon from "@/components/ui/AppIcon";
 import type { CartProduct } from "./CartContext";
@@ -8,20 +8,33 @@ import { useCart } from "./CartContext";
 
 interface ProductCardProps {
   product: CartProduct;
+  onOpenModal?: (product: CartProduct) => void;
 }
 
-export default function ProductCard({ product }: ProductCardProps) {
+export default function ProductCard({ product, onOpenModal }: ProductCardProps) {
   const { addItem } = useCart();
   const [added, setAdded] = useState(false);
 
-  const handleAdd = () => {
+  const handleAdd = (e: React.MouseEvent) => {
+    e.stopPropagation();
     addItem(product);
     setAdded(true);
     setTimeout(() => setAdded(false), 1800);
   };
 
+  const handleCardClick = () => {
+    if (onOpenModal) onOpenModal(product);
+  };
+
   return (
-    <article className="group bg-[#FAF7F2] border border-[#DDD5C8] rounded-3xl overflow-hidden hover:border-[#C4622D]/40 hover:shadow-warm hover:-translate-y-1 transition-all duration-400">
+    <article
+      className="group bg-[#FAF7F2] border border-[#DDD5C8] rounded-3xl overflow-hidden hover:border-[#C4622D]/40 hover:shadow-warm hover:-translate-y-1 transition-all duration-400 cursor-pointer"
+      onClick={handleCardClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") handleCardClick(); }}
+      aria-label={`View details for ${product.name}`}
+    >
       {/* Image */}
       <div className="relative h-52 overflow-hidden bg-[#EDE7DA]">
         <AppImage

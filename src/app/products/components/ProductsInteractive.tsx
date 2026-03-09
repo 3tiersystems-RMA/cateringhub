@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import Icon from "@/components/ui/AppIcon";
 import ProductCard from "./ProductCard";
 import CartSidebar from "./CartSidebar";
+import ProductModal from "./ProductModal";
 import { CartProvider, useCart } from "./CartContext";
 import { createClient } from "@/lib/supabase/client";
 
@@ -65,7 +66,10 @@ function ProductsContent() {
   const [sortBy, setSortBy] = useState<"default" | "price-asc" | "price-desc" | "rating">("default");
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [modalAdded, setModalAdded] = useState(false);
   const sectionRef = useRef<HTMLDivElement>(null);
+  const { addItem } = useCart();
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -171,9 +175,32 @@ function ProductsContent() {
     return () => observer.disconnect();
   }, [filtered]);
 
+  const handleOpenModal = (product: Product) => {
+    setSelectedProduct(product);
+    setModalAdded(false);
+  };
+
+  const handleCloseModal = () => {
+    setSelectedProduct(null);
+    setModalAdded(false);
+  };
+
+  const handleModalAdd = () => {
+    if (!selectedProduct) return;
+    addItem(selectedProduct);
+    setModalAdded(true);
+    setTimeout(() => setModalAdded(false), 1800);
+  };
+
   return (
     <>
       <CartSidebar />
+      <ProductModal
+        product={selectedProduct}
+        onClose={handleCloseModal}
+        added={modalAdded}
+        onAdd={handleModalAdd}
+      />
       <div className="max-w-7xl mx-auto px-4 md:px-8 py-10">
         {/* Page Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
@@ -290,7 +317,7 @@ function ProductsContent() {
                     transition: `opacity 0.6s cubic-bezier(0.16,1,0.3,1) ${i * 0.05}s, transform 0.6s cubic-bezier(0.16,1,0.3,1) ${i * 0.05}s`,
                   }}
                 >
-                  <ProductCard product={product} />
+                  <ProductCard product={product} onOpenModal={handleOpenModal} />
                 </div>
               ))
             ) : (
