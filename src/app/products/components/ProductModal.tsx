@@ -56,7 +56,7 @@ export default function ProductModal({ product, onClose, added, onAdd }: Product
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 z-20 w-9 h-9 rounded-full bg-white/80 backdrop-blur-sm border border-[#DDD5C8] flex items-center justify-center text-[#5C5347] hover:bg-[#C4622D] hover:text-white hover:border-[#C4622D] transition-all duration-200"
+          className="absolute top-12 right-4 z-20 w-9 h-9 rounded-full bg-white/80 backdrop-blur-sm border border-[#DDD5C8] flex items-center justify-center text-[#5C5347] hover:bg-[#C4622D] hover:text-white hover:border-[#C4622D] transition-all duration-200"
           aria-label="Close product details"
         >
           <Icon name="XMarkIcon" size={16} />
