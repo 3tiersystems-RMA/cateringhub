@@ -15,16 +15,45 @@ export default function ResetPasswordPage() {
   const [sessionReady, setSessionReady] = useState(false);
 
   useEffect(() => {
-    // Check if user has a valid recovery session
     const supabase = createClient();
+
+    // First check if a session already exists (e.g. page refresh)
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
         setSessionReady(true);
-      } else {
-        // No session — redirect back to login
-        router.replace('/staff/login');
       }
     });
+
+    // Listen for the PASSWORD_RECOVERY or SIGNED_IN event fired after
+    // the server exchanges the recovery code for a session cookie.
+    // This fires even on the initial load when the browser client
+    // hasn't yet synced the session from the HTTP-only cookie.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (
+          (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') &&
+          session
+        ) {
+          setSessionReady(true);
+        } else if (event === 'SIGNED_OUT') {
+          router.replace('/staff/login');
+        }
+      }
+    );
+
+    // Fallback: if no session event fires within 5 seconds, redirect to login
+    const timeout = setTimeout(() => {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (!session) {
+          router.replace('/staff/login');
+        }
+      });
+    }, 5000);
+
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(timeout);
+    };
   }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
