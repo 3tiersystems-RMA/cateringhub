@@ -1234,7 +1234,7 @@ export default function StaffWorkspacePage() {
                             title="Edit"
                           >
                             <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m0 0l3.536 3.536m0 0l-3.75-3.75M3.75 12h11.25" />
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m0 0L8 8m4-4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                             </svg>
                           </button>
                           <button
@@ -1655,11 +1655,9 @@ export default function StaffWorkspacePage() {
                       <p className="font-semibold text-[#1A1612] text-sm truncate">{card.title}</p>
                       <p className="text-xs text-[#8C8278] mt-0.5">
                         {card.card_type === 'todays_special' && (
-                          card.price
-                            ? `R${card.price}${card.price_unit ? ` / ${card.price_unit}` : ''}${card.badge_label ? ` · ${card.badge_label}` : ''}`
-                            : card.subtitle
-                              ? card.subtitle.replace(/\$/g, 'R')
-                              : ''
+                          card.price != null
+                            ? `R${card.price}${card.price_unit ? ` / ${card.price_unit}` : ''}${card.badge_label ? ` \u00b7 ${card.badge_label}` : ''}`
+                            : (card.subtitle || '').replace(/\$/g, 'R')
                         )}
                         {card.card_type === 'next_booking' && `${card.event_date || ''}${card.event_date && card.guest_count ? ' · ' : ''}${card.guest_count ? `${card.guest_count} guests` : ''}${card.prep_percentage !== null ? ` · ${card.prep_percentage}% prep` : ''}`}
                         {card.card_type === 'customer_review' && `${card.rating ? '★'.repeat(card.rating) : ''} ${card.reviewer_name || ''}${card.reviewer_event ? ` · ${card.reviewer_event}` : ''}`}
@@ -1798,7 +1796,14 @@ export default function StaffWorkspacePage() {
                       >
                         {inviting ? (
                           <><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Sending...</>
-                        ) : 'Send Invitation'}
+                        ) : (
+                          <>
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                            </svg>
+                            Invite Staff Member
+                          </>
+                        )}
                       </button>
                     </div>
                   </form>
@@ -1830,7 +1835,7 @@ export default function StaffWorkspacePage() {
             {resetPasswordMsg && (
               <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-xl px-4 py-3 flex items-center gap-2">
                 <svg className="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l3.75 3.75m0 0L8 8m4-4v6" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.865a8.25 8.25 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
                 {resetPasswordMsg}
               </div>
