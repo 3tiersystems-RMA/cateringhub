@@ -41,9 +41,9 @@ export default function ContactBanner() {
         {/* Info Row */}
         <div className="mt-12 pt-8 border-t border-white/10 grid grid-cols-2 md:grid-cols-4 gap-6">
           {[
-            { icon: "MapPinIcon" as const, label: "Service Area", value: "Greater Metro Area" },
+            { icon: "MapPinIcon" as const, label: "Service Area", value: "Western Cape" },
             { icon: "ClockIcon" as const, label: "Hours", value: "Mon–Sat, 8am–8pm" },
-            { icon: "EnvelopeIcon" as const, label: "Email", value: "hello@cateringhub.com" },
+            { icon: "EnvelopeIcon" as const, label: "Email", value: "info@cardamomkitchen.co.za" },
             { icon: "CalendarDaysIcon" as const, label: "Lead Time", value: "48 hrs minimum" },
           ].map((item) => (
             <div key={item.label} className="flex items-start gap-3">
