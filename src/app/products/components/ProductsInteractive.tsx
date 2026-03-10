@@ -281,7 +281,7 @@ function ProductsContent() {
         {/* Results count */}
         <div className="flex items-center justify-between mb-6">
           <p className="text-sm text-[#8C8278] font-mono">
-            {loading ? 'Loading products...' : `${filtered.length} item${filtered.length !== 1 ? "s" : ""} found`}
+            {loading ? 'Loading products...' : `${filtered.length} item${filtered.length !== 1 ? "s" : ""} to choose from`}
           </p>
           {(search || activeCategory !== "All") && (
             <button
