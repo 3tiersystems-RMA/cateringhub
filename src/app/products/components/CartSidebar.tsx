@@ -11,10 +11,10 @@ type CheckoutStep = "cart" | "details" | "payment" | "eft-success" | "confirmati
 type PaymentMethod = "eft" | "payfast";
 
 const BANK_DETAILS = {
-  bank: "Standard Bank",
+  bank: "Capitec Business",
   accountName: "Cardamom Kitchen",
-  accountNumber: "000 000 0000",
-  branchCode: "051 001",
+  accountNumber: "1051471249",
+  branchCode: "450105",
 };
 
 export default function CartSidebar() {
