@@ -28,19 +28,21 @@ export default function FeaturedMenu() {
     const fetchFeatured = async () => {
       try {
         const supabase = createClient();
-        const { data, error } = await supabase
+        const { data, error, count } = await supabase
           .from('products')
-          .select('*')
-          .eq('featured', true)
-          .eq('available', true)
+          .select('*', { count: 'exact' })
+          .is('featured', true)
+          .is('available', true)
           .order('sort_order', { ascending: true })
           .limit(5);
 
         if (error) {
-          console.log('FeaturedMenu fetch error:', error.message);
+          console.error('FeaturedMenu fetch error:', error.message, error.code, error.details);
           setFeatured([]);
           return;
         }
+
+        console.log('FeaturedMenu: query returned', count, 'total,', data?.length, 'rows:', data);
 
         const items = await Promise.all(
           (data || []).map(async (p) => {
