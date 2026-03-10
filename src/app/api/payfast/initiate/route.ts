@@ -17,7 +17,6 @@ export async function POST(req: NextRequest) {
       amount,
       itemName,
       itemDescription,
-      // Extended order data
       items,
       subtotal,
       deliveryFee,
@@ -50,32 +49,20 @@ export async function POST(req: NextRequest) {
     const normalizeCellNumber = (raw: string): string => {
       const stripped = raw.replace(/[\s\-()]/g, "");
       if (/^\+27[0-9]{9}$/.test(stripped)) {
-        return "0" + stripped.slice(3); // +27821234567 → 0821234567
+        return "0" + stripped.slice(3);
       }
       if (/^0[0-9]{9}$/.test(stripped)) {
-        return stripped; // already correct
+        return stripped;
       }
-      return ""; // invalid — omit from payload
+      return "";
     };
     const cellNumber = normalizeCellNumber(phone || "");
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://cateringhu2257.builtwithrocket.new";
+    const appUrl =
+      process.env.NEXT_PUBLIC_APP_URL ||
+      "https://cateringhu2257.builtwithrocket.new";
 
-    // Encode order data for ITN webhook
-    const orderPayload = {
-      customerName: name,
-      customerEmail: email,
-      customerPhone: phone || '',
-      items: items || [],
-      subtotal: subtotal || 0,
-      deliveryFee: deliveryFee || 0,
-      total: total || parseFloat(amount),
-      eventDate: eventDate || '',
-      deliveryAddress: deliveryAddress || '',
-      notes: notes || '',
-    };
-    const encodedOrderData = encodeURIComponent(JSON.stringify(orderPayload));
-
+    // Build form data in exact PayFast-specified parameter order
     const formData = buildPayFastFormData({
       merchantId: PAYFAST_CONFIG.merchantId,
       merchantKey: PAYFAST_CONFIG.merchantKey,
@@ -85,28 +72,59 @@ export async function POST(req: NextRequest) {
       nameFirst,
       nameLast,
       emailAddress: email,
-      cellNumber: cellNumber,
+      cellNumber: cellNumber || undefined,
       mPaymentId: orderId,
       amount: parseFloat(amount).toFixed(2),
       itemName: itemName || "CateringHub Order",
-      itemDescription: itemDescription || "",
+      itemDescription: itemDescription || undefined,
       customStr1: orderId,
-      customStr2: encodedOrderData.slice(0, 255),
-      emailConfirmation: "1",
-      confirmationAddress: email,
     });
 
-    const signature = generateSignature(formData, PAYFAST_CONFIG.passphrase || undefined);
-    formData.signature = signature;
+    const signature = generateSignature(
+      formData,
+      PAYFAST_CONFIG.passphrase || undefined
+    );
 
     const pfHost = getPayFastHost();
     const actionUrl = `https://${pfHost}/eng/process`;
 
-    return NextResponse.json({
-      success: true,
-      orderId,
-      actionUrl,
-      formData,
+    // Build hidden input fields for the form
+    const allFields = { ...formData, signature };
+    const hiddenInputs = Object.entries(allFields)
+      .map(
+        ([key, value]) =>
+          `<input type="hidden" name="${key}" value="${value?.replace(/"/g, "&quot;")}" />`
+      )
+      .join("\n");
+
+    // Return a full HTML page that auto-submits the form on load — exactly as PayFast specifies
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Redirecting to PayFast...</title>
+  <style>
+    body { font-family: sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; background: #F5F0E8; }
+    .msg { text-align: center; color: #5C5347; }
+    .spinner { width: 40px; height: 40px; border: 4px solid #DDD5C8; border-top-color: #C4622D; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body onload="document.payfast_form.submit();">
+  <div class="msg">
+    <div class="spinner"></div>
+    <p>Redirecting to PayFast secure payment...</p>
+  </div>
+  <form action="${actionUrl}" method="post" name="payfast_form">
+    ${hiddenInputs}
+  </form>
+</body>
+</html>`;
+
+    return new NextResponse(html, {
+      status: 200,
+      headers: { "Content-Type": "text/html; charset=utf-8" },
     });
   } catch (error) {
     console.error("PayFast initiation error:", error);

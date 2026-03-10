@@ -9,23 +9,31 @@ export const PAYFAST_CONFIG = {
 
 export function getPayFastHost(): string {
   return PAYFAST_CONFIG.sandbox
-    ? "sandbox.payfast.co.za" : "www.payfast.co.za";
+    ? "sandbox.payfast.co.za" :"www.payfast.co.za";
 }
 
 /**
- * Matches PHP urlencode() — spaces become "+", everything else percent-encoded.
- * PayFast's server uses PHP urlencode() when verifying the signature, so we must
- * produce the same encoding here.
+ * Matches PHP urlencode():
+ *  - spaces become "+"
+ *  - everything else is percent-encoded
+ * PayFast's server uses PHP urlencode() when verifying the signature.
  */
 function phpUrlencode(value: string): string {
   return encodeURIComponent(value).replace(/%20/g, "+");
 }
 
+/**
+ * Generate MD5 signature using EXACTLY the parameter order specified by PayFast:
+ * merchant_id, merchant_key, return_url, cancel_url, notify_url,
+ * name_first, name_last, email_address, cell_number, m_payment_id,
+ * amount, item_name, item_description, custom_str1
+ * Then append &passphrase=... before hashing.
+ */
 export function generateSignature(
   data: Record<string, string>,
   passphrase?: string
 ): string {
-  // Build param string in the order fields are provided (NOT alphabetical)
+  // Build param string in the exact order fields are provided
   let pfOutput = "";
   for (const key in data) {
     if (data[key] !== "") {
@@ -35,6 +43,7 @@ export function generateSignature(
   // Remove trailing ampersand
   let getString = pfOutput.slice(0, -1);
 
+  // Append passphrase before hashing
   if (passphrase && passphrase.trim() !== "") {
     getString += `&passphrase=${phpUrlencode(passphrase.trim())}`;
   }
@@ -57,34 +66,36 @@ export interface PayFastPaymentData {
   itemName: string;
   itemDescription?: string;
   customStr1?: string;
-  customStr2?: string;
-  emailConfirmation?: string;
-  confirmationAddress?: string;
 }
 
+/**
+ * Build form data in the EXACT parameter order required by PayFast:
+ * merchant_id, merchant_key, return_url, cancel_url, notify_url,
+ * name_first, name_last, email_address, cell_number (if present),
+ * m_payment_id, amount, item_name, item_description (if present), custom_str1 (if present)
+ *
+ * NO custom_str2, email_confirmation, or confirmation_address.
+ */
 export function buildPayFastFormData(
   paymentData: PayFastPaymentData
 ): Record<string, string> {
-  const data: Record<string, string> = {
-    merchant_id: paymentData.merchantId,
-    merchant_key: paymentData.merchantKey,
-    return_url: paymentData.returnUrl,
-    cancel_url: paymentData.cancelUrl,
-    notify_url: paymentData.notifyUrl,
-    name_first: paymentData.nameFirst,
-    name_last: paymentData.nameLast,
-    email_address: paymentData.emailAddress,
-    m_payment_id: paymentData.mPaymentId,
-    amount: paymentData.amount,
-    item_name: paymentData.itemName,
-  };
+  // Use an ordered approach — insert keys in exact PayFast-specified order
+  const data: Record<string, string> = {};
 
+  data.merchant_id = paymentData.merchantId;
+  data.merchant_key = paymentData.merchantKey;
+  data.return_url = paymentData.returnUrl;
+  data.cancel_url = paymentData.cancelUrl;
+  data.notify_url = paymentData.notifyUrl;
+  data.name_first = paymentData.nameFirst;
+  data.name_last = paymentData.nameLast;
+  data.email_address = paymentData.emailAddress;
   if (paymentData.cellNumber) data.cell_number = paymentData.cellNumber;
+  data.m_payment_id = paymentData.mPaymentId;
+  data.amount = paymentData.amount;
+  data.item_name = paymentData.itemName;
   if (paymentData.itemDescription) data.item_description = paymentData.itemDescription;
   if (paymentData.customStr1) data.custom_str1 = paymentData.customStr1;
-  if (paymentData.customStr2) data.custom_str2 = paymentData.customStr2;
-  if (paymentData.emailConfirmation) data.email_confirmation = paymentData.emailConfirmation;
-  if (paymentData.confirmationAddress) data.confirmation_address = paymentData.confirmationAddress;
 
   return data;
 }
@@ -132,7 +143,10 @@ export function validateITNSignature(
     tempParamString += `&passphrase=${phpUrlencode(passphrase.trim())}`;
   }
 
-  const signature = crypto.createHash("md5").update(tempParamString).digest("hex");
+  const signature = crypto
+    .createHash("md5")
+    .update(tempParamString)
+    .digest("hex");
   return pfData.signature === signature;
 }
 
@@ -144,5 +158,8 @@ export function validatePaymentAmount(
 }
 
 export function generateOrderId(): string {
-  return `CH-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+  return `CH-${Date.now().toString(36).toUpperCase()}-${Math.random()
+    .toString(36)
+    .slice(2, 6)
+    .toUpperCase()}`;
 }

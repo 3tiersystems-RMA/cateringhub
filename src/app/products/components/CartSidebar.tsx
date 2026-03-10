@@ -96,10 +96,55 @@ export default function CartSidebar() {
     }
   };
 
-  // PayFast handler kept in code — button is inactive (coming soon)
+  // PayFast handler — submits to /api/payfast/initiate which returns an auto-submitting HTML page
   const handlePayFastCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
-    // PayFast integration coming soon — button is disabled
+    setProcessing(true);
+    setPayError("");
+
+    try {
+      const response = await fetch("/api/payfast/initiate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: form.name,
+          email: form.email,
+          phone: form.phone,
+          amount: total.toFixed(2),
+          itemName: "CateringHub Order",
+          itemDescription: `Event: ${form.date || "TBD"} | ${form.address || ""}`.trim(),
+          items: items.map((i) => ({
+            id: i.product.id,
+            name: i.product.name,
+            quantity: i.quantity,
+            price: i.product.price,
+            unit: i.product.unit,
+          })),
+          subtotal,
+          deliveryFee: delivery,
+          total,
+          eventDate: form.date || "",
+          deliveryAddress: form.address || "",
+          notes: form.notes || "",
+        }),
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to initiate payment");
+      }
+
+      // The API returns an HTML page — write it into the current window to trigger auto-submit
+      const html = await response.text();
+      document.open();
+      document.write(html);
+      document.close();
+    } catch (err) {
+      setPayError(
+        err instanceof Error ? err.message : "Failed to initiate payment. Please try again."
+      );
+      setProcessing(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -456,22 +501,33 @@ export default function CartSidebar() {
                     </div>
                   </button>
 
-                  {/* PayFast — Inactive / Coming Soon */}
-                  <div className="w-full flex items-center gap-3 p-3.5 rounded-xl border-2 border-[#DDD5C8] bg-[#F5F0E8]/60 opacity-60 cursor-not-allowed">
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-[#EDE7DA] text-[#B5ADA5]">
+                  {/* PayFast — Active */}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedMethod("payfast")}
+                    className={`w-full flex items-center gap-3 p-3.5 rounded-xl border-2 transition-all text-left ${
+                      selectedMethod === "payfast" ?"border-[#C4622D] bg-[#C4622D]/5" :"border-[#DDD5C8] bg-white hover:border-[#C4622D]/40"
+                    }`}
+                  >
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                      selectedMethod === "payfast" ? "bg-[#C4622D] text-white" : "bg-[#EDE7DA] text-[#8C8278]"
+                    }`}>
                       <Icon name="CreditCardIcon" size={16} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-semibold text-[#B5ADA5]">PayFast</p>
-                        <span className="text-[10px] font-bold uppercase tracking-wider bg-[#DDD5C8] text-[#8C8278] px-2 py-0.5 rounded-full">
-                          Coming Soon
-                        </span>
-                      </div>
-                      <p className="text-xs text-[#B5ADA5]">Card, EFT, Instant EFT &amp; more</p>
+                      <p className={`text-sm font-semibold ${
+                        selectedMethod === "payfast" ? "text-[#C4622D]" : "text-[#1A1612]"
+                      }`}>PayFast</p>
+                      <p className="text-xs text-[#8C8278]">Card, EFT, Instant EFT &amp; more</p>
                     </div>
-                    <div className="w-4 h-4 rounded-full border-2 border-[#DDD5C8] flex-shrink-0" />
-                  </div>
+                    <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 ${
+                      selectedMethod === "payfast" ?"border-[#C4622D] bg-[#C4622D]" :"border-[#DDD5C8]"
+                    }`}>
+                      {selectedMethod === "payfast" && (
+                        <div className="w-full h-full rounded-full bg-white scale-50" />
+                      )}
+                    </div>
+                  </button>
 
                 </div>
               </div>
@@ -552,14 +608,27 @@ export default function CartSidebar() {
                 <>
                   <button
                     type="button"
-                    disabled
-                    className="w-full bg-[#B5ADA5] text-white py-3.5 rounded-full font-semibold text-sm cursor-not-allowed opacity-60 flex items-center justify-center gap-2"
+                    onClick={handlePayFastCheckout}
+                    disabled={processing}
+                    className="w-full bg-[#C4622D] text-white py-3.5 rounded-full font-semibold text-sm hover:bg-[#A04E22] transition-all shadow-terra disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   >
-                    <Icon name="LockClosedIcon" size={14} />
-                    Pay via PayFast — Coming Soon
+                    {processing ? (
+                      <>
+                        <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                        </svg>
+                        Redirecting to PayFast...
+                      </>
+                    ) : (
+                      <>
+                        <Icon name="CreditCardIcon" size={14} />
+                        Pay via PayFast
+                      </>
+                    )}
                   </button>
                   <p className="text-xs text-center text-[#B5ADA5] mt-3">
-                    PayFast integration is coming soon. Please use Manual EFT.
+                    You will be redirected to PayFast&apos;s secure payment page
                   </p>
                 </>
               )}
