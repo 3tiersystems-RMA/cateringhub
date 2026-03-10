@@ -26,8 +26,8 @@ export default function Header() {
     <header
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
         scrolled
-          ? "bg-[#F5F0E8]/95 backdrop-blur-xl shadow-warm border-b border-[#DDD5C8]"
-          : "bg-transparent"
+          ? "bg-black/95 backdrop-blur-xl shadow-warm border-b border-[#333]"
+          : "bg-black"
       }`}
     >
       <div className="max-w-7xl mx-auto px-4 md:px-8 h-18 flex items-center justify-between py-4">
@@ -51,7 +51,7 @@ export default function Header() {
                 className={`text-sm font-medium tracking-wide transition-colors duration-200 relative group ${
                   isActive
                     ? "text-[#C4622D]"
-                    : "text-[#5C5347] hover:text-[#1A1612]"
+                    : "text-[#D4CFC9] hover:text-white"
                 }`}
               >
                 {link?.label}
@@ -67,8 +67,8 @@ export default function Header() {
 
         {/* CTA */}
         <div className="hidden md:flex items-center gap-4">
-          <div className="flex items-center gap-1.5 text-xs font-medium text-[#8C8278]">
-            <span className="w-1.5 h-1.5 rounded-full bg-green-500 pulse-dot inline-block" />
+          <div className="flex items-center gap-1.5 text-xs font-medium text-[#A09890]">
+            <span className="w-1.5 h-1.5 rounded-full bg-green-400 pulse-dot inline-block" />
             Now Taking Orders
           </div>
           <Link
@@ -82,7 +82,7 @@ export default function Header() {
         {/* Mobile Toggle */}
         <button
           onClick={() => setMobileOpen(!mobileOpen)}
-          className="md:hidden p-2 rounded-lg text-[#5C5347] hover:bg-[#EDE7DA] transition-colors"
+          className="md:hidden p-2 rounded-lg text-[#D4CFC9] hover:bg-[#222] transition-colors"
           aria-label="Toggle navigation"
         >
           <Icon name={mobileOpen ? "XMarkIcon" : "Bars3Icon"} size={22} />
@@ -90,7 +90,7 @@ export default function Header() {
       </div>
       {/* Mobile Menu */}
       {mobileOpen && (
-        <div className="md:hidden bg-[#F5F0E8]/98 backdrop-blur-xl border-t border-[#DDD5C8] px-4 py-6 space-y-4">
+        <div className="md:hidden bg-black/98 backdrop-blur-xl border-t border-[#333] px-4 py-6 space-y-4">
           {navLinks?.map((link) => {
             const isActive = pathname === link?.href;
             return (
@@ -99,7 +99,7 @@ export default function Header() {
                 href={link?.href}
                 onClick={() => setMobileOpen(false)}
                 className={`block py-2 text-base font-medium transition-colors ${
-                  isActive ? "text-[#C4622D]" : "text-[#5C5347]"
+                  isActive ? "text-[#C4622D]" : "text-[#D4CFC9]"
                 }`}
               >
                 {link?.label}

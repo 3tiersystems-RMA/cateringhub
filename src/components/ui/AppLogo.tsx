@@ -34,7 +34,7 @@ function AppLogo({
       )}
 
       {/* Show text if provided */}
-      {text && <span className="text-xl font-bold">{text}</span>}
+      {text && <span className="text-xl font-bold text-white">{text}</span>}
     </div>
   );
 }
