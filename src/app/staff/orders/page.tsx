@@ -7,8 +7,8 @@ import AppLogo from '@/components/ui/AppLogo';
 import AppIcon from '@/components/ui/AppIcon';
 import Link from 'next/link';
 
-type PaymentStatus = 'pending' | 'paid' | 'failed';
-type FulfillmentStatus = 'new' | 'confirmed' | 'preparing' | 'ready' | 'delivered';
+type PaymentStatus = 'pending' | 'paid' | 'failed' | 'awaiting_payment' | 'refunded';
+type FulfillmentStatus = 'new' | 'confirmed' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
 
 interface OrderItem {
   id: string;
@@ -38,16 +38,29 @@ interface Order {
   updated_at: string;
 }
 
+interface OrderUpdateState {
+  fulfillmentSaving: boolean;
+  paymentSaving: boolean;
+  fulfillmentSuccess: boolean;
+  paymentSuccess: boolean;
+  fulfillmentError: string;
+  paymentError: string;
+}
+
 const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
   pending: 'Pending',
   paid: 'Paid',
   failed: 'Failed',
+  awaiting_payment: 'Awaiting Payment',
+  refunded: 'Refunded',
 };
 
 const PAYMENT_STATUS_COLORS: Record<PaymentStatus, string> = {
   pending: 'bg-amber-100 text-amber-700 border-amber-200',
   paid: 'bg-green-100 text-green-700 border-green-200',
   failed: 'bg-red-100 text-red-700 border-red-200',
+  awaiting_payment: 'bg-blue-100 text-blue-700 border-blue-200',
+  refunded: 'bg-gray-100 text-gray-600 border-gray-200',
 };
 
 const FULFILLMENT_STATUS_LABELS: Record<FulfillmentStatus, string> = {
@@ -56,6 +69,7 @@ const FULFILLMENT_STATUS_LABELS: Record<FulfillmentStatus, string> = {
   preparing: 'Preparing',
   ready: 'Ready',
   delivered: 'Delivered',
+  cancelled: 'Cancelled',
 };
 
 const FULFILLMENT_STATUS_COLORS: Record<FulfillmentStatus, string> = {
@@ -64,9 +78,11 @@ const FULFILLMENT_STATUS_COLORS: Record<FulfillmentStatus, string> = {
   preparing: 'bg-orange-100 text-orange-700 border-orange-200',
   ready: 'bg-teal-100 text-teal-700 border-teal-200',
   delivered: 'bg-green-100 text-green-700 border-green-200',
+  cancelled: 'bg-red-100 text-red-600 border-red-200',
 };
 
-const FULFILLMENT_OPTIONS: FulfillmentStatus[] = ['new', 'confirmed', 'preparing', 'ready', 'delivered'];
+const FULFILLMENT_OPTIONS: FulfillmentStatus[] = ['new', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled'];
+const PAYMENT_OPTIONS: PaymentStatus[] = ['awaiting_payment', 'paid', 'refunded', 'pending', 'failed'];
 
 export default function StaffOrdersPage() {
   const router = useRouter();
@@ -76,7 +92,9 @@ export default function StaffOrdersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
-  const [updatingId, setUpdatingId] = useState<string | null>(null);
+
+  // Per-order update state
+  const [orderUpdateStates, setOrderUpdateStates] = useState<Record<string, OrderUpdateState>>({});
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -118,8 +136,26 @@ export default function StaffOrdersPage() {
     }
   }, [supabase]);
 
+  const getOrderUpdateState = (orderId: string): OrderUpdateState => {
+    return orderUpdateStates[orderId] || {
+      fulfillmentSaving: false,
+      paymentSaving: false,
+      fulfillmentSuccess: false,
+      paymentSuccess: false,
+      fulfillmentError: '',
+      paymentError: '',
+    };
+  };
+
+  const setOrderUpdateField = (orderId: string, fields: Partial<OrderUpdateState>) => {
+    setOrderUpdateStates((prev) => ({
+      ...prev,
+      [orderId]: { ...getOrderUpdateState(orderId), ...fields },
+    }));
+  };
+
   const handleFulfillmentUpdate = async (orderId: string, newStatus: FulfillmentStatus) => {
-    setUpdatingId(orderId);
+    setOrderUpdateField(orderId, { fulfillmentSaving: true, fulfillmentSuccess: false, fulfillmentError: '' });
     try {
       const { error: updateError } = await supabase
         .from('orders')
@@ -127,14 +163,38 @@ export default function StaffOrdersPage() {
         .eq('id', orderId);
 
       if (updateError) {
-        console.error('Update error:', updateError.message);
+        setOrderUpdateField(orderId, { fulfillmentSaving: false, fulfillmentError: updateError.message });
         return;
       }
       setOrders((prev) =>
         prev.map((o) => (o.id === orderId ? { ...o, fulfillment_status: newStatus } : o))
       );
-    } finally {
-      setUpdatingId(null);
+      setOrderUpdateField(orderId, { fulfillmentSaving: false, fulfillmentSuccess: true });
+      setTimeout(() => setOrderUpdateField(orderId, { fulfillmentSuccess: false }), 2500);
+    } catch (err) {
+      setOrderUpdateField(orderId, { fulfillmentSaving: false, fulfillmentError: 'Update failed' });
+    }
+  };
+
+  const handlePaymentUpdate = async (orderId: string, newStatus: PaymentStatus) => {
+    setOrderUpdateField(orderId, { paymentSaving: true, paymentSuccess: false, paymentError: '' });
+    try {
+      const { error: updateError } = await supabase
+        .from('orders')
+        .update({ payment_status: newStatus })
+        .eq('id', orderId);
+
+      if (updateError) {
+        setOrderUpdateField(orderId, { paymentSaving: false, paymentError: updateError.message });
+        return;
+      }
+      setOrders((prev) =>
+        prev.map((o) => (o.id === orderId ? { ...o, payment_status: newStatus } : o))
+      );
+      setOrderUpdateField(orderId, { paymentSaving: false, paymentSuccess: true });
+      setTimeout(() => setOrderUpdateField(orderId, { paymentSuccess: false }), 2500);
+    } catch (err) {
+      setOrderUpdateField(orderId, { paymentSaving: false, paymentError: 'Update failed' });
     }
   };
 
@@ -233,8 +293,10 @@ export default function StaffOrdersPage() {
               className="px-3 py-2.5 border border-[#DDD5C8] rounded-xl text-sm text-[#1A1612] bg-white focus:outline-none focus:border-[#C4622D] transition-colors"
             >
               <option value="all">All Payments</option>
-              <option value="pending">Pending</option>
+              <option value="awaiting_payment">Awaiting Payment</option>
               <option value="paid">Paid</option>
+              <option value="refunded">Refunded</option>
+              <option value="pending">Pending</option>
               <option value="failed">Failed</option>
             </select>
             {/* Fulfillment Filter */}
@@ -249,6 +311,7 @@ export default function StaffOrdersPage() {
               <option value="preparing">Preparing</option>
               <option value="ready">Ready</option>
               <option value="delivered">Delivered</option>
+              <option value="cancelled">Cancelled</option>
             </select>
           </div>
         </div>
@@ -299,6 +362,7 @@ export default function StaffOrdersPage() {
                   ? order.items.slice(0, 2).map((i) => `${i.name} x${i.quantity}`).join(', ') +
                     (order.items.length > 2 ? ` +${order.items.length - 2} more` : '')
                   : 'No items';
+                const updateState = getOrderUpdateState(order.id);
 
                 return (
                   <div key={order.id}>
@@ -341,25 +405,66 @@ export default function StaffOrdersPage() {
                         <span className="text-sm font-bold text-[#1A1612]">{formatCurrency(order.total)}</span>
                       </div>
 
-                      {/* Payment Status */}
-                      <div className="flex items-center">
-                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${PAYMENT_STATUS_COLORS[order.payment_status]}`}>
-                          {PAYMENT_STATUS_LABELS[order.payment_status]}
-                        </span>
+                      {/* Payment Status — editable dropdown */}
+                      <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex flex-col items-start gap-0.5">
+                          <select
+                            value={order.payment_status}
+                            onChange={(e) => handlePaymentUpdate(order.id, e.target.value as PaymentStatus)}
+                            disabled={updateState.paymentSaving}
+                            className={`text-xs font-semibold border rounded-full px-2.5 py-1 focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30 transition-colors cursor-pointer disabled:opacity-50 ${PAYMENT_STATUS_COLORS[order.payment_status]}`}
+                          >
+                            {PAYMENT_OPTIONS.map((s) => (
+                              <option key={s} value={s}>{PAYMENT_STATUS_LABELS[s]}</option>
+                            ))}
+                          </select>
+                          {updateState.paymentSaving && (
+                            <span className="text-xs text-[#8C8278] flex items-center gap-1">
+                              <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                              Saving...
+                            </span>
+                          )}
+                          {updateState.paymentSuccess && (
+                            <span className="text-xs text-green-600 flex items-center gap-1 font-medium">
+                              <svg className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                              Saved
+                            </span>
+                          )}
+                          {updateState.paymentError && (
+                            <span className="text-xs text-red-500">{updateState.paymentError}</span>
+                          )}
+                        </div>
                       </div>
 
-                      {/* Fulfillment Status */}
-                      <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
-                        <select
-                          value={order.fulfillment_status}
-                          onChange={(e) => handleFulfillmentUpdate(order.id, e.target.value as FulfillmentStatus)}
-                          disabled={updatingId === order.id}
-                          className={`text-xs font-semibold border rounded-full px-2.5 py-1 focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30 transition-colors cursor-pointer disabled:opacity-50 ${FULFILLMENT_STATUS_COLORS[order.fulfillment_status]}`}
-                        >
-                          {FULFILLMENT_OPTIONS.map((s) => (
-                            <option key={s} value={s}>{FULFILLMENT_STATUS_LABELS[s]}</option>
-                          ))}
-                        </select>
+                      {/* Fulfillment Status — editable dropdown */}
+                      <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex flex-col items-start gap-0.5">
+                          <select
+                            value={order.fulfillment_status}
+                            onChange={(e) => handleFulfillmentUpdate(order.id, e.target.value as FulfillmentStatus)}
+                            disabled={updateState.fulfillmentSaving}
+                            className={`text-xs font-semibold border rounded-full px-2.5 py-1 focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30 transition-colors cursor-pointer disabled:opacity-50 ${FULFILLMENT_STATUS_COLORS[order.fulfillment_status]}`}
+                          >
+                            {FULFILLMENT_OPTIONS.map((s) => (
+                              <option key={s} value={s}>{FULFILLMENT_STATUS_LABELS[s]}</option>
+                            ))}
+                          </select>
+                          {updateState.fulfillmentSaving && (
+                            <span className="text-xs text-[#8C8278] flex items-center gap-1">
+                              <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                              Saving...
+                            </span>
+                          )}
+                          {updateState.fulfillmentSuccess && (
+                            <span className="text-xs text-green-600 flex items-center gap-1 font-medium">
+                              <svg className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                              Saved
+                            </span>
+                          )}
+                          {updateState.fulfillmentError && (
+                            <span className="text-xs text-red-500">{updateState.fulfillmentError}</span>
+                          )}
+                        </div>
                       </div>
 
                       {/* Date */}
