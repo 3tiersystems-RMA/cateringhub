@@ -34,7 +34,7 @@ export default function CartSidebar() {
   const [phoneError, setPhoneError] = useState("");
   const [orderRef, setOrderRef] = useState("");
 
-  const tax = subtotal * 0.08;
+  const tax = subtotal * 0.15;
   const delivery = subtotal > 0 ? 15 : 0;
   const total = subtotal + tax + delivery;
 
@@ -258,7 +258,7 @@ export default function CartSidebar() {
                     <span>R{delivery.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-[#5C5347]">
-                    <span>Tax (8%)</span>
+                    <span>Tax (15%)</span>
                     <span>R{tax.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between font-semibold text-[#1A1612] text-base pt-2 border-t border-[#DDD5C8]">
