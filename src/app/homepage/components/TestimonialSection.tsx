@@ -8,7 +8,7 @@ const testimonials = [
 {
   id: 1,
   quote:
-  "CateringHub made our daughter\'s wedding absolutely magical. Every dish was a conversation starter — guests are still talking about the lamb three months later.",
+  "Cardamom Kitchen made our daughter\'s wedding absolutely magical. Every dish was a conversation starter — guests are still talking about the lamb three months later.",
   name: "Patricia & James Holloway",
   role: "Wedding · 180 guests",
   avatar: "https://img.rocket.new/generatedImages/rocket_gen_img_1a76b71b8-1766735364749.png",
@@ -18,7 +18,7 @@ const testimonials = [
 {
   id: 2,
   quote:
-  "We've used CateringHub for our quarterly board lunches for two years. Consistent quality, always on time, and the team is a pleasure to work with.",
+  "We've used Cardamom Kitchen for our quarterly board lunches for two years. Consistent quality, always on time, and the team is a pleasure to work with.",
   name: "Marcus Webb",
   role: "VP Operations · TechNova Inc.",
   avatar: "https://img.rocket.new/generatedImages/rocket_gen_img_1ddae73d2-1763292681856.png",
