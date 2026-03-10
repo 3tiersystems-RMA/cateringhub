@@ -34,9 +34,7 @@ export default function Header() {
         {/* Logo */}
         <Link href="/homepage" className="flex items-center gap-2 group">
           <AppLogo
-            size={64}
-            iconName="FireIcon"
-            text="CateringHub"
+            size={80}
           />
         </Link>
 
