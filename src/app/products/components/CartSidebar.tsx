@@ -4,24 +4,18 @@ import { useState } from "react";
 import AppImage from "@/components/ui/AppImage";
 import Icon from "@/components/ui/AppIcon";
 import { useCart } from "./CartContext";
+import { createClient } from "@/lib/supabase/client";
 
-type CheckoutStep = "cart" | "details" | "payment" | "confirmation";
+type CheckoutStep = "cart" | "details" | "payment" | "eft-success" | "confirmation";
 
-type PaymentMethod = "all" | "cc" | "ef" | "eft";
+type PaymentMethod = "eft" | "payfast";
 
-interface PaymentMethodOption {
-  id: PaymentMethod;
-  label: string;
-  description: string;
-  icon: string;
-}
-
-const PAYMENT_METHODS: PaymentMethodOption[] = [
-  { id: "all", label: "All Methods", description: "Card, EFT, Instant EFT & more", icon: "CreditCardIcon" },
-  { id: "cc", label: "Credit / Debit Card", description: "Visa, Mastercard, Amex", icon: "CreditCardIcon" },
-  { id: "ef", label: "EFT", description: "Electronic Funds Transfer", icon: "BanknotesIcon" },
-  { id: "eft", label: "Instant EFT", description: "Pay instantly via your bank", icon: "BoltIcon" },
-];
+const BANK_DETAILS = {
+  bank: "Standard Bank",
+  accountName: "Cardamom Kitchen",
+  accountNumber: "000 000 0000",
+  branchCode: "051 001",
+};
 
 export default function CartSidebar() {
   const { items, removeItem, updateQty, subtotal, totalItems, isOpen, setIsOpen, clearCart } = useCart();
@@ -34,10 +28,11 @@ export default function CartSidebar() {
     address: "",
     notes: "",
   });
-  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>("all");
+  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>("eft");
   const [processing, setProcessing] = useState(false);
   const [payError, setPayError] = useState("");
   const [phoneError, setPhoneError] = useState("");
+  const [orderRef, setOrderRef] = useState("");
 
   const tax = subtotal * 0.08;
   const delivery = subtotal > 0 ? 15 : 0;
@@ -45,7 +40,6 @@ export default function CartSidebar() {
 
   const handleDetailsSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Validate phone: must be exactly 10 digits starting with 0
     const stripped = form.phone.replace(/\D/g, "");
     if (stripped.length !== 10) {
       setPhoneError("Mobile number must be exactly 10 digits");
@@ -59,76 +53,52 @@ export default function CartSidebar() {
     setStep("payment");
   };
 
-  const handlePayFastCheckout = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleEFTConfirm = async () => {
     setProcessing(true);
     setPayError("");
 
     try {
-      const itemNames = items.map((i) => `${i.product.name} x${i.quantity}`).join(", ");
+      const supabase = createClient();
+      const ref = `CK-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
 
-      const res = await fetch("/api/payfast/initiate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: form.name,
-          email: form.email,
-          phone: form.phone,
-          amount: total.toFixed(2),
-          itemName: "CateringHub Order",
-          itemDescription: itemNames.slice(0, 255),
-          // Extended order data for ITN webhook
-          items: items.map((i) => ({
-            id: i.product.id,
-            name: i.product.name,
-            quantity: i.quantity,
-            price: i.product.price,
-            unit: i.product.unit,
-          })),
-          subtotal,
-          deliveryFee: delivery,
-          total,
-          eventDate: form.date,
-          deliveryAddress: form.address,
-          notes: form.notes,
-        }),
+      const { error } = await supabase.from("orders").insert({
+        m_payment_id: ref,
+        customer_name: form.name,
+        customer_email: form.email,
+        customer_phone: form.phone,
+        items: items.map((i) => ({
+          id: i.product.id,
+          name: i.product.name,
+          quantity: i.quantity,
+          price: i.product.price,
+          unit: i.product.unit,
+        })),
+        subtotal,
+        delivery_fee: delivery,
+        total,
+        payment_status: "awaiting_payment",
+        payment_method: "eft",
+        event_date: form.date || null,
+        delivery_address: form.address,
+        notes: form.notes,
       });
 
-      const data = await res.json();
+      if (error) throw new Error(error.message);
 
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || "Failed to initiate payment");
-      }
-
-      // Build and auto-submit the PayFast form
-      const form_el = document.createElement("form");
-      form_el.method = "POST";
-      form_el.action = data.actionUrl;
-
-      // Add payment method if not "all"
-      if (selectedMethod !== "all") {
-        const pmInput = document.createElement("input");
-        pmInput.type = "hidden";
-        pmInput.name = "payment_method";
-        pmInput.value = selectedMethod;
-        form_el.appendChild(pmInput);
-      }
-
-      Object.entries(data.formData as Record<string, string>).forEach(([key, value]) => {
-        const input = document.createElement("input");
-        input.type = "hidden";
-        input.name = key;
-        input.value = value;
-        form_el.appendChild(input);
-      });
-
-      document.body.appendChild(form_el);
+      setOrderRef(ref);
       clearCart();
-      form_el.submit();
+      setStep("eft-success");
     } catch (err) {
-      setPayError(err instanceof Error ? err.message : "Payment initiation failed. Please try again.");
+      setPayError(err instanceof Error ? err.message : "Failed to place order. Please try again.");
+    } finally {
       setProcessing(false);
     }
+  };
+
+  // PayFast handler kept in code — button is inactive (coming soon)
+  const handlePayFastCheckout = async (e: React.FormEvent) => {
+    e.preventDefault();
+    // PayFast integration coming soon — button is disabled
   };
 
   if (!isOpen) return null;
@@ -147,7 +117,7 @@ export default function CartSidebar() {
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-[#DDD5C8]">
           <div className="flex items-center gap-3">
-            {step !== "cart" && step !== "confirmation" && (
+            {step !== "cart" && step !== "confirmation" && step !== "eft-success" && (
               <button
                 onClick={() => setStep(step === "payment" ? "details" : "cart")}
                 className="p-1.5 rounded-lg hover:bg-[#EDE7DA] transition-colors mr-1"
@@ -160,6 +130,7 @@ export default function CartSidebar() {
               {step === "cart" && `Order Summary (${totalItems})`}
               {step === "details" && "Event Details"}
               {step === "payment" && "Secure Payment"}
+              {step === "eft-success" && "Order Placed!"}
               {step === "confirmation" && "Order Confirmed!"}
             </h2>
           </div>
@@ -173,7 +144,7 @@ export default function CartSidebar() {
         </div>
 
         {/* Progress Steps */}
-        {step !== "confirmation" && (
+        {step !== "confirmation" && step !== "eft-success" && (
           <div className="px-6 py-3 border-b border-[#DDD5C8] flex items-center gap-2">
             {(["cart", "details", "payment"] as CheckoutStep[]).map((s, i) => (
               <div key={s} className="flex items-center gap-2">
@@ -212,7 +183,7 @@ export default function CartSidebar() {
                     onClick={() => setIsOpen(false)}
                     className="text-xs font-semibold text-[#C4622D] hover:underline"
                   >
-                    Browse the menu →
+                    Browse the menu &rarr;
                   </button>
                 </div>
               ) : (
@@ -359,7 +330,6 @@ export default function CartSidebar() {
                     inputMode="numeric"
                     value={form.phone}
                     onChange={(e) => {
-                      // Allow only digits, max 10
                       const digits = e.target.value.replace(/\D/g, "").slice(0, 10);
                       setForm({ ...form, phone: digits });
                       setPhoneError("");
@@ -429,15 +399,8 @@ export default function CartSidebar() {
 
         {/* ─── STEP: PAYMENT ─── */}
         {step === "payment" && (
-          <form onSubmit={handlePayFastCheckout} className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex-1 flex flex-col overflow-hidden">
             <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
-              {/* Security badge */}
-              <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
-                <Icon name="ShieldCheckIcon" size={16} className="text-green-600 flex-shrink-0" />
-                <p className="text-xs text-green-700 font-medium">
-                  256-bit SSL encrypted · Powered by PayFast · PCI DSS Compliant
-                </p>
-              </div>
 
               {/* Payment summary card */}
               <div className="bg-gradient-to-br from-[#1A1612] to-[#3D342D] rounded-2xl p-5 text-white relative overflow-hidden">
@@ -451,8 +414,8 @@ export default function CartSidebar() {
                     R{total.toFixed(2)}
                   </p>
                   <div className="mt-4 flex items-center gap-2">
-                    <div className="w-8 h-5 bg-[#D4A853] rounded-sm opacity-80" />
-                    <p className="text-sm text-white/60 font-mono tracking-widest">PayFast</p>
+                    <Icon name="BuildingLibraryIcon" size={18} className="text-[#D4A853]" />
+                    <p className="text-sm text-white/60 font-mono tracking-widest">Manual EFT</p>
                   </div>
                 </div>
               </div>
@@ -463,41 +426,81 @@ export default function CartSidebar() {
                   Select Payment Method
                 </p>
                 <div className="space-y-2">
-                  {PAYMENT_METHODS.map((method) => (
-                    <button
-                      key={method.id}
-                      type="button"
-                      onClick={() => setSelectedMethod(method.id)}
-                      className={`w-full flex items-center gap-3 p-3.5 rounded-xl border-2 transition-all text-left ${
-                        selectedMethod === method.id
-                          ? "border-[#C4622D] bg-[#C4622D]/5"
-                          : "border-[#DDD5C8] bg-white hover:border-[#C4622D]/40"
-                      }`}
-                    >
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                        selectedMethod === method.id ? "bg-[#C4622D] text-white" : "bg-[#EDE7DA] text-[#8C8278]"
-                      }`}>
-                        <Icon name={method.icon} size={16} />
+
+                  {/* Manual EFT — Active */}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedMethod("eft")}
+                    className={`w-full flex items-center gap-3 p-3.5 rounded-xl border-2 transition-all text-left ${
+                      selectedMethod === "eft" ?"border-[#C4622D] bg-[#C4622D]/5" :"border-[#DDD5C8] bg-white hover:border-[#C4622D]/40"
+                    }`}
+                  >
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                      selectedMethod === "eft" ? "bg-[#C4622D] text-white" : "bg-[#EDE7DA] text-[#8C8278]"
+                    }`}>
+                      <Icon name="BuildingLibraryIcon" size={16} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-semibold ${
+                        selectedMethod === "eft" ? "text-[#C4622D]" : "text-[#1A1612]"
+                      }`}>Manual EFT</p>
+                      <p className="text-xs text-[#8C8278]">Bank transfer to Cardamom Kitchen</p>
+                    </div>
+                    <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 ${
+                      selectedMethod === "eft" ?"border-[#C4622D] bg-[#C4622D]" :"border-[#DDD5C8]"
+                    }`}>
+                      {selectedMethod === "eft" && (
+                        <div className="w-full h-full rounded-full bg-white scale-50" />
+                      )}
+                    </div>
+                  </button>
+
+                  {/* PayFast — Inactive / Coming Soon */}
+                  <div className="w-full flex items-center gap-3 p-3.5 rounded-xl border-2 border-[#DDD5C8] bg-[#F5F0E8]/60 opacity-60 cursor-not-allowed">
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-[#EDE7DA] text-[#B5ADA5]">
+                      <Icon name="CreditCardIcon" size={16} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-semibold text-[#B5ADA5]">PayFast</p>
+                        <span className="text-[10px] font-bold uppercase tracking-wider bg-[#DDD5C8] text-[#8C8278] px-2 py-0.5 rounded-full">
+                          Coming Soon
+                        </span>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-sm font-semibold ${
-                          selectedMethod === method.id ? "text-[#C4622D]" : "text-[#1A1612]"
-                        }`}>{method.label}</p>
-                        <p className="text-xs text-[#8C8278]">{method.description}</p>
-                      </div>
-                      <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 ${
-                        selectedMethod === method.id
-                          ? "border-[#C4622D] bg-[#C4622D]"
-                          : "border-[#DDD5C8]"
-                      }`}>
-                        {selectedMethod === method.id && (
-                          <div className="w-full h-full rounded-full bg-white scale-50" />
-                        )}
-                      </div>
-                    </button>
-                  ))}
+                      <p className="text-xs text-[#B5ADA5]">Card, EFT, Instant EFT &amp; more</p>
+                    </div>
+                    <div className="w-4 h-4 rounded-full border-2 border-[#DDD5C8] flex-shrink-0" />
+                  </div>
+
                 </div>
               </div>
+
+              {/* Bank Details — shown when EFT selected */}
+              {selectedMethod === "eft" && (
+                <div className="bg-white border border-[#DDD5C8] rounded-2xl p-4 space-y-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Icon name="BuildingLibraryIcon" size={15} className="text-[#C4622D]" />
+                    <p className="text-xs font-semibold text-[#5C5347] uppercase tracking-wider">Bank Details</p>
+                  </div>
+                  <div className="space-y-2 text-sm">
+                    {[
+                      { label: "Bank", value: BANK_DETAILS.bank },
+                      { label: "Account Name", value: BANK_DETAILS.accountName },
+                      { label: "Account Number", value: BANK_DETAILS.accountNumber },
+                      { label: "Branch Code", value: BANK_DETAILS.branchCode },
+                      { label: "Reference", value: form.name ? `${form.name.split(" ")[0].toUpperCase()}-ORDER` : "Your Name + ORDER" },
+                    ].map(({ label, value }) => (
+                      <div key={label} className="flex justify-between items-center py-1.5 border-b border-[#F0EBE3] last:border-0">
+                        <span className="text-[#8C8278] text-xs">{label}</span>
+                        <span className="font-semibold text-[#1A1612] font-mono text-xs">{value}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-[#8C8278] bg-[#F5F0E8] rounded-lg px-3 py-2 leading-relaxed">
+                    ⚠️ Use your order reference as the payment reference. Your order will be confirmed once payment is received.
+                  </p>
+                </div>
+              )}
 
               {/* Order total recap */}
               <div className="bg-[#EDE7DA] rounded-2xl p-4 space-y-1.5 text-sm">
@@ -517,34 +520,123 @@ export default function CartSidebar() {
             </div>
 
             <div className="px-6 py-5 border-t border-[#DDD5C8]">
-              <button
-                type="submit"
-                disabled={processing}
-                className="w-full bg-[#C4622D] text-white py-3.5 rounded-full font-semibold text-sm hover:bg-[#A04E22] transition-all shadow-terra disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {processing ? (
-                  <>
-                    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-                    </svg>
-                    Redirecting to PayFast...
-                  </>
-                ) : (
-                  <>
+              {selectedMethod === "eft" ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleEFTConfirm}
+                    disabled={processing}
+                    className="w-full bg-[#C4622D] text-white py-3.5 rounded-full font-semibold text-sm hover:bg-[#A04E22] transition-all shadow-terra disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {processing ? (
+                      <>
+                        <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                        </svg>
+                        Placing Order...
+                      </>
+                    ) : (
+                      <>
+                        <Icon name="BuildingLibraryIcon" size={14} />
+                        Confirm EFT Order
+                      </>
+                    )}
+                  </button>
+                  <p className="text-xs text-center text-[#B5ADA5] mt-3">
+                    Your order will be reserved while we await your EFT payment
+                  </p>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    disabled
+                    className="w-full bg-[#B5ADA5] text-white py-3.5 rounded-full font-semibold text-sm cursor-not-allowed opacity-60 flex items-center justify-center gap-2"
+                  >
                     <Icon name="LockClosedIcon" size={14} />
-                    Pay R{total.toFixed(2)} via PayFast
-                  </>
-                )}
-              </button>
-              <p className="text-xs text-center text-[#B5ADA5] mt-3">
-                You will be redirected to PayFast to complete your payment securely
-              </p>
+                    Pay via PayFast — Coming Soon
+                  </button>
+                  <p className="text-xs text-center text-[#B5ADA5] mt-3">
+                    PayFast integration is coming soon. Please use Manual EFT.
+                  </p>
+                </>
+              )}
             </div>
-          </form>
+          </div>
         )}
 
-        {/* ─── STEP: CONFIRMATION (fallback, normally handled by /checkout/success) ─── */}
+        {/* ─── STEP: EFT SUCCESS ─── */}
+        {step === "eft-success" && (
+          <div className="flex-1 overflow-y-auto px-6 py-8 flex flex-col gap-6">
+            {/* Success icon */}
+            <div className="flex flex-col items-center text-center gap-3">
+              <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center">
+                <Icon name="CheckIcon" size={36} className="text-green-600" />
+              </div>
+              <div>
+                <h3 className="font-display text-xl font-semibold text-[#1A1612] mb-2">
+                  Order Placed Successfully!
+                </h3>
+                <p className="text-[#8C8278] text-sm leading-relaxed">
+                  Thank you, {form.name || "valued customer"}! Your order has been reserved and is awaiting your EFT payment.
+                </p>
+              </div>
+            </div>
+
+            {/* Order Reference */}
+            <div className="bg-[#C4622D]/10 border border-[#C4622D]/30 rounded-2xl p-4 text-center">
+              <p className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-1">Order Reference</p>
+              <p className="text-xl font-mono font-bold text-[#C4622D]">{orderRef}</p>
+              <p className="text-xs text-[#8C8278] mt-1">Use this as your payment reference</p>
+            </div>
+
+            {/* Bank Details Summary */}
+            <div className="bg-white border border-[#DDD5C8] rounded-2xl p-4 space-y-3">
+              <div className="flex items-center gap-2 mb-1">
+                <Icon name="BuildingLibraryIcon" size={15} className="text-[#C4622D]" />
+                <p className="text-xs font-semibold text-[#5C5347] uppercase tracking-wider">Bank Details</p>
+              </div>
+              <div className="space-y-2">
+                {[
+                  { label: "Bank", value: BANK_DETAILS.bank },
+                  { label: "Account Name", value: BANK_DETAILS.accountName },
+                  { label: "Account Number", value: BANK_DETAILS.accountNumber },
+                  { label: "Branch Code", value: BANK_DETAILS.branchCode },
+                  { label: "Reference", value: orderRef },
+                ].map(({ label, value }) => (
+                  <div key={label} className="flex justify-between items-center py-1.5 border-b border-[#F0EBE3] last:border-0">
+                    <span className="text-[#8C8278] text-xs">{label}</span>
+                    <span className="font-semibold text-[#1A1612] font-mono text-xs">{value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Instructions */}
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 space-y-2">
+              <div className="flex items-center gap-2">
+                <Icon name="InformationCircleIcon" size={15} className="text-amber-600 flex-shrink-0" />
+                <p className="text-xs font-semibold text-amber-800">Payment Instructions</p>
+              </div>
+              <ul className="text-xs text-amber-700 space-y-1.5 leading-relaxed">
+                <li>• Log in to your bank and make an EFT payment to the account above.</li>
+                <li>• Use <span className="font-bold">{orderRef}</span> as your payment reference.</li>
+                <li>• Your order will be confirmed once we receive your payment.</li>
+                <li>• A confirmation email will be sent to <span className="font-medium">{form.email}</span>.</li>
+              </ul>
+            </div>
+
+            <button
+              onClick={() => { setIsOpen(false); setStep("cart"); }}
+              className="w-full bg-[#C4622D] text-white py-3.5 rounded-full font-semibold text-sm hover:bg-[#A04E22] transition-all"
+            >
+              Back to Menu
+            </button>
+          </div>
+        )}
+
+        {/* ─── STEP: CONFIRMATION (fallback) ─── */}
         {step === "confirmation" && (
           <div className="flex-1 flex flex-col items-center justify-center px-6 py-10 text-center gap-6">
             <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center">
