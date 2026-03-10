@@ -78,7 +78,7 @@ function StaffLoginForm() {
           <div className="flex justify-center mb-4">
             <AppLogo size={64} iconName="FireIcon" text="CateringHub" />
           </div>
-          <h1 className="text-2xl font-bold text-[#1A1612] mt-4">Staff Portal</h1>
+          <h1 className="text-2xl font-bold text-[#8C8278] mt-4">Staff Portal</h1>
           <p className="text-[#8C8278] text-sm mt-1">Sign in to access the workspace</p>
         </div>
 
