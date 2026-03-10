@@ -343,7 +343,7 @@ function ProductsContent() {
             {[
               { icon: "TruckIcon" as const, title: "Delivery Included", desc: "Free delivery on orders over R200. R15 flat fee under R200." },
               { icon: "ClockIcon" as const, title: "48-Hour Lead Time", desc: "Most orders require 48 hours notice. Rush orders available for a fee." },
-              { icon: "PhoneIcon" as const, title: "Custom Quotes", desc: "Need something special? Call us at (555) 123-4567 for a custom menu." },
+              { icon: "PhoneIcon" as const, title: "Custom Quotes", desc: "Need something special? Call us at 087 265 2262 for a custom menu." },
             ].map((item) => (
               <div key={item.title} className="flex gap-4">
                 <div className="w-10 h-10 rounded-2xl bg-[#C4622D]/10 border border-[#C4622D]/20 flex items-center justify-center flex-shrink-0">

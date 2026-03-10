@@ -22,11 +22,11 @@ export default function ContactBanner() {
 
           <div className="flex flex-col sm:flex-row gap-4">
             <a
-              href="tel:+15551234567"
+              href="tel:+27872652262"
               className="inline-flex items-center gap-3 bg-white/10 border border-white/15 text-white px-6 py-3.5 rounded-full text-sm font-medium hover:bg-white/15 transition-all"
             >
               <Icon name="PhoneIcon" size={16} />
-              (555) 123-4567
+              087 265 2262
             </a>
             <Link
               href="/products"
