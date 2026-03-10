@@ -71,7 +71,7 @@ function StaffLoginForm() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F5F0E8] flex items-center justify-center px-4">
+    <div className="min-h-screen bg-black flex items-center justify-center px-4">
       <div className="w-full max-w-md">
         {/* Header */}
         <div className="text-center mb-8">
@@ -191,7 +191,7 @@ function StaffLoginForm() {
 export default function StaffLoginPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-[#F5F0E8] flex items-center justify-center">
+      <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="animate-spin h-8 w-8 border-4 border-[#C4622D] border-t-transparent rounded-full" />
       </div>
     }>
