@@ -344,13 +344,13 @@ export default function StaffOrdersPage() {
           <div className="bg-white rounded-2xl border border-[#DDD5C8] overflow-hidden">
             {/* Table Header */}
             <div className="hidden lg:grid grid-cols-[1fr_1.5fr_1fr_auto_auto_auto_auto] gap-4 px-5 py-3 bg-[#F5F0E8] border-b border-[#DDD5C8] text-xs font-semibold text-[#8C8278] uppercase tracking-wider">
-              <span>Order ID</span>
-              <span>Customer</span>
-              <span>Items</span>
-              <span>Total</span>
-              <span>Payment</span>
-              <span>Fulfillment</span>
-              <span>Date</span>
+              <span className="text-left">Order ID</span>
+              <span className="text-left">Customer</span>
+              <span className="text-left">Items</span>
+              <span className="text-left">Total</span>
+              <span className="text-left">Payment</span>
+              <span className="text-left">Fulfillment</span>
+              <span className="text-left">Date</span>
             </div>
 
             {/* Order Rows */}
