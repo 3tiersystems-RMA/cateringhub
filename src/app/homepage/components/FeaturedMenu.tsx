@@ -98,48 +98,11 @@ export default function FeaturedMenu() {
     return () => observer?.disconnect();
   }, []);
 
-  if (loading) {
-    return (
-      <section className="py-24 md:py-32 bg-[#EDE7DA]">
-        <div className="max-w-7xl mx-auto px-4 md:px-8">
-          <div className="flex items-center justify-center py-20">
-            <svg className="animate-spin h-8 w-8 text-[#C4622D]" viewBox="0 0 24 24" fill="none">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-            </svg>
-          </div>
-        </div>
-      </section>
-    );
-  }
-
-  if (featured.length === 0) {
-    return (
-      <section className="py-24 md:py-32 bg-[#EDE7DA]">
-        <div className="max-w-7xl mx-auto px-4 md:px-8">
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
-            <div>
-              <p className="text-xs font-mono uppercase tracking-widest text-[#C4622D] mb-3">02 / Fan Favorites</p>
-              <h2 className="font-display text-4xl md:text-6xl font-semibold tracking-tight text-[#1A1612] leading-tight">
-                Menu<span className="italic text-[#8C8278]"> Highlights</span>
-              </h2>
-            </div>
-            <Link href="/products" className="inline-flex items-center gap-2 text-sm font-semibold text-[#5C5347] hover:text-[#C4622D] transition-colors border-b border-[#DDD5C8] hover:border-[#C4622D] pb-0.5 group">
-              View full menu
-              <Icon name="ArrowRightIcon" size={14} className="group-hover:translate-x-1 transition-transform" />
-            </Link>
-          </div>
-          <p className="text-[#8C8278] text-sm">No featured items at the moment. Check back soon!</p>
-        </div>
-      </section>
-    );
-  }
-
   return (
     <section ref={sectionRef} className="py-24 md:py-32 bg-[#EDE7DA] overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 md:px-8">
-        {/* Header */}
-        <div className="fm-reveal reveal hidden-init flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+        {/* Header — always visible */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
           <div>
             <p className="text-xs font-mono uppercase tracking-widest text-[#C4622D] mb-3">
               02 / Fan Favorites
@@ -158,65 +121,93 @@ export default function FeaturedMenu() {
           </Link>
         </div>
 
-        {/* Cards */}
-        <div className="flex md:grid md:grid-cols-5 gap-5 overflow-x-auto md:overflow-visible pb-4 md:pb-0 -mx-4 md:mx-0 px-4 md:px-0 snap-x snap-mandatory">
-          {featured?.map((item) => (
-            <div
-              key={item?.id}
-              className="fm-reveal reveal hidden-init group flex-shrink-0 w-60 md:w-auto snap-start bg-[#FAF7F2] border border-[#DDD5C8] rounded-3xl overflow-hidden hover:border-[#C4622D]/40 hover:-translate-y-1 hover:shadow-warm transition-all duration-400 cursor-pointer"
-            >
-              {/* Image */}
-              <div className="relative h-44 overflow-hidden">
-                <AppImage
-                  src={item?.image}
-                  alt={item?.imageAlt}
-                  fill
-                  className="object-cover grayscale group-hover:grayscale-0 group-hover:scale-105 transition-all duration-700"
-                />
-                <div className="absolute top-3 left-3 flex flex-col gap-1">
-                  {item?.badge && (
-                    <span className="text-xs font-semibold bg-[#C4622D] text-white px-2.5 py-0.5 rounded-full">
-                      {item.badge}
-                    </span>
-                  )}
-                  {item?.tags?.slice(0, 1)?.map((tag) => (
-                    <span key={tag} className="text-xs bg-[#1A1612]/70 text-white px-2.5 py-0.5 rounded-full backdrop-blur-sm">
-                      {tag}
-                    </span>
-                  ))}
+        {/* Loading skeletons */}
+        {loading && (
+          <div className="flex md:grid md:grid-cols-5 gap-5 overflow-x-auto md:overflow-visible pb-4 md:pb-0 -mx-4 md:mx-0 px-4 md:px-0">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div
+                key={i}
+                className="flex-shrink-0 w-60 md:w-auto bg-[#FAF7F2] border border-[#DDD5C8] rounded-3xl overflow-hidden animate-pulse"
+              >
+                <div className="h-44 bg-[#DDD5C8]" />
+                <div className="p-4 space-y-3">
+                  <div className="h-3 bg-[#DDD5C8] rounded w-1/3" />
+                  <div className="h-4 bg-[#DDD5C8] rounded w-3/4" />
+                  <div className="h-4 bg-[#DDD5C8] rounded w-1/2" />
                 </div>
               </div>
+            ))}
+          </div>
+        )}
 
-              {/* Info */}
-              <div className="p-4">
-                <p className="text-xs font-mono text-[#C4622D] uppercase tracking-wider mb-1">
-                  {item?.category}
-                </p>
-                <h3 className="font-display text-base font-semibold text-[#1A1612] leading-snug mb-3 line-clamp-2">
-                  {item?.name}
-                </h3>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-lg font-semibold text-[#1A1612]">
-                      R{item?.price}
-                      <span className="text-xs text-[#8C8278] font-normal ml-1">/serving</span>
-                    </p>
-                    <div className="flex items-center gap-1 mt-0.5">
-                      <Icon name="StarIcon" size={11} variant="solid" className="text-[#D4A853]" />
-                      <span className="text-xs text-[#8C8278]">{item?.rating}</span>
-                    </div>
+        {/* Empty state */}
+        {!loading && featured.length === 0 && (
+          <p className="text-[#8C8278] text-sm">
+            Our featured menu items will appear here shortly.
+          </p>
+        )}
+
+        {/* Cards */}
+        {!loading && featured.length > 0 && (
+          <div className="flex md:grid md:grid-cols-5 gap-5 overflow-x-auto md:overflow-visible pb-4 md:pb-0 -mx-4 md:mx-0 px-4 md:px-0 snap-x snap-mandatory">
+            {featured?.map((item) => (
+              <div
+                key={item?.id}
+                className="fm-reveal reveal hidden-init group flex-shrink-0 w-60 md:w-auto snap-start bg-[#FAF7F2] border border-[#DDD5C8] rounded-3xl overflow-hidden hover:border-[#C4622D]/40 hover:-translate-y-1 hover:shadow-warm transition-all duration-400 cursor-pointer"
+              >
+                {/* Image */}
+                <div className="relative h-44 overflow-hidden">
+                  <AppImage
+                    src={item?.image}
+                    alt={item?.imageAlt}
+                    fill
+                    className="object-cover grayscale group-hover:grayscale-0 group-hover:scale-105 transition-all duration-700"
+                  />
+                  <div className="absolute top-3 left-3 flex flex-col gap-1">
+                    {item?.badge && (
+                      <span className="text-xs font-semibold bg-[#C4622D] text-white px-2.5 py-0.5 rounded-full">
+                        {item.badge}
+                      </span>
+                    )}
+                    {item?.tags?.slice(0, 1)?.map((tag) => (
+                      <span key={tag} className="text-xs bg-[#1A1612]/70 text-white px-2.5 py-0.5 rounded-full backdrop-blur-sm">
+                        {tag}
+                      </span>
+                    ))}
                   </div>
-                  <Link
-                    href="/products"
-                    className="w-8 h-8 rounded-full bg-[#C4622D] flex items-center justify-center hover:bg-[#A04E22] transition-colors shadow-terra"
-                  >
-                    <Icon name="PlusIcon" size={14} className="text-white" />
-                  </Link>
+                </div>
+
+                {/* Info */}
+                <div className="p-4">
+                  <p className="text-xs font-mono text-[#C4622D] uppercase tracking-wider mb-1">
+                    {item?.category}
+                  </p>
+                  <h3 className="font-display text-base font-semibold text-[#1A1612] leading-snug mb-3 line-clamp-2">
+                    {item?.name}
+                  </h3>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-lg font-semibold text-[#1A1612]">
+                        R{item?.price}
+                        <span className="text-xs text-[#8C8278] font-normal ml-1">/serving</span>
+                      </p>
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <Icon name="StarIcon" size={11} variant="solid" className="text-[#D4A853]" />
+                        <span className="text-xs text-[#8C8278]">{item?.rating}</span>
+                      </div>
+                    </div>
+                    <Link
+                      href="/products"
+                      className="w-8 h-8 rounded-full bg-[#C4622D] flex items-center justify-center hover:bg-[#A04E22] transition-colors shadow-terra"
+                    >
+                      <Icon name="PlusIcon" size={14} className="text-white" />
+                    </Link>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );
