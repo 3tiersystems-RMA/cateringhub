@@ -50,6 +50,7 @@ export default function CartSidebar() {
       return;
     }
     setPhoneError("");
+    setOrderRef(`CK-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`);
     setStep("payment");
   };
 
@@ -59,7 +60,7 @@ export default function CartSidebar() {
 
     try {
       const supabase = createClient();
-      const ref = `CK-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
+      const ref = orderRef;
 
       const { error } = await supabase.from("orders").insert({
         m_payment_id: ref,
@@ -488,7 +489,7 @@ export default function CartSidebar() {
                       { label: "Account Name", value: BANK_DETAILS.accountName },
                       { label: "Account Number", value: BANK_DETAILS.accountNumber },
                       { label: "Branch Code", value: BANK_DETAILS.branchCode },
-                      { label: "Reference", value: form.name ? `${form.name.split(" ")[0].toUpperCase()}-ORDER` : "Your Name + ORDER" },
+                      { label: "Reference", value: orderRef || "Your Order Reference" },
                     ].map(({ label, value }) => (
                       <div key={label} className="flex justify-between items-center py-1.5 border-b border-[#F0EBE3] last:border-0">
                         <span className="text-[#8C8278] text-xs">{label}</span>
