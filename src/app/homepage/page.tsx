@@ -11,7 +11,7 @@ import ContactBanner from "./components/ContactBanner";
 import AuthErrorHandler from "./components/AuthErrorHandler";
 
 export const metadata: Metadata = {
-  title: "CateringHub — Chef-Crafted Catering & Meal Prep",
+  title: "Cardamom Kitchen — Chef-Crafted Catering & Meal Prep",
   description:
     "Premium catering for weddings, corporate events, and everyday occasions. Weekly meal prep delivered to your door. Locally sourced, chef-driven menus.",
   keywords: ["catering", "meal prep", "event catering", "food delivery", "chef services"],

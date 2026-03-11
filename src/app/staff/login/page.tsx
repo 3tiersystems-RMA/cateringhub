@@ -76,7 +76,7 @@ function StaffLoginForm() {
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
-            <AppLogo size={64} iconName="FireIcon" text="CateringHub" />
+            <AppLogo size={64} iconName="FireIcon" text="Cardamom Kitchen" />
           </div>
           <h1 className="text-2xl font-bold text-[#8C8278] mt-4">Staff Portal</h1>
           <p className="text-[#8C8278] text-sm mt-1">Sign in to access the workspace</p>
@@ -120,7 +120,7 @@ function StaffLoginForm() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                placeholder="staff@cateringhub.com"
+                placeholder="staff@cardamomkitchen.com"
                 className="w-full px-4 py-3 rounded-xl border border-[#DDD5C8] bg-[#FAFAF8] text-[#1A1612] placeholder-[#B0A89E] focus:outline-none focus:ring-2 focus:ring-[#C4622D] focus:border-transparent transition-all text-sm"
               />
             </div>

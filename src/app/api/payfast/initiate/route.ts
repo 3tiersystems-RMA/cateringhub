@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
       cellNumber: cellNumber || undefined,
       mPaymentId: orderId,
       amount: parseFloat(amount).toFixed(2),
-      itemName: itemName || "CateringHub Order",
+      itemName: itemName || "Cardamom Kitchen Order",
       itemDescription: itemDescription || undefined,
       customStr1: orderId,
     });

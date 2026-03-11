@@ -4,7 +4,7 @@ import Footer from "@/components/Footer";
 import ProductsInteractive from "./components/ProductsInteractive";
 
 export const metadata: Metadata = {
-  title: "Menu & Order Online — CateringHub",
+  title: "Menu & Order Online — Cardamom Kitchen",
   description:
     "Browse our full catering packages, weekly prepared meals, and à la carte platters. Order online with secure payment. Chef-crafted, locally sourced.",
   keywords: ["catering menu", "meal prep order", "food platters", "online catering order"],

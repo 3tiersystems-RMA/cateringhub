@@ -118,7 +118,7 @@ export default function CartSidebar() {
           email: form.email,
           phone: form.phone,
           amount: total.toFixed(2),
-          itemName: "CateringHub Order",
+          itemName: "Cardamom Kitchen Order",
           itemDescription: `Event: ${form.date || "TBD"} | ${form.address || ""}`.trim(),
           items: items.map((i) => ({
             id: i.product.id,
