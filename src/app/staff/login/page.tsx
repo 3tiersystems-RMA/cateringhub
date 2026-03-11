@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import AppLogo from '@/components/ui/AppLogo';
+import { APP_NAME } from '@/lib/constants';
 
 function StaffLoginForm() {
   const router = useRouter();
@@ -76,7 +77,7 @@ function StaffLoginForm() {
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
-            <AppLogo size={64} iconName="FireIcon" text="Cardamom Kitchen" />
+            <AppLogo size={64} iconName="FireIcon" text={APP_NAME} />
           </div>
           <h1 className="text-2xl font-bold text-[#8C8278] mt-4">Staff Portal</h1>
           <p className="text-[#8C8278] text-sm mt-1">Sign in to access the workspace</p>

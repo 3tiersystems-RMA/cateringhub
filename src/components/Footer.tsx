@@ -1,6 +1,7 @@
 import Link from "next/link";
 import AppLogo from "@/components/ui/AppLogo";
 import Icon from "@/components/ui/AppIcon";
+import { APP_NAME } from "@/lib/constants";
 
 export default function Footer() {
   return (
@@ -9,7 +10,7 @@ export default function Footer() {
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-8">
           {/* Brand */}
           <div className="flex items-center gap-3">
-            <AppLogo size={64} iconName="FireIcon" text="Cardamom Kitchen" />
+            <AppLogo size={64} iconName="FireIcon" text={APP_NAME} />
           </div>
 
           {/* Links */}
@@ -54,7 +55,7 @@ export default function Footer() {
               </a>
             </div>
             <p className="text-xs text-[#B5ADA5]">
-              © 2026 Cardamom Kitchen LLC · Privacy · Terms
+              © 2026 {APP_NAME} LLC · Privacy · Terms
             </p>
           </div>
         </div>

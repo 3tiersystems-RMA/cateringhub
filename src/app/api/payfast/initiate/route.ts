@@ -6,6 +6,7 @@ import {
   generateSignature,
   generateOrderId,
 } from "@/lib/payfast";
+import { APP_NAME } from "@/lib/constants";
 
 export async function POST(req: NextRequest) {
   try {
@@ -75,7 +76,7 @@ export async function POST(req: NextRequest) {
       cellNumber: cellNumber || undefined,
       mPaymentId: orderId,
       amount: parseFloat(amount).toFixed(2),
-      itemName: itemName || "Cardamom Kitchen Order",
+      itemName: itemName || `${APP_NAME} Order`,
       itemDescription: itemDescription || undefined,
       customStr1: orderId,
     });

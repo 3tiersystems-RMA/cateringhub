@@ -1,5 +1,6 @@
 import AppLogo from '@/components/ui/AppLogo';
 import Link from 'next/link';
+import { APP_NAME } from '@/lib/constants';
 
 export default function SuperAdminGuidePage() {
   return (
@@ -8,7 +9,7 @@ export default function SuperAdminGuidePage() {
       <header className="bg-white border-b border-[#DDD5C8] sticky top-0 z-40">
         <div className="max-w-4xl mx-auto px-4 md:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <AppLogo size={36} iconName="FireIcon" text="Cardamom Kitchen" />
+            <AppLogo size={36} iconName="FireIcon" text={APP_NAME} />
             <div className="h-5 w-px bg-[#DDD5C8]" />
             <span className="text-sm font-medium text-[#8C8278]">Super Admin Guide</span>
           </div>
@@ -29,7 +30,7 @@ export default function SuperAdminGuidePage() {
           <h1 className="text-3xl font-bold text-[#1A1612] mb-3">Super Admin Role — User Guide</h1>
           <p className="text-[#5C5347] text-base leading-relaxed">
             This document outlines the responsibilities, capabilities, and step-by-step procedures for the
-            <strong className="text-purple-700"> Super Admin</strong> role within the Cardamom Kitchen Staff Portal.
+            <strong className="text-purple-700"> Super Admin</strong> role within the {APP_NAME} Staff Portal.
           </p>
         </div>
 
@@ -40,7 +41,7 @@ export default function SuperAdminGuidePage() {
             Overview of the Super Admin Role
           </h2>
           <p className="text-[#5C5347] text-sm leading-relaxed mb-4">
-            The <strong>Super Admin</strong> is the highest-privilege role in the Cardamom Kitchen Staff Portal.
+            The <strong>Super Admin</strong> is the highest-privilege role in the {APP_NAME} Staff Portal.
             This role is designed for the business owner or a designated senior manager who is responsible
             for controlling who has access to the staff workspace.
           </p>
@@ -268,7 +269,7 @@ WHERE email = 'your-email@example.com';`}</pre>
 
         {/* Footer */}
         <div className="bg-purple-50 border border-purple-200 rounded-2xl p-6 text-center">
-          <p className="text-sm font-semibold text-purple-800 mb-1">Cardamom Kitchen Staff Portal — Super Admin Guide</p>
+          <p className="text-sm font-semibold text-purple-800 mb-1">{APP_NAME} Staff Portal — Super Admin Guide</p>
           <p className="text-xs text-purple-600">For technical support, contact your system administrator.</p>
           <Link
             href="/staff/workspace"

@@ -9,9 +9,10 @@ import TestimonialSection from "./components/TestimonialSection";
 import HowItWorksSection from "./components/HowItWorksSection";
 import ContactBanner from "./components/ContactBanner";
 import AuthErrorHandler from "./components/AuthErrorHandler";
+import { APP_NAME } from "@/lib/constants";
 
 export const metadata: Metadata = {
-  title: "Cardamom Kitchen — Chef-Crafted Catering & Meal Prep",
+  title: `${APP_NAME} — Chef-Crafted Catering & Meal Prep`,
   description:
     "Premium catering for weddings, corporate events, and everyday occasions. Weekly meal prep delivered to your door. Locally sourced, chef-driven menus.",
   keywords: ["catering", "meal prep", "event catering", "food delivery", "chef services"],

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import AppLogo from '@/components/ui/AppLogo';
 import { useInactivityTimer } from '@/hooks/useInactivityTimer';
+import { APP_NAME } from "@/lib/constants";
 
 type BucketType = 'product-images' | 'event-photos';
 type WorkspaceTab = 'products' | 'media' | 'orders' | 'staff' | 'homepage_cards';
@@ -884,7 +885,7 @@ export default function StaffWorkspacePage() {
       <header className="bg-black border-b border-gray-800 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 md:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <AppLogo size={40} iconName="FireIcon" text="Cardamom Kitchen" />
+            <AppLogo size={40} iconName="FireIcon" text={APP_NAME} />
             <div className="hidden sm:block h-5 w-px bg-gray-600" />
             <span className="hidden sm:block text-sm font-medium text-gray-300">Staff Workspace</span>
           </div>

@@ -4,6 +4,7 @@ import { useState } from "react";
 import AppImage from "@/components/ui/AppImage";
 import Icon from "@/components/ui/AppIcon";
 import { useCart } from "./CartContext";
+import { APP_NAME } from "@/lib/constants";
 
 
 type CheckoutStep = "cart" | "details" | "payment" | "eft-success" | "confirmation";
@@ -12,7 +13,7 @@ type PaymentMethod = "eft" | "payfast";
 
 const BANK_DETAILS = {
   bank: "Capitec Business",
-  accountName: "Cardamom Kitchen",
+  accountName: APP_NAME,
   accountNumber: "1051471249",
   branchCode: "450105",
 };
@@ -118,7 +119,7 @@ export default function CartSidebar() {
           email: form.email,
           phone: form.phone,
           amount: total.toFixed(2),
-          itemName: "Cardamom Kitchen Order",
+          itemName: `${APP_NAME} Order`,
           itemDescription: `Event: ${form.date || "TBD"} | ${form.address || ""}`.trim(),
           items: items.map((i) => ({
             id: i.product.id,
@@ -497,7 +498,7 @@ export default function CartSidebar() {
                       <p className={`text-sm font-semibold ${
                         selectedMethod === "eft" ? "text-[#C4622D]" : "text-[#1A1612]"
                       }`}>Manual EFT</p>
-                      <p className="text-xs text-[#8C8278]">Bank transfer to Cardamom Kitchen</p>
+                      <p className="text-xs text-[#8C8278]">Bank transfer to {APP_NAME}</p>
                     </div>
                     <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 ${
                       selectedMethod === "eft" ?"border-[#C4622D] bg-[#C4622D]" :"border-[#DDD5C8]"
