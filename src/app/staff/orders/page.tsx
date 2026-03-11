@@ -325,8 +325,14 @@ export default function StaffOrdersPage() {
                 value={filterEventDate}
                 onChange={(e) => setFilterEventDate(e.target.value)}
                 className="pl-9 pr-4 py-2.5 border border-[#DDD5C8] rounded-xl text-sm text-[#1A1612] bg-white focus:outline-none focus:border-[#C4622D] transition-colors"
-                title="Filter by Event Date"
+                title="Event Date"
+                placeholder="Event Date"
               />
+              {!filterEventDate && (
+                <span className="absolute left-9 top-1/2 -translate-y-1/2 text-sm text-[#B5ADA5] pointer-events-none">
+                  Event Date
+                </span>
+              )}
             </div>
           </div>
         </div>
