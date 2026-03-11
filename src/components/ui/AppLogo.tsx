@@ -10,6 +10,7 @@ interface AppLogoProps {
   iconName?: string; // Icon name when no image
   size?: number; // Size for icon/image
   className?: string; // Additional classes
+  textClassName?: string; // Additional classes for text
   onClick?: () => void; // Click handler
 }
 
@@ -19,6 +20,7 @@ function AppLogo({
   iconName = 'SparklesIcon',
   size = 64,
   className = '',
+  textClassName = 'text-white',
   onClick,
 }: AppLogoProps) {
   return (
@@ -34,7 +36,7 @@ function AppLogo({
       )}
 
       {/* Show text if provided */}
-      {text && <span className="text-xl font-bold text-white">{text}</span>}
+      {text && <span className={`text-xl font-bold ${textClassName}`}>{text}</span>}
     </div>
   );
 }
