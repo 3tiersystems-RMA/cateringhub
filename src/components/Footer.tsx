@@ -10,7 +10,7 @@ export default function Footer() {
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-8">
           {/* Brand */}
           <div className="flex items-center gap-3">
-            <AppLogo size={64} iconName="FireIcon" text={APP_NAME} textClassName="text-black" className="[&>img]:bg-black [&>img]:rounded-md" />
+            <AppLogo size={64} iconName="FireIcon" text={APP_NAME} textClassName="text-[#8C8278]" className="[&>img]:bg-black [&>img]:rounded-md" />
           </div>
 
           {/* Links */}
