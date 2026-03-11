@@ -343,7 +343,7 @@ export default function StaffOrdersPage() {
         ) : (
           <div className="bg-white rounded-2xl border border-[#DDD5C8] overflow-hidden">
             {/* Table Header */}
-            <div className="hidden lg:grid grid-cols-[1fr_1.5fr_1fr_auto_auto_auto_auto] gap-4 px-5 py-3 bg-[#F5F0E8] border-b border-[#DDD5C8] text-xs font-semibold text-[#8C8278] uppercase tracking-wider">
+            <div className="hidden lg:grid grid-cols-[1fr_1.5fr_1fr_minmax(80px,auto)_minmax(140px,auto)_minmax(140px,auto)_minmax(80px,auto)] gap-4 px-5 py-3 bg-[#F5F0E8] border-b border-[#DDD5C8] text-xs font-semibold text-[#8C8278] uppercase tracking-wider">
               <span className="text-left pl-[22px]">Order ID</span>
               <span className="text-left">Customer</span>
               <span className="text-left">Items</span>
@@ -368,7 +368,7 @@ export default function StaffOrdersPage() {
                   <div key={order.id}>
                     {/* Main Row */}
                     <div
-                      className="grid grid-cols-1 lg:grid-cols-[1fr_1.5fr_1fr_auto_auto_auto_auto] gap-4 px-5 py-4 hover:bg-[#FDFAF6] cursor-pointer transition-colors"
+                      className="grid grid-cols-1 lg:grid-cols-[1fr_1.5fr_1fr_minmax(80px,auto)_minmax(140px,auto)_minmax(140px,auto)_minmax(80px,auto)] gap-4 px-5 py-4 hover:bg-[#FDFAF6] cursor-pointer transition-colors"
                       onClick={() => setExpandedOrderId(isExpanded ? null : order.id)}
                     >
                       {/* Order ID */}
