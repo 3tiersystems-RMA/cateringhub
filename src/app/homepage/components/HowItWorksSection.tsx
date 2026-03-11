@@ -90,7 +90,7 @@ export default function HowItWorksSection() {
 
               {/* Number */}
               <div className="flex items-center justify-between mb-6">
-                <span className="font-mono text-5xl font-bold text-[#EDE7DA] leading-none">
+                <span className="font-mono text-5xl font-bold text-[#C4622D] leading-none">
                   {step.number}
                 </span>
                 <div className="w-10 h-10 rounded-2xl bg-[#C4622D]/10 border border-[#C4622D]/20 flex items-center justify-center group-hover:bg-[#C4622D] group-hover:border-[#C4622D] transition-all duration-300">
