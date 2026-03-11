@@ -8,7 +8,7 @@ import { useInactivityTimer } from '@/hooks/useInactivityTimer';
 
 type BucketType = 'product-images' | 'event-photos';
 type WorkspaceTab = 'products' | 'media' | 'orders' | 'staff' | 'homepage_cards';
-type ProductCategory = 'Catering Packages' | 'Prepared Meals' | 'À La Carte';
+type ProductCategory = string;
 type StaffRole = 'admin' | 'staff' | 'super_admin';
 
 interface StorageFile {
@@ -75,8 +75,6 @@ const CARD_TYPE_ICONS: Record<HomepageCard['card_type'], string> = {
   next_booking: '📅',
   customer_review: '⭐',
 };
-
-const CATEGORIES: ProductCategory[] = ['Catering Packages', 'Prepared Meals', 'À La Carte'];
 
 const emptyForm = {
   name: '',
@@ -238,6 +236,9 @@ export default function StaffWorkspacePage() {
   const [savingCard, setSavingCard] = useState(false);
   const [togglingCardId, setTogglingCardId] = useState<string | null>(null);
 
+  // Dynamic categories from DB
+  const [categories, setCategories] = useState<string[]>([]);
+
   useEffect(() => {
     const init = async () => {
       const { data: { user: currentUser } } = await supabase.auth.getUser();
@@ -254,6 +255,24 @@ export default function StaffWorkspacePage() {
         .eq('id', currentUser.id)
         .single();
       if (profile) setUserProfile(profile as StaffMember);
+
+      // Load categories dynamically from DB enum
+      const { data: catData } = await supabase.rpc('get_product_categories');
+      if (catData && Array.isArray(catData) && catData.length > 0) {
+        setCategories(catData as string[]);
+        setForm((prev) => ({ ...prev, category: catData[0] as string }));
+      } else {
+        // Fallback: derive from distinct product categories
+        const { data: prodData } = await supabase
+          .from('products')
+          .select('category')
+          .order('category');
+        if (prodData) {
+          const unique = [...new Set(prodData.map((p: any) => p.category as string))];
+          setCategories(unique);
+          if (unique.length > 0) setForm((prev) => ({ ...prev, category: unique[0] }));
+        }
+      }
 
       await loadProducts();
     };
@@ -1034,10 +1053,10 @@ activeTab === 'staff' ? 'border-purple-600 text-purple-600' : 'border-transparen
                         <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Category *</label>
                         <select
                           value={form.category}
-                          onChange={(e) => setForm({ ...form, category: e.target.value as ProductCategory })}
+                          onChange={(e) => setForm({ ...form, category: e.target.value })}
                           className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors bg-white"
                         >
-                          {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                          {categories.map((c) => <option key={c} value={c}>{c}</option>)}
                         </select>
                       </div>
                       <div>
@@ -1112,7 +1131,7 @@ activeTab === 'staff' ? 'border-purple-600 text-purple-600' : 'border-transparen
                           type="text"
                           value={form.badge}
                           onChange={(e) => setForm({ ...form, badge: e.target.value })}
-                          placeholder="Best Seller, New, ..."
+                          placeholder="e.g. Best Seller, New, Popular"
                           className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
                         />
                       </div>
@@ -1268,12 +1287,12 @@ activeTab === 'staff' ? 'border-purple-600 text-purple-600' : 'border-transparen
             {/* Products Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
               <div className="flex gap-2 flex-wrap">
-                {['All', ...CATEGORIES].map((cat) => (
+{['All', ...categories].map((cat) => (
                   <button
                     key={cat}
-                    onClick={() => setFilterCategory(cat)}
+onClick={() => setFilterCategory(cat)}
                     className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors ${
-                      filterCategory === cat
+filterCategory === cat
                         ? 'bg-[#C4622D] text-white'
                         : 'bg-white border border-[#DDD5C8] text-[#5C5347] hover:border-[#C4622D]'
                     }`}
@@ -1844,7 +1863,7 @@ activeTab === 'staff' ? 'border-purple-600 text-purple-600' : 'border-transparen
             <div className="mt-6 bg-[#F5F0E8] border border-[#DDD5C8] rounded-xl p-4">
               <p className="text-sm font-semibold text-[#3D3530] mb-1">ℹ️ About Homepage Cards</p>
               <p className="text-xs text-[#5C5347] leading-relaxed">
-                These three cards appear in the floating panel on the right side of the homepage hero section.
+                These three cards appear in the floating panel on the homepage hero section.
                 Toggle visibility to show or hide individual cards on the live site. Click Edit to update the card content.
                 Changes take effect immediately on the live homepage.
               </p>
