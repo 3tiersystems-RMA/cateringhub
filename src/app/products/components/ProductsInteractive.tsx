@@ -8,13 +8,13 @@ import ProductModal from "./ProductModal";
 import { CartProvider, useCart } from "./CartContext";
 import { createClient } from "@/lib/supabase/client";
 
-type Category = "All" | "Catering Packages" | "Prepared Meals" | "À La Carte";
-const categories: readonly Category[] = ["All", "Catering Packages", "Prepared Meals", "À La Carte"];
+type Category = "All" | "Catering Packages" | "Prepared Meals" | "À La Carte" | "Frozen Meals";
+const categories: readonly Category[] = ["All", "Catering Packages", "Prepared Meals", "À La Carte", "Frozen Meals"];
 
 interface Product {
   id: string;
   name: string;
-  category: "Catering Packages" | "Prepared Meals" | "À La Carte";
+  category: "Catering Packages" | "Prepared Meals" | "À La Carte" | "Frozen Meals";
   price: number;
   unit: string;
   image: string;

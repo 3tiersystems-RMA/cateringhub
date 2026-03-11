@@ -1,7 +1,7 @@
 export interface Product {
   id: number;
   name: string;
-  category: "Catering Packages" | "Prepared Meals" | "À La Carte";
+  category: "Catering Packages" | "Prepared Meals" | "À La Carte" | "Frozen Meals";
   price: number;
   unit: string;
   image: string;
@@ -195,8 +195,67 @@ export const products: Product[] = [
   reviews: 234,
   description: "Rotating seasonal selection of 4 varieties: macarons, chocolate truffles, lemon tartlets, éclairs.",
   available: true
+},
+// FROZEN MEALS
+{
+  id: 13,
+  name: "Frozen Butter Chicken",
+  category: "Frozen Meals",
+  price: 12,
+  unit: "per serving",
+  image: "https://img.rocket.new/generatedImages/rocket_gen_img_164c8876a-1767907270676.png",
+  imageAlt: "Rich and creamy frozen butter chicken in a takeaway container ready to heat",
+  tags: ["Gluten-Free", "High Protein"],
+  rating: 4.8,
+  reviews: 210,
+  description: "Tender chicken in a velvety tomato-cream sauce. Heat from frozen in 8 minutes. Serves 1–2.",
+  badge: "New",
+  available: true
+},
+{
+  id: 14,
+  name: "Frozen Beef Lasagne",
+  category: "Frozen Meals",
+  price: 14,
+  unit: "per serving",
+  image: "https://img.rocket.new/generatedImages/rocket_gen_img_1378a0833-1765319149066.png",
+  imageAlt: "Layers of pasta, rich beef bolognese, and béchamel in a frozen lasagne portion",
+  tags: ["Comfort", "Family Favourite"],
+  rating: 4.7,
+  reviews: 178,
+  description: "Classic beef bolognese layered with fresh pasta sheets and creamy béchamel. Oven-ready from frozen.",
+  available: true
+},
+{
+  id: 15,
+  name: "Frozen Vegetable Curry",
+  category: "Frozen Meals",
+  price: 11,
+  unit: "per serving",
+  image: "https://img.rocket.new/generatedImages/rocket_gen_img_13d75fbfc-1767907266450.png",
+  imageAlt: "Vibrant frozen vegetable curry with chickpeas and spinach in a rich tomato sauce",
+  tags: ["Vegan", "Gluten-Free"],
+  rating: 4.6,
+  reviews: 143,
+  description: "Chickpeas, spinach, and seasonal vegetables in a fragrant tomato-coconut curry. Heat in 6 minutes.",
+  available: true
+},
+{
+  id: 16,
+  name: "Frozen Mac & Cheese",
+  category: "Frozen Meals",
+  price: 10,
+  unit: "per serving",
+  image: "https://img.rocket.new/generatedImages/rocket_gen_img_1beb1562f-1772222748789.png",
+  imageAlt: "Golden baked mac and cheese with a crispy breadcrumb topping in a frozen portion",
+  tags: ["Vegetarian", "Comfort"],
+  rating: 4.9,
+  reviews: 325,
+  description: "Three-cheese blend with a golden breadcrumb crust. Bake from frozen for a crispy top.",
+  badge: "Best Seller",
+  available: true
 }];
 
 
-export const categories = ["All", "Catering Packages", "Prepared Meals", "À La Carte"] as const;
+export const categories = ["All", "Catering Packages", "Prepared Meals", "À La Carte", "Frozen Meals"] as const;
 export type Category = (typeof categories)[number];
