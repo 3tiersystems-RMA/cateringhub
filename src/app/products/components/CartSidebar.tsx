@@ -4,7 +4,7 @@ import { useState } from "react";
 import AppImage from "@/components/ui/AppImage";
 import Icon from "@/components/ui/AppIcon";
 import { useCart } from "./CartContext";
-import { createClient } from "@/lib/supabase/client";
+
 
 type CheckoutStep = "cart" | "details" | "payment" | "eft-success" | "confirmation";
 
@@ -59,34 +59,41 @@ export default function CartSidebar() {
     setPayError("");
 
     try {
-      const supabase = createClient();
       const ref = orderRef;
 
-      const { error } = await supabase.from("orders").insert({
-        m_payment_id: ref,
-        customer_name: form.name,
-        customer_email: form.email,
-        customer_phone: form.phone,
-        items: items.map((i) => ({
-          id: i.product.id,
-          name: i.product.name,
-          quantity: i.quantity,
-          price: i.product.price,
-          unit: i.product.unit,
-        })),
-        subtotal,
-        delivery_fee: delivery,
-        total,
-        payment_status: "awaiting_payment",
-        payment_method: "eft",
-        event_date: form.date || null,
-        delivery_address: form.address,
-        notes: form.notes,
+      const response = await fetch("/api/orders/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          m_payment_id: ref,
+          customer_name: form.name,
+          customer_email: form.email,
+          customer_phone: form.phone,
+          items: items.map((i) => ({
+            id: i.product.id,
+            name: i.product.name,
+            quantity: i.quantity,
+            price: i.product.price,
+            unit: i.product.unit,
+          })),
+          subtotal,
+          delivery_fee: delivery,
+          total,
+          payment_status: "awaiting_payment",
+          payment_method: "eft",
+          event_date: form.date || null,
+          delivery_address: form.address,
+          notes: form.notes,
+        }),
       });
 
-      if (error) throw new Error(error.message);
+      const result = await response.json();
 
-      setOrderRef(ref);
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to place order. Please try again.");
+      }
+
+      setOrderRef(result.reference ?? ref);
       clearCart();
       setStep("eft-success");
     } catch (err) {
