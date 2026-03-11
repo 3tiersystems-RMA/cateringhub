@@ -100,6 +100,7 @@ export default function StaffOrdersPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPayment, setFilterPayment] = useState<string>('all');
   const [filterFulfillment, setFilterFulfillment] = useState<string>('all');
+  const [filterEventDate, setFilterEventDate] = useState<string>('');
 
   useEffect(() => {
     const init = async () => {
@@ -207,8 +208,11 @@ export default function StaffOrdersPage() {
 
     const matchesPayment = filterPayment === 'all' || order.payment_status === filterPayment;
     const matchesFulfillment = filterFulfillment === 'all' || order.fulfillment_status === filterFulfillment;
+    const matchesEventDate =
+      !filterEventDate ||
+      (order.event_date && order.event_date.startsWith(filterEventDate));
 
-    return matchesSearch && matchesPayment && matchesFulfillment;
+    return matchesSearch && matchesPayment && matchesFulfillment && matchesEventDate;
   });
 
   const formatDate = (dateStr: string) => {
@@ -313,6 +317,17 @@ export default function StaffOrdersPage() {
               <option value="delivered">Delivered</option>
               <option value="cancelled">Cancelled</option>
             </select>
+            {/* Event Date Filter */}
+            <div className="relative">
+              <AppIcon name="CalendarDaysIcon" size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#B5ADA5] pointer-events-none" />
+              <input
+                type="date"
+                value={filterEventDate}
+                onChange={(e) => setFilterEventDate(e.target.value)}
+                className="pl-9 pr-4 py-2.5 border border-[#DDD5C8] rounded-xl text-sm text-[#1A1612] bg-white focus:outline-none focus:border-[#C4622D] transition-colors"
+                title="Filter by Event Date"
+              />
+            </div>
           </div>
         </div>
 
@@ -337,7 +352,7 @@ export default function StaffOrdersPage() {
             </div>
             <p className="text-[#5C5347] font-medium">No orders found</p>
             <p className="text-sm text-[#B5ADA5]">
-              {searchQuery || filterPayment !== 'all' || filterFulfillment !== 'all' ?'Try adjusting your filters' :'Orders will appear here once customers complete payments'}
+              {searchQuery || filterPayment !== 'all' || filterFulfillment !== 'all' || filterEventDate ?'Try adjusting your filters' :'Orders will appear here once customers complete payments'}
             </p>
           </div>
         ) : (
