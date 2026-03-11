@@ -16,6 +16,7 @@ interface OrderItem {
   quantity: number;
   price: number;
   unit: string;
+  category?: string;
 }
 
 interface Order {
@@ -547,6 +548,9 @@ export default function StaffOrdersPage() {
                                     <div className="flex-1 min-w-0">
                                       <p className="text-sm font-medium text-[#1A1612] truncate">{item.name}</p>
                                       <p className="text-xs text-[#B5ADA5]">{item.unit} × {item.quantity}</p>
+                                      {item.category && (
+                                        <span className="inline-block mt-0.5 text-[10px] font-medium text-[#C4622D] bg-[#FDF3ED] px-1.5 py-0.5 rounded-full">{item.category}</span>
+                                      )}
                                     </div>
                                     <span className="text-sm font-semibold text-[#1A1612] flex-shrink-0">
                                       {formatCurrency(item.price * item.quantity)}
