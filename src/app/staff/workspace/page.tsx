@@ -8,7 +8,7 @@ import { useInactivityTimer } from '@/hooks/useInactivityTimer';
 import { APP_NAME } from "@/lib/constants";
 
 type BucketType = 'product-images' | 'event-photos';
-type WorkspaceTab = 'products' | 'media' | 'orders' | 'staff' | 'homepage_cards';
+type WorkspaceTab = 'products' | 'media' | 'orders' | 'staff' | 'homepage_cards' | 'categories';
 type ProductCategory = string;
 type StaffRole = 'admin' | 'staff' | 'super_admin';
 
@@ -35,6 +35,15 @@ interface Product {
   featured: boolean;
   sort_order: number;
   imageUrl?: string;
+}
+
+interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  active: boolean;
+  sort_order: number;
+  created_at: string;
 }
 
 interface StaffMember {
@@ -127,7 +136,6 @@ function InactivityWarningModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-2xl border border-[#DDD5C8] w-full max-w-md mx-4 p-8">
-        {/* Icon */}
         <div className="flex justify-center mb-4">
           <div className="w-14 h-14 rounded-full bg-amber-100 flex items-center justify-center">
             <svg className="w-7 h-7 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -135,24 +143,16 @@ function InactivityWarningModal({
             </svg>
           </div>
         </div>
-
-        {/* Title */}
         <h2 className="text-xl font-bold text-[#1A1612] text-center mb-2">Session Expiring Soon</h2>
-
-        {/* Message */}
         <p className="text-[#5C5347] text-sm text-center mb-5">
           You have been inactive for 3 minutes. You will be automatically logged out in 2 minutes.
         </p>
-
-        {/* Countdown */}
         <div className="flex justify-center mb-6">
           <div className="bg-[#F5F0E8] border border-[#DDD5C8] rounded-xl px-6 py-3 text-center">
             <p className="text-xs text-[#8C8278] mb-1 font-medium uppercase tracking-wide">Logging out in</p>
             <p className="text-3xl font-bold text-[#C4622D] tabular-nums">{timeStr}</p>
           </div>
         </div>
-
-        {/* Buttons */}
         <div className="flex flex-col sm:flex-row gap-3">
           <button
             onClick={onStayLoggedIn}
@@ -237,7 +237,19 @@ export default function StaffWorkspacePage() {
   const [savingCard, setSavingCard] = useState(false);
   const [togglingCardId, setTogglingCardId] = useState<string | null>(null);
 
-  // Dynamic categories from DB
+  // Categories state
+  const [categoriesList, setCategoriesList] = useState<Category[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
+  const [showCategoryForm, setShowCategoryForm] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [categoryForm, setCategoryForm] = useState({ name: '', sort_order: '' });
+  const [categoryFormError, setCategoryFormError] = useState('');
+  const [categoryFormSuccess, setCategoryFormSuccess] = useState('');
+  const [savingCategory, setSavingCategory] = useState(false);
+  const [togglingCategoryId, setTogglingCategoryId] = useState<string | null>(null);
+  const [deletingCategoryId, setDeletingCategoryId] = useState<string | null>(null);
+
+  // Dynamic categories from DB (for product form dropdowns)
   const [categories, setCategories] = useState<string[]>([]);
 
   useEffect(() => {
@@ -249,7 +261,6 @@ export default function StaffWorkspacePage() {
       }
       setUser(currentUser);
 
-      // Load user profile to determine role
       const { data: profile } = await supabase
         .from('user_profiles')
         .select('*')
@@ -257,24 +268,7 @@ export default function StaffWorkspacePage() {
         .single();
       if (profile) setUserProfile(profile as StaffMember);
 
-      // Load categories dynamically from DB enum
-      const { data: catData } = await supabase.rpc('get_product_categories');
-      if (catData && Array.isArray(catData) && catData.length > 0) {
-        setCategories(catData as string[]);
-        setForm((prev) => ({ ...prev, category: catData[0] as string }));
-      } else {
-        // Fallback: derive from distinct product categories
-        const { data: prodData } = await supabase
-          .from('products')
-          .select('category')
-          .order('category');
-        if (prodData) {
-          const unique = [...new Set(prodData.map((p: any) => p.category as string))];
-          setCategories(unique);
-          if (unique.length > 0) setForm((prev) => ({ ...prev, category: unique[0] }));
-        }
-      }
-
+      await loadCategoryNames();
       await loadProducts();
     };
     init();
@@ -282,11 +276,167 @@ export default function StaffWorkspacePage() {
 
   const isSuperAdmin = userProfile?.role === 'super_admin';
 
-  // Inactivity timer — exempt super_admin, only active once profile is loaded
   const profileLoaded = userProfile !== null || user === null;
   const { showWarning, countdown, stayLoggedIn, logOutNow } = useInactivityTimer({
     enabled: profileLoaded && !isSuperAdmin && !!user,
   });
+
+  // ─── Load category names for dropdowns ───────────────────────────────────────
+  const loadCategoryNames = async () => {
+    try {
+      const { data } = await supabase
+        .from('categories')
+        .select('name')
+        .eq('active', true)
+        .order('sort_order', { ascending: true });
+      if (data && data.length > 0) {
+        const names = data.map((c: any) => c.name as string);
+        setCategories(names);
+        setForm((prev) => ({ ...prev, category: names[0] }));
+      } else {
+        // Fallback to RPC
+        const { data: catData } = await supabase.rpc('get_product_categories');
+        if (catData && Array.isArray(catData) && catData.length > 0) {
+          setCategories(catData as string[]);
+          setForm((prev) => ({ ...prev, category: catData[0] as string }));
+        }
+      }
+    } catch (err) {
+      console.log('Error loading categories:', err);
+    }
+  };
+
+  // ─── Categories CRUD ──────────────────────────────────────────────────────────
+  const loadCategories = async () => {
+    setCategoriesLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('categories')
+        .select('*')
+        .order('sort_order', { ascending: true });
+      if (error) {
+        console.log('Load categories error:', error.message);
+        setCategoriesList([]);
+        return;
+      }
+      setCategoriesList((data || []) as Category[]);
+    } catch (err) {
+      console.log('Unexpected error loading categories:', err);
+      setCategoriesList([]);
+    } finally {
+      setCategoriesLoading(false);
+    }
+  };
+
+  const openAddCategoryForm = () => {
+    setEditingCategory(null);
+    setCategoryForm({ name: '', sort_order: String(categoriesList.length + 1) });
+    setCategoryFormError('');
+    setCategoryFormSuccess('');
+    setShowCategoryForm(true);
+  };
+
+  const openEditCategoryForm = (cat: Category) => {
+    setEditingCategory(cat);
+    setCategoryForm({ name: cat.name, sort_order: String(cat.sort_order) });
+    setCategoryFormError('');
+    setCategoryFormSuccess('');
+    setShowCategoryForm(true);
+  };
+
+  const handleSaveCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCategoryFormError('');
+    setCategoryFormSuccess('');
+
+    if (!categoryForm.name.trim()) {
+      setCategoryFormError('Category name is required.');
+      return;
+    }
+
+    setSavingCategory(true);
+    try {
+      const slug = categoryForm.name.trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-');
+
+      const payload = {
+        name: categoryForm.name.trim(),
+        slug,
+        sort_order: categoryForm.sort_order ? Number(categoryForm.sort_order) : 0,
+      };
+
+      if (editingCategory) {
+        const { error } = await supabase
+          .from('categories')
+          .update(payload)
+          .eq('id', editingCategory.id);
+        if (error) {
+          setCategoryFormError(`Update failed: ${error.message}`);
+          return;
+        }
+        setCategoryFormSuccess('Category updated successfully!');
+      } else {
+        const { error } = await supabase
+          .from('categories')
+          .insert({ ...payload, active: true });
+        if (error) {
+          setCategoryFormError(`Create failed: ${error.message}`);
+          return;
+        }
+        setCategoryFormSuccess('Category created successfully!');
+      }
+
+      await loadCategories();
+      await loadCategoryNames();
+      setTimeout(() => {
+        setShowCategoryForm(false);
+        setCategoryFormSuccess('');
+      }, 1200);
+    } catch (err) {
+      setCategoryFormError('An unexpected error occurred.');
+    } finally {
+      setSavingCategory(false);
+    }
+  };
+
+  const handleToggleCategoryActive = async (cat: Category) => {
+    setTogglingCategoryId(cat.id);
+    const { error } = await supabase
+      .from('categories')
+      .update({ active: !cat.active })
+      .eq('id', cat.id);
+    if (!error) {
+      setCategoriesList((prev) =>
+        prev.map((c) => c.id === cat.id ? { ...c, active: !c.active } : c)
+      );
+      await loadCategoryNames();
+    }
+    setTogglingCategoryId(null);
+  };
+
+  const handleDeleteCategory = async (cat: Category) => {
+    if (!confirm(`Delete category "${cat.name}"? Products in this category will not be deleted but may need to be reassigned.`)) return;
+    setDeletingCategoryId(cat.id);
+    try {
+      const { error } = await supabase
+        .from('categories')
+        .delete()
+        .eq('id', cat.id);
+      if (error) {
+        console.log('Delete category error:', error.message);
+        return;
+      }
+      setCategoriesList((prev) => prev.filter((c) => c.id !== cat.id));
+      await loadCategoryNames();
+    } catch (err) {
+      console.log('Unexpected delete category error:', err);
+    } finally {
+      setDeletingCategoryId(null);
+    }
+  };
 
   // ─── Staff Management ────────────────────────────────────────────────────────
 
@@ -321,7 +471,6 @@ export default function StaffWorkspacePage() {
 
     setInviting(true);
     try {
-      // Use Supabase admin invite — sends magic link email to the new staff member
       const response = await fetch('/api/staff/invite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -568,12 +717,10 @@ export default function StaffWorkspacePage() {
       let imagePath = editingProduct?.image_path || null;
 
       if (selectedMediaPath) {
-        // Image chosen from Media Library — use path directly, no upload needed
         imagePath = selectedMediaPath;
       } else if (productImageFile) {
         const uploaded = await uploadProductImage(productImageFile);
         if (uploaded) {
-          // Delete old image if replacing
           if (editingProduct?.image_path) {
             await supabase.storage.from('product-images').remove([editingProduct.image_path]);
           }
@@ -872,7 +1019,6 @@ export default function StaffWorkspacePage() {
 
   return (
     <div className="min-h-screen bg-[#F5F0E8]">
-      {/* Inactivity Warning Modal */}
       {showWarning && (
         <InactivityWarningModal
           countdown={countdown}
@@ -930,6 +1076,14 @@ export default function StaffWorkspacePage() {
               🍽️ Products & Pricing
             </button>
             <button
+              onClick={() => { setActiveTab('categories'); if (categoriesList.length === 0) loadCategories(); }}
+              className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${
+                activeTab === 'categories' ? 'border-[#C4622D] text-[#C4622D]' : 'border-transparent text-[#8C8278] hover:text-[#5C5347]'
+              }`}
+            >
+              🏷️ Categories
+            </button>
+            <button
               onClick={() => { setActiveTab('media'); if (files.length === 0) loadFiles(activeBucket); }}
               className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${
                 activeTab === 'media' ? 'border-[#C4622D] text-[#C4622D]' : 'border-transparent text-[#8C8278] hover:text-[#5C5347]'
@@ -946,14 +1100,14 @@ export default function StaffWorkspacePage() {
               📋 Orders
             </button>
             {isSuperAdmin && (
-            <button
-onClick={() => { setActiveTab('staff'); if (staffMembers.length === 0) loadStaffMembers(); }}
-              className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${
-activeTab === 'staff' ? 'border-purple-600 text-purple-600' : 'border-transparent text-[#8C8278] hover:text-[#5C5347]'
-              }`}
-            >
-👥 Staff Management
-            </button>
+              <button
+                onClick={() => { setActiveTab('staff'); if (staffMembers.length === 0) loadStaffMembers(); }}
+                className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${
+                  activeTab === 'staff' ? 'border-purple-600 text-purple-600' : 'border-transparent text-[#8C8278] hover:text-[#5C5347]'
+                }`}
+              >
+                👥 Staff Management
+              </button>
             )}
             <button
               onClick={() => { setActiveTab('homepage_cards'); if (homepageCards.length === 0) loadHomepageCards(); }}
@@ -1008,7 +1162,6 @@ activeTab === 'staff' ? 'border-purple-600 text-purple-600' : 'border-transparen
                             onChange={handleProductImageSelect}
                             className="hidden"
                           />
-                          {/* Primary: Media Library */}
                           <button
                             type="button"
                             onClick={openMediaPicker}
@@ -1019,7 +1172,6 @@ activeTab === 'staff' ? 'border-purple-600 text-purple-600' : 'border-transparen
                             </svg>
                             {productImagePreview ? 'Change from Media Library' : 'Choose from Media Library'}
                           </button>
-                          {/* Secondary: Device upload */}
                           <button
                             type="button"
                             onClick={() => productImageRef.current?.click()}
@@ -1168,19 +1320,13 @@ activeTab === 'staff' ? 'border-purple-600 text-purple-600' : 'border-transparen
                       </label>
                     </div>
 
-                    {/* Feedback */}
                     {formError && (
-                      <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">
-                        {formError}
-                      </div>
+                      <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">{formError}</div>
                     )}
                     {formSuccess && (
-                      <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-xl px-4 py-3">
-                        {formSuccess}
-                      </div>
+                      <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-xl px-4 py-3">{formSuccess}</div>
                     )}
 
-                    {/* Actions */}
                     <div className="flex gap-3 pt-2">
                       <button
                         type="button"
@@ -1208,7 +1354,6 @@ activeTab === 'staff' ? 'border-purple-600 text-purple-600' : 'border-transparen
             {showMediaPicker && (
               <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50">
                 <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col">
-                  {/* Header */}
                   <div className="flex items-center justify-between px-6 py-4 border-b border-[#EDE7DA]">
                     <div>
                       <h3 className="text-base font-bold text-[#1A1612]">Media Library</h3>
@@ -1222,7 +1367,6 @@ activeTab === 'staff' ? 'border-purple-600 text-purple-600' : 'border-transparen
                       ✕
                     </button>
                   </div>
-                  {/* Body */}
                   <div className="flex-1 overflow-y-auto p-6">
                     {mediaPickerLoading ? (
                       <div className="flex items-center justify-center py-16">
@@ -1250,11 +1394,7 @@ activeTab === 'staff' ? 'border-purple-600 text-purple-600' : 'border-transparen
                                 : 'border-[#DDD5C8] hover:border-[#C4622D]'
                             }`}
                           >
-                            <img
-                              src={file.signedUrl}
-                              alt={file.name}
-                              className="w-full h-full object-cover"
-                            />
+                            <img src={file.signedUrl} alt={file.name} className="w-full h-full object-cover" />
                             {selectedMediaPath === file.name && (
                               <div className="absolute inset-0 bg-[#C4622D]/20 flex items-center justify-center">
                                 <div className="w-6 h-6 rounded-full bg-[#C4622D] flex items-center justify-center">
@@ -1269,7 +1409,6 @@ activeTab === 'staff' ? 'border-purple-600 text-purple-600' : 'border-transparen
                       </div>
                     )}
                   </div>
-                  {/* Footer */}
                   {mediaPickerFiles.length > 0 && (
                     <div className="px-6 py-4 border-t border-[#EDE7DA] flex justify-end gap-3">
                       <button
@@ -1288,12 +1427,12 @@ activeTab === 'staff' ? 'border-purple-600 text-purple-600' : 'border-transparen
             {/* Products Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
               <div className="flex gap-2 flex-wrap">
-{['All', ...categories].map((cat) => (
+                {['All', ...categories].map((cat) => (
                   <button
                     key={cat}
-onClick={() => setFilterCategory(cat)}
+                    onClick={() => setFilterCategory(cat)}
                     className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors ${
-filterCategory === cat
+                      filterCategory === cat
                         ? 'bg-[#C4622D] text-white'
                         : 'bg-white border border-[#DDD5C8] text-[#5C5347] hover:border-[#C4622D]'
                     }`}
@@ -1340,23 +1479,16 @@ filterCategory === cat
                     key={product.id}
                     className="bg-white rounded-2xl border border-[#DDD5C8] overflow-hidden hover:border-[#C4622D]/40 hover:shadow-md transition-all duration-200"
                   >
-                    {/* Image */}
                     <div className="relative h-40 bg-[#F5F0E8] overflow-hidden">
                       {product.imageUrl ? (
-                        <img
-                          src={product.imageUrl}
-                          alt={product.name}
-                          className="w-full h-full object-cover"
-                        />
+                        <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-4xl">🍽️</div>
                       )}
-                      {/* Available toggle */}
                       <button
                         onClick={() => handleToggleAvailable(product)}
                         className={`absolute top-2 right-2 text-xs font-semibold px-2.5 py-1 rounded-full transition-colors ${
-                          product.available
-                            ? 'bg-green-500 text-white' :'bg-[#8C8278] text-white'
+                          product.available ? 'bg-green-500 text-white' : 'bg-[#8C8278] text-white'
                         }`}
                       >
                         {product.available ? 'Available' : 'Hidden'}
@@ -1372,15 +1504,9 @@ filterCategory === cat
                         </span>
                       )}
                     </div>
-
-                    {/* Info */}
                     <div className="p-4">
-                      <p className="text-xs font-mono text-[#C4622D] uppercase tracking-wider mb-1">
-                        {product.category}
-                      </p>
-                      <h3 className="font-semibold text-[#1A1612] text-sm leading-snug mb-1 line-clamp-1">
-                        {product.name}
-                      </h3>
+                      <p className="text-xs font-mono text-[#C4622D] uppercase tracking-wider mb-1">{product.category}</p>
+                      <h3 className="font-semibold text-[#1A1612] text-sm leading-snug mb-1 line-clamp-1">{product.name}</h3>
                       <p className="text-xs text-[#8C8278] line-clamp-2 mb-3">{product.description}</p>
                       <div className="flex items-center justify-between">
                         <div>
@@ -1407,7 +1533,7 @@ filterCategory === cat
                               <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
                             ) : (
                               <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0016.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                               </svg>
                             )}
                           </button>
@@ -1421,10 +1547,213 @@ filterCategory === cat
           </div>
         )}
 
+        {/* ── CATEGORIES TAB ── */}
+        {activeTab === 'categories' && (
+          <div>
+            {/* Category Form Modal */}
+            {showCategoryForm && (
+              <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4">
+                <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
+                  <div className="flex items-center justify-between px-6 py-4 border-b border-[#EDE7DA]">
+                    <h2 className="font-bold text-[#1A1612] text-lg">
+                      {editingCategory ? 'Edit Category' : 'Add New Category'}
+                    </h2>
+                    <button
+                      onClick={() => setShowCategoryForm(false)}
+                      className="w-8 h-8 rounded-full bg-[#F5F0E8] flex items-center justify-center text-[#8C8278] hover:bg-[#EDE7DA] transition-colors"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <form onSubmit={handleSaveCategory} className="p-6 space-y-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Category Name *</label>
+                      <input
+                        type="text"
+                        value={categoryForm.name}
+                        onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })}
+                        placeholder="e.g. Seasonal Specials"
+                        className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Sort Order</label>
+                      <input
+                        type="number"
+                        value={categoryForm.sort_order}
+                        onChange={(e) => setCategoryForm({ ...categoryForm, sort_order: e.target.value })}
+                        placeholder="0"
+                        min="0"
+                        className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
+                      />
+                      <p className="text-xs text-[#B0A89E] mt-1">Lower numbers appear first</p>
+                    </div>
+                    {categoryFormError && (
+                      <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">{categoryFormError}</div>
+                    )}
+                    {categoryFormSuccess && (
+                      <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-xl px-4 py-3">{categoryFormSuccess}</div>
+                    )}
+                    <div className="flex gap-3 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setShowCategoryForm(false)}
+                        className="flex-1 py-2.5 rounded-xl border border-[#DDD5C8] text-sm font-semibold text-[#5C5347] hover:bg-[#F5F0E8] transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={savingCategory}
+                        className="flex-1 py-2.5 rounded-xl bg-[#C4622D] text-white text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                      >
+                        {savingCategory ? (
+                          <><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Saving...</>
+                        ) : editingCategory ? 'Save Changes' : 'Add Category'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {/* Categories Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+              <div>
+                <h2 className="text-lg font-bold text-[#1A1612]">Food Categories</h2>
+                <p className="text-sm text-[#8C8278] mt-0.5">Active categories appear on the Menu &amp; Order page and all other places categories are displayed</p>
+              </div>
+              <button
+                onClick={openAddCategoryForm}
+                className="flex items-center gap-2 bg-[#C4622D] text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors shadow-sm"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+                Add Category
+              </button>
+            </div>
+
+            {/* Categories Table */}
+            {categoriesLoading ? (
+              <div className="flex items-center justify-center py-20">
+                <svg className="animate-spin h-8 w-8 text-[#C4622D]" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+              </div>
+            ) : categoriesList.length === 0 ? (
+              <div className="text-center py-20 bg-white rounded-2xl border border-[#DDD5C8]">
+                <div className="text-5xl mb-3">🏷️</div>
+                <p className="text-[#5C5347] font-semibold">No categories yet</p>
+                <p className="text-[#B0A89E] text-sm mt-1 mb-4">Add your first category to get started</p>
+                <button
+                  onClick={openAddCategoryForm}
+                  className="bg-[#C4622D] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors"
+                >
+                  Add Category
+                </button>
+              </div>
+            ) : (
+              <div className="bg-white rounded-2xl border border-[#DDD5C8] overflow-hidden">
+                {/* Table Header */}
+                <div className="hidden md:grid grid-cols-12 gap-4 px-6 py-3 bg-[#F5F0E8] border-b border-[#DDD5C8] text-xs font-semibold text-[#8C8278] uppercase tracking-wider">
+                  <div className="col-span-5">Name</div>
+                  <div className="col-span-2 text-center">Sort Order</div>
+                  <div className="col-span-2 text-center">Status</div>
+                  <div className="col-span-3 text-right">Actions</div>
+                </div>
+
+                {categoriesList.map((cat, idx) => (
+                  <div
+                    key={cat.id}
+                    className={`px-6 py-4 flex flex-col md:grid md:grid-cols-12 md:items-center gap-3 md:gap-4 ${
+                      idx < categoriesList.length - 1 ? 'border-b border-[#EDE7DA]' : ''
+                    }`}
+                  >
+                    {/* Name */}
+                    <div className="col-span-5 flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-[#F5F0E8] flex items-center justify-center text-base flex-shrink-0">
+                        🏷️
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-[#1A1612]">{cat.name}</p>
+                        <p className="text-xs text-[#B0A89E]">{cat.slug}</p>
+                      </div>
+                    </div>
+
+                    {/* Sort Order */}
+                    <div className="col-span-2 text-center">
+                      <span className="text-sm text-[#5C5347] font-mono">{cat.sort_order}</span>
+                    </div>
+
+                    {/* Status Toggle */}
+                    <div className="col-span-2 flex justify-center">
+                      <button
+                        onClick={() => handleToggleCategoryActive(cat)}
+                        disabled={togglingCategoryId === cat.id}
+                        className={`inline-flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-full transition-colors disabled:opacity-50 ${
+                          cat.active
+                            ? 'bg-green-100 text-green-700 hover:bg-green-200' :'bg-[#F5F0E8] text-[#8C8278] hover:bg-[#EDE7DA]'
+                        }`}
+                        title={cat.active ? 'Click to deactivate' : 'Click to activate'}
+                      >
+                        {togglingCategoryId === cat.id ? (
+                          <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                        ) : (
+                          <span className={`w-1.5 h-1.5 rounded-full ${cat.active ? 'bg-green-500' : 'bg-[#B5ADA5]'}`} />
+                        )}
+                        {cat.active ? 'Active' : 'Inactive'}
+                      </button>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="col-span-3 flex items-center justify-end gap-2">
+                      <button
+                        onClick={() => openEditCategoryForm(cat)}
+                        className="w-8 h-8 rounded-lg bg-[#F5F0E8] flex items-center justify-center text-[#5C5347] hover:bg-[#EDE7DA] transition-colors"
+                        title="Edit category"
+                      >
+                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={() => handleDeleteCategory(cat)}
+                        disabled={deletingCategoryId === cat.id}
+                        className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center text-red-500 hover:bg-red-100 transition-colors disabled:opacity-50"
+                        title="Delete category"
+                      >
+                        {deletingCategoryId === cat.id ? (
+                          <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                        ) : (
+                          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Info box */}
+            <div className="mt-6 bg-[#F5F0E8] border border-[#DDD5C8] rounded-xl p-4">
+              <p className="text-sm font-semibold text-[#3D3530] mb-1">ℹ️ About Categories</p>
+              <p className="text-xs text-[#5C5347] leading-relaxed">
+                Only <strong>Active</strong> categories are shown on the Menu &amp; Order page and all other places where food categories are displayed.
+                Set a category to <strong>Inactive</strong> to hide it from customers — useful for seasonal menus.
+                Products in inactive categories remain in the database but will not be visible to customers.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* ── MEDIA LIBRARY TAB ── */}
         {activeTab === 'media' && (
           <div>
-            {/* Bucket Tabs */}
             <div className="flex gap-3 mb-6 flex-wrap">
               {buckets.map((bucket) => (
                 <button
@@ -1447,7 +1776,6 @@ filterCategory === cat
               ))}
             </div>
 
-            {/* Upload Area */}
             <div
               onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
               onDragLeave={() => setDragOver(false)}
@@ -1482,7 +1810,6 @@ filterCategory === cat
               </label>
             </div>
 
-            {/* Feedback */}
             {uploadError && (
               <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">{uploadError}</div>
             )}
@@ -1490,7 +1817,6 @@ filterCategory === cat
               <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-xl px-4 py-3">{uploadSuccess}</div>
             )}
 
-            {/* Files Grid */}
             {mediaLoading ? (
               <div className="flex items-center justify-center py-20">
                 <svg className="animate-spin h-8 w-8 text-[#C4622D]" viewBox="0 0 24 24" fill="none">
@@ -1542,7 +1868,6 @@ filterCategory === cat
         {/* ── HOMEPAGE CARDS TAB ── */}
         {activeTab === 'homepage_cards' && (
           <div>
-            {/* Card Edit Modal */}
             {showCardForm && editingCard && (
               <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto py-8 px-4">
                 <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl">
@@ -1562,8 +1887,6 @@ filterCategory === cat
                   </div>
 
                   <form onSubmit={handleSaveCard} className="p-6 space-y-4">
-
-                    {/* Visibility Toggle */}
                     <label className="flex items-center gap-3 cursor-pointer p-3 bg-[#F5F0E8] rounded-xl">
                       <div
                         onClick={() => setCardForm({ ...cardForm, is_visible: !cardForm.is_visible })}
@@ -1581,7 +1904,6 @@ filterCategory === cat
                       </div>
                     </label>
 
-                    {/* Title (all card types) */}
                     <div>
                       <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">
                         {editingCard.card_type === 'next_booking' ? 'Event Name *' : 'Title *'}
@@ -1596,7 +1918,6 @@ filterCategory === cat
                       />
                     </div>
 
-                    {/* Today's Special fields */}
                     {editingCard.card_type === 'todays_special' && (
                       <>
                         <div className="grid grid-cols-2 gap-4">
@@ -1636,7 +1957,6 @@ filterCategory === cat
                       </>
                     )}
 
-                    {/* Next Booking fields */}
                     {editingCard.card_type === 'next_booking' && (
                       <>
                         <div className="grid grid-cols-2 gap-4">
@@ -1685,7 +2005,6 @@ filterCategory === cat
                       </>
                     )}
 
-                    {/* Customer Review fields */}
                     {editingCard.card_type === 'customer_review' && (
                       <>
                         <div>
@@ -1741,19 +2060,13 @@ filterCategory === cat
                       </>
                     )}
 
-                    {/* Feedback */}
                     {cardFormError && (
-                      <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">
-                        {cardFormError}
-                      </div>
+                      <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">{cardFormError}</div>
                     )}
                     {cardFormSuccess && (
-                      <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-xl px-4 py-3">
-                        {cardFormSuccess}
-                      </div>
+                      <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-xl px-4 py-3">{cardFormSuccess}</div>
                     )}
 
-                    {/* Actions */}
                     <div className="flex gap-3 pt-2">
                       <button
                         type="button"
@@ -1777,13 +2090,11 @@ filterCategory === cat
               </div>
             )}
 
-            {/* Cards Header */}
             <div className="mb-6">
               <h2 className="text-lg font-bold text-[#1A1612]">Homepage Hero Cards</h2>
               <p className="text-sm text-[#8C8278] mt-0.5">Control what appears in the floating cards on the homepage hero section</p>
             </div>
 
-            {/* Cards List */}
             {cardsLoading ? (
               <div className="flex items-center justify-center py-20">
                 <svg className="animate-spin h-8 w-8 text-[#C4622D]" viewBox="0 0 24 24" fill="none">
@@ -1804,12 +2115,9 @@ filterCategory === cat
                     key={card.id}
                     className="bg-white rounded-2xl border border-[#DDD5C8] p-5 flex items-center gap-4 hover:border-[#C4622D]/40 hover:shadow-sm transition-all duration-200"
                   >
-                    {/* Icon */}
                     <div className="w-12 h-12 rounded-xl bg-[#F5F0E8] flex items-center justify-center text-2xl flex-shrink-0">
                       {CARD_TYPE_ICONS[card.card_type]}
                     </div>
-
-                    {/* Info */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-0.5">
                         <p className="text-xs font-mono text-[#C4622D] uppercase tracking-wider">
@@ -1820,22 +2128,19 @@ filterCategory === cat
                       <p className="text-xs text-[#8C8278] mt-0.5">
                         {card.card_type === 'todays_special' && (
                           card.price != null
-                            ? `R${card.price}${card.price_unit ? ` / ${card.price_unit}` : ''}${card.badge_label ? ` \u00b7 ${card.badge_label}` : ''}`
+                            ? `R${card.price}${card.price_unit ? ` / ${card.price_unit}` : ''}${card.badge_label ? ` · ${card.badge_label}` : ''}`
                             : (card.subtitle || '').replace(/\$/g, 'R')
                         )}
                         {card.card_type === 'next_booking' && `${card.event_date || ''}${card.event_date && card.guest_count ? ' · ' : ''}${card.guest_count ? `${card.guest_count} guests` : ''}${card.prep_percentage !== null ? ` · ${card.prep_percentage}% prep` : ''}`}
                         {card.card_type === 'customer_review' && `${card.rating ? '★'.repeat(card.rating) : ''} ${card.reviewer_name || ''}${card.reviewer_event ? ` · ${card.reviewer_event}` : ''}`}
                       </p>
                     </div>
-
-                    {/* Visibility Toggle */}
                     <div className="flex items-center gap-3 flex-shrink-0">
                       <button
                         onClick={() => handleToggleCardVisibility(card)}
                         disabled={togglingCardId === card.id}
                         className={`text-xs font-semibold px-3 py-1.5 rounded-full transition-colors disabled:opacity-50 ${
-                          card.is_visible
-                            ? 'bg-green-500 text-white' :'bg-[#8C8278] text-white'
+                          card.is_visible ? 'bg-green-500 text-white' : 'bg-[#8C8278] text-white'
                         }`}
                         title={card.is_visible ? 'Click to hide' : 'Click to show'}
                       >
@@ -1843,8 +2148,6 @@ filterCategory === cat
                           <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
                         ) : card.is_visible ? 'Visible' : 'Hidden'}
                       </button>
-
-                      {/* Edit Button */}
                       <button
                         onClick={() => openCardEditForm(card)}
                         className="w-9 h-9 rounded-xl bg-[#F5F0E8] flex items-center justify-center text-[#5C5347] hover:bg-[#EDE7DA] transition-colors"
@@ -1860,7 +2163,6 @@ filterCategory === cat
               </div>
             )}
 
-            {/* Info box */}
             <div className="mt-6 bg-[#F5F0E8] border border-[#DDD5C8] rounded-xl p-4">
               <p className="text-sm font-semibold text-[#3D3530] mb-1">ℹ️ About Homepage Cards</p>
               <p className="text-xs text-[#5C5347] leading-relaxed">
@@ -1892,7 +2194,6 @@ filterCategory === cat
         {/* ── STAFF MANAGEMENT TAB ── */}
         {activeTab === 'staff' && isSuperAdmin && (
           <div>
-            {/* Invite Modal */}
             {showInviteForm && (
               <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4">
                 <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
@@ -1935,7 +2236,7 @@ filterCategory === cat
                         onChange={(e) => setInviteForm({ ...inviteForm, role: e.target.value as StaffRole })}
                         className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors bg-white"
                       >
-                        <option value="staff">Staff — Products & Services access</option>
+                        <option value="staff">Staff — Products &amp; Services access</option>
                         <option value="admin">Admin — Full workspace access</option>
                       </select>
                     </div>
@@ -1975,7 +2276,6 @@ filterCategory === cat
               </div>
             )}
 
-            {/* Staff Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
               <div>
                 <h2 className="text-lg font-bold text-[#1A1612]">Staff Members</h2>
@@ -1995,17 +2295,12 @@ filterCategory === cat
             {staffActionMsg && (
               <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">{staffActionMsg}</div>
             )}
-
             {resetPasswordMsg && (
               <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-xl px-4 py-3 flex items-center gap-2">
-                <svg className="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.865a8.25 8.25 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
                 {resetPasswordMsg}
               </div>
             )}
 
-            {/* Staff Table */}
             {staffLoading ? (
               <div className="flex items-center justify-center py-20">
                 <svg className="animate-spin h-8 w-8 text-purple-600" viewBox="0 0 24 24" fill="none">
@@ -2021,24 +2316,19 @@ filterCategory === cat
               </div>
             ) : (
               <div className="bg-white rounded-2xl border border-[#DDD5C8] overflow-hidden">
-                {/* Table Header */}
                 <div className="hidden md:grid grid-cols-5 gap-4 px-6 py-3 bg-[#F5F0E8] border-b border-[#DDD5C8] text-xs font-semibold text-[#8C8278] uppercase tracking-wider">
                   <div className="col-span-2">Name / Email</div>
                   <div>Role</div>
                   <div>Status</div>
                   <div>Actions</div>
                 </div>
-
                 {staffMembers.map((member, idx) => (
                   <div
                     key={member.id}
                     className={`px-6 py-4 flex flex-col md:grid md:grid-cols-5 md:items-center gap-3 md:gap-4 ${
                       idx < staffMembers.length - 1 ? 'border-b border-[#EDE7DA]' : ''
-                    } ${
-                      !member.is_active ? 'bg-red-50/30' : ''
-                    }`}
+                    } ${!member.is_active ? 'bg-red-50/30' : ''}`}
                   >
-                    {/* Name / Email */}
                     <div className="col-span-2 flex items-center gap-3">
                       <div className="w-9 h-9 rounded-full bg-[#F5F0E8] flex items-center justify-center text-sm font-bold text-[#C4622D] flex-shrink-0">
                         {member.full_name?.charAt(0)?.toUpperCase() || member.email?.charAt(0)?.toUpperCase() || '?'}
@@ -2053,26 +2343,15 @@ filterCategory === cat
                         <p className="text-xs text-[#8C8278] truncate">{member.email}</p>
                       </div>
                     </div>
-
-                    {/* Role */}
-                    <div>
-                      <RoleBadge role={member.role} />
-                    </div>
-
-                    {/* Status */}
+                    <div><RoleBadge role={member.role} /></div>
                     <div>
                       <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full ${
-                        member.is_active
-                          ? 'bg-green-100 text-green-700' :'bg-red-100 text-red-700'
+                        member.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                       }`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${
-                          member.is_active ? 'bg-green-500' : 'bg-red-500'
-                        }`} />
+                        <span className={`w-1.5 h-1.5 rounded-full ${member.is_active ? 'bg-green-500' : 'bg-red-500'}`} />
                         {member.is_active ? 'Active' : 'Suspended'}
                       </span>
                     </div>
-
-                    {/* Actions */}
                     <div className="flex gap-2 flex-wrap">
                       {member.id === user?.id ? (
                         <span className="text-xs text-[#B0A89E] italic">Your account</span>
@@ -2129,7 +2408,6 @@ filterCategory === cat
               </div>
             )}
 
-            {/* Info Box */}
             <div className="mt-6 bg-purple-50 border border-purple-200 rounded-xl p-4">
               <p className="text-sm font-semibold text-purple-800 mb-1">ℹ️ Super Admin Access</p>
               <p className="text-xs text-purple-700 leading-relaxed">

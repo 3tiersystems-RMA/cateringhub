@@ -8,13 +8,10 @@ import ProductModal from "./ProductModal";
 import { CartProvider, useCart } from "./CartContext";
 import { createClient } from "@/lib/supabase/client";
 
-type Category = "All" | "Catering Packages" | "Prepared Meals" | "À La Carte" | "Frozen Meals";
-const categories: readonly Category[] = ["All", "Catering Packages", "Prepared Meals", "À La Carte", "Frozen Meals"];
-
 interface Product {
   id: string;
   name: string;
-  category: "Catering Packages" | "Prepared Meals" | "À La Carte" | "Frozen Meals";
+  category: string;
   price: number;
   unit: string;
   image: string;
@@ -61,10 +58,11 @@ function CartButton() {
 }
 
 function ProductsContent() {
-  const [activeCategory, setActiveCategory] = useState<Category>("All");
+  const [activeCategory, setActiveCategory] = useState<string>("All");
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<"default" | "price-asc" | "price-desc" | "rating">("default");
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [modalAdded, setModalAdded] = useState(false);
@@ -72,10 +70,22 @@ function ProductsContent() {
   const { addItem } = useCart();
 
   useEffect(() => {
-    const fetchProducts = async () => {
+    const fetchData = async () => {
       setLoading(true);
       try {
         const supabase = createClient();
+
+        // Fetch active categories from DB
+        const { data: catData } = await supabase
+          .from('categories')
+          .select('name')
+          .eq('active', true)
+          .order('sort_order', { ascending: true });
+
+        const activeCategories = (catData || []).map((c: any) => c.name as string);
+        setCategories(activeCategories);
+
+        // Fetch products
         const { data, error } = await supabase
           .from('products')
           .select('*')
@@ -100,7 +110,7 @@ function ProductsContent() {
             return {
               id: p.id,
               name: p.name,
-              category: p.category as Product['category'],
+              category: p.category as string,
               price: p.price,
               unit: p.unit,
               image: imageUrl,
@@ -123,7 +133,7 @@ function ProductsContent() {
         setLoading(false);
       }
     };
-    fetchProducts();
+    fetchData();
   }, []);
 
   const filtered = useMemo(() => {
@@ -192,6 +202,9 @@ function ProductsContent() {
     setTimeout(() => setModalAdded(false), 1800);
   };
 
+  // Build display categories: All + active categories from DB
+  const displayCategories = ["All", ...categories];
+
   return (
     <>
       <CartSidebar />
@@ -254,9 +267,9 @@ function ProductsContent() {
           </div>
         </div>
 
-        {/* Category Tabs */}
+        {/* Category Tabs — only active categories from DB */}
         <div className="flex flex-wrap gap-2 mb-10">
-          {categories.map((cat) => (
+          {displayCategories.map((cat) => (
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
