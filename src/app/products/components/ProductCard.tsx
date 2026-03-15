@@ -82,8 +82,8 @@ export default function ProductCard({ product, onOpenModal }: ProductCardProps) 
           {product.name}
         </h3>
         <p className="text-xs text-[#8C8278] leading-relaxed mb-4 h-8 overflow-hidden">
-          {product.description && product.description.length > 60
-            ? product.description.slice(0, 60).trimEnd() + "..."
+          {product.description && product.description.length > 35
+            ? product.description.slice(0, 35).trimEnd() + "..."
             : product.description}
         </p>
 
