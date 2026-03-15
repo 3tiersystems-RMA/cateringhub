@@ -102,6 +102,33 @@ export async function POST(req: NextRequest) {
     if (payment_status === "COMPLETE") {
       console.log(`PayFast payment COMPLETE: Order ${m_payment_id}, PF ID: ${pf_payment_id}, Amount: R${amount_gross}`);
 
+      // Check if this is a voucher purchase (custom_str1 starts with "VCHR-")
+      const isVoucherPayment = pfData.custom_str1?.startsWith("VCHR-");
+
+      if (isVoucherPayment) {
+        // Extract the voucher code (strip the "VCHR-" prefix)
+        const voucherCode = pfData.custom_str1.slice(5);
+        console.log(`Voucher payment confirmed for code: ${voucherCode}`);
+
+        const supabase = createSupabaseAdmin();
+        const { error: voucherError } = await supabase
+          .from("vouchers")
+          .update({
+            status: "paid",
+            payment_reference: pf_payment_id || m_payment_id || "",
+          })
+          .eq("voucher_code", voucherCode)
+          .eq("status", "unpaid");
+
+        if (voucherError) {
+          console.error("Failed to activate voucher:", voucherError.message);
+        } else {
+          console.log(`Voucher ${voucherCode} activated (status set to 'paid')`);
+        }
+
+        return new NextResponse("OK", { status: 200 });
+      }
+
       // Parse order data from custom fields stored during initiation
       let orderData: {
         customerName: string;

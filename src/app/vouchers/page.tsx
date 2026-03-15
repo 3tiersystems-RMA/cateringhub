@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
+
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import Icon from "@/components/ui/AppIcon";
@@ -57,6 +57,8 @@ export default function VouchersPage() {
   const [submitError, setSubmitError] = useState("");
   const [issuedCode, setIssuedCode] = useState("");
   const [copied, setCopied] = useState(false);
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [paymentError, setPaymentError] = useState("");
 
   const handleSelectPackage = (pkg: VoucherPackage) => {
     setSelectedPackage(pkg);
@@ -83,6 +85,7 @@ export default function VouchersPage() {
     setSubmitting(true);
     try {
       const code = generateVoucherCode();
+      // Insert voucher with 'unpaid' status — becomes 'paid' only after payment is confirmed
       const { error } = await supabase.from("vouchers").insert({
         voucher_code: code,
         customer_name: form.name.trim(),
@@ -90,7 +93,7 @@ export default function VouchersPage() {
         customer_phone: stripped,
         total_meals: selectedPackage.meals,
         meals_remaining: selectedPackage.meals,
-        status: "active",
+        status: "unpaid",
         notes: form.notes.trim() || null,
       });
 
@@ -101,9 +104,47 @@ export default function VouchersPage() {
       setIssuedCode(code);
       setStep("confirmation");
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : "Failed to purchase voucher. Please try again.");
+      setSubmitError(err instanceof Error ? err.message : "Failed to create voucher. Please try again.");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handlePayNow = async () => {
+    if (!selectedPackage || !issuedCode) return;
+    setPaymentLoading(true);
+    setPaymentError("");
+
+    try {
+      const response = await fetch("/api/payfast/initiate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: form.name.trim(),
+          email: form.email.trim().toLowerCase(),
+          phone: form.phone.replace(/\D/g, ""),
+          amount: selectedPackage.price.toFixed(2),
+          itemName: `Meal Voucher — ${selectedPackage.label} (${selectedPackage.meals} meals)`,
+          itemDescription: `Voucher code: ${issuedCode}`,
+          // Pass voucher code in custom_str1 with VCHR- prefix so ITN can identify it
+          voucherCode: issuedCode,
+        }),
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || "Failed to initiate payment.");
+      }
+
+      // The response is an HTML page that auto-submits to PayFast
+      const html = await response.text();
+      const blob = new Blob([html], { type: "text/html" });
+      const url = URL.createObjectURL(blob);
+      window.location.href = url;
+    } catch (err) {
+      setPaymentError(err instanceof Error ? err.message : "Failed to initiate payment. Please try again.");
+    } finally {
+      setPaymentLoading(false);
     }
   };
 
@@ -315,33 +356,33 @@ export default function VouchersPage() {
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
                         </svg>
-                        Generating Voucher...
+                        Preparing Voucher...
                       </>
                     ) : (
                       <>
                         <Icon name="TicketIcon" size={14} />
-                        Purchase Voucher — R{selectedPackage.price.toFixed(2)}
+                        Continue to Payment — R{selectedPackage.price.toFixed(2)}
                       </>
                     )}
                   </button>
                   <p className="text-xs text-center text-[#B5ADA5]">
-                    Your unique voucher code will be generated immediately after purchase.
+                    You will be redirected to PayFast to complete your payment securely.
                   </p>
                 </form>
               </div>
             </div>
           )}
 
-          {/* ─── STEP: CONFIRMATION ─── */}
+          {/* ─── STEP: CONFIRMATION (Awaiting Payment) ─── */}
           {step === "confirmation" && selectedPackage && (
             <div className="max-w-lg mx-auto">
               <div className="bg-white rounded-2xl border border-[#DDD5C8] p-8 text-center">
-                {/* Success icon */}
-                <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
-                  <Icon name="CheckIcon" size={36} className="text-green-600" />
+                {/* Pending payment icon */}
+                <div className="w-20 h-20 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4">
+                  <Icon name="CreditCardIcon" size={36} className="text-amber-600" />
                 </div>
                 <h2 className="font-display text-2xl font-bold text-[#1A1612] mb-2">
-                  Voucher Purchased!
+                  Voucher Reserved — Payment Required
                 </h2>
                 <p className="text-[#8C8278] text-sm mb-6">
                   Your meal voucher has been created. Save your unique code below — you will need it when placing orders.
@@ -373,15 +414,28 @@ export default function VouchersPage() {
                   </div>
                 </div>
 
+                {/* Payment status warning */}
+                <div className="bg-amber-50 border border-amber-300 rounded-xl p-4 text-left mb-6">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Icon name="ExclamationTriangleIcon" size={15} className="text-amber-600 flex-shrink-0" />
+                    <p className="text-xs font-semibold text-amber-800">Payment Required to Activate Voucher</p>
+                  </div>
+                  <ul className="text-xs text-amber-700 space-y-1 leading-relaxed">
+                    <li>• Your voucher is currently <strong>unpaid</strong> and cannot be used at checkout.</li>
+                    <li>• Click <strong>&quot;Pay Now&quot;</strong> below to complete your payment via PayFast.</li>
+                    <li>• Once payment is confirmed, your voucher will be activated automatically.</li>
+                    <li>• Save your code: <strong>{issuedCode}</strong></li>
+                  </ul>
+                </div>
+
                 {/* Details */}
                 <div className="bg-[#F5F0E8] rounded-xl p-4 text-left space-y-2 text-sm mb-6">
                   {[
                     { label: "Name", value: form.name },
                     { label: "Email", value: form.email },
-                    { label: "Phone", value: form.phone },
                     { label: "Total Meals", value: `${selectedPackage.meals} meals` },
-                    { label: "Meals Remaining", value: `${selectedPackage.meals} meals` },
-                    { label: "Status", value: "Active ✓" },
+                    { label: "Amount Due", value: `R${selectedPackage.price.toFixed(2)}` },
+                    { label: "Status", value: "⏳ Awaiting Payment" },
                   ].map(({ label, value }) => (
                     <div key={label} className="flex justify-between items-center py-1 border-b border-[#DDD5C8] last:border-0">
                       <span className="text-[#8C8278] text-xs">{label}</span>
@@ -390,33 +444,41 @@ export default function VouchersPage() {
                   ))}
                 </div>
 
-                {/* Instructions */}
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-left mb-6">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Icon name="InformationCircleIcon" size={15} className="text-amber-600 flex-shrink-0" />
-                    <p className="text-xs font-semibold text-amber-800">Important — Save Your Code</p>
+                {paymentError && (
+                  <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-4">
+                    <Icon name="ExclamationCircleIcon" size={16} className="text-red-500 flex-shrink-0 mt-0.5" />
+                    <p className="text-xs text-red-600">{paymentError}</p>
                   </div>
-                  <ul className="text-xs text-amber-700 space-y-1 leading-relaxed">
-                    <li>• Write down or screenshot your voucher code: <strong>{issuedCode}</strong></li>
-                    <li>• Enter this code at checkout under &quot;Have a Voucher?&quot; to redeem meals.</li>
-                    <li>• Each order placed will deduct from your meal balance.</li>
-                    <li>• A confirmation has been noted for <strong>{form.email}</strong>.</li>
-                  </ul>
-                </div>
+                )}
 
                 <div className="flex flex-col gap-3">
-                  <Link
-                    href="/products"
-                    className="w-full bg-[#C4622D] text-white py-3.5 rounded-full font-semibold text-sm hover:bg-[#A04E22] transition-all text-center"
+                  <button
+                    onClick={handlePayNow}
+                    disabled={paymentLoading}
+                    className="w-full bg-[#C4622D] text-white py-3.5 rounded-full font-semibold text-sm hover:bg-[#A04E22] transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                   >
-                    Start Ordering Now
-                  </Link>
+                    {paymentLoading ? (
+                      <>
+                        <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                        </svg>
+                        Redirecting to PayFast...
+                      </>
+                    ) : (
+                      <>
+                        <Icon name="CreditCardIcon" size={14} />
+                        Pay Now — R{selectedPackage.price.toFixed(2)}
+                      </>
+                    )}
+                  </button>
                   <button
                     onClick={() => {
                       setStep("select");
                       setSelectedPackage(null);
                       setForm({ name: "", email: "", phone: "", notes: "" });
                       setIssuedCode("");
+                      setPaymentError("");
                     }}
                     className="w-full border border-[#DDD5C8] text-[#5C5347] py-3 rounded-full font-semibold text-sm hover:bg-[#F5F0E8] transition-all"
                   >

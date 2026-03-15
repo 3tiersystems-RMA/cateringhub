@@ -25,6 +25,7 @@ export async function POST(req: NextRequest) {
       eventDate,
       deliveryAddress,
       notes,
+      voucherCode,
     } = body;
 
     if (!name || !email || !amount) {
@@ -78,7 +79,8 @@ export async function POST(req: NextRequest) {
       amount: parseFloat(amount).toFixed(2),
       itemName: itemName || `${APP_NAME} Order`,
       itemDescription: itemDescription || undefined,
-      customStr1: orderId,
+      // If this is a voucher purchase, prefix custom_str1 with VCHR- so ITN can identify it
+      customStr1: voucherCode ? `VCHR-${voucherCode}` : orderId,
     });
 
     const signature = generateSignature(

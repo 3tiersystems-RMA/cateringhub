@@ -77,7 +77,13 @@ export default function CartSidebar() {
         setVoucherError("Voucher code not found. Please check and try again.");
         return;
       }
-      if (data.status !== "active") {
+      if (data.status === "unpaid") {
+        setVoucherError(
+          "This voucher has not been paid for yet. Please complete your payment at the Gift a Voucher page before placing an order."
+        );
+        return;
+      }
+      if (data.status !== "active" && data.status !== "paid") {
         setVoucherError(`This voucher is ${data.status}. It cannot be used.`);
         return;
       }
