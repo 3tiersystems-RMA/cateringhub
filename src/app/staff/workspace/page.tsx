@@ -1631,8 +1631,8 @@ export default function StaffWorkspacePage() {
                     ) : mediaPickerFiles.length === 0 ? (
                       <div className="text-center py-16">
                         <span className="text-4xl mb-3 block">🖼️</span>
-                        <p className="text-[#5C5347] font-semibold mb-1">No images in Media Library</p>
-                        <p className="text-[#B0A89E] text-sm mt-1">Upload images via the Media Library tab first, then return here to select one.</p>
+                        <p className="text-[#5C5347] font-semibold mb-1">No images yet</p>
+                        <p className="text-[#B0A89E] text-sm mt-1">Upload your first image above</p>
                       </div>
                     ) : (
                       <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
@@ -2870,6 +2870,8 @@ export default function StaffWorkspacePage() {
                       {weekDays.map(({ date, dateStr, dayAbbr, items, closedEntry }) => {
                         const dateLabel = date.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' });
                         const isClosed = !!closedEntry;
+                        const todayDateStr = (() => { const t = new Date(); const p = (n: number) => String(n).padStart(2, '0'); return `${t.getFullYear()}-${p(t.getMonth() + 1)}-${p(t.getDate())}`; })();
+                        const isPastDay = weekOffset === 0 && dateStr < todayDateStr;
 
                         return (
                           <div key={dateStr} className="bg-white rounded-2xl border border-[#EDE7DA] overflow-hidden">
@@ -2905,7 +2907,9 @@ export default function StaffWorkspacePage() {
                                   <>
                                     <button
                                       onClick={() => openAddWeeklyMenuForm(dateStr)}
-                                      className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-[#C4622D] text-white hover:bg-[#A04E22] hover:text-[#A04E22] transition-colors"
+                                      disabled={isPastDay}
+                                      title={isPastDay ? 'Cannot add items to past days' : 'Add a menu item for this day'}
+                                      className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${isPastDay ? 'bg-[#DDD5C8] text-[#B5ADA5] cursor-not-allowed' : 'bg-[#C4622D] text-white hover:bg-[#A04E22] hover:text-black'}`}
                                     >
                                       <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
