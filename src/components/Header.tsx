@@ -9,6 +9,7 @@ import Icon from "@/components/ui/AppIcon";
 const navLinks = [
   { label: "Home", href: "/homepage" },
   { label: "Menu & Order", href: "/products" },
+  { label: "Gift a Voucher", href: "/vouchers" },
 ];
 
 export default function Header() {

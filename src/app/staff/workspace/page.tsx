@@ -8,7 +8,7 @@ import { useInactivityTimer } from '@/hooks/useInactivityTimer';
 import { APP_NAME } from "@/lib/constants";
 
 type BucketType = 'product-images' | 'event-photos';
-type WorkspaceTab = 'products' | 'media' | 'orders' | 'staff' | 'homepage_cards' | 'categories' | 'weekly_menu';
+type WorkspaceTab = 'products' | 'media' | 'orders' | 'staff' | 'homepage_cards' | 'categories' | 'weekly_menu' | 'vouchers';
 type ProductCategory = string;
 type StaffRole = 'admin' | 'staff' | 'super_admin';
 
@@ -95,6 +95,28 @@ interface WeeklyMenuItemForm {
   price: string;
   is_closed: boolean;
   closed_reason: string;
+}
+
+interface Voucher {
+  id: string;
+  voucher_code: string;
+  customer_name: string;
+  customer_email: string;
+  customer_phone: string;
+  total_meals: number;
+  meals_remaining: number;
+  status: 'active' | 'redeemed' | 'expired';
+  purchased_at: string;
+  notes: string | null;
+}
+
+interface VoucherRedemption {
+  id: string;
+  voucher_code: string;
+  order_id: string;
+  meals_used: number;
+  redeemed_at: string;
+  notes: string | null;
 }
 
 const CARD_TYPE_LABELS: Record<HomepageCard['card_type'], string> = {
@@ -293,6 +315,25 @@ export default function StaffWorkspacePage() {
   const [closingDayDate, setClosingDayDate] = useState<string | null>(null);
   const [closingDayReason, setClosingDayReason] = useState('');
   const [savingClosedDay, setSavingClosedDay] = useState(false);
+
+  // Vouchers state
+  const [vouchers, setVouchers] = useState<Voucher[]>([]);
+  const [vouchersLoading, setVouchersLoading] = useState(false);
+  const [selectedVoucher, setSelectedVoucher] = useState<Voucher | null>(null);
+  const [voucherRedemptions, setVoucherRedemptions] = useState<VoucherRedemption[]>([]);
+  const [redemptionsLoading, setRedemptionsLoading] = useState(false);
+  const [showIssueVoucherForm, setShowIssueVoucherForm] = useState(false);
+  const [issueVoucherForm, setIssueVoucherForm] = useState({
+    customer_name: '',
+    customer_email: '',
+    customer_phone: '',
+    total_meals: '12',
+    notes: '',
+  });
+  const [issueVoucherError, setIssueVoucherError] = useState('');
+  const [issueVoucherSuccess, setIssueVoucherSuccess] = useState('');
+  const [issuingVoucher, setIssuingVoucher] = useState(false);
+  const [voucherSearchQuery, setVoucherSearchQuery] = useState('');
 
   useEffect(() => {
     const init = async () => {
@@ -1262,6 +1303,106 @@ export default function StaffWorkspacePage() {
     setTogglingCardId(null);
   };
 
+  // ─── Vouchers ───────────────────────────────────────────────────────────────
+
+  const loadVouchers = async () => {
+    setVouchersLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('vouchers')
+        .select('*')
+        .order('purchased_at', { ascending: false });
+      if (error) {
+        console.log('Load vouchers error:', error.message);
+        setVouchers([]);
+        return;
+      }
+      setVouchers((data || []) as Voucher[]);
+    } catch (err) {
+      console.log('Unexpected error loading vouchers:', err);
+      setVouchers([]);
+    } finally {
+      setVouchersLoading(false);
+    }
+  };
+
+  const loadVoucherRedemptions = async (voucherCode: string) => {
+    setRedemptionsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('voucher_redemptions')
+        .select('*')
+        .eq('voucher_code', voucherCode)
+        .order('redeemed_at', { ascending: false });
+      if (error) {
+        console.log('Load redemptions error:', error.message);
+        setVoucherRedemptions([]);
+        return;
+      }
+      setVoucherRedemptions((data || []) as VoucherRedemption[]);
+    } catch (err) {
+      console.log('Unexpected error loading redemptions:', err);
+      setVoucherRedemptions([]);
+    } finally {
+      setRedemptionsLoading(false);
+    }
+  };
+
+  const handleSelectVoucher = async (voucher: Voucher) => {
+    setSelectedVoucher(voucher);
+    await loadVoucherRedemptions(voucher.voucher_code);
+  };
+
+  const generateVoucherCode = (): string => {
+    const year = new Date().getFullYear();
+    const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
+    const rand2 = Math.random().toString(36).slice(2, 4).toUpperCase();
+    return `CK-${year}-${rand}${rand2}`;
+  };
+
+  const handleIssueVoucher = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIssueVoucherError('');
+    setIssueVoucherSuccess('');
+
+    if (!issueVoucherForm.customer_name.trim()) { setIssueVoucherError('Customer name is required.'); return; }
+    if (!issueVoucherForm.customer_email.trim()) { setIssueVoucherError('Customer email is required.'); return; }
+    const meals = Number(issueVoucherForm.total_meals);
+    if (!meals || meals <= 0) { setIssueVoucherError('Please enter a valid number of meals.'); return; }
+
+    setIssuingVoucher(true);
+    try {
+      const code = generateVoucherCode();
+      const { error } = await supabase.from('vouchers').insert({
+        voucher_code: code,
+        customer_name: issueVoucherForm.customer_name.trim(),
+        customer_email: issueVoucherForm.customer_email.trim().toLowerCase(),
+        customer_phone: issueVoucherForm.customer_phone.trim(),
+        total_meals: meals,
+        meals_remaining: meals,
+        status: 'active',
+        notes: issueVoucherForm.notes.trim() || null,
+      });
+
+      if (error) {
+        setIssueVoucherError(`Failed to issue voucher: ${error.message}`);
+        return;
+      }
+
+      setIssueVoucherSuccess(`Voucher ${code} issued successfully!`);
+      setIssueVoucherForm({ customer_name: '', customer_email: '', customer_phone: '', total_meals: '12', notes: '' });
+      await loadVouchers();
+      setTimeout(() => {
+        setShowIssueVoucherForm(false);
+        setIssueVoucherSuccess('');
+      }, 2000);
+    } catch (err) {
+      setIssueVoucherError('An unexpected error occurred.');
+    } finally {
+      setIssuingVoucher(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#F5F0E8]">
       {showWarning && (
@@ -1351,6 +1492,14 @@ export default function StaffWorkspacePage() {
               }`}
             >
 📅 Weekly Menu
+            </button>
+            <button
+              onClick={() => { setActiveTab('vouchers'); loadVouchers(); }}
+              className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${
+                activeTab === 'vouchers' ? 'border-[#C4622D] text-[#C4622D]' : 'border-transparent text-[#8C8278] hover:text-[#5C5347]'
+              }`}
+            >
+              🎟️ Vouchers
             </button>
             {isSuperAdmin && (
               <button
@@ -1717,7 +1866,7 @@ export default function StaffWorkspacePage() {
               <div className="text-center py-20 bg-white rounded-2xl border border-[#DDD5C8]">
                 <div className="text-5xl mb-3">🍽️</div>
                 <p className="text-[#5C5347] font-semibold">No products yet</p>
-                <p className="text-[#B0A89E] text-sm mt-1 mb-4">Add your first product to get started</p>
+                <p className="text-[#B0A89E] text-sm mt-1">Add your first product to get started</p>
                 <button
                   onClick={openCreateForm}
                   className="bg-[#C4622D] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors"
@@ -3003,6 +3152,314 @@ export default function StaffWorkspacePage() {
                 </>
               );
             })()}
+          </div>
+        )}
+
+        {/* ── VOUCHERS TAB ── */}
+        {activeTab === 'vouchers' && (
+          <div>
+            {/* Issue Voucher Modal */}
+            {showIssueVoucherForm && (
+              <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto py-8 px-4">
+                <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl">
+                  <div className="flex items-center justify-between px-6 py-4 border-b border-[#EDE7DA]">
+                    <h2 className="font-bold text-[#1A1612] text-lg">Issue Voucher Manually</h2>
+                    <button
+                      onClick={() => setShowIssueVoucherForm(false)}
+                      className="w-8 h-8 rounded-full bg-[#F5F0E8] flex items-center justify-center text-[#8C8278] hover:bg-[#EDE7DA] transition-colors"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <form onSubmit={handleIssueVoucher} className="p-6 space-y-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">Customer Name *</label>
+                      <input
+                        type="text"
+                        required
+                        value={issueVoucherForm.customer_name}
+                        onChange={(e) => setIssueVoucherForm({ ...issueVoucherForm, customer_name: e.target.value })}
+                        placeholder="Jennifer Martinez"
+                        className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">Email *</label>
+                      <input
+                        type="email"
+                        required
+                        value={issueVoucherForm.customer_email}
+                        onChange={(e) => setIssueVoucherForm({ ...issueVoucherForm, customer_email: e.target.value })}
+                        placeholder="jennifer@email.com"
+                        className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">Phone</label>
+                      <input
+                        type="tel"
+                        value={issueVoucherForm.customer_phone}
+                        onChange={(e) => setIssueVoucherForm({ ...issueVoucherForm, customer_phone: e.target.value })}
+                        placeholder="0821234567"
+                        className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">Number of Meals *</label>
+                      <input
+                        type="number"
+                        required
+                        min="1"
+                        value={issueVoucherForm.total_meals}
+                        onChange={(e) => setIssueVoucherForm({ ...issueVoucherForm, total_meals: e.target.value })}
+                        className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">Notes</label>
+                      <textarea
+                        rows={2}
+                        value={issueVoucherForm.notes}
+                        onChange={(e) => setIssueVoucherForm({ ...issueVoucherForm, notes: e.target.value })}
+                        placeholder="Internal notes..."
+                        className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors resize-none"
+                      />
+                    </div>
+                    {issueVoucherError && (
+                      <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">{issueVoucherError}</div>
+                    )}
+                    {issueVoucherSuccess && (
+                      <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-xl px-4 py-3">{issueVoucherSuccess}</div>
+                    )}
+                    <div className="flex gap-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowIssueVoucherForm(false)}
+                        className="flex-1 py-2.5 rounded-xl border border-[#DDD5C8] text-sm font-semibold text-[#5C5347] hover:bg-[#F5F0E8] transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={issuingVoucher}
+                        className="flex-1 py-2.5 rounded-xl bg-[#C4622D] text-white text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                      >
+                        {issuingVoucher ? (
+                          <><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Issuing...</>
+                        ) : 'Issue Voucher'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {/* Voucher Detail Panel */}
+            {selectedVoucher && (
+              <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto py-8 px-4">
+                <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl">
+                  <div className="flex items-center justify-between px-6 py-4 border-b border-[#EDE7DA]">
+                    <div>
+                      <h2 className="font-bold text-[#1A1612] text-lg">Voucher Details</h2>
+                      <p className="text-xs text-[#8C8278] font-mono">{selectedVoucher.voucher_code}</p>
+                    </div>
+                    <button
+                      onClick={() => { setSelectedVoucher(null); setVoucherRedemptions([]); }}
+                      className="w-8 h-8 rounded-full bg-[#F5F0E8] flex items-center justify-center text-[#8C8278] hover:bg-[#EDE7DA] transition-colors"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <div className="p-6 space-y-5">
+                    {/* Voucher info */}
+                    <div className="bg-gradient-to-br from-[#1A1612] to-[#3D342D] rounded-2xl p-5 text-white relative overflow-hidden">
+                      <div className="absolute top-0 right-0 w-24 h-24 bg-[#C4622D]/20 rounded-full -translate-y-6 translate-x-6" />
+                      <div className="relative z-10">
+                        <p className="text-xs text-white/40 font-mono uppercase tracking-widest mb-1">Voucher Code</p>
+                        <p className="text-2xl font-mono font-bold text-[#C4622D] tracking-widest mb-3">{selectedVoucher.voucher_code}</p>
+                        <div className="grid grid-cols-3 gap-4 text-center">
+                          <div>
+                            <p className="text-xs text-white/40 mb-0.5">Total Meals</p>
+                            <p className="text-xl font-bold text-white">{selectedVoucher.total_meals}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-white/40 mb-0.5">Remaining</p>
+                            <p className="text-xl font-bold text-green-400">{selectedVoucher.meals_remaining}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-white/40 mb-0.5">Used</p>
+                            <p className="text-xl font-bold text-[#C4622D]">{selectedVoucher.total_meals - selectedVoucher.meals_remaining}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Customer info */}
+                    <div className="bg-[#F5F0E8] rounded-xl p-4 space-y-2 text-sm">
+                      {[
+                        { label: 'Customer', value: selectedVoucher.customer_name },
+                        { label: 'Email', value: selectedVoucher.customer_email },
+                        { label: 'Phone', value: selectedVoucher.customer_phone || '—' },
+                        { label: 'Status', value: selectedVoucher.status.charAt(0).toUpperCase() + selectedVoucher.status.slice(1) },
+                        { label: 'Purchased', value: new Date(selectedVoucher.purchased_at).toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' }) },
+                        { label: 'Notes', value: selectedVoucher.notes || '—' },
+                      ].map(({ label, value }) => (
+                        <div key={label} className="flex justify-between items-center py-1 border-b border-[#DDD5C8] last:border-0">
+                          <span className="text-[#8C8278] text-xs">{label}</span>
+                          <span className="font-semibold text-[#1A1612] text-xs">{value}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Redemption history */}
+                    <div>
+                      <h3 className="font-semibold text-[#1A1612] text-sm mb-3">Redemption History</h3>
+                      {redemptionsLoading ? (
+                        <div className="flex justify-center py-6">
+                          <svg className="animate-spin h-6 w-6 text-[#C4622D]" viewBox="0 0 24 24" fill="none">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                          </svg>
+                        </div>
+                      ) : voucherRedemptions.length === 0 ? (
+                        <div className="text-center py-6 text-[#8C8278] text-sm bg-[#F5F0E8] rounded-xl">
+                          No redemptions yet for this voucher.
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {voucherRedemptions.map((r) => (
+                            <div key={r.id} className="bg-[#F5F0E8] rounded-xl p-3 flex items-center justify-between">
+                              <div>
+                                <p className="text-xs font-semibold text-[#1A1612]">Order: {r.order_id || '—'}</p>
+                                <p className="text-xs text-[#8C8278]">{new Date(r.redeemed_at).toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                                {r.notes && <p className="text-xs text-[#B5ADA5] mt-0.5">{r.notes}</p>}
+                              </div>
+                              <div className="text-right">
+                                <p className="text-sm font-bold text-[#C4622D]">-{r.meals_used}</p>
+                                <p className="text-xs text-[#8C8278]">meal{r.meals_used !== 1 ? 's' : ''}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Vouchers Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+              <div>
+                <h2 className="text-xl font-bold text-[#1A1612]">Meal Vouchers</h2>
+                <p className="text-sm text-[#8C8278]">{vouchers.length} voucher{vouchers.length !== 1 ? 's' : ''} total</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <input
+                  type="text"
+                  value={voucherSearchQuery}
+                  onChange={(e) => setVoucherSearchQuery(e.target.value)}
+                  placeholder="Search by name, email or code..."
+                  className="bg-white border border-[#DDD5C8] rounded-full px-4 py-2 text-sm text-[#1A1612] placeholder-[#B5ADA5] focus:outline-none focus:border-[#C4622D] transition-colors w-56"
+                />
+                <button
+                  onClick={() => { setIssueVoucherError(''); setIssueVoucherSuccess(''); setShowIssueVoucherForm(true); }}
+                  className="flex items-center gap-2 bg-[#C4622D] text-white px-4 py-2 rounded-full text-sm font-semibold hover:bg-[#A04E22] transition-colors"
+                >
+                  + Issue Voucher
+                </button>
+              </div>
+            </div>
+
+            {/* Vouchers Table */}
+            {vouchersLoading ? (
+              <div className="flex justify-center py-16">
+                <svg className="animate-spin h-8 w-8 text-[#C4622D]" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+              </div>
+            ) : vouchers.length === 0 ? (
+              <div className="text-center py-16 bg-white rounded-2xl border border-[#DDD5C8]">
+                <div className="text-4xl mb-3">🎟️</div>
+                <p className="text-[#8C8278] font-medium">No vouchers yet.</p>
+                <p className="text-sm text-[#B5ADA5] mt-1">Vouchers will appear here once customers purchase them.</p>
+              </div>
+            ) : (
+              <div className="bg-white rounded-2xl border border-[#DDD5C8] overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-[#F5F0E8] border-b border-[#DDD5C8]">
+                        <th className="text-left px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wider">Voucher Code</th>
+                        <th className="text-left px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wider">Customer</th>
+                        <th className="text-left px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wider hidden md:table-cell">Email</th>
+                        <th className="text-center px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wider">Total</th>
+                        <th className="text-center px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wider">Remaining</th>
+                        <th className="text-center px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wider">Status</th>
+                        <th className="text-left px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wider hidden lg:table-cell">Purchased</th>
+                        <th className="px-4 py-3"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#F0EBE3]">
+                      {vouchers
+                        .filter((v) => {
+                          if (!voucherSearchQuery.trim()) return true;
+                          const q = voucherSearchQuery.toLowerCase();
+                          return (
+                            v.voucher_code.toLowerCase().includes(q) ||
+                            v.customer_name.toLowerCase().includes(q) ||
+                            v.customer_email.toLowerCase().includes(q)
+                          );
+                        })
+                        .map((voucher) => (
+                          <tr key={voucher.id} className="hover:bg-[#FDFAF7] transition-colors">
+                            <td className="px-4 py-3">
+                              <span className="font-mono font-bold text-[#C4622D] text-xs">{voucher.voucher_code}</span>
+                            </td>
+                            <td className="px-4 py-3">
+                              <p className="font-semibold text-[#1A1612] text-xs">{voucher.customer_name}</p>
+                              <p className="text-[#8C8278] text-xs">{voucher.customer_phone || ''}</p>
+                            </td>
+                            <td className="px-4 py-3 hidden md:table-cell">
+                              <span className="text-[#5C5347] text-xs">{voucher.customer_email}</span>
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <span className="font-semibold text-[#1A1612]">{voucher.total_meals}</span>
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <span className={`font-bold ${voucher.meals_remaining > 0 ? 'text-green-600' : 'text-[#B5ADA5]'}`}>
+                                {voucher.meals_remaining}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                                voucher.status === 'active' ?'bg-green-100 text-green-700'
+                                  : voucher.status === 'redeemed' ?'bg-[#F5F0E8] text-[#8C8278]' :'bg-red-100 text-red-600'
+                              }`}>
+                                {voucher.status.charAt(0).toUpperCase() + voucher.status.slice(1)}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 hidden lg:table-cell">
+                              <span className="text-[#8C8278] text-xs">
+                                {new Date(voucher.purchased_at).toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' })}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3">
+                              <button
+                                onClick={() => handleSelectVoucher(voucher)}
+                                className="text-xs font-semibold text-[#C4622D] hover:underline whitespace-nowrap"
+                              >
+                                View →
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </main>

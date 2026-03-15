@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import Icon from "@/components/ui/AppIcon";
 import ProductCard from "./ProductCard";
 import CartSidebar from "./CartSidebar";
@@ -232,7 +233,16 @@ function ProductsContent() {
               <span className="italic text-[#C4622D]"> Packages</span>
             </h1>
           </div>
-          <CartButton />
+          <div className="flex items-center gap-3">
+            <Link
+              href="/vouchers"
+              className="flex items-center gap-2 bg-white border border-[#C4622D]/40 text-[#C4622D] px-4 py-2.5 rounded-full text-sm font-semibold hover:bg-[#F5EDE6] transition-all"
+            >
+              <Icon name="TicketIcon" size={15} />
+              Gift a Voucher
+            </Link>
+            <CartButton />
+          </div>
         </div>
 
         {/* Filters & Search */}

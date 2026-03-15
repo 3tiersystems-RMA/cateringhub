@@ -5,11 +5,12 @@ import AppImage from "@/components/ui/AppImage";
 import Icon from "@/components/ui/AppIcon";
 import { useCart } from "./CartContext";
 import { APP_NAME } from "@/lib/constants";
+import { createClient } from "@/lib/supabase/client";
 
 
 type CheckoutStep = "cart" | "details" | "payment" | "eft-success" | "confirmation";
 
-type PaymentMethod = "eft" | "payfast";
+type PaymentMethod = "eft" | "payfast" | "voucher";
 
 const BANK_DETAILS = {
   bank: "Capitec Business",
@@ -18,8 +19,18 @@ const BANK_DETAILS = {
   branchCode: "450105",
 };
 
+interface VoucherData {
+  voucher_code: string;
+  customer_name: string;
+  customer_email: string;
+  total_meals: number;
+  meals_remaining: number;
+  status: string;
+}
+
 export default function CartSidebar() {
   const { items, removeItem, updateQty, subtotal, totalItems, isOpen, setIsOpen, clearCart } = useCart();
+  const supabase = createClient();
   const [step, setStep] = useState<CheckoutStep>("cart");
   const [form, setForm] = useState({
     name: "",
@@ -35,9 +46,68 @@ export default function CartSidebar() {
   const [phoneError, setPhoneError] = useState("");
   const [orderRef, setOrderRef] = useState("");
 
+  // Voucher state
+  const [voucherCode, setVoucherCode] = useState("");
+  const [voucherData, setVoucherData] = useState<VoucherData | null>(null);
+  const [voucherError, setVoucherError] = useState("");
+  const [voucherLoading, setVoucherLoading] = useState(false);
+  const [voucherApplied, setVoucherApplied] = useState(false);
+  const [showVoucherSection, setShowVoucherSection] = useState(false);
+
   const tax = subtotal * 0.15;
   const delivery = subtotal > 0 ? 15 : 0;
   const total = subtotal + tax + delivery;
+
+  const handleValidateVoucher = async () => {
+    setVoucherError("");
+    const code = voucherCode.trim().toUpperCase();
+    if (!code) {
+      setVoucherError("Please enter a voucher code.");
+      return;
+    }
+    setVoucherLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("vouchers")
+        .select("voucher_code, customer_name, customer_email, total_meals, meals_remaining, status")
+        .eq("voucher_code", code)
+        .single();
+
+      if (error || !data) {
+        setVoucherError("Voucher code not found. Please check and try again.");
+        return;
+      }
+      if (data.status !== "active") {
+        setVoucherError(`This voucher is ${data.status}. It cannot be used.`);
+        return;
+      }
+      if (data.meals_remaining <= 0) {
+        setVoucherError("This voucher has no meals remaining.");
+        return;
+      }
+      setVoucherData(data as VoucherData);
+      setVoucherApplied(true);
+      setSelectedMethod("voucher");
+      // Pre-fill name and email from voucher
+      setForm((prev) => ({
+        ...prev,
+        name: prev.name || data.customer_name,
+        email: prev.email || data.customer_email,
+      }));
+    } catch {
+      setVoucherError("Failed to validate voucher. Please try again.");
+    } finally {
+      setVoucherLoading(false);
+    }
+  };
+
+  const handleRemoveVoucher = () => {
+    setVoucherData(null);
+    setVoucherApplied(false);
+    setVoucherCode("");
+    setVoucherError("");
+    if (selectedMethod === "voucher") setSelectedMethod("eft");
+  };
 
   const handleDetailsSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,6 +123,83 @@ export default function CartSidebar() {
     setPhoneError("");
     setOrderRef(`CK-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`);
     setStep("payment");
+  };
+
+  const handleVoucherOrder = async () => {
+    if (!voucherData) return;
+    setProcessing(true);
+    setPayError("");
+
+    const mealsToDeduct = totalItems;
+    if (mealsToDeduct > voucherData.meals_remaining) {
+      setPayError(`Your voucher only has ${voucherData.meals_remaining} meal(s) remaining, but your cart has ${mealsToDeduct} item(s).`);
+      setProcessing(false);
+      return;
+    }
+
+    try {
+      const ref = orderRef;
+
+      // Create the order
+      const response = await fetch("/api/orders/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          m_payment_id: ref,
+          customer_name: form.name,
+          customer_email: form.email,
+          customer_phone: form.phone,
+          items: items.map((i) => ({
+            id: i.product.id,
+            name: i.product.name,
+            quantity: i.quantity,
+            price: i.product.price,
+            unit: i.product.unit,
+            category: i.product.category,
+          })),
+          subtotal,
+          delivery_fee: delivery,
+          total: 0,
+          payment_status: "paid",
+          payment_method: "voucher",
+          event_date: form.date || null,
+          delivery_address: form.address,
+          notes: `Voucher: ${voucherData.voucher_code}. ${form.notes}`.trim(),
+        }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to place order. Please try again.");
+      }
+
+      const newRef = result.reference ?? ref;
+
+      // Deduct meals from voucher
+      const newRemaining = voucherData.meals_remaining - mealsToDeduct;
+      const newStatus = newRemaining <= 0 ? "redeemed" : "active";
+
+      await supabase
+        .from("vouchers")
+        .update({ meals_remaining: newRemaining, status: newStatus })
+        .eq("voucher_code", voucherData.voucher_code);
+
+      // Insert redemption record
+      await supabase.from("voucher_redemptions").insert({
+        voucher_code: voucherData.voucher_code,
+        order_id: newRef,
+        meals_used: mealsToDeduct,
+        notes: `Order ${newRef} — ${mealsToDeduct} meal(s) redeemed`,
+      });
+
+      setOrderRef(newRef);
+      clearCart();
+      setStep("eft-success");
+    } catch (err) {
+      setPayError(err instanceof Error ? err.message : "Failed to place order. Please try again.");
+    } finally {
+      setProcessing(false);
+    }
   };
 
   const handleEFTConfirm = async () => {
@@ -299,6 +446,89 @@ export default function CartSidebar() {
                   </div>
                 ))
               )}
+
+              {/* ─── Voucher Section ─── */}
+              {items.length > 0 && (
+                <div className="bg-white rounded-2xl border border-[#DDD5C8] overflow-hidden">
+                  <button
+                    onClick={() => setShowVoucherSection(!showVoucherSection)}
+                    className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold text-[#5C5347] hover:bg-[#F5F0E8] transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Icon name="TicketIcon" size={15} className="text-[#C4622D]" />
+                      <span>Have a Voucher?</span>
+                    </div>
+                    <Icon name={showVoucherSection ? "ChevronUpIcon" : "ChevronDownIcon"} size={14} className="text-[#B5ADA5]" />
+                  </button>
+
+                  {showVoucherSection && (
+                    <div className="px-4 pb-4 border-t border-[#F0EBE3]">
+                      {!voucherApplied ? (
+                        <div className="pt-3 space-y-2">
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={voucherCode}
+                              onChange={(e) => {
+                                setVoucherCode(e.target.value.toUpperCase());
+                                setVoucherError("");
+                              }}
+                              placeholder="e.g. CK-2026-XXXX"
+                              className="flex-1 bg-[#F5F0E8] border border-[#DDD5C8] rounded-xl px-3 py-2.5 text-sm text-[#1A1612] placeholder-[#B5ADA5] focus:outline-none focus:border-[#C4622D] font-mono transition-colors"
+                            />
+                            <button
+                              onClick={handleValidateVoucher}
+                              disabled={voucherLoading}
+                              className="bg-[#C4622D] text-white px-4 py-2.5 rounded-xl text-xs font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-70 flex items-center gap-1.5"
+                            >
+                              {voucherLoading ? (
+                                <svg className="animate-spin h-3 w-3" fill="none" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                                </svg>
+                              ) : "Apply"}
+                            </button>
+                          </div>
+                          {voucherError && (
+                            <p className="text-xs text-red-500 flex items-center gap-1">
+                              <Icon name="ExclamationCircleIcon" size={12} />
+                              {voucherError}
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="pt-3">
+                          <div className="bg-green-50 border border-green-200 rounded-xl p-3 flex items-start justify-between gap-2">
+                            <div>
+                              <div className="flex items-center gap-1.5 mb-1">
+                                <Icon name="CheckCircleIcon" size={14} className="text-green-600" />
+                                <p className="text-xs font-semibold text-green-800">Voucher Applied!</p>
+                              </div>
+                              <p className="text-xs text-green-700 font-mono font-bold">{voucherData?.voucher_code}</p>
+                              <p className="text-xs text-green-600 mt-0.5">
+                                {voucherData?.meals_remaining} meal(s) remaining · {voucherData?.customer_name}
+                              </p>
+                            </div>
+                            <button
+                              onClick={handleRemoveVoucher}
+                              className="text-green-500 hover:text-red-500 transition-colors flex-shrink-0"
+                              aria-label="Remove voucher"
+                            >
+                              <Icon name="XMarkIcon" size={14} />
+                            </button>
+                          </div>
+                          {totalItems > (voucherData?.meals_remaining ?? 0) && (
+                            <p className="text-xs text-amber-600 mt-2 flex items-center gap-1">
+                              <Icon name="ExclamationTriangleIcon" size={12} />
+                              Cart has {totalItems} items but voucher only has {voucherData?.meals_remaining} remaining.
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Order Summary */}
@@ -317,9 +547,15 @@ export default function CartSidebar() {
                     <span>Tax (15%)</span>
                     <span>R{tax.toFixed(2)}</span>
                   </div>
+                  {voucherApplied && (
+                    <div className="flex justify-between text-green-600 font-medium">
+                      <span>Voucher Payment</span>
+                      <span>✓ Applied</span>
+                    </div>
+                  )}
                   <div className="flex justify-between font-semibold text-[#1A1612] text-base pt-2 border-t border-[#DDD5C8]">
                     <span>Total</span>
-                    <span>R{total.toFixed(2)}</span>
+                    <span>{voucherApplied ? <span className="text-green-600">R0.00 (Voucher)</span> : `R${total.toFixed(2)}`}</span>
                   </div>
                 </div>
                 <div className="flex flex-col gap-2">
@@ -338,7 +574,7 @@ export default function CartSidebar() {
                   </button>
                 </div>
                 <p className="text-xs text-center text-[#B5ADA5]">
-                  Full payment required to confirm booking
+                  {voucherApplied ? "Your voucher will be redeemed on order confirmation" : "Full payment required to confirm booking"}
                 </p>
               </div>
             )}
@@ -464,86 +700,114 @@ export default function CartSidebar() {
                 <div className="absolute bottom-0 left-0 w-24 h-24 bg-[#D4A853]/10 rounded-full translate-y-8 -translate-x-8" />
                 <div className="relative z-10">
                   <p className="text-xs text-white/40 font-mono uppercase tracking-widest mb-4">
-                    Total Due Now
+                    {voucherApplied ? "Voucher Payment" : "Total Due Now"}
                   </p>
                   <p className="text-2xl font-display font-semibold mb-1">
-                    R{total.toFixed(2)}
+                    {voucherApplied ? "R0.00" : `R${total.toFixed(2)}`}
                   </p>
+                  {voucherApplied && (
+                    <p className="text-xs text-green-400 font-mono">Paid via voucher {voucherData?.voucher_code}</p>
+                  )}
                   <div className="mt-4 flex items-center gap-2">
                     <Icon name="BuildingLibraryIcon" size={18} className="text-[#D4A853]" />
-                    <p className="text-sm text-white/60 font-mono tracking-widest">Manual EFT</p>
+                    <p className="text-sm text-white/60 font-mono tracking-widest">
+                      {voucherApplied ? "Meal Voucher" : "Manual EFT"}
+                    </p>
                   </div>
                 </div>
               </div>
 
-              {/* Payment Method Selection */}
-              <div>
-                <p className="text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-3">
-                  Select Payment Method
-                </p>
-                <div className="space-y-2">
-
-                  {/* Manual EFT — Active */}
-                  <button
-                    type="button"
-                    onClick={() => setSelectedMethod("eft")}
-                    className={`w-full flex items-center gap-3 p-3.5 rounded-xl border-2 transition-all text-left ${
-                      selectedMethod === "eft" ?"border-[#C4622D] bg-[#C4622D]/5" :"border-[#DDD5C8] bg-white hover:border-[#C4622D]/40"
-                    }`}
-                  >
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                      selectedMethod === "eft" ? "bg-[#C4622D] text-white" : "bg-[#EDE7DA] text-[#8C8278]"
-                    }`}>
-                      <Icon name="BuildingLibraryIcon" size={16} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-semibold ${
-                        selectedMethod === "eft" ? "text-[#C4622D]" : "text-[#1A1612]"
-                      }`}>Manual EFT</p>
-                      <p className="text-xs text-[#8C8278]">Bank transfer to {APP_NAME}</p>
-                    </div>
-                    <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 ${
-                      selectedMethod === "eft" ?"border-[#C4622D] bg-[#C4622D]" :"border-[#DDD5C8]"
-                    }`}>
-                      {selectedMethod === "eft" && (
-                        <div className="w-full h-full rounded-full bg-white scale-50" />
-                      )}
-                    </div>
-                  </button>
-
-                  {/* PayFast — Active */}
-                  <button
-                    type="button"
-                    onClick={() => setSelectedMethod("payfast")}
-                    className={`w-full flex items-center gap-3 p-3.5 rounded-xl border-2 transition-all text-left ${
-                      selectedMethod === "payfast" ?"border-[#C4622D] bg-[#C4622D]/5" :"border-[#DDD5C8] bg-white hover:border-[#C4622D]/40"
-                    }`}
-                  >
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                      selectedMethod === "payfast" ? "bg-[#C4622D] text-white" : "bg-[#EDE7DA] text-[#8C8278]"
-                    }`}>
-                      <Icon name="CreditCardIcon" size={16} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-semibold ${
-                        selectedMethod === "payfast" ? "text-[#C4622D]" : "text-[#1A1612]"
-                      }`}>PayFast</p>
-                      <p className="text-xs text-[#8C8278]">Card, EFT, Instant EFT &amp; more</p>
-                    </div>
-                    <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 ${
-                      selectedMethod === "payfast" ?"border-[#C4622D] bg-[#C4622D]" :"border-[#DDD5C8]"
-                    }`}>
-                      {selectedMethod === "payfast" && (
-                        <div className="w-full h-full rounded-full bg-white scale-50" />
-                      )}
-                    </div>
-                  </button>
-
+              {/* Voucher payment — shown when voucher applied */}
+              {voucherApplied && voucherData ? (
+                <div className="bg-green-50 border border-green-200 rounded-2xl p-4 space-y-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Icon name="TicketIcon" size={15} className="text-green-600" />
+                    <p className="text-xs font-semibold text-green-800 uppercase tracking-wider">Voucher Details</p>
+                  </div>
+                  <div className="space-y-2 text-sm">
+                    {[
+                      { label: "Voucher Code", value: voucherData.voucher_code },
+                      { label: "Customer", value: voucherData.customer_name },
+                      { label: "Meals Remaining", value: `${voucherData.meals_remaining} meals` },
+                      { label: "Items in Cart", value: `${totalItems} item(s)` },
+                      { label: "After Redemption", value: `${Math.max(0, voucherData.meals_remaining - totalItems)} meals` },
+                    ].map(({ label, value }) => (
+                      <div key={label} className="flex justify-between items-center py-1.5 border-b border-green-100 last:border-0">
+                        <span className="text-green-700 text-xs">{label}</span>
+                        <span className="font-semibold text-green-900 text-xs">{value}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              ) : (
+                /* Payment Method Selection — only shown when no voucher */
+                <div>
+                  <p className="text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-3">
+                    Select Payment Method
+                  </p>
+                  <div className="space-y-2">
+
+                    {/* Manual EFT */}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedMethod("eft")}
+                      className={`w-full flex items-center gap-3 p-3.5 rounded-xl border-2 transition-all text-left ${
+                        selectedMethod === "eft" ?"border-[#C4622D] bg-[#C4622D]/5" :"border-[#DDD5C8] bg-white hover:border-[#C4622D]/40"
+                      }`}
+                    >
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                        selectedMethod === "eft" ? "bg-[#C4622D] text-white" : "bg-[#EDE7DA] text-[#8C8278]"
+                      }`}>
+                        <Icon name="BuildingLibraryIcon" size={16} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-semibold ${
+                          selectedMethod === "eft" ? "text-[#C4622D]" : "text-[#1A1612]"
+                        }`}>Manual EFT</p>
+                        <p className="text-xs text-[#8C8278]">Bank transfer to {APP_NAME}</p>
+                      </div>
+                      <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 ${
+                        selectedMethod === "eft" ?"border-[#C4622D] bg-[#C4622D]" :"border-[#DDD5C8]"
+                      }`}>
+                        {selectedMethod === "eft" && (
+                          <div className="w-full h-full rounded-full bg-white scale-50" />
+                        )}
+                      </div>
+                    </button>
+
+                    {/* PayFast */}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedMethod("payfast")}
+                      className={`w-full flex items-center gap-3 p-3.5 rounded-xl border-2 transition-all text-left ${
+                        selectedMethod === "payfast" ?"border-[#C4622D] bg-[#C4622D]/5" :"border-[#DDD5C8] bg-white hover:border-[#C4622D]/40"
+                      }`}
+                    >
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                        selectedMethod === "payfast" ? "bg-[#C4622D] text-white" : "bg-[#EDE7DA] text-[#8C8278]"
+                      }`}>
+                        <Icon name="CreditCardIcon" size={16} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-semibold ${
+                          selectedMethod === "payfast" ? "text-[#C4622D]" : "text-[#1A1612]"
+                        }`}>PayFast</p>
+                        <p className="text-xs text-[#8C8278]">Card, EFT, Instant EFT &amp; more</p>
+                      </div>
+                      <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 ${
+                        selectedMethod === "payfast" ?"border-[#C4622D] bg-[#C4622D]" :"border-[#DDD5C8]"
+                      }`}>
+                        {selectedMethod === "payfast" && (
+                          <div className="w-full h-full rounded-full bg-white scale-50" />
+                        )}
+                      </div>
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Bank Details — shown when EFT selected */}
-              {selectedMethod === "eft" && (
+              {selectedMethod === "eft" && !voucherApplied && (
                 <div className="bg-white border border-[#DDD5C8] rounded-2xl p-4 space-y-3">
                   <div className="flex items-center gap-2 mb-1">
                     <Icon name="BuildingLibraryIcon" size={15} className="text-[#C4622D]" />
@@ -573,7 +837,7 @@ export default function CartSidebar() {
               <div className="bg-[#EDE7DA] rounded-2xl p-4 space-y-1.5 text-sm">
                 <div className="flex justify-between font-semibold text-[#1A1612]">
                   <span>Total Due Now</span>
-                  <span className="text-[#C4622D]">R{total.toFixed(2)}</span>
+                  <span className="text-[#C4622D]">{voucherApplied ? "R0.00 (Voucher)" : `R${total.toFixed(2)}`}</span>
                 </div>
               </div>
 
@@ -587,7 +851,34 @@ export default function CartSidebar() {
             </div>
 
             <div className="px-6 py-5 border-t border-[#DDD5C8]">
-              {selectedMethod === "eft" ? (
+              {voucherApplied ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleVoucherOrder}
+                    disabled={processing || totalItems > (voucherData?.meals_remaining ?? 0)}
+                    className="w-full bg-[#C4622D] text-white py-3.5 rounded-full font-semibold text-sm hover:bg-[#A04E22] transition-all shadow-terra disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {processing ? (
+                      <>
+                        <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                        </svg>
+                        Placing Order...
+                      </>
+                    ) : (
+                      <>
+                        <Icon name="TicketIcon" size={14} />
+                        Confirm Voucher Order
+                      </>
+                    )}
+                  </button>
+                  <p className="text-xs text-center text-[#B5ADA5] mt-3">
+                    {totalItems} meal(s) will be deducted from your voucher balance
+                  </p>
+                </>
+              ) : selectedMethod === "eft" ? (
                 <>
                   <button
                     type="button"
@@ -659,7 +950,7 @@ export default function CartSidebar() {
                   Order Placed Successfully!
                 </h3>
                 <p className="text-[#8C8278] text-sm leading-relaxed">
-                  Thank you, {form.name || "valued customer"}! Your order has been reserved and is awaiting your EFT payment.
+                  Thank you, {form.name || "valued customer"}! {voucherApplied ? "Your order has been confirmed using your meal voucher." : "Your order has been reserved and is awaiting your EFT payment."}
                 </p>
               </div>
             </div>
@@ -668,44 +959,74 @@ export default function CartSidebar() {
             <div className="bg-[#C4622D]/10 border border-[#C4622D]/30 rounded-2xl p-4 text-center">
               <p className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-1">Order Reference</p>
               <p className="text-xl font-mono font-bold text-[#C4622D]">{orderRef}</p>
-              <p className="text-xs text-[#8C8278] mt-1">Use this as your payment reference</p>
+              {voucherApplied && (
+                <p className="text-xs text-[#8C8278] mt-1">Paid via voucher {voucherData?.voucher_code}</p>
+              )}
             </div>
 
-            {/* Bank Details Summary */}
-            <div className="bg-white border border-[#DDD5C8] rounded-2xl p-4 space-y-3">
-              <div className="flex items-center gap-2 mb-1">
-                <Icon name="BuildingLibraryIcon" size={15} className="text-[#C4622D]" />
-                <p className="text-xs font-semibold text-[#5C5347] uppercase tracking-wider">Bank Details</p>
+            {/* Bank Details Summary — only for EFT */}
+            {!voucherApplied && (
+              <div className="bg-white border border-[#DDD5C8] rounded-2xl p-4 space-y-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <Icon name="BuildingLibraryIcon" size={15} className="text-[#C4622D]" />
+                  <p className="text-xs font-semibold text-[#5C5347] uppercase tracking-wider">Bank Details</p>
+                </div>
+                <div className="space-y-2">
+                  {[
+                    { label: "Bank", value: BANK_DETAILS.bank },
+                    { label: "Account Name", value: BANK_DETAILS.accountName },
+                    { label: "Account Number", value: BANK_DETAILS.accountNumber },
+                    { label: "Branch Code", value: BANK_DETAILS.branchCode },
+                    { label: "Reference", value: orderRef },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="flex justify-between items-center py-1.5 border-b border-[#F0EBE3] last:border-0">
+                      <span className="text-[#8C8278] text-xs">{label}</span>
+                      <span className="font-semibold text-[#1A1612] font-mono text-xs">{value}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div className="space-y-2">
-                {[
-                  { label: "Bank", value: BANK_DETAILS.bank },
-                  { label: "Account Name", value: BANK_DETAILS.accountName },
-                  { label: "Account Number", value: BANK_DETAILS.accountNumber },
-                  { label: "Branch Code", value: BANK_DETAILS.branchCode },
-                  { label: "Reference", value: orderRef },
-                ].map(({ label, value }) => (
-                  <div key={label} className="flex justify-between items-center py-1.5 border-b border-[#F0EBE3] last:border-0">
-                    <span className="text-[#8C8278] text-xs">{label}</span>
-                    <span className="font-semibold text-[#1A1612] font-mono text-xs">{value}</span>
+            )}
+
+            {/* Voucher balance update */}
+            {voucherApplied && voucherData && (
+              <div className="bg-green-50 border border-green-200 rounded-2xl p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Icon name="TicketIcon" size={15} className="text-green-600" />
+                  <p className="text-xs font-semibold text-green-800">Voucher Updated</p>
+                </div>
+                <div className="space-y-1.5 text-xs text-green-700">
+                  <div className="flex justify-between">
+                    <span>Voucher Code</span>
+                    <span className="font-mono font-bold">{voucherData.voucher_code}</span>
                   </div>
-                ))}
+                  <div className="flex justify-between">
+                    <span>Meals Used</span>
+                    <span className="font-semibold">{totalItems > 0 ? totalItems : "—"}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Remaining Balance</span>
+                    <span className="font-semibold">{Math.max(0, voucherData.meals_remaining - totalItems)} meals</span>
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
 
-            {/* Instructions */}
-            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 space-y-2">
-              <div className="flex items-center gap-2">
-                <Icon name="InformationCircleIcon" size={15} className="text-amber-600 flex-shrink-0" />
-                <p className="text-xs font-semibold text-amber-800">Payment Instructions</p>
+            {/* Instructions — only for EFT */}
+            {!voucherApplied && (
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Icon name="InformationCircleIcon" size={15} className="text-amber-600 flex-shrink-0" />
+                  <p className="text-xs font-semibold text-amber-800">Payment Instructions</p>
+                </div>
+                <ul className="text-xs text-amber-700 space-y-1.5 leading-relaxed">
+                  <li>• Log in to your bank and make an EFT payment to the account above.</li>
+                  <li>• Use <span className="font-bold">{orderRef}</span> as your payment reference.</li>
+                  <li>• Your order will be confirmed once we receive your payment.</li>
+                  <li>• A confirmation email will be sent to <span className="font-medium">{form.email}</span>.</li>
+                </ul>
               </div>
-              <ul className="text-xs text-amber-700 space-y-1.5 leading-relaxed">
-                <li>• Log in to your bank and make an EFT payment to the account above.</li>
-                <li>• Use <span className="font-bold">{orderRef}</span> as your payment reference.</li>
-                <li>• Your order will be confirmed once we receive your payment.</li>
-                <li>• A confirmation email will be sent to <span className="font-medium">{form.email}</span>.</li>
-              </ul>
-            </div>
+            )}
 
             <button
               onClick={() => { setIsOpen(false); setStep("cart"); }}
