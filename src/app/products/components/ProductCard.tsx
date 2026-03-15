@@ -24,7 +24,7 @@ const PACKAGE_VOUCHER_MAP: Record<string, string> = {
 };
 
 export default function ProductCard({ product, onOpenModal }: ProductCardProps) {
-  const { addItem, appliedVoucher, setIsOpen } = useCart();
+  const { addItem, appliedVoucher, openVoucherBanner } = useCart();
   const [added, setAdded] = useState(false);
 
   const isSoldOut = !product.available || product.badge === "Sold Out";
@@ -42,8 +42,8 @@ export default function ProductCard({ product, onOpenModal }: ProductCardProps) 
     e.stopPropagation();
     if (isSoldOut) return;
     if (isVoucherRequired) {
-      // Open cart sidebar so customer can enter their voucher
-      setIsOpen(true);
+      // Scroll to and expand the voucher banner so customer can enter their code
+      openVoucherBanner();
       return;
     }
     addItem(product);

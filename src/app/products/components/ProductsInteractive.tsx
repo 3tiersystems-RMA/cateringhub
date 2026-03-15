@@ -68,13 +68,25 @@ const PACKAGE_LABEL: Record<string, string> = {
 };
 
 function ApplyVoucherBanner() {
-  const { appliedVoucher, setAppliedVoucher, items, clearCart } = useCart();
+  const { appliedVoucher, setAppliedVoucher, registerVoucherBannerOpener } = useCart();
   const supabase = createClient();
 
   const [showInput, setShowInput] = useState(false);
   const [voucherCode, setVoucherCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const bannerRef = useRef<HTMLDivElement>(null);
+
+  // Register the opener so ProductCard can trigger it
+  useEffect(() => {
+    registerVoucherBannerOpener(() => {
+      setShowInput(true);
+      setTimeout(() => {
+        bannerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+        (bannerRef.current?.querySelector("input") as HTMLInputElement | null)?.focus();
+      }, 50);
+    });
+  }, [registerVoucherBannerOpener]);
 
   const handleApply = async () => {
     setError("");
@@ -149,7 +161,7 @@ function ApplyVoucherBanner() {
   }
 
   return (
-    <div className="mb-8 bg-[#FFF8F3] border border-[#C4622D]/20 rounded-2xl p-4">
+    <div ref={bannerRef} className="mb-8 bg-[#FFF8F3] border border-[#C4622D]/20 rounded-2xl p-4">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-[#C4622D]/10 flex items-center justify-center flex-shrink-0">

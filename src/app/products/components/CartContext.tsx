@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useCallback, ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useRef, ReactNode } from "react";
 
 export interface CartProduct {
   id: string;
@@ -37,6 +37,8 @@ interface CartContextType {
   setIsOpen: (v: boolean) => void;
   appliedVoucher: VoucherData | null;
   setAppliedVoucher: (v: VoucherData | null) => void;
+  openVoucherBanner: () => void;
+  registerVoucherBannerOpener: (fn: () => void) => void;
 }
 
 export interface VoucherData {
@@ -56,6 +58,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [appliedVoucher, setAppliedVoucher] = useState<VoucherData | null>(null);
+  const voucherBannerOpenerRef = useRef<(() => void) | null>(null);
+
+  const registerVoucherBannerOpener = useCallback((fn: () => void) => {
+    voucherBannerOpenerRef.current = fn;
+  }, []);
+
+  const openVoucherBanner = useCallback(() => {
+    if (voucherBannerOpenerRef.current) {
+      voucherBannerOpenerRef.current();
+    }
+  }, []);
 
   const addItem = useCallback((product: CartProduct, qty = 1) => {
     setItems((prev) => {
@@ -91,7 +104,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   return (
     <CartContext.Provider
-      value={{ items, addItem, removeItem, updateQty, clearCart, totalItems, subtotal, isOpen, setIsOpen, appliedVoucher, setAppliedVoucher }}
+      value={{ items, addItem, removeItem, updateQty, clearCart, totalItems, subtotal, isOpen, setIsOpen, appliedVoucher, setAppliedVoucher, openVoucherBanner, registerVoucherBannerOpener }}
     >
       {children}
     </CartContext.Provider>
