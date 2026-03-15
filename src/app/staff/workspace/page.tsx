@@ -1588,12 +1588,17 @@ export default function StaffWorkspacePage() {
     }
   };
 
-  const deleteModal = {
+  const [deleteModal, setDeleteModal] = useState<{
+    isOpen: boolean;
+    productName: string;
+    message?: string;
+    onConfirm: () => void;
+  }>({
     isOpen: false,
     productName: '',
     message: '',
     onConfirm: () => {},
-  };
+  });
 
   const openDeleteModal = (productName: string, onConfirm: () => void, message?: string) => {
     setDeleteModal({ isOpen: true, productName, onConfirm, message });
@@ -1639,7 +1644,7 @@ export default function StaffWorkspacePage() {
               className="text-sm font-medium text-gray-300 hover:text-white transition-colors px-3 py-1.5 rounded-lg hover:bg-gray-800 flex items-center gap-1.5"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2 2 0 002 2v12a2 2 0 00-2 2h-16.94a2 2 0 00-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2 2 0 002 2v12a2 2 0 00-2 2h-16.938a2 2 0 00-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
               </svg>
               Orders
             </a>
