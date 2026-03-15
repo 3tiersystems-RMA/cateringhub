@@ -105,7 +105,7 @@ interface Voucher {
   customer_phone: string;
   total_meals: number;
   meals_remaining: number;
-  status: 'active' | 'redeemed' | 'expired';
+  status: 'active' | 'redeemed' | 'expired' | 'unpaid' | 'paid';
   purchased_at: string;
   notes: string | null;
 }
@@ -334,6 +334,8 @@ export default function StaffWorkspacePage() {
   const [issueVoucherSuccess, setIssueVoucherSuccess] = useState('');
   const [issuingVoucher, setIssuingVoucher] = useState(false);
   const [voucherSearchQuery, setVoucherSearchQuery] = useState('');
+  const [markingVoucherPaidId, setMarkingVoucherPaidId] = useState<string | null>(null);
+  const [loadingMarkingPaid, setLoadingMarkingPaid] = useState(false);
 
   useEffect(() => {
     const init = async () => {
@@ -501,7 +503,7 @@ export default function StaffWorkspacePage() {
   };
 
   const handleDeleteCategory = async (cat: Category) => {
-    if (!confirm(`Delete category "${cat.name}"? Products in this category will not be deleted but may need to be reassigned.`)) return;
+    if (!confirm(`Delete category "${cat.name}"? Products in this category will not be deleted but may need to be reallocated.`)) return;
     setDeletingCategoryId(cat.id);
     try {
       const { error } = await supabase
@@ -1403,6 +1405,33 @@ export default function StaffWorkspacePage() {
     }
   };
 
+  const handleMarkVoucherAsPaid = async (voucher: Voucher) => {
+    setMarkingVoucherPaidId(voucher.id);
+    try {
+      const { error } = await supabase
+        .from('vouchers')
+        .update({ status: 'paid' })
+        .eq('id', voucher.id);
+
+      if (error) {
+        console.log('Mark as paid error:', error.message);
+        return;
+      }
+
+      // Refresh vouchers list
+      await loadVouchers();
+
+      // Update selected voucher panel if open
+      if (selectedVoucher?.id === voucher.id) {
+        setSelectedVoucher({ ...voucher, status: 'paid' });
+      }
+    } catch (err) {
+      console.log('Unexpected error marking voucher as paid:', err);
+    } finally {
+      setMarkingVoucherPaidId(null);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#F5F0E8]">
       {showWarning && (
@@ -1431,7 +1460,7 @@ export default function StaffWorkspacePage() {
               className="text-sm font-medium text-gray-300 hover:text-white transition-colors px-3 py-1.5 rounded-lg hover:bg-gray-800 flex items-center gap-1.5"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2 2 0 002 2v12a2 2 0 00-2 2h-16.94a2 2 0 00-1.71 3h16.94a2 2 0 001.71-3L13.71 15H9v-2.828l8.586-8.586z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2 2 0 002 2v12a2 2 0 00-2 2h-16.94a2 2 0 00-1.71 3h16.94a2 2 0 001.71-3L13.828 15H9v-2.828l8.586-8.586z" />
               </svg>
               Orders
             </a>
@@ -1488,7 +1517,7 @@ export default function StaffWorkspacePage() {
             <button
               onClick={() => { setActiveTab('weekly_menu'); setWeekOffset(0); loadWeeklyMenu(0); }}
               className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${
-                activeTab === 'weekly_menu' ? 'border-[#C4622D] text-[#C4622D]' : 'border-transparent text-[#8C8278] hover:text-[#5C5347]'
+                activeTab === 'weekly_menu' ? 'border-[#C4622D] text-[#C4622D]' : 'border-transparent text-[#8C8278]'
               }`}
             >
 📅 Weekly Menu
@@ -1496,7 +1525,7 @@ export default function StaffWorkspacePage() {
             <button
               onClick={() => { setActiveTab('vouchers'); loadVouchers(); }}
               className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${
-                activeTab === 'vouchers' ? 'border-[#C4622D] text-[#C4622D]' : 'border-transparent text-[#8C8278] hover:text-[#5C5347]'
+                activeTab === 'vouchers' ? 'border-[#C4622D] text-[#C4622D]' : 'border-transparent text-[#8C8278]'
               }`}
             >
               🎟️ Vouchers
@@ -1570,7 +1599,7 @@ export default function StaffWorkspacePage() {
                             className="text-sm font-medium text-white bg-[#C4622D] px-4 py-2 rounded-lg hover:bg-[#A04E22] transition-colors flex items-center gap-2"
                           >
                             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M4 12l4.586-12.142A2 2 0 018.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m0-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 012.652 2.652L11.828 15H9v-2.828l8.586-8.586z" />
                             </svg>
                             {productImagePreview ? 'Change from Media Library' : 'Choose from Media Library'}
                           </button>
@@ -1928,7 +1957,7 @@ export default function StaffWorkspacePage() {
                           <button
                             onClick={() => handleDeleteProduct(product)}
                             disabled={deletingProductId === product.id}
-                            className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center text-red-500 hover:bg-red-100 transition-colors disabled:opacity-50"
+                            className="w-8 h-8 rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors disabled:opacity-50"
                             title="Delete"
                           >
                             {deletingProductId === product.id ? (
@@ -2102,7 +2131,7 @@ export default function StaffWorkspacePage() {
                         title={cat.active ? 'Click to deactivate' : 'Click to activate'}
                       >
                         {togglingCategoryId === cat.id ? (
-                          <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                          <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth={4} /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
                         ) : (
                           <span className={`w-1.5 h-1.5 rounded-full ${cat.active ? 'bg-green-500' : 'bg-[#B5ADA5]'}`} />
                         )}
@@ -2124,7 +2153,7 @@ export default function StaffWorkspacePage() {
                       <button
                         onClick={() => handleDeleteCategory(cat)}
                         disabled={deletingCategoryId === cat.id}
-                        className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center text-red-500 hover:bg-red-100 transition-colors disabled:opacity-50"
+                        className="w-8 h-8 rounded-lg bg-red-500 flex items-center justify-center text-white hover:bg-red-600 transition-colors disabled:opacity-50"
                         title="Delete category"
                       >
                         {deletingCategoryId === cat.id ? (
@@ -2205,9 +2234,9 @@ export default function StaffWorkspacePage() {
                 }`}
               >
                 {uploading ? (
-                  <><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Uploading...</>
+                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
                 ) : (
-                  <><svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>Upload Images</>
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
                 )}
               </label>
             </div>
@@ -2256,7 +2285,7 @@ export default function StaffWorkspacePage() {
                         <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
                       ) : (
                         <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v12a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
                         </svg>
                       )}
                     </button>
@@ -2287,25 +2316,7 @@ export default function StaffWorkspacePage() {
                       ✕
                     </button>
                   </div>
-
                   <form onSubmit={handleSaveCard} className="p-6 space-y-4">
-                    <label className="flex items-center gap-3 cursor-pointer p-3 bg-[#F5F0E8] rounded-xl">
-                      <div
-                        onClick={() => setCardForm({ ...cardForm, is_visible: !cardForm.is_visible })}
-                        className={`w-10 h-6 rounded-full transition-colors relative flex-shrink-0 ${
-                          cardForm.is_visible ? 'bg-[#C4622D]' : 'bg-[#DDD5C8]'
-                        }`}
-                      >
-                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${
-                          cardForm.is_visible ? 'translate-x-5' : 'translate-x-1'
-                        }`} />
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold text-[#3D3530]">Visible on Homepage</p>
-                        <p className="text-xs text-[#8C8278]">{cardForm.is_visible ? 'This card is showing on the live site' : 'This card is hidden from the live site'}</p>
-                      </div>
-                    </label>
-
                     <div>
                       <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">
                         {editingCard.card_type === 'next_booking' ? 'Event Name *' : 'Title *'}
@@ -2393,9 +2404,9 @@ export default function StaffWorkspacePage() {
                             placeholder="75"
                             min="0"
                             max="100"
-                            className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
+                            className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] transition-colors"
                           />
-                          {cardForm.prep_percentage !== null && cardForm.prep_percentage !== undefined && (
+                          {cardForm.prep_percentage !== null && (
                             <div className="mt-2 h-1.5 bg-[#EDE7DA] rounded-full">
                               <div
                                 className="h-1.5 bg-[#C4622D] rounded-full transition-all"
@@ -2416,7 +2427,7 @@ export default function StaffWorkspacePage() {
                             onChange={(e) => setCardForm({ ...cardForm, description: e.target.value })}
                             placeholder="The food was absolutely stunning..."
                             rows={3}
-                            className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors resize-none"
+                            className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] transition-colors resize-none"
                           />
                         </div>
                         <div>
@@ -2445,7 +2456,7 @@ export default function StaffWorkspacePage() {
                               value={cardForm.reviewer_name || ''}
                               onChange={(e) => setCardForm({ ...cardForm, reviewer_name: e.target.value })}
                               placeholder="e.g. Sarah M."
-                              className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
+                              className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] transition-colors"
                             />
                           </div>
                           <div>
@@ -2455,7 +2466,7 @@ export default function StaffWorkspacePage() {
                               value={cardForm.reviewer_event || ''}
                               onChange={(e) => setCardForm({ ...cardForm, reviewer_event: e.target.value })}
                               placeholder="e.g. Wedding"
-                              className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
+                              className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] transition-colors"
                             />
                           </div>
                         </div>
@@ -2492,666 +2503,69 @@ export default function StaffWorkspacePage() {
               </div>
             )}
 
-            <div className="mb-6">
-              <h2 className="text-lg font-bold text-[#1A1612]">Homepage Hero Cards</h2>
-              <p className="text-sm text-[#8C8278] mt-0.5">Control what appears in the floating cards on the homepage hero section</p>
+            {/* Cards Grid */}
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-xl font-bold text-[#1A1612]">Homepage Cards</h2>
+                <p className="text-sm text-[#8C8278]">Manage the 3 dynamic cards shown on the homepage</p>
+              </div>
             </div>
 
-            {cardsLoading ? (
-              <div className="flex items-center justify-center py-20">
+            {homepageCardsLoading ? (
+              <div className="flex justify-center py-16">
                 <svg className="animate-spin h-8 w-8 text-[#C4622D]" viewBox="0 0 24 24" fill="none">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
               </div>
-            ) : homepageCards.length === 0 ? (
-              <div className="text-center py-20 bg-white rounded-2xl border border-[#EDE7DA]">
-                <div className="text-5xl mb-3">🏠</div>
-                <p className="text-[#5C5347] font-semibold">No homepage cards found</p>
-                <p className="text-[#B0A89E] text-sm mt-1">Run the database migration to seed the default cards</p>
-              </div>
             ) : (
-              <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {homepageCards.map((card) => (
-                  <div
-                    key={card.id}
-                    className="bg-white rounded-2xl border border-[#EDE7DA] p-5 flex items-center gap-4 hover:border-[#C4622D]/40 hover:shadow-sm transition-all duration-200"
-                  >
-                    <div className="w-12 h-12 rounded-xl bg-[#F5F0E8] flex items-center justify-center text-2xl flex-shrink-0">
-                      {CARD_TYPE_ICONS[card.card_type]}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <p className="text-xs font-mono text-[#C4622D] uppercase tracking-wider">
-                          {CARD_TYPE_LABELS[card.card_type]}
-                        </p>
+                  <div key={card.id} className="bg-white rounded-2xl border border-[#DDD5C8] overflow-hidden">
+                    <div className="bg-gradient-to-br from-[#1A1612] to-[#3D342D] p-4 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl">{CARD_TYPE_ICONS[card.card_type]}</span>
+                        <span className="text-sm font-semibold text-white">{CARD_TYPE_LABELS[card.card_type]}</span>
                       </div>
-                      <p className="font-semibold text-[#1A1612] text-sm truncate">{card.title}</p>
-                      <p className="text-xs text-[#8C8278] mt-0.5">
-                        {card.card_type === 'todays_special' && (
-                          card.price != null
-                            ? `R${card.price}${card.price_unit ? ` / ${card.price_unit}` : ''}${card.badge_label ? ` · ${card.badge_label}` : ''}`
-                            : (card.subtitle || '').replace(/\$/g, 'R')
-                        )}
-                        {card.card_type === 'next_booking' && `${card.event_date || ''}${card.event_date && card.guest_count ? ' · ' : ''}${card.guest_count ? `${card.guest_count} guests` : ''}${card.prep_percentage !== null ? ` · ${card.prep_percentage}% prep` : ''}`}
-                        {card.card_type === 'customer_review' && `${card.rating ? '★'.repeat(card.rating) : ''} ${card.reviewer_name || ''}${card.reviewer_event ? ` · ${card.reviewer_event}` : ''}`}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3 flex-shrink-0">
-                      <button
-                        onClick={() => handleToggleCardVisibility(card)}
-                        disabled={togglingCardId === card.id}
-                        className={`text-xs font-semibold px-3 py-1.5 rounded-full transition-colors disabled:opacity-50 ${
-                          card.is_visible ? 'bg-green-500 text-white' : 'bg-[#8C8278] text-white'
-                        }`}
-                        title={card.is_visible ? 'Click to hide' : 'Click to show'}
-                      >
-                        {togglingCardId === card.id ? (
-                          <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
-                        ) : card.is_visible ? 'Visible' : 'Hidden'}
-                      </button>
-                      <button
-                        onClick={() => openCardEditForm(card)}
-                        className="w-9 h-9 rounded-xl bg-[#F5F0E8] flex items-center justify-center text-[#5C5347] hover:bg-[#EDE7DA] transition-colors"
-                        title="Edit card"
-                      >
-                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 012.652 2.652L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="mt-6 bg-[#F5F0E8] border border-[#DDD5C8] rounded-xl p-4">
-              <p className="text-sm font-semibold text-[#3D3530] mb-1">ℹ️ About Homepage Cards</p>
-              <p className="text-xs text-[#5C5347] leading-relaxed">
-                These three cards appear in the floating panel on the homepage hero section.
-                Toggle visibility to show or hide individual cards on the live site. Click Edit to update the card content.
-                Changes take effect immediately on the live homepage.
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* ── ORDERS TAB ── */}
-        {activeTab === 'orders' && (
-          <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-[#DDD5C8]">
-            <div className="text-5xl mb-4">📋</div>
-            <h2 className="text-xl font-bold text-[#1A1612] mb-2">Orders Management</h2>
-            <p className="text-[#8C8278] text-sm mb-6 text-center max-w-sm">
-              View and manage all customer orders from the dedicated Orders page.
-            </p>
-            <a
-              href="/staff/orders"
-              className="bg-[#C4622D] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors"
-            >
-              Go to Orders
-            </a>
-          </div>
-        )}
-
-        {/* ── STAFF MANAGEMENT TAB ── */}
-        {activeTab === 'staff' && isSuperAdmin && (
-          <div>
-            {showInviteForm && (
-              <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4">
-                <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
-                  <div className="flex items-center justify-between px-6 py-4 border-b border-[#EDE7DA]">
-                    <h2 className="font-bold text-[#1A1612] text-lg">Invite Staff Member</h2>
-                    <button
-                      onClick={() => { setShowInviteForm(false); setInviteError(''); setInviteSuccess(''); }}
-                      className="w-8 h-8 rounded-full bg-[#F5F0E8] flex items-center justify-center text-[#8C8278] hover:bg-[#EDE7DA] transition-colors"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                  <form onSubmit={handleInviteStaff} className="p-6 space-y-4">
-                    <div>
-                      <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Full Name *</label>
-                      <input
-                        type="text"
-                        value={inviteForm.full_name}
-                        onChange={(e) => setInviteForm({ ...inviteForm, full_name: e.target.value })}
-                        placeholder="e.g. Jane Smith"
-                        className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Email Address *</label>
-                      <input
-                        type="email"
-                        value={inviteForm.email}
-                        onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
-                        placeholder="jane@example.com"
-                        className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Role *</label>
-                      <select
-                        value={inviteForm.role}
-                        onChange={(e) => setInviteForm({ ...inviteForm, role: e.target.value as StaffRole })}
-                        className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors bg-white"
-                      >
-                        <option value="staff">Staff — Products &amp; Services access</option>
-                        <option value="admin">Admin — Full workspace access</option>
-                      </select>
-                    </div>
-                    {inviteError && (
-                      <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">{inviteError}</div>
-                    )}
-                    {inviteSuccess && (
-                      <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-xl px-4 py-3 flex items-center gap-2">
-                        {inviteSuccess}
-                      </div>
-                    )}
-                    <div className="flex gap-3 pt-1">
-                      <button
-                        type="button"
-                        onClick={() => { setShowInviteForm(false); setInviteError(''); setInviteSuccess(''); }}
-                        className="flex-1 py-2.5 rounded-xl border border-[#DDD5C8] text-sm font-semibold text-[#5C5347] hover:bg-[#F5F0E8] transition-colors"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="submit"
-                        disabled={inviting}
-                        className="flex-1 py-2.5 rounded-xl bg-purple-600 text-white text-sm font-semibold hover:bg-purple-700 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-                      >
-                        {inviting ? (
-                          <><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Sending...</>
-                        ) : (
-                          <>
-                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                            </svg>
-                            Invite Staff Member
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              </div>
-            )}
-
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-              <div>
-                <h2 className="text-lg font-bold text-[#1A1612]">Staff Members</h2>
-                <p className="text-sm text-[#8C8278] mt-0.5">Manage access for all staff members</p>
-              </div>
-              <button
-                onClick={() => { setShowInviteForm(true); setInviteError(''); setInviteSuccess(''); }}
-                className="flex items-center gap-2 bg-purple-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-purple-700 transition-colors shadow-sm"
-              >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                </svg>
-                Invite Staff Member
-              </button>
-            </div>
-
-            {staffActionMsg && (
-              <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">{staffActionMsg}</div>
-            )}
-            {resetPasswordMsg && (
-              <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-xl px-4 py-3 flex items-center gap-2">
-                {resetPasswordMsg}
-              </div>
-            )}
-
-            {staffLoading ? (
-              <div className="flex items-center justify-center py-20">
-                <svg className="animate-spin h-8 w-8 text-purple-600" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-              </div>
-            ) : staffMembers.length === 0 ? (
-              <div className="text-center py-20 bg-white rounded-2xl border border-[#DDD5C8]">
-                <div className="text-5xl mb-3">👥</div>
-                <p className="text-[#5C5347] font-semibold">No staff members found</p>
-                <p className="text-[#B0A89E] text-sm mt-1">Invite your first staff member above</p>
-              </div>
-            ) : (
-              <div className="bg-white rounded-2xl border border-[#DDD5C8] overflow-hidden">
-                <div className="hidden md:grid grid-cols-5 gap-4 px-6 py-3 bg-[#F5F0E8] border-b border-[#DDD5C8] text-xs font-semibold text-[#8C8278] uppercase tracking-wider">
-                  <div className="col-span-2">Name / Email</div>
-                  <div>Role</div>
-                  <div>Status</div>
-                  <div>Actions</div>
-                </div>
-                {staffMembers.map((member, idx) => (
-                  <div
-                    key={member.id}
-                    className={`px-6 py-4 flex flex-col md:grid md:grid-cols-5 md:items-center gap-3 md:gap-4 ${
-                      idx < staffMembers.length - 1 ? 'border-b border-[#EDE7DA]' : ''
-                    } ${!member.is_active ? 'bg-red-50/30' : ''}`}
-                  >
-                    <div className="col-span-2 flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-[#F5F0E8] flex items-center justify-center text-sm font-bold text-[#C4622D] flex-shrink-0">
-                        {member.full_name?.charAt(0)?.toUpperCase() || member.email?.charAt(0)?.toUpperCase() || '?'}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-[#1A1612] truncate">
-                          {member.full_name || '—'}
-                          {member.id === user?.id && (
-                            <span className="ml-1.5 text-xs font-normal text-[#8C8278]">(you)</span>
-                          )}
-                        </p>
-                        <p className="text-xs text-[#8C8278] truncate">{member.email}</p>
-                      </div>
-                    </div>
-                    <div><RoleBadge role={member.role} /></div>
-                    <div>
-                      <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full ${
-                        member.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                      }`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${member.is_active ? 'bg-green-500' : 'bg-red-500'}`} />
-                        {member.is_active ? 'Active' : 'Suspended'}
-                      </span>
-                    </div>
-                    <div className="flex gap-2 flex-wrap">
-                      {member.id === user?.id ? (
-                        <span className="text-xs text-[#B0A89E] italic">Your account</span>
-                      ) : member.is_active ? (
-                        <>
-                          <button
-                            onClick={() => handleSuspendStaff(member)}
-                            disabled={staffActionId === member.id || resetPasswordId === member.id}
-                            className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors disabled:opacity-50 flex items-center gap-1.5"
-                          >
-                            {staffActionId === member.id ? (
-                              <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
-                            ) : (
-                              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 015.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-                              </svg>
-                            )}
-                            Suspend
-                          </button>
-                          <button
-                            onClick={() => handleResetPassword(member)}
-                            disabled={resetPasswordId === member.id || staffActionId === member.id}
-                            className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors disabled:opacity-50 flex items-center gap-1.5"
-                          >
-                            {resetPasswordId === member.id ? (
-                              <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
-                            ) : (
-                              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.865a8.25 8.25 0 018-8.25V0C5.373 0 0 5.373 0 12h4z" />
-                              </svg>
-                            )}
-                            Reset Password
-                          </button>
-                        </>
-                      ) : (
+                      <div className="flex items-center gap-2">
                         <button
-                          onClick={() => handleReinstateStaff(member)}
-                          disabled={staffActionId === member.id}
-                          className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-green-50 text-green-700 hover:bg-green-100 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                          onClick={() => handleToggleCardVisibility(card)}
+                          disabled={togglingCardId === card.id}
+                          className={`text-xs font-semibold px-2.5 py-1 rounded-full transition-colors disabled:opacity-50 ${
+                            card.is_visible ? 'bg-green-500/20 text-green-300 hover:bg-green-500/30' : 'bg-white/10 text-white/50 hover:bg-white/20'
+                          }`}
                         >
-                          {staffActionId === member.id ? (
-                            <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
-                          ) : (
-                            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                          )}
-                          Reinstate
+                          {card.is_visible ? 'Visible' : 'Hidden'}
                         </button>
+                        <button
+                          onClick={() => openCardForm(card)}
+                          className="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors"
+                          title="Edit card"
+                        >
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 012.652 2.652L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                    <div className="p-4 space-y-2">
+                      <p className="font-semibold text-[#1A1612] text-sm">{card.title}</p>
+                      {card.subtitle && <p className="text-xs text-[#8C8278]">{card.subtitle}</p>}
+                      {card.description && <p className="text-xs text-[#5C5347] leading-relaxed line-clamp-2">{card.description}</p>}
+                      {card.price !== null && (
+                        <p className="text-sm font-bold text-[#C4622D]">R{card.price}/{card.price_unit}</p>
+                      )}
+                      {card.event_date && (
+                        <p className="text-xs text-[#8C8278]">📅 {card.event_date} · {card.guest_count} guests</p>
+                      )}
+                      {card.rating !== null && (
+                        <p className="text-xs text-[#D4A853]">{'★'.repeat(card.rating)}{'☆'.repeat(5 - card.rating)} {card.reviewer_name}</p>
                       )}
                     </div>
                   </div>
                 ))}
               </div>
             )}
-
-            <div className="mt-6 bg-purple-50 border border-purple-200 rounded-xl p-4">
-              <p className="text-sm font-semibold text-purple-800 mb-1">ℹ️ Super Admin Access</p>
-              <p className="text-xs text-purple-700 leading-relaxed">
-                As Super Admin, you can invite staff members (Admin or Staff role), suspend their access, reinstate suspended accounts, or reset their password.
-                Resetting a password sends a secure email link to the staff member — they must set a new password before logging in again.
-                Suspended staff will see an &quot;Account suspended — Contact your Admin&quot; message when they attempt to log in.
-                You cannot suspend your own account.
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* ── WEEKLY MENU TAB ── */}
-        {activeTab === 'weekly_menu' && (
-          <div>
-            {/* Add/Edit Item Modal */}
-            {showWeeklyMenuForm && (
-              <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto py-8 px-4">
-                <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl">
-                  <div className="flex items-center justify-between px-6 py-4 border-b border-[#EDE7DA]">
-                    <h2 className="font-bold text-[#1A1612] text-lg">
-                      {editingWeeklyEntry ? 'Edit Menu Item' : `Add Item — ${weeklyMenuForm.day_name} ${weeklyMenuForm.meal_date}`}
-                    </h2>
-                    <button
-                      onClick={() => setShowWeeklyMenuForm(false)}
-                      className="w-8 h-8 rounded-full bg-[#F5F0E8] flex items-center justify-center text-[#8C8278] hover:bg-[#EDE7DA] transition-colors"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                  <form onSubmit={handleSaveWeeklyEntry} className="p-6 space-y-4">
-                    <div>
-                      <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Meal Name *</label>
-                      <input
-                        type="text"
-                        value={weeklyMenuForm.meal_name}
-                        onChange={(e) => setWeeklyMenuForm({ ...weeklyMenuForm, meal_name: e.target.value })}
-                        placeholder="e.g. Prawn Orzotto"
-                        className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Description</label>
-                      <input
-                        type="text"
-                        value={weeklyMenuForm.description}
-                        onChange={(e) => setWeeklyMenuForm({ ...weeklyMenuForm, description: e.target.value })}
-                        placeholder="e.g. Creamy rice pasta with fresh prawns"
-                        className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Price (R) *</label>
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={weeklyMenuForm.price}
-                        onChange={(e) => setWeeklyMenuForm({ ...weeklyMenuForm, price: e.target.value })}
-                        placeholder="e.g. 240"
-                        className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
-                      />
-                    </div>
-
-                    {weeklyMenuFormError && (
-                      <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{weeklyMenuFormError}</p>
-                    )}
-                    {weeklyMenuFormSuccess && (
-                      <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">{weeklyMenuFormSuccess}</p>
-                    )}
-
-                    <div className="flex gap-3 pt-2">
-                      <button
-                        type="submit"
-                        disabled={savingWeeklyEntry}
-                        className="flex-1 bg-[#C4622D] text-white py-2.5 rounded-xl font-semibold text-sm hover:bg-[#A04E22] transition-all disabled:opacity-60 flex items-center justify-center gap-2"
-                      >
-                        {savingWeeklyEntry && (
-                          <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                          </svg>
-                        )}
-                        {editingWeeklyEntry ? 'Save Changes' : 'Add Item'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setShowWeeklyMenuForm(false)}
-                        className="px-5 py-2.5 rounded-xl border border-[#DDD5C8] text-[#5C5347] text-sm font-semibold hover:bg-[#F5F0E8] transition-colors"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              </div>
-            )}
-
-            {/* Mark Day Closed Modal */}
-            {closingDayDate && (
-              <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4">
-                <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl p-6">
-                  <h2 className="font-bold text-[#1A1612] text-lg mb-1">Mark Day as Closed</h2>
-                  <p className="text-sm text-[#8C8278] mb-4">{getDayNameFromDate(closingDayDate)} · {closingDayDate}</p>
-                  <div className="mb-4">
-                    <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Reason (optional)</label>
-                    <input
-                      type="text"
-                      value={closingDayReason}
-                      onChange={(e) => setClosingDayReason(e.target.value)}
-                      placeholder="e.g. Public holiday, Eid, Staff training"
-                      className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
-                    />
-                  </div>
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => handleMarkDayClosed(closingDayDate, closingDayReason)}
-                      disabled={savingClosedDay}
-                      className="flex-1 bg-red-500 text-white py-2.5 rounded-xl font-semibold text-sm hover:bg-red-600 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
-                    >
-                      {savingClosedDay && <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>}
-                      Mark Closed
-                    </button>
-                    <button
-                      onClick={() => { setClosingDayDate(null); setClosingDayReason(''); }}
-                      className="px-5 py-2.5 rounded-xl border border-[#DDD5C8] text-[#5C5347] text-sm font-semibold hover:bg-[#F5F0E8] transition-colors"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Header + Week Navigator */}
-            {(() => {
-              const { monday, friday, mondayStr, fridayStr } = getWeekBoundsForOffset(weekOffset);
-              const pad = (n: number) => String(n).padStart(2, '0');
-              const fmt = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-              const DAY_ABBRS = ['MON', 'TUE', 'WED', 'THU', 'FRI'];
-              const weekLabel = `${monday.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })} – ${friday.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })}`;
-
-              const weekDays: Array<{ date: Date; dateStr: string; dayAbbr: string; items: WeeklyMenuEntry[]; closedEntry: WeeklyMenuEntry | null }> = [];
-              for (let i = 0; i < 5; i++) {
-                const d = new Date(monday);
-                d.setDate(monday.getDate() + i);
-                const dateStr = fmt(d);
-                const dayItems = weeklyMenuEntries.filter((m) => m.meal_date === dateStr);
-                const closedEntry = dayItems.find((m) => m.is_closed) || null;
-                const activeItems = dayItems.filter((m) => !m.is_closed);
-                weekDays.push({ date: d, dateStr, dayAbbr: DAY_ABBRS[i], items: activeItems, closedEntry });
-              }
-
-              return (
-                <>
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-                    <div>
-                      <h2 className="text-xl font-bold text-[#1A1612]">Weekly Menu</h2>
-                      <p className="text-sm text-[#8C8278] mt-0.5">Load the full week in advance — add multiple items per day</p>
-                    </div>
-                    {/* Week Navigator */}
-                    <div className="flex items-center gap-2 bg-white border border-[#DDD5C8] rounded-xl px-3 py-2">
-                      <button
-                        onClick={() => {
-                          const newOffset = weekOffset - 1;
-                          setWeekOffset(newOffset);
-                          loadWeeklyMenu(newOffset);
-                        }}
-                        className="w-8 h-8 rounded-lg bg-[#F5F0E8] flex items-center justify-center text-[#5C5347] hover:bg-[#EDE7DA] transition-colors"
-                        title="Previous week"
-                      >
-                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                        </svg>
-                      </button>
-                      <div className="text-center min-w-[160px]">
-                        <p className="text-sm font-semibold text-[#1A1612]">{weekLabel}</p>
-                        {weekOffset === 0 && <p className="text-xs text-[#C4622D] font-medium">Current Week</p>}
-                        {weekOffset !== 0 && <p className="text-xs text-[#8C8278]">{weekOffset > 0 ? `+${weekOffset} week${weekOffset > 1 ? 's' : ''}` : `${weekOffset} week${weekOffset < -1 ? 's' : ''}`}</p>}
-                      </div>
-                      <button
-                        onClick={() => {
-                          const newOffset = weekOffset + 1;
-                          setWeekOffset(newOffset);
-                          loadWeeklyMenu(newOffset);
-                        }}
-                        className="w-8 h-8 rounded-lg bg-[#F5F0E8] flex items-center justify-center text-[#5C5347] hover:bg-[#EDE7DA] transition-colors"
-                        title="Next week"
-                      >
-                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-
-                  {weeklyMenuLoading ? (
-                    <div className="space-y-4">
-                      {[1, 2, 3, 4, 5].map((i) => (
-                        <div key={i} className="h-24 bg-[#EDE7DA] rounded-2xl animate-pulse" />
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {weekDays.map(({ date, dateStr, dayAbbr, items, closedEntry }) => {
-                        const dateLabel = date.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' });
-                        const isClosed = !!closedEntry;
-                        const todayDateStr = (() => { const t = new Date(); const p = (n: number) => String(n).padStart(2, '0'); return `${t.getFullYear()}-${p(t.getMonth() + 1)}-${p(t.getDate())}`; })();
-                        const isPastDay = weekOffset === 0 && dateStr < todayDateStr;
-
-                        return (
-                          <div key={dateStr} className="bg-white rounded-2xl border border-[#EDE7DA] overflow-hidden">
-                            {/* Day Header */}
-                            <div className={`flex items-center justify-between px-5 py-3 border-b border-[#EDE7DA] ${isClosed ? 'bg-red-50' : 'bg-[#F5F0E8]'}`}>
-                              <div className="flex items-center gap-3">
-                                <div className={`w-10 h-10 rounded-xl flex flex-col items-center justify-center text-white text-xs font-bold ${isClosed ? 'bg-red-400' : 'bg-[#C4622D]'}`}>
-                                  <span className="text-[10px] leading-none">{dayAbbr}</span>
-                                  <span className="text-base leading-tight">{date.getDate()}</span>
-                                </div>
-                                <div>
-                                  <p className="font-bold text-[#1A1612] text-sm">{dayAbbr} · {dateLabel}</p>
-                                  {isClosed && (
-                                    <p className="text-xs text-red-600 font-medium">{closedEntry?.closed_reason || 'Closed for the day'}</p>
-                                  )}
-                                  {!isClosed && items.length > 0 && (
-                                    <p className="text-xs text-[#8C8278]">{items.length} item{items.length > 1 ? 's' : ''}</p>
-                                  )}
-                                  {!isClosed && items.length === 0 && (
-                                    <p className="text-xs text-[#B5ADA5] italic">No items yet</p>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                {isClosed ? (
-                                  <button
-                                    onClick={() => handleReopenDay(dateStr)}
-                                    className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-white border border-red-200 text-red-600 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors"
-                                  >
-                                    Reopen Day
-                                  </button>
-                                ) : (
-                                  <>
-                                    <button
-                                      onClick={() => openAddWeeklyMenuForm(dateStr)}
-                                      disabled={isPastDay}
-                                      title={isPastDay ? 'Cannot add items to past days' : 'Add a menu item for this day'}
-                                      className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${isPastDay ? 'bg-[#DDD5C8] text-[#B5ADA5] cursor-not-allowed' : 'bg-[#C4622D] text-white hover:bg-[#A04E22] hover:text-black'}`}
-                                    >
-                                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                                      </svg>
-                                      Add Item
-                                    </button>
-                                    <button
-                                      onClick={() => { setClosingDayDate(dateStr); setClosingDayReason(''); }}
-                                      className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-white border border-[#DDD5C8] text-[#8C8278] hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors"
-                                    >
-                                      Mark Closed
-                                    </button>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Items Table */}
-                            {!isClosed && items.length > 0 && (
-                              <table className="w-full text-sm">
-                                <thead>
-                                  <tr className="border-b border-[#F0EAE0]">
-                                    <th className="text-left px-5 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wide">Meal Name</th>
-                                    <th className="text-left px-4 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wide hidden md:table-cell">Description</th>
-                                    <th className="text-right px-4 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wide">Price</th>
-                                    <th className="text-right px-4 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wide">Actions</th>
-                                  </tr>
-                                </thead>
-                                <tbody className="divide-y divide-[#F5F0E8]">
-                                  {items.map((item) => (
-                                    <tr key={item.id} className="hover:bg-[#FDFAF6] transition-colors">
-                                      <td className="px-5 py-3 font-medium text-[#1A1612]">{item.meal_name}</td>
-                                      <td className="px-4 py-3 text-[#8C8278] hidden md:table-cell max-w-xs truncate">{item.description || '—'}</td>
-                                      <td className="px-4 py-3 text-right font-semibold text-[#1A1612]">
-                                        {item.price !== null ? `R${Number(item.price).toFixed(0)}` : '—'}
-                                      </td>
-                                      <td className="px-4 py-3 text-right">
-                                        <div className="flex items-center justify-end gap-1.5">
-                                          <button
-                                            onClick={() => openEditWeeklyMenuForm(item)}
-                                            className="p-1.5 rounded-lg text-[#8C8278] hover:text-[#C4622D] hover:bg-[#FDF6F0] transition-colors"
-                                            title="Edit"
-                                          >
-                                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                              <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 012.652 2.652L11.828 15H9v-2.828l8.586-8.586z" />
-                                            </svg>
-                                          </button>
-                                          <button
-                                            onClick={() => handleDeleteWeeklyEntry(item)}
-                                            disabled={deletingWeeklyEntryId === item.id}
-                                            className="p-1.5 rounded-lg text-[#8C8278] hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
-                                            title="Delete"
-                                          >
-                                            {deletingWeeklyEntryId === item.id ? (
-                                              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
-                                            ) : (
-                                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0016.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                              </svg>
-                                            )}
-                                          </button>
-                                        </div>
-                                      </td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            )}
-
-                            {/* Empty state for open day with no items */}
-                            {!isClosed && items.length === 0 && (
-                              <div className="px-5 py-4 text-center">
-                                <p className="text-sm text-[#B5ADA5] italic">No menu items for this day. Click <strong>Add Item</strong> to add meals.</p>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {/* Info box */}
-                  <div className="mt-6 bg-[#F5F0E8] border border-[#DDD5C8] rounded-xl p-4">
-                    <p className="text-sm font-semibold text-[#3D3530] mb-1">ℹ️ How to load the weekly menu</p>
-                    <p className="text-xs text-[#5C5347] leading-relaxed">
-                      Use the week navigator to go to any week. For each day (Mon–Fri), click <strong>Add Item</strong> to add one or more meals with name, description, and price.
-                      You can add multiple dishes per day. Use <strong>Mark Closed</strong> to indicate a public holiday or day off — this removes any existing items for that day.
-                      The public Weekly Menu page always shows the current week at the top.
-                    </p>
-                  </div>
-                </>
-              );
-            })()}
           </div>
         )}
 
@@ -3306,10 +2720,25 @@ export default function StaffWorkspacePage() {
                       ].map(({ label, value }) => (
                         <div key={label} className="flex justify-between items-center py-1 border-b border-[#DDD5C8] last:border-0">
                           <span className="text-[#8C8278] text-xs">{label}</span>
-                          <span className="font-semibold text-[#1A1612] text-xs">{value}</span>
+                          <span className={`font-semibold text-xs ${label === 'Status' && (selectedVoucher.status === 'unpaid') ? 'text-amber-600' : label === 'Status' && selectedVoucher.status === 'paid' ? 'text-green-600' : 'text-[#1A1612]'}`}>{value}</span>
                         </div>
                       ))}
                     </div>
+
+                    {/* Mark as Paid button — shown only for unpaid vouchers */}
+                    {selectedVoucher.status === 'unpaid' && (
+                      <button
+                        onClick={() => handleMarkVoucherAsPaid(selectedVoucher)}
+                        disabled={markingVoucherPaidId === selectedVoucher.id}
+                        className="w-full bg-green-600 text-white py-3 rounded-xl font-semibold text-sm hover:bg-green-700 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                      >
+                        {markingVoucherPaidId === selectedVoucher.id ? (
+                          <><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Marking as Paid...</>
+                        ) : (
+                          <>✓ Mark as Paid — EFT Verified</>
+                        )}
+                      </button>
+                    )}
 
                     {/* Redemption history */}
                     <div>
@@ -3434,7 +2863,8 @@ export default function StaffWorkspacePage() {
                             </td>
                             <td className="px-4 py-3 text-center">
                               <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                                voucher.status === 'active' ?'bg-green-100 text-green-700'
+                                voucher.status === 'active' || voucher.status === 'paid' ?'bg-green-100 text-green-700'
+                                  : voucher.status === 'unpaid' ?'bg-amber-100 text-amber-700'
                                   : voucher.status === 'redeemed' ?'bg-[#F5F0E8] text-[#8C8278]' :'bg-red-100 text-red-600'
                               }`}>
                                 {voucher.status.charAt(0).toUpperCase() + voucher.status.slice(1)}
@@ -3446,12 +2876,25 @@ export default function StaffWorkspacePage() {
                               </span>
                             </td>
                             <td className="px-4 py-3">
-                              <button
-                                onClick={() => handleSelectVoucher(voucher)}
-                                className="text-xs font-semibold text-[#C4622D] hover:underline whitespace-nowrap"
-                              >
-                                View →
-                              </button>
+                              <div className="flex items-center gap-2 justify-end">
+                                {voucher.status === 'unpaid' && (
+                                  <button
+                                    onClick={() => handleMarkVoucherAsPaid(voucher)}
+                                    disabled={markingVoucherPaidId === voucher.id}
+                                    className="text-xs font-semibold text-white bg-green-600 hover:bg-green-700 px-2.5 py-1 rounded-full transition-colors disabled:opacity-60 whitespace-nowrap flex items-center gap-1"
+                                  >
+                                    {markingVoucherPaidId === voucher.id ? (
+                                      <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                                    ) : '✓'} Mark Paid
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => handleSelectVoucher(voucher)}
+                                  className="text-xs font-semibold text-[#C4622D] hover:underline whitespace-nowrap"
+                                >
+                                  View →
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         ))}

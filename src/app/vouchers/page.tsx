@@ -6,7 +6,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import Icon from "@/components/ui/AppIcon";
 import { createClient } from "@/lib/supabase/client";
-
+import { APP_NAME } from "@/lib/constants";
 
 interface VoucherPackage {
   meals: number;
@@ -38,7 +38,14 @@ const PACKAGES: VoucherPackage[] = [
   },
 ];
 
-type Step = "select" | "details" | "confirmation";
+const BANK_DETAILS = {
+  bank: "Capitec Business",
+  accountName: APP_NAME,
+  accountNumber: "1051471249",
+  branchCode: "450105",
+};
+
+type Step = "select" | "details" | "confirmation" | "eft-pending";
 
 function generateVoucherCode(): string {
   const year = new Date().getFullYear();
@@ -57,8 +64,8 @@ export default function VouchersPage() {
   const [submitError, setSubmitError] = useState("");
   const [issuedCode, setIssuedCode] = useState("");
   const [copied, setCopied] = useState(false);
-  const [paymentLoading, setPaymentLoading] = useState(false);
-  const [paymentError, setPaymentError] = useState("");
+  const [eftConfirming, setEftConfirming] = useState(false);
+  const [eftConfirmed, setEftConfirmed] = useState(false);
 
   const handleSelectPackage = (pkg: VoucherPackage) => {
     setSelectedPackage(pkg);
@@ -85,7 +92,7 @@ export default function VouchersPage() {
     setSubmitting(true);
     try {
       const code = generateVoucherCode();
-      // Insert voucher with 'unpaid' status — becomes 'paid' only after payment is confirmed
+      // Insert voucher with 'unpaid' status — becomes 'paid' only after staff verification
       const { error } = await supabase.from("vouchers").insert({
         voucher_code: code,
         customer_name: form.name.trim(),
@@ -110,42 +117,14 @@ export default function VouchersPage() {
     }
   };
 
-  const handlePayNow = async () => {
-    if (!selectedPackage || !issuedCode) return;
-    setPaymentLoading(true);
-    setPaymentError("");
-
-    try {
-      const response = await fetch("/api/payfast/initiate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: form.name.trim(),
-          email: form.email.trim().toLowerCase(),
-          phone: form.phone.replace(/\D/g, ""),
-          amount: selectedPackage.price.toFixed(2),
-          itemName: `Meal Voucher — ${selectedPackage.label} (${selectedPackage.meals} meals)`,
-          itemDescription: `Voucher code: ${issuedCode}`,
-          // Pass voucher code in custom_str1 with VCHR- prefix so ITN can identify it
-          voucherCode: issuedCode,
-        }),
-      });
-
-      if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.error || "Failed to initiate payment.");
-      }
-
-      // The response is an HTML page that auto-submits to PayFast
-      const html = await response.text();
-      const blob = new Blob([html], { type: "text/html" });
-      const url = URL.createObjectURL(blob);
-      window.location.href = url;
-    } catch (err) {
-      setPaymentError(err instanceof Error ? err.message : "Failed to initiate payment. Please try again.");
-    } finally {
-      setPaymentLoading(false);
-    }
+  const handleEftConfirm = async () => {
+    setEftConfirming(true);
+    // Voucher is already inserted as 'unpaid' — staff will mark it as 'paid' after verifying EFT
+    // Just transition to the eft-pending confirmation screen
+    await new Promise((r) => setTimeout(r, 600)); // brief UX delay
+    setEftConfirmed(true);
+    setEftConfirming(false);
+    setStep("eft-pending");
   };
 
   const handleCopyCode = () => {
@@ -365,29 +344,15 @@ export default function VouchersPage() {
                       </>
                     )}
                   </button>
-                  <p className="text-xs text-center text-[#B5ADA5]">
-                    You will be redirected to PayFast to complete your payment securely.
-                  </p>
                 </form>
               </div>
             </div>
           )}
 
-          {/* ─── STEP: CONFIRMATION (Awaiting Payment) ─── */}
+          {/* ─── STEP: CONFIRMATION (EFT Banking Details) ─── */}
           {step === "confirmation" && selectedPackage && (
             <div className="max-w-lg mx-auto">
-              <div className="bg-white rounded-2xl border border-[#DDD5C8] p-8 text-center">
-                {/* Pending payment icon */}
-                <div className="w-20 h-20 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4">
-                  <Icon name="CreditCardIcon" size={36} className="text-amber-600" />
-                </div>
-                <h2 className="font-display text-2xl font-bold text-[#1A1612] mb-2">
-                  Voucher Reserved — Payment Required
-                </h2>
-                <p className="text-[#8C8278] text-sm mb-6">
-                  Your meal voucher has been created. Save your unique code below — you will need it when placing orders.
-                </p>
-
+              <div className="bg-white rounded-2xl border border-[#DDD5C8] p-8">
                 {/* Voucher code display */}
                 <div className="bg-gradient-to-br from-[#1A1612] to-[#3D342D] rounded-2xl p-6 mb-6 relative overflow-hidden">
                   <div className="absolute top-0 right-0 w-24 h-24 bg-[#C4622D]/20 rounded-full -translate-y-6 translate-x-6" />
@@ -414,28 +379,126 @@ export default function VouchersPage() {
                   </div>
                 </div>
 
-                {/* Payment status warning */}
-                <div className="bg-amber-50 border border-amber-300 rounded-xl p-4 text-left mb-6">
+                <h2 className="font-display text-xl font-bold text-[#1A1612] mb-1 text-center">
+                  Complete Your EFT Payment
+                </h2>
+                <p className="text-[#8C8278] text-sm text-center mb-6 leading-relaxed">
+                  Transfer the amount below to activate your voucher. Once we verify your payment, your voucher will be marked as paid.
+                </p>
+
+                {/* Banking Details */}
+                <div className="bg-[#F5F0E8] border border-[#DDD5C8] rounded-2xl p-5 mb-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Icon name="BuildingLibraryIcon" size={15} className="text-[#C4622D]" />
+                    <p className="text-xs font-semibold text-[#5C5347] uppercase tracking-wider">Banking Details</p>
+                  </div>
+                  <div className="space-y-2">
+                    {[
+                      { label: "Bank", value: BANK_DETAILS.bank },
+                      { label: "Account Name", value: BANK_DETAILS.accountName },
+                      { label: "Account Number", value: BANK_DETAILS.accountNumber },
+                      { label: "Branch Code", value: BANK_DETAILS.branchCode },
+                      { label: "Amount", value: `R${selectedPackage.price.toFixed(2)}` },
+                      { label: "Reference", value: issuedCode },
+                    ].map(({ label, value }) => (
+                      <div key={label} className="flex justify-between items-center py-1.5 border-b border-[#DDD5C8] last:border-0">
+                        <span className="text-[#8C8278] text-xs">{label}</span>
+                        <span className={`font-semibold font-mono text-xs ${label === "Reference" ? "text-[#C4622D]" : "text-[#1A1612]"}`}>{value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Instructions */}
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
                   <div className="flex items-center gap-2 mb-2">
-                    <Icon name="ExclamationTriangleIcon" size={15} className="text-amber-600 flex-shrink-0" />
-                    <p className="text-xs font-semibold text-amber-800">Payment Required to Activate Voucher</p>
+                    <Icon name="InformationCircleIcon" size={14} className="text-amber-600 flex-shrink-0" />
+                    <p className="text-xs font-semibold text-amber-800">Payment Instructions</p>
                   </div>
                   <ul className="text-xs text-amber-700 space-y-1 leading-relaxed">
-                    <li>• Your voucher is currently <strong>unpaid</strong> and cannot be used at checkout.</li>
-                    <li>• Click <strong>&quot;Pay Now&quot;</strong> below to complete your payment via PayFast.</li>
-                    <li>• Once payment is confirmed, your voucher will be activated automatically.</li>
-                    <li>• Save your code: <strong>{issuedCode}</strong></li>
+                    <li>• Use your voucher code <strong>{issuedCode}</strong> as the payment reference.</li>
+                    <li>• Once we receive and verify your EFT, your voucher will be activated.</li>
+                    <li>• You will not be able to place orders until your voucher is marked as paid.</li>
                   </ul>
                 </div>
 
-                {/* Details */}
+                {/* Confirm button */}
+                <button
+                  onClick={handleEftConfirm}
+                  disabled={eftConfirming}
+                  className="w-full bg-[#C4622D] text-white py-3.5 rounded-full font-semibold text-sm hover:bg-[#A04E22] transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed mb-3"
+                >
+                  {eftConfirming ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                      </svg>
+                      Confirming...
+                    </>
+                  ) : (
+                    <>
+                      <Icon name="CheckCircleIcon" size={14} />
+                      I Have Made Payment
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={() => {
+                    setStep("select");
+                    setSelectedPackage(null);
+                    setForm({ name: "", email: "", phone: "", notes: "" });
+                    setIssuedCode("");
+                  }}
+                  className="w-full border border-[#DDD5C8] text-[#5C5347] py-3 rounded-full font-semibold text-sm hover:bg-[#F5F0E8] transition-all"
+                >
+                  Purchase Another Voucher
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ─── STEP: EFT PENDING (Payment Submitted) ─── */}
+          {step === "eft-pending" && selectedPackage && (
+            <div className="max-w-lg mx-auto">
+              <div className="bg-white rounded-2xl border border-[#DDD5C8] p-8 text-center">
+                {/* Pending icon */}
+                <div className="w-20 h-20 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4">
+                  <Icon name="ClockIcon" size={36} className="text-amber-600" />
+                </div>
+                <h2 className="font-display text-2xl font-bold text-[#1A1612] mb-2">
+                  Payment Submitted
+                </h2>
+                <p className="text-[#8C8278] text-sm mb-6 leading-relaxed">
+                  Thank you, {form.name}! We have noted your EFT payment. Once our team verifies the transfer, your voucher will be activated and you can start placing orders.
+                </p>
+
+                {/* Voucher code */}
+                <div className="bg-gradient-to-br from-[#1A1612] to-[#3D342D] rounded-2xl p-5 mb-6 relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-20 h-20 bg-[#C4622D]/20 rounded-full -translate-y-4 translate-x-4" />
+                  <div className="relative z-10">
+                    <p className="text-xs text-white/40 font-mono uppercase tracking-widest mb-2">Your Voucher Code</p>
+                    <p className="text-2xl font-mono font-bold text-[#C4622D] tracking-widest mb-3">{issuedCode}</p>
+                    <div className="flex items-center justify-center gap-3">
+                      <button
+                        onClick={handleCopyCode}
+                        className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 text-white text-xs font-medium px-3 py-1.5 rounded-full transition-all"
+                      >
+                        <Icon name={copied ? "CheckIcon" : "ClipboardDocumentIcon"} size={13} />
+                        {copied ? "Copied!" : "Copy Code"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Summary */}
                 <div className="bg-[#F5F0E8] rounded-xl p-4 text-left space-y-2 text-sm mb-6">
                   {[
                     { label: "Name", value: form.name },
                     { label: "Email", value: form.email },
-                    { label: "Total Meals", value: `${selectedPackage.meals} meals` },
-                    { label: "Amount Due", value: `R${selectedPackage.price.toFixed(2)}` },
-                    { label: "Status", value: "⏳ Awaiting Payment" },
+                    { label: "Package", value: `${selectedPackage.label} — ${selectedPackage.meals} meals` },
+                    { label: "Amount Paid", value: `R${selectedPackage.price.toFixed(2)}` },
+                    { label: "Status", value: "⏳ Awaiting Verification" },
                   ].map(({ label, value }) => (
                     <div key={label} className="flex justify-between items-center py-1 border-b border-[#DDD5C8] last:border-0">
                       <span className="text-[#8C8278] text-xs">{label}</span>
@@ -444,47 +507,30 @@ export default function VouchersPage() {
                   ))}
                 </div>
 
-                {paymentError && (
-                  <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-4">
-                    <Icon name="ExclamationCircleIcon" size={16} className="text-red-500 flex-shrink-0 mt-0.5" />
-                    <p className="text-xs text-red-600">{paymentError}</p>
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-left mb-6">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Icon name="InformationCircleIcon" size={14} className="text-blue-600 flex-shrink-0" />
+                    <p className="text-xs font-semibold text-blue-800">What happens next?</p>
                   </div>
-                )}
-
-                <div className="flex flex-col gap-3">
-                  <button
-                    onClick={handlePayNow}
-                    disabled={paymentLoading}
-                    className="w-full bg-[#C4622D] text-white py-3.5 rounded-full font-semibold text-sm hover:bg-[#A04E22] transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-                  >
-                    {paymentLoading ? (
-                      <>
-                        <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-                        </svg>
-                        Redirecting to PayFast...
-                      </>
-                    ) : (
-                      <>
-                        <Icon name="CreditCardIcon" size={14} />
-                        Pay Now — R{selectedPackage.price.toFixed(2)}
-                      </>
-                    )}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setStep("select");
-                      setSelectedPackage(null);
-                      setForm({ name: "", email: "", phone: "", notes: "" });
-                      setIssuedCode("");
-                      setPaymentError("");
-                    }}
-                    className="w-full border border-[#DDD5C8] text-[#5C5347] py-3 rounded-full font-semibold text-sm hover:bg-[#F5F0E8] transition-all"
-                  >
-                    Purchase Another Voucher
-                  </button>
+                  <ul className="text-xs text-blue-700 space-y-1 leading-relaxed">
+                    <li>• Our staff will verify your EFT payment.</li>
+                    <li>• Once confirmed, your voucher status will be updated to <strong>Paid</strong>.</li>
+                    <li>• You can then use your code <strong>{issuedCode}</strong> at checkout.</li>
+                  </ul>
                 </div>
+
+                <button
+                  onClick={() => {
+                    setStep("select");
+                    setSelectedPackage(null);
+                    setForm({ name: "", email: "", phone: "", notes: "" });
+                    setIssuedCode("");
+                    setEftConfirmed(false);
+                  }}
+                  className="w-full bg-[#C4622D] text-white py-3.5 rounded-full font-semibold text-sm hover:bg-[#A04E22] transition-all"
+                >
+                  Purchase Another Voucher
+                </button>
               </div>
             </div>
           )}
