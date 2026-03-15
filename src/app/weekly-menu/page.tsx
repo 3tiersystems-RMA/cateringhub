@@ -43,6 +43,7 @@ function formatMonthYear(date: Date): string {
 }
 
 const DAY_ABBRS = ["MON", "TUE", "WED", "THU", "FRI"];
+const DAY_FULL = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 
 function WeeklyMenuContent() {
   const supabase = createClient();
@@ -56,7 +57,7 @@ function WeeklyMenuContent() {
 
   const [menuItems, setMenuItems] = useState<WeeklyMenuItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [addedId, setAddedId] = useState<string | null>(null);
+  const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const fetchMenu = async () => {
@@ -69,7 +70,8 @@ function WeeklyMenuContent() {
         .select("*")
         .gte("meal_date", mondayStr)
         .lte("meal_date", fridayStr)
-        .order("meal_date", { ascending: true });
+        .order("meal_date", { ascending: true })
+        .order("created_at", { ascending: true });
 
       if (!error && data) {
         setMenuItems(data as WeeklyMenuItem[]);
@@ -79,13 +81,24 @@ function WeeklyMenuContent() {
     fetchMenu();
   }, []);
 
-  const weekDays: Array<{ date: Date; dateStr: string; dayAbbr: string; item: WeeklyMenuItem | null }> = [];
+  // Build week days with all items grouped per day
+  const weekDays: Array<{
+    date: Date;
+    dateStr: string;
+    dayAbbr: string;
+    dayFull: string;
+    activeItems: WeeklyMenuItem[];
+    closedEntry: WeeklyMenuItem | null;
+  }> = [];
+
   for (let i = 0; i < 5; i++) {
     const d = new Date(monday);
     d.setDate(monday.getDate() + i);
     const dateStr = toDateStr(d);
-    const item = menuItems.find((m) => m.meal_date === dateStr) || null;
-    weekDays.push({ date: d, dateStr, dayAbbr: DAY_ABBRS[i], item });
+    const dayItems = menuItems.filter((m) => m.meal_date === dateStr);
+    const closedEntry = dayItems.find((m) => m.is_closed) || null;
+    const activeItems = dayItems.filter((m) => !m.is_closed);
+    weekDays.push({ date: d, dateStr, dayAbbr: DAY_ABBRS[i], dayFull: DAY_FULL[i], activeItems, closedEntry });
   }
 
   const handleOrder = (item: WeeklyMenuItem) => {
@@ -107,9 +120,15 @@ function WeeklyMenuContent() {
       badge: `${item.day_name} ${mealDate.getDate()} ${mealDate.toLocaleDateString("en-ZA", { month: "short" })}`,
     };
     addItem(cartProduct, 1);
-    setAddedId(item.id);
+    setAddedIds((prev) => new Set(prev).add(item.id));
     setIsOpen(true);
-    setTimeout(() => setAddedId(null), 2000);
+    setTimeout(() => {
+      setAddedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(item.id);
+        return next;
+      });
+    }, 2000);
   };
 
   const monthLabel = formatMonthYear(monday);
@@ -140,76 +159,106 @@ function WeeklyMenuContent() {
           {loading ? (
             <div className="space-y-4">
               {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="h-24 bg-[#EDE7DA] rounded-2xl animate-pulse" />
+                <div key={i} className="h-28 bg-[#EDE7DA] rounded-2xl animate-pulse" />
               ))}
             </div>
           ) : (
-            <div className="divide-y divide-[#DDD5C8] border-t border-[#DDD5C8]">
-              {weekDays.map(({ date, dateStr, dayAbbr, item }) => {
+            <div className="space-y-3">
+              {weekDays.map(({ date, dateStr, dayAbbr, dayFull, activeItems, closedEntry }) => {
                 const isPast = dateStr < todayStr;
                 const isToday = dateStr === todayStr;
-                const isClosed = item?.is_closed ?? false;
-                const isActive = !isPast && !isClosed;
+                const isClosed = !!closedEntry;
                 const dateNum = date.getDate();
+                const hasItems = activeItems.length > 0;
 
                 return (
                   <div
                     key={dateStr}
-                    className={`py-5 flex items-start gap-5 transition-opacity ${
-                      isPast ? "opacity-40" : "opacity-100"
+                    className={`bg-white rounded-2xl border overflow-hidden transition-opacity ${
+                      isPast ? "opacity-40 border-[#EDE7DA]" : "opacity-100 border-[#DDD5C8]"
                     }`}
                   >
-                    {/* Date number + day */}
-                    <div className="flex-shrink-0 w-16 text-center">
-                      <div className={`text-4xl font-extrabold leading-none ${isPast ? "text-[#B5ADA5]" : "text-[#C4622D]"}`}>
-                        {dateNum}
+                    {/* Day Header */}
+                    <div className={`flex items-center gap-4 px-5 py-3 border-b ${
+                      isClosed ? "bg-red-50 border-red-100" : isPast ? "bg-[#F5F0E8] border-[#EDE7DA]" : "bg-[#F5F0E8] border-[#EDE7DA]"
+                    }`}>
+                      <div className={`flex-shrink-0 w-12 text-center`}>
+                        <div className={`text-3xl font-extrabold leading-none ${isPast ? "text-[#B5ADA5]" : "text-[#C4622D]"}`}>
+                          {dateNum}
+                        </div>
+                        <div className="text-xs font-semibold text-[#8C8278] mt-0.5 tracking-widest">
+                          {dayAbbr}
+                        </div>
                       </div>
-                      <div className="text-xs font-semibold text-[#8C8278] mt-0.5 tracking-widest">
-                        {dayAbbr}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-[#1A1612] text-sm">{dayFull}</span>
+                          {isToday && (
+                            <span className="text-[10px] font-bold bg-[#C4622D] text-white px-2 py-0.5 rounded-full">
+                              TODAY
+                            </span>
+                          )}
+                          {isClosed && (
+                            <span className="text-[10px] font-bold bg-red-500 text-white px-2 py-0.5 rounded-full">
+                              CLOSED
+                            </span>
+                          )}
+                        </div>
+                        {isClosed && (
+                          <p className="text-xs text-red-600 mt-0.5 font-medium">
+                            {closedEntry?.closed_reason || "Closed for the day"}
+                          </p>
+                        )}
+                        {!isClosed && !hasItems && (
+                          <p className="text-xs text-[#B5ADA5] italic mt-0.5">Menu not yet available</p>
+                        )}
+                        {!isClosed && hasItems && (
+                          <p className="text-xs text-[#8C8278] mt-0.5">
+                            {activeItems.length} item{activeItems.length > 1 ? "s" : ""} available
+                          </p>
+                        )}
                       </div>
-                      {isToday && (
-                        <span className="inline-block mt-1 text-[10px] font-bold bg-[#C4622D] text-white px-1.5 py-0.5 rounded-full">
-                          TODAY
-                        </span>
-                      )}
                     </div>
 
-                    {/* Content */}
-                    <div className="flex-1 min-w-0">
-                      {isClosed ? (
-                        <p className="text-lg font-bold text-[#1A1612] italic">
-                          {item?.closed_reason || "Closed for the day"}
-                        </p>
-                      ) : item ? (
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="min-w-0">
-                            <h3 className="text-lg font-bold text-[#1A1612] leading-snug">
-                              {item.meal_name}
-                            </h3>
-                            <p className="text-sm text-[#5C5347] mt-0.5">{item.description}</p>
-                          </div>
-                          <div className="flex-shrink-0 flex flex-col items-end gap-2">
-                            <span className="text-base font-semibold text-[#1A1612]">
-                              R{item.price?.toFixed(0)}
-                            </span>
-                            {isActive && (
-                              <button
-                                onClick={() => handleOrder(item)}
-                                disabled={addedId === item.id}
-                                className={`text-sm font-semibold px-4 py-1.5 rounded-full transition-all duration-200 ${
-                                  addedId === item.id
-                                    ? "bg-green-500 text-white" :"bg-[#C4622D] text-white hover:bg-[#A04E22] hover:shadow-md"
-                                }`}
-                              >
-                                {addedId === item.id ? "✓ Added" : "Order"}
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      ) : (
-                        <p className="text-sm text-[#B5ADA5] italic">No meal scheduled</p>
-                      )}
-                    </div>
+                    {/* Items */}
+                    {!isClosed && hasItems && (
+                      <div className="divide-y divide-[#F5F0E8]">
+                        {activeItems.map((item) => {
+                          const isOrderable = !isPast && !isClosed && !!item.meal_name && !!item.price;
+                          const wasAdded = addedIds.has(item.id);
+
+                          return (
+                            <div key={item.id} className="flex items-start justify-between gap-4 px-5 py-4">
+                              <div className="min-w-0 flex-1">
+                                <h3 className="text-base font-bold text-[#1A1612] leading-snug">
+                                  {item.meal_name}
+                                </h3>
+                                {item.description && (
+                                  <p className="text-sm text-[#5C5347] mt-0.5">{item.description}</p>
+                                )}
+                              </div>
+                              <div className="flex-shrink-0 flex flex-col items-end gap-2">
+                                <span className="text-base font-semibold text-[#1A1612]">
+                                  R{item.price?.toFixed(0)}
+                                </span>
+                                {isOrderable && (
+                                  <button
+                                    onClick={() => handleOrder(item)}
+                                    disabled={wasAdded}
+                                    className={`text-sm font-semibold px-4 py-1.5 rounded-full transition-all duration-200 ${
+                                      wasAdded
+                                        ? "bg-green-500 text-white" :"bg-[#C4622D] text-white hover:bg-[#A04E22] hover:shadow-md"
+                                    }`}
+                                  >
+                                    {wasAdded ? "✓ Added" : "Order"}
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 );
               })}

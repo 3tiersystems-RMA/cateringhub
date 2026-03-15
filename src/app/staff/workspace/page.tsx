@@ -86,6 +86,17 @@ interface WeeklyMenuEntry {
   created_at: string;
 }
 
+// NEW: form state for adding/editing a single menu item
+interface WeeklyMenuItemForm {
+  meal_date: string;
+  day_name: string;
+  meal_name: string;
+  description: string;
+  price: string;
+  is_closed: boolean;
+  closed_reason: string;
+}
+
 const CARD_TYPE_LABELS: Record<HomepageCard['card_type'], string> = {
   todays_special: "Today's Special",
   next_booking: 'Next Booking',
@@ -151,7 +162,7 @@ function InactivityWarningModal({
         <div className="flex justify-center mb-4">
           <div className="w-14 h-14 rounded-full bg-amber-100 flex items-center justify-center">
             <svg className="w-7 h-7 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 0v4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
             </svg>
           </div>
         </div>
@@ -227,6 +238,61 @@ export default function StaffWorkspacePage() {
 
   // Dynamic categories from DB (for product form dropdowns)
   const [categories, setCategories] = useState<string[]>([]);
+
+  // Categories management state
+  const [categoriesList, setCategoriesList] = useState<Category[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
+  const [showCategoryForm, setShowCategoryForm] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [categoryForm, setCategoryForm] = useState({ name: '', sort_order: '' });
+  const [categoryFormError, setCategoryFormError] = useState('');
+  const [categoryFormSuccess, setCategoryFormSuccess] = useState('');
+  const [savingCategory, setSavingCategory] = useState(false);
+  const [togglingCategoryId, setTogglingCategoryId] = useState<string | null>(null);
+  const [deletingCategoryId, setDeletingCategoryId] = useState<string | null>(null);
+
+  // Staff management state
+  const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
+  const [staffLoading, setStaffLoading] = useState(false);
+  const [showInviteForm, setShowInviteForm] = useState(false);
+  const [inviteForm, setInviteForm] = useState(emptyInviteForm);
+  const [inviteError, setInviteError] = useState('');
+  const [inviteSuccess, setInviteSuccess] = useState('');
+  const [inviting, setInviting] = useState(false);
+  const [staffActionId, setStaffActionId] = useState<string | null>(null);
+  const [staffActionMsg, setStaffActionMsg] = useState('');
+  const [resetPasswordId, setResetPasswordId] = useState<string | null>(null);
+  const [resetPasswordMsg, setResetPasswordMsg] = useState('');
+
+  // Homepage cards state
+  const [homepageCards, setHomepageCards] = useState<HomepageCard[]>([]);
+  const [cardsLoading, setCardsLoading] = useState(false);
+  const [showCardForm, setShowCardForm] = useState(false);
+  const [editingCard, setEditingCard] = useState<HomepageCard | null>(null);
+  const [cardForm, setCardForm] = useState<Partial<HomepageCard>>({});
+  const [cardFormError, setCardFormError] = useState('');
+  const [cardFormSuccess, setCardFormSuccess] = useState('');
+  const [savingCard, setSavingCard] = useState(false);
+  const [togglingCardId, setTogglingCardId] = useState<string | null>(null);
+
+  // Weekly Menu state
+  const [weeklyMenuEntries, setWeeklyMenuEntries] = useState<WeeklyMenuEntry[]>([]);
+  const [weeklyMenuLoading, setWeeklyMenuLoading] = useState(false);
+  const [showWeeklyMenuForm, setShowWeeklyMenuForm] = useState(false);
+  const [editingWeeklyEntry, setEditingWeeklyEntry] = useState<WeeklyMenuEntry | null>(null);
+  const [weeklyMenuForm, setWeeklyMenuForm] = useState<WeeklyMenuItemForm>({
+    meal_date: '', day_name: '', meal_name: '', description: '', price: '', is_closed: false, closed_reason: '',
+  });
+  const [weeklyMenuFormError, setWeeklyMenuFormError] = useState('');
+  const [weeklyMenuFormSuccess, setWeeklyMenuFormSuccess] = useState('');
+  const [savingWeeklyEntry, setSavingWeeklyEntry] = useState(false);
+  const [deletingWeeklyEntryId, setDeletingWeeklyEntryId] = useState<string | null>(null);
+  // Week navigator: offset in weeks from current week (0 = current, 1 = next, -1 = prev)
+  const [weekOffset, setWeekOffset] = useState(0);
+  // Track which day is being "closed" (for the close-day modal per day)
+  const [closingDayDate, setClosingDayDate] = useState<string | null>(null);
+  const [closingDayReason, setClosingDayReason] = useState('');
+  const [savingClosedDay, setSavingClosedDay] = useState(false);
 
   useEffect(() => {
     const init = async () => {
@@ -416,13 +482,42 @@ export default function StaffWorkspacePage() {
 
   // ─── Weekly Menu CRUD ─────────────────────────────────────────────────────────
 
-  const loadWeeklyMenu = async () => {
+  // Helper: get Mon-Fri bounds for a given week offset
+  const getWeekBoundsForOffset = (offset: number): { monday: Date; friday: Date; mondayStr: string; fridayStr: string } => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const day = today.getDay();
+    const diffToMonday = day === 0 ? -6 : 1 - day;
+    const monday = new Date(today);
+    monday.setDate(today.getDate() + diffToMonday + offset * 7);
+    monday.setHours(0, 0, 0, 0);
+    const friday = new Date(monday);
+    friday.setDate(monday.getDate() + 4);
+    friday.setHours(23, 59, 59, 999);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const fmt = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    return { monday, friday, mondayStr: fmt(monday), fridayStr: fmt(friday) };
+  };
+
+  const getDayNameFromDate = (dateStr: string): string => {
+    if (!dateStr) return '';
+    const d = new Date(dateStr + 'T00:00:00');
+    const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+    return days[d.getDay()] || '';
+  };
+
+  const loadWeeklyMenu = async (offset?: number) => {
+    const effectiveOffset = offset !== undefined ? offset : weekOffset;
     setWeeklyMenuLoading(true);
     try {
+      const { mondayStr, fridayStr } = getWeekBoundsForOffset(effectiveOffset);
       const { data, error } = await supabase
         .from('weekly_menu')
         .select('*')
-        .order('meal_date', { ascending: true });
+        .gte('meal_date', mondayStr)
+        .lte('meal_date', fridayStr)
+        .order('meal_date', { ascending: true })
+        .order('created_at', { ascending: true });
       if (error) {
         console.log('Load weekly menu error:', error.message);
         setWeeklyMenuEntries([]);
@@ -437,16 +532,10 @@ export default function StaffWorkspacePage() {
     }
   };
 
-  const getDayNameFromDate = (dateStr: string): string => {
-    if (!dateStr) return '';
-    const d = new Date(dateStr + 'T00:00:00');
-    const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
-    return days[d.getDay()] || '';
-  };
-
-  const openAddWeeklyMenuForm = () => {
+  const openAddWeeklyMenuForm = (dateStr: string) => {
+    const dayName = getDayNameFromDate(dateStr);
     setEditingWeeklyEntry(null);
-    setWeeklyMenuForm({ meal_date: '', day_name: '', meal_name: '', description: '', price: '', is_closed: false, closed_reason: '' });
+    setWeeklyMenuForm({ meal_date: dateStr, day_name: dayName, meal_name: '', description: '', price: '', is_closed: false, closed_reason: '' });
     setWeeklyMenuFormError('');
     setWeeklyMenuFormSuccess('');
     setShowWeeklyMenuForm(true);
@@ -481,6 +570,10 @@ export default function StaffWorkspacePage() {
       setWeeklyMenuFormError('Meal name is required unless the day is closed.');
       return;
     }
+    if (!weeklyMenuForm.is_closed && (!weeklyMenuForm.price || isNaN(Number(weeklyMenuForm.price)) || Number(weeklyMenuForm.price) <= 0)) {
+      setWeeklyMenuFormError('A valid price is required for menu items.');
+      return;
+    }
 
     setSavingWeeklyEntry(true);
     try {
@@ -504,7 +597,7 @@ export default function StaffWorkspacePage() {
           setWeeklyMenuFormError(`Update failed: ${error.message}`);
           return;
         }
-        setWeeklyMenuFormSuccess('Entry updated successfully!');
+        setWeeklyMenuFormSuccess('Item updated successfully!');
       } else {
         const { error } = await supabase
           .from('weekly_menu')
@@ -513,14 +606,14 @@ export default function StaffWorkspacePage() {
           setWeeklyMenuFormError(`Create failed: ${error.message}`);
           return;
         }
-        setWeeklyMenuFormSuccess('Entry created successfully!');
+        setWeeklyMenuFormSuccess('Item added successfully!');
       }
 
       await loadWeeklyMenu();
       setTimeout(() => {
         setShowWeeklyMenuForm(false);
         setWeeklyMenuFormSuccess('');
-      }, 1200);
+      }, 1000);
     } catch (err) {
       setWeeklyMenuFormError('An unexpected error occurred.');
     } finally {
@@ -529,7 +622,7 @@ export default function StaffWorkspacePage() {
   };
 
   const handleDeleteWeeklyEntry = async (entry: WeeklyMenuEntry) => {
-    if (!confirm(`Delete menu entry for ${entry.day_name} ${entry.meal_date}?`)) return;
+    if (!confirm(`Delete "${entry.meal_name || 'this entry'}" from ${entry.day_name} ${entry.meal_date}?`)) return;
     setDeletingWeeklyEntryId(entry.id);
     try {
       const { error } = await supabase
@@ -545,6 +638,48 @@ export default function StaffWorkspacePage() {
       console.log('Unexpected delete weekly entry error:', err);
     } finally {
       setDeletingWeeklyEntryId(null);
+    }
+  };
+
+  // Mark an entire day as closed (removes existing items for that day and inserts a closed row)
+  const handleMarkDayClosed = async (dateStr: string, reason: string) => {
+    setSavingClosedDay(true);
+    try {
+      // Delete all existing entries for this date
+      await supabase.from('weekly_menu').delete().eq('meal_date', dateStr);
+      // Insert a single closed row
+      const dayName = getDayNameFromDate(dateStr);
+      const { error } = await supabase.from('weekly_menu').insert({
+        meal_date: dateStr,
+        day_name: dayName,
+        meal_name: null,
+        description: null,
+        price: null,
+        is_closed: true,
+        closed_reason: reason.trim() || 'Closed for the day',
+      });
+      if (error) {
+        console.log('Mark day closed error:', error.message);
+        return;
+      }
+      await loadWeeklyMenu();
+      setClosingDayDate(null);
+      setClosingDayReason('');
+    } catch (err) {
+      console.log('Unexpected error marking day closed:', err);
+    } finally {
+      setSavingClosedDay(false);
+    }
+  };
+
+  // Reopen a closed day (remove the closed row so items can be added)
+  const handleReopenDay = async (dateStr: string) => {
+    if (!confirm('Remove the closed status for this day? You can then add menu items.')) return;
+    try {
+      await supabase.from('weekly_menu').delete().eq('meal_date', dateStr).eq('is_closed', true);
+      await loadWeeklyMenu();
+    } catch (err) {
+      console.log('Unexpected error reopening day:', err);
     }
   };
 
@@ -1155,7 +1290,7 @@ export default function StaffWorkspacePage() {
               className="text-sm font-medium text-gray-300 hover:text-white transition-colors px-3 py-1.5 rounded-lg hover:bg-gray-800 flex items-center gap-1.5"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125H8.25ZM6.75 12h.008v.008H6.75V12Zm0 3h.008v.008H6.75V15Zm0 3h.008v.008H6.75V18Z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2 2 0 002 2v12a2 2 0 00-2 2h-16.94a2 2 0 00-1.71 3h16.94a2 2 0 001.71-3L13.71 15H9v-2.828l8.586-8.586z" />
               </svg>
               Orders
             </a>
@@ -1178,7 +1313,7 @@ export default function StaffWorkspacePage() {
           </p>
           <div className="flex gap-2 border-b border-[#DDD5C8] flex-wrap">
             <button
-              onClick={() => setActiveTab('products')}
+              onClick={() => { setActiveTab('products'); if (products.length === 0) loadProducts(); }}
               className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${
                 activeTab === 'products' ? 'border-[#C4622D] text-[#C4622D]' : 'border-transparent text-[#8C8278] hover:text-[#5C5347]'
               }`}
@@ -1202,7 +1337,7 @@ export default function StaffWorkspacePage() {
               📸 Media Library
             </button>
             <button
-              onClick={() => setActiveTab('orders')}
+              onClick={() => { setActiveTab('orders'); if (products.length === 0) loadProducts(); }}
               className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${
                 activeTab === 'orders' ? 'border-[#C4622D] text-[#C4622D]' : 'border-transparent text-[#8C8278] hover:text-[#5C5347]'
               }`}
@@ -1228,7 +1363,7 @@ export default function StaffWorkspacePage() {
               🏠 Homepage Cards
             </button>
             <button
-              onClick={() => { setActiveTab('weekly_menu'); if (weeklyMenuEntries.length === 0) loadWeeklyMenu(); }}
+              onClick={() => { setActiveTab('weekly_menu'); setWeekOffset(0); loadWeeklyMenu(0); }}
               className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${
                 activeTab === 'weekly_menu' ? 'border-[#C4622D] text-[#C4622D]' : 'border-transparent text-[#8C8278] hover:text-[#5C5347]'
               }`}
@@ -1277,7 +1412,7 @@ export default function StaffWorkspacePage() {
                             ref={productImageRef}
                             type="file"
                             accept="image/*"
-                            onChange={handleProductImageSelect}
+                            onChange={(e) => handleProductImageSelect(e.target.files?.[0] || null)}
                             className="hidden"
                           />
                           <button
@@ -1286,7 +1421,7 @@ export default function StaffWorkspacePage() {
                             className="text-sm font-medium text-white bg-[#C4622D] px-4 py-2 rounded-lg hover:bg-[#A04E22] transition-colors flex items-center gap-2"
                           >
                             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l-4-4m0 0L8 8m4-4v6" />
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-12.142A2 2 0 016.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                             </svg>
                             {productImagePreview ? 'Change from Media Library' : 'Choose from Media Library'}
                           </button>
@@ -1497,7 +1632,7 @@ export default function StaffWorkspacePage() {
                       <div className="text-center py-16">
                         <span className="text-4xl mb-3 block">🖼️</span>
                         <p className="text-[#5C5347] font-semibold mb-1">No images in Media Library</p>
-                        <p className="text-[#B0A89E] text-sm">Upload images via the Media Library tab first, then return here to select one.</p>
+                        <p className="text-[#B0A89E] text-sm mt-1">Upload images via the Media Library tab first, then return here to select one.</p>
                       </div>
                     ) : (
                       <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
@@ -1564,7 +1699,7 @@ export default function StaffWorkspacePage() {
                 className="flex items-center gap-2 bg-[#C4622D] text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors shadow-sm"
               >
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                 </svg>
                 Add Product
               </button>
@@ -1638,7 +1773,7 @@ export default function StaffWorkspacePage() {
                             title="Edit"
                           >
                             <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v12a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-12.142A2 2 0 0016.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                             </svg>
                           </button>
                           <button
@@ -1717,7 +1852,7 @@ export default function StaffWorkspacePage() {
                       <button
                         type="button"
                         onClick={() => setShowCategoryForm(false)}
-                        className="flex-1 py-2.5 rounded-xl border border-[#DDD5C8] text-sm font-semibold text-[#5C5347] hover:bg-[#F5F0E8] transition-colors"
+                        className="flex-1 py-2.5 rounded-xl border border-[#DDD5C8] text-[#5C5347] text-sm font-semibold hover:bg-[#F5F0E8] transition-colors"
                       >
                         Cancel
                       </button>
@@ -1776,7 +1911,7 @@ export default function StaffWorkspacePage() {
             ) : (
               <div className="bg-white rounded-2xl border border-[#DDD5C8] overflow-hidden">
                 {/* Table Header */}
-                <div className="hidden md:grid grid-cols-12 gap-4 px-6 py-3 bg-[#F5F0E8] border-b border-[#DDD5C8] text-xs font-semibold text-[#8C8278] uppercase tracking-wider">
+                <div className="hidden md:grid grid-cols-12 gap-4 px-6 py-3 bg-[#F5F0E8] border-b border-[#EDE7DA] text-xs font-semibold text-[#8C8278] uppercase tracking-wider">
                   <div className="col-span-5">Name</div>
                   <div className="col-span-2 text-center">Sort Order</div>
                   <div className="col-span-2 text-center">Status</div>
@@ -1834,7 +1969,7 @@ export default function StaffWorkspacePage() {
                         title="Edit category"
                       >
                         <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v12a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-12.142A2 2 0 0016.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
                       </button>
                       <button
@@ -1847,7 +1982,7 @@ export default function StaffWorkspacePage() {
                           <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
                         ) : (
                           <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0016.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                           </svg>
                         )}
                       </button>
@@ -1951,7 +2086,7 @@ export default function StaffWorkspacePage() {
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                 {files.map((file) => (
-                  <div key={file.name} className="group relative bg-white rounded-xl border border-[#DDD5C8] overflow-hidden hover:border-[#C4622D]/40 hover:shadow-md transition-all">
+                  <div key={file.name} className="group relative bg-white rounded-2xl border border-[#DDD5C8] overflow-hidden hover:border-[#C4622D]/40 hover:shadow-md transition-all">
                     <div className="aspect-square bg-[#F5F0E8] overflow-hidden">
                       {file.signedUrl ? (
                         <img src={file.signedUrl} alt={file.name} className="w-full h-full object-cover" />
@@ -2189,7 +2324,7 @@ export default function StaffWorkspacePage() {
                       <button
                         type="button"
                         onClick={() => setShowCardForm(false)}
-                        className="flex-1 py-2.5 rounded-xl border border-[#DDD5C8] text-sm font-semibold text-[#5C5347] hover:bg-[#F5F0E8] transition-colors"
+                        className="flex-1 py-2.5 rounded-xl border border-[#DDD5C8] text-[#5C5347] text-sm font-semibold hover:bg-[#F5F0E8] transition-colors"
                       >
                         Cancel
                       </button>
@@ -2221,7 +2356,7 @@ export default function StaffWorkspacePage() {
                 </svg>
               </div>
             ) : homepageCards.length === 0 ? (
-              <div className="text-center py-20 bg-white rounded-2xl border border-[#DDD5C8]">
+              <div className="text-center py-20 bg-white rounded-2xl border border-[#EDE7DA]">
                 <div className="text-5xl mb-3">🏠</div>
                 <p className="text-[#5C5347] font-semibold">No homepage cards found</p>
                 <p className="text-[#B0A89E] text-sm mt-1">Run the database migration to seed the default cards</p>
@@ -2231,7 +2366,7 @@ export default function StaffWorkspacePage() {
                 {homepageCards.map((card) => (
                   <div
                     key={card.id}
-                    className="bg-white rounded-2xl border border-[#DDD5C8] p-5 flex items-center gap-4 hover:border-[#C4622D]/40 hover:shadow-sm transition-all duration-200"
+                    className="bg-white rounded-2xl border border-[#EDE7DA] p-5 flex items-center gap-4 hover:border-[#C4622D]/40 hover:shadow-sm transition-all duration-200"
                   >
                     <div className="w-12 h-12 rounded-xl bg-[#F5F0E8] flex items-center justify-center text-2xl flex-shrink-0">
                       {CARD_TYPE_ICONS[card.card_type]}
@@ -2272,7 +2407,7 @@ export default function StaffWorkspacePage() {
                         title="Edit card"
                       >
                         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-12.142A2 2 0 0016.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
                       </button>
                     </div>
@@ -2500,7 +2635,7 @@ export default function StaffWorkspacePage() {
                               <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
                             ) : (
                               <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.865a8.25 8.25 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.865a8.25 8.25 0 018-8.25V0C5.373 0 0 5.373 0 12h4z" />
                               </svg>
                             )}
                             Reset Password
@@ -2543,13 +2678,13 @@ export default function StaffWorkspacePage() {
         {/* ── WEEKLY MENU TAB ── */}
         {activeTab === 'weekly_menu' && (
           <div>
-            {/* Weekly Menu Form Modal */}
+            {/* Add/Edit Item Modal */}
             {showWeeklyMenuForm && (
               <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto py-8 px-4">
                 <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl">
                   <div className="flex items-center justify-between px-6 py-4 border-b border-[#EDE7DA]">
                     <h2 className="font-bold text-[#1A1612] text-lg">
-                      {editingWeeklyEntry ? 'Edit Menu Entry' : 'Add Menu Entry'}
+                      {editingWeeklyEntry ? 'Edit Menu Item' : `Add Item — ${weeklyMenuForm.day_name} ${weeklyMenuForm.meal_date}`}
                     </h2>
                     <button
                       onClick={() => setShowWeeklyMenuForm(false)}
@@ -2559,81 +2694,38 @@ export default function StaffWorkspacePage() {
                     </button>
                   </div>
                   <form onSubmit={handleSaveWeeklyEntry} className="p-6 space-y-4">
-                    {/* Date */}
                     <div>
-                      <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Date *</label>
+                      <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Meal Name *</label>
                       <input
-                        type="date"
-                        value={weeklyMenuForm.meal_date}
-                        onChange={(e) => setWeeklyMenuForm({ ...weeklyMenuForm, meal_date: e.target.value })}
+                        type="text"
+                        value={weeklyMenuForm.meal_name}
+                        onChange={(e) => setWeeklyMenuForm({ ...weeklyMenuForm, meal_name: e.target.value })}
+                        placeholder="e.g. Prawn Orzotto"
                         className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
-                        required
                       />
                     </div>
-
-                    {/* Is Closed Toggle */}
-                    <div className="flex items-center gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setWeeklyMenuForm({ ...weeklyMenuForm, is_closed: !weeklyMenuForm.is_closed })}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                          weeklyMenuForm.is_closed ? 'bg-red-500' : 'bg-[#DDD5C8]'
-                        }`}
-                      >
-                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                          weeklyMenuForm.is_closed ? 'translate-x-6' : 'translate-x-1'
-                        }`} />
-                      </button>
-                      <span className="text-sm font-semibold text-[#3D3530]">Closed for the day</span>
+                    <div>
+                      <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Description</label>
+                      <input
+                        type="text"
+                        value={weeklyMenuForm.description}
+                        onChange={(e) => setWeeklyMenuForm({ ...weeklyMenuForm, description: e.target.value })}
+                        placeholder="e.g. Creamy rice pasta with fresh prawns"
+                        className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
+                      />
                     </div>
-
-                    {weeklyMenuForm.is_closed ? (
-                      <div>
-                        <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Closed Reason</label>
-                        <input
-                          type="text"
-                          value={weeklyMenuForm.closed_reason}
-                          onChange={(e) => setWeeklyMenuForm({ ...weeklyMenuForm, closed_reason: e.target.value })}
-                          placeholder="e.g. Closed for the day of Eid"
-                          className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
-                        />
-                      </div>
-                    ) : (
-                      <>
-                        <div>
-                          <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Meal Name *</label>
-                          <input
-                            type="text"
-                            value={weeklyMenuForm.meal_name}
-                            onChange={(e) => setWeeklyMenuForm({ ...weeklyMenuForm, meal_name: e.target.value })}
-                            placeholder="e.g. Prawn Orzotto"
-                            className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Description</label>
-                          <input
-                            type="text"
-                            value={weeklyMenuForm.description}
-                            onChange={(e) => setWeeklyMenuForm({ ...weeklyMenuForm, description: e.target.value })}
-                            placeholder="e.g. Creamy rice pasta"
-                            className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Price (R)</label>
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={weeklyMenuForm.price}
-                            onChange={(e) => setWeeklyMenuForm({ ...weeklyMenuForm, price: e.target.value })}
-                            placeholder="e.g. 240"
-                            className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
-                          />
-                        </div>
-                      </>
-                    )}
+                    <div>
+                      <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Price (R) *</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={weeklyMenuForm.price}
+                        onChange={(e) => setWeeklyMenuForm({ ...weeklyMenuForm, price: e.target.value })}
+                        placeholder="e.g. 240"
+                        className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
+                      />
+                    </div>
 
                     {weeklyMenuFormError && (
                       <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{weeklyMenuFormError}</p>
@@ -2654,7 +2746,7 @@ export default function StaffWorkspacePage() {
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                           </svg>
                         )}
-                        {editingWeeklyEntry ? 'Save Changes' : 'Add Entry'}
+                        {editingWeeklyEntry ? 'Save Changes' : 'Add Item'}
                       </button>
                       <button
                         type="button"
@@ -2669,116 +2761,244 @@ export default function StaffWorkspacePage() {
               </div>
             )}
 
-            {/* Header */}
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-xl font-bold text-[#1A1612]">Weekly Menu</h2>
-                <p className="text-sm text-[#8C8278] mt-0.5">Manage daily meal entries for the weekly menu</p>
-              </div>
-              <button
-                onClick={openAddWeeklyMenuForm}
-                className="bg-[#C4622D] text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-all flex items-center gap-2"
-              >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                </svg>
-                Add Entry
-              </button>
-            </div>
-
-            {weeklyMenuLoading ? (
-              <div className="space-y-3">
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <div key={i} className="h-16 bg-[#EDE7DA] rounded-xl animate-pulse" />
-                ))}
-              </div>
-            ) : weeklyMenuEntries.length === 0 ? (
-              <div className="text-center py-16 bg-white rounded-2xl border border-[#EDE7DA]">
-                <div className="text-4xl mb-3">📅</div>
-                <p className="text-[#5C5347] font-semibold">No menu entries yet</p>
-                <p className="text-sm text-[#B5ADA5] mt-1">Add your first weekly menu entry to get started.</p>
-              </div>
-            ) : (
-              <div className="bg-white rounded-2xl border border-[#EDE7DA] overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-[#F5F0E8] border-b border-[#EDE7DA]">
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wide">Date</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wide">Day</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wide">Meal</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wide hidden md:table-cell">Description</th>
-                      <th className="text-right px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wide">Price</th>
-                      <th className="text-center px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wide">Status</th>
-                      <th className="text-right px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wide">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#F0EAE0]">
-                    {weeklyMenuEntries.map((entry) => (
-                      <tr key={entry.id} className="hover:bg-[#FDFAF6] transition-colors">
-                        <td className="px-4 py-3 font-medium text-[#1A1612]">
-                          {new Date(entry.meal_date + 'T00:00:00').toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })}
-                        </td>
-                        <td className="px-4 py-3 text-[#5C5347] font-semibold">{entry.day_name}</td>
-                        <td className="px-4 py-3 text-[#1A1612]">
-                          {entry.is_closed ? (
-                            <span className="text-[#B5ADA5] italic">{entry.closed_reason || 'Closed'}</span>
-                          ) : (
-                            entry.meal_name || '—'
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-[#8C8278] hidden md:table-cell max-w-xs truncate">
-                          {entry.is_closed ? '—' : (entry.description || '—')}
-                        </td>
-                        <td className="px-4 py-3 text-right font-semibold text-[#1A1612]">
-                          {entry.is_closed ? '—' : (entry.price !== null ? `R${Number(entry.price).toFixed(0)}` : '—')}
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          {entry.is_closed ? (
-                            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-red-100 text-red-700">
-                              Closed
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-green-100 text-green-700">
-                              Active
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <button
-                              onClick={() => openEditWeeklyMenuForm(entry)}
-                              className="p-1.5 rounded-lg text-[#8C8278] hover:text-[#C4622D] hover:bg-[#FDF6F0] transition-colors"
-                              title="Edit"
-                            >
-                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 012.652 2.652L11.828 15H9v-2.828l8.586-8.586z" />
-                              </svg>
-                            </button>
-                            <button
-                              onClick={() => handleDeleteWeeklyEntry(entry)}
-                              disabled={deletingWeeklyEntryId === entry.id}
-                              className="p-1.5 rounded-lg text-[#8C8278] hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
-                              title="Delete"
-                            >
-                              {deletingWeeklyEntryId === entry.id ? (
-                                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                                </svg>
-                              ) : (
-                                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0016.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                </svg>
-                              )}
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            {/* Mark Day Closed Modal */}
+            {closingDayDate && (
+              <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4">
+                <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl p-6">
+                  <h2 className="font-bold text-[#1A1612] text-lg mb-1">Mark Day as Closed</h2>
+                  <p className="text-sm text-[#8C8278] mb-4">{getDayNameFromDate(closingDayDate)} · {closingDayDate}</p>
+                  <div className="mb-4">
+                    <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Reason (optional)</label>
+                    <input
+                      type="text"
+                      value={closingDayReason}
+                      onChange={(e) => setClosingDayReason(e.target.value)}
+                      placeholder="e.g. Public holiday, Eid, Staff training"
+                      className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
+                    />
+                  </div>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => handleMarkDayClosed(closingDayDate, closingDayReason)}
+                      disabled={savingClosedDay}
+                      className="flex-1 bg-red-500 text-white py-2.5 rounded-xl font-semibold text-sm hover:bg-red-600 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+                    >
+                      {savingClosedDay && <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>}
+                      Mark Closed
+                    </button>
+                    <button
+                      onClick={() => { setClosingDayDate(null); setClosingDayReason(''); }}
+                      className="px-5 py-2.5 rounded-xl border border-[#DDD5C8] text-[#5C5347] text-sm font-semibold hover:bg-[#F5F0E8] transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
+
+            {/* Header + Week Navigator */}
+            {(() => {
+              const { monday, friday, mondayStr, fridayStr } = getWeekBoundsForOffset(weekOffset);
+              const pad = (n: number) => String(n).padStart(2, '0');
+              const fmt = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+              const DAY_ABBRS = ['MON', 'TUE', 'WED', 'THU', 'FRI'];
+              const weekLabel = `${monday.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })} – ${friday.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+
+              const weekDays: Array<{ date: Date; dateStr: string; dayAbbr: string; items: WeeklyMenuEntry[]; closedEntry: WeeklyMenuEntry | null }> = [];
+              for (let i = 0; i < 5; i++) {
+                const d = new Date(monday);
+                d.setDate(monday.getDate() + i);
+                const dateStr = fmt(d);
+                const dayItems = weeklyMenuEntries.filter((m) => m.meal_date === dateStr);
+                const closedEntry = dayItems.find((m) => m.is_closed) || null;
+                const activeItems = dayItems.filter((m) => !m.is_closed);
+                weekDays.push({ date: d, dateStr, dayAbbr: DAY_ABBRS[i], items: activeItems, closedEntry });
+              }
+
+              return (
+                <>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                    <div>
+                      <h2 className="text-xl font-bold text-[#1A1612]">Weekly Menu</h2>
+                      <p className="text-sm text-[#8C8278] mt-0.5">Load the full week in advance — add multiple items per day</p>
+                    </div>
+                    {/* Week Navigator */}
+                    <div className="flex items-center gap-2 bg-white border border-[#DDD5C8] rounded-xl px-3 py-2">
+                      <button
+                        onClick={() => {
+                          const newOffset = weekOffset - 1;
+                          setWeekOffset(newOffset);
+                          loadWeeklyMenu(newOffset);
+                        }}
+                        className="w-8 h-8 rounded-lg bg-[#F5F0E8] flex items-center justify-center text-[#5C5347] hover:bg-[#EDE7DA] transition-colors"
+                        title="Previous week"
+                      >
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                        </svg>
+                      </button>
+                      <div className="text-center min-w-[160px]">
+                        <p className="text-sm font-semibold text-[#1A1612]">{weekLabel}</p>
+                        {weekOffset === 0 && <p className="text-xs text-[#C4622D] font-medium">Current Week</p>}
+                        {weekOffset !== 0 && <p className="text-xs text-[#8C8278]">{weekOffset > 0 ? `+${weekOffset} week${weekOffset > 1 ? 's' : ''}` : `${weekOffset} week${weekOffset < -1 ? 's' : ''}`}</p>}
+                      </div>
+                      <button
+                        onClick={() => {
+                          const newOffset = weekOffset + 1;
+                          setWeekOffset(newOffset);
+                          loadWeeklyMenu(newOffset);
+                        }}
+                        className="w-8 h-8 rounded-lg bg-[#F5F0E8] flex items-center justify-center text-[#5C5347] hover:bg-[#EDE7DA] transition-colors"
+                        title="Next week"
+                      >
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+
+                  {weeklyMenuLoading ? (
+                    <div className="space-y-4">
+                      {[1, 2, 3, 4, 5].map((i) => (
+                        <div key={i} className="h-24 bg-[#EDE7DA] rounded-2xl animate-pulse" />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {weekDays.map(({ date, dateStr, dayAbbr, items, closedEntry }) => {
+                        const dateLabel = date.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' });
+                        const isClosed = !!closedEntry;
+
+                        return (
+                          <div key={dateStr} className="bg-white rounded-2xl border border-[#EDE7DA] overflow-hidden">
+                            {/* Day Header */}
+                            <div className={`flex items-center justify-between px-5 py-3 border-b border-[#EDE7DA] ${isClosed ? 'bg-red-50' : 'bg-[#F5F0E8]'}`}>
+                              <div className="flex items-center gap-3">
+                                <div className={`w-10 h-10 rounded-xl flex flex-col items-center justify-center text-white text-xs font-bold ${isClosed ? 'bg-red-400' : 'bg-[#C4622D]'}`}>
+                                  <span className="text-[10px] leading-none">{dayAbbr}</span>
+                                  <span className="text-base leading-tight">{date.getDate()}</span>
+                                </div>
+                                <div>
+                                  <p className="font-bold text-[#1A1612] text-sm">{dayAbbr} · {dateLabel}</p>
+                                  {isClosed && (
+                                    <p className="text-xs text-red-600 font-medium">{closedEntry?.closed_reason || 'Closed for the day'}</p>
+                                  )}
+                                  {!isClosed && items.length > 0 && (
+                                    <p className="text-xs text-[#8C8278]">{items.length} item{items.length > 1 ? 's' : ''}</p>
+                                  )}
+                                  {!isClosed && items.length === 0 && (
+                                    <p className="text-xs text-[#B5ADA5] italic">No items yet</p>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {isClosed ? (
+                                  <button
+                                    onClick={() => handleReopenDay(dateStr)}
+                                    className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-white border border-red-200 text-red-600 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors"
+                                  >
+                                    Reopen Day
+                                  </button>
+                                ) : (
+                                  <>
+                                    <button
+                                      onClick={() => openAddWeeklyMenuForm(dateStr)}
+                                      className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-[#C4622D] text-white hover:bg-[#A04E22] hover:text-[#A04E22] transition-colors"
+                                    >
+                                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                                      </svg>
+                                      Add Item
+                                    </button>
+                                    <button
+                                      onClick={() => { setClosingDayDate(dateStr); setClosingDayReason(''); }}
+                                      className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-white border border-[#DDD5C8] text-[#8C8278] hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors"
+                                    >
+                                      Mark Closed
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Items Table */}
+                            {!isClosed && items.length > 0 && (
+                              <table className="w-full text-sm">
+                                <thead>
+                                  <tr className="border-b border-[#F0EAE0]">
+                                    <th className="text-left px-5 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wide">Meal Name</th>
+                                    <th className="text-left px-4 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wide hidden md:table-cell">Description</th>
+                                    <th className="text-right px-4 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wide">Price</th>
+                                    <th className="text-right px-4 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wide">Actions</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-[#F5F0E8]">
+                                  {items.map((item) => (
+                                    <tr key={item.id} className="hover:bg-[#FDFAF6] transition-colors">
+                                      <td className="px-5 py-3 font-medium text-[#1A1612]">{item.meal_name}</td>
+                                      <td className="px-4 py-3 text-[#8C8278] hidden md:table-cell max-w-xs truncate">{item.description || '—'}</td>
+                                      <td className="px-4 py-3 text-right font-semibold text-[#1A1612]">
+                                        {item.price !== null ? `R${Number(item.price).toFixed(0)}` : '—'}
+                                      </td>
+                                      <td className="px-4 py-3 text-right">
+                                        <div className="flex items-center justify-end gap-1.5">
+                                          <button
+                                            onClick={() => openEditWeeklyMenuForm(item)}
+                                            className="p-1.5 rounded-lg text-[#8C8278] hover:text-[#C4622D] hover:bg-[#FDF6F0] transition-colors"
+                                            title="Edit"
+                                          >
+                                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                              <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 012.652 2.652L11.828 15H9v-2.828l8.586-8.586z" />
+                                            </svg>
+                                          </button>
+                                          <button
+                                            onClick={() => handleDeleteWeeklyEntry(item)}
+                                            disabled={deletingWeeklyEntryId === item.id}
+                                            className="p-1.5 rounded-lg text-[#8C8278] hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
+                                            title="Delete"
+                                          >
+                                            {deletingWeeklyEntryId === item.id ? (
+                                              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                                            ) : (
+                                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0016.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                              </svg>
+                                            )}
+                                          </button>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            )}
+
+                            {/* Empty state for open day with no items */}
+                            {!isClosed && items.length === 0 && (
+                              <div className="px-5 py-4 text-center">
+                                <p className="text-sm text-[#B5ADA5] italic">No menu items for this day. Click <strong>Add Item</strong> to add meals.</p>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Info box */}
+                  <div className="mt-6 bg-[#F5F0E8] border border-[#DDD5C8] rounded-xl p-4">
+                    <p className="text-sm font-semibold text-[#3D3530] mb-1">ℹ️ How to load the weekly menu</p>
+                    <p className="text-xs text-[#5C5347] leading-relaxed">
+                      Use the week navigator to go to any week. For each day (Mon–Fri), click <strong>Add Item</strong> to add one or more meals with name, description, and price.
+                      You can add multiple dishes per day. Use <strong>Mark Closed</strong> to indicate a public holiday or day off — this removes any existing items for that day.
+                      The public Weekly Menu page always shows the current week at the top.
+                    </p>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         )}
       </main>
