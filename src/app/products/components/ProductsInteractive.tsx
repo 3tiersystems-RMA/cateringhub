@@ -204,8 +204,12 @@ function ProductsContent() {
     setTimeout(() => setModalAdded(false), 1800);
   };
 
-  // Build display categories: All + active categories from DB
-  const displayCategories = ["All", ...categories];
+  // Build display categories: All + Weekly Menu first + remaining active categories from DB
+  const displayCategories = [
+    "All",
+    "Weekly Menu",
+    ...categories.filter((c) => c !== "Weekly Menu"),
+  ];
 
   return (
     <>
@@ -293,7 +297,7 @@ function ProductsContent() {
                   activeCategory === cat ? "text-white/70" : "text-[#B5ADA5]"
                 }`}
               >
-                ({cat === "All" ? products.length : products.filter((p) => p.category === cat).length})
+                {cat !== "Weekly Menu" && (cat === "All" ? products.length : products.filter((p) => p.category === cat).length)}
               </span>
             </button>
           ))}
