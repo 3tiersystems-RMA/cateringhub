@@ -15,8 +15,11 @@ export default function ProductCard({ product, onOpenModal }: ProductCardProps) 
   const { addItem } = useCart();
   const [added, setAdded] = useState(false);
 
+  const isSoldOut = !product.available || product.badge === "Sold Out";
+
   const handleAdd = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (isSoldOut) return;
     addItem(product);
     setAdded(true);
     setTimeout(() => setAdded(false), 1800);
@@ -115,13 +118,13 @@ export default function ProductCard({ product, onOpenModal }: ProductCardProps) 
           </div>
           <button
             onClick={handleAdd}
-            disabled={!product.available}
+            disabled={isSoldOut}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-xs font-semibold transition-all duration-300 ${
               added
                 ? "bg-green-500 text-white scale-95"
-                : product.available
-                ? "bg-[#C4622D] text-white hover:bg-[#A04E22] hover:shadow-terra"
-                : "bg-[#EDE7DA] text-[#B5ADA5] cursor-not-allowed"
+                : isSoldOut
+                ? "bg-[#EDE7DA] text-[#B5ADA5] cursor-not-allowed"
+                : "bg-[#C4622D] text-white hover:bg-[#A04E22] hover:shadow-terra"
             }`}
             aria-label={`Add ${product.name} to cart`}
           >
