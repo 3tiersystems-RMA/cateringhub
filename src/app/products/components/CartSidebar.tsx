@@ -142,11 +142,30 @@ export default function CartSidebar() {
       return;
     }
     setPhoneError("");
-    setOrderRef(`CK-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`);
+    const ref = `CK-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
+    setOrderRef(ref);
     setStep("payment");
   };
 
-  const handleVoucherOrder = async () => {
+  const handleVoucherDetailsConfirm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const stripped = form.phone.replace(/\D/g, "");
+    if (stripped.length !== 10) {
+      setPhoneError("Mobile number must be exactly 10 digits");
+      return;
+    }
+    if (stripped[0] !== "0") {
+      setPhoneError("Mobile number must start with 0 (e.g. 0821234567)");
+      return;
+    }
+    setPhoneError("");
+    const ref = `CK-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
+    setOrderRef(ref);
+    // Directly process voucher order — skip payment step entirely
+    await handleVoucherOrder(ref);
+  };
+
+  const handleVoucherOrder = async (overrideRef?: string) => {
     if (!voucherData) return;
     setProcessing(true);
     setPayError("");
@@ -159,7 +178,7 @@ export default function CartSidebar() {
     }
 
     try {
-      const ref = orderRef;
+      const ref = overrideRef ?? orderRef;
 
       // Create the order
       const response = await fetch("/api/orders/create", {
@@ -615,7 +634,7 @@ export default function CartSidebar() {
 
         {/* ─── STEP: DETAILS ─── */}
         {step === "details" && (
-          <form onSubmit={handleDetailsSubmit} className="flex-1 flex flex-col overflow-hidden">
+          <form onSubmit={voucherApplied ? handleVoucherDetailsConfirm : handleDetailsSubmit} className="flex-1 flex flex-col overflow-hidden">
             <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
@@ -712,11 +731,40 @@ export default function CartSidebar() {
             <div className="px-6 py-5 border-t border-[#DDD5C8]">
               <button
                 type="submit"
-                className="w-full bg-[#C4622D] text-white py-3.5 rounded-full font-semibold text-sm hover:bg-[#A04E22] transition-all shadow-terra flex items-center justify-center gap-2"
+                disabled={voucherApplied ? (processing || totalItems > (voucherData?.meals_remaining ?? 0)) : false}
+                className="w-full bg-[#C4622D] text-white py-3.5 rounded-full font-semibold text-sm hover:bg-[#A04E22] transition-all shadow-terra flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
               >
-                Continue to Payment
-                <Icon name="LockClosedIcon" size={14} />
+                {voucherApplied ? (
+                  processing ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                      </svg>
+                      Placing Order...
+                    </>
+                  ) : (
+                    <>
+                      <Icon name="TicketIcon" size={14} />
+                      Confirm Voucher Order
+                    </>
+                  )
+                ) : (
+                  <>
+                    <Icon name="LockClosedIcon" size={14} />
+                    Continue to Payment
+                  </>
+                )}
               </button>
+              {voucherApplied && totalItems > (voucherData?.meals_remaining ?? 0) && (
+                <p className="text-xs text-red-500 text-center mt-2 flex items-center justify-center gap-1">
+                  <Icon name="ExclamationCircleIcon" size={12} />
+                  Cart has {totalItems} items but voucher only has {voucherData?.meals_remaining} remaining.
+                </p>
+              )}
+              {payError && voucherApplied && (
+                <p className="text-xs text-red-500 text-center mt-2">{payError}</p>
+              )}
             </div>
           </form>
         )}
