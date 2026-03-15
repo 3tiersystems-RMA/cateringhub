@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import AppLogo from '@/components/ui/AppLogo';
 import { useInactivityTimer } from '@/hooks/useInactivityTimer';
 import { APP_NAME } from "@/lib/constants";
+import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal';
 
 type BucketType = 'product-images' | 'event-photos';
 type WorkspaceTab = 'products' | 'media' | 'orders' | 'staff' | 'homepage_cards' | 'categories' | 'weekly_menu' | 'vouchers';
@@ -620,24 +621,30 @@ export default function StaffWorkspacePage() {
   };
 
   const handleDeleteCategory = async (cat: Category) => {
-    if (!confirm(`Delete category "${cat.name}"? Products in this category will not be deleted but may need to be reallocated.`)) return;
-    setDeletingCategoryId(cat.id);
-    try {
-      const { error } = await supabase
-        .from('categories')
-        .delete()
-        .eq('id', cat.id);
-      if (error) {
-        console.log('Delete category error:', error.message);
-        return;
-      }
-      setCategoriesList((prev) => prev.filter((c) => c.id !== cat.id));
-      await loadCategoryNames();
-    } catch (err) {
-      console.log('Unexpected delete category error:', err);
-    } finally {
-      setDeletingCategoryId(null);
-    }
+    openDeleteModal(
+      cat.name,
+      async () => {
+        closeDeleteModal();
+        setDeletingCategoryId(cat.id);
+        try {
+          const { error } = await supabase
+            .from('categories')
+            .delete()
+            .eq('id', cat.id);
+          if (error) {
+            console.log('Delete category error:', error.message);
+            return;
+          }
+          setCategoriesList((prev) => prev.filter((c) => c.id !== cat.id));
+          await loadCategoryNames();
+        } catch (err) {
+          console.log('Unexpected delete category error:', err);
+        } finally {
+          setDeletingCategoryId(null);
+        }
+      },
+      `Are you sure you want to delete this product: ${cat.name}?`
+    );
   };
 
   // ─── Weekly Menu CRUD ─────────────────────────────────────────────────────────
@@ -782,23 +789,28 @@ export default function StaffWorkspacePage() {
   };
 
   const handleDeleteWeeklyEntry = async (entry: WeeklyMenuEntry) => {
-    if (!confirm(`Delete "${entry.meal_name || 'this entry'}" from ${entry.day_name} ${entry.meal_date}?`)) return;
-    setDeletingWeeklyEntryId(entry.id);
-    try {
-      const { error } = await supabase
-        .from('weekly_menu')
-        .delete()
-        .eq('id', entry.id);
-      if (error) {
-        console.log('Delete weekly entry error:', error.message);
-        return;
+    openDeleteModal(
+      entry.meal_name || 'this entry',
+      async () => {
+        closeDeleteModal();
+        setDeletingWeeklyEntryId(entry.id);
+        try {
+          const { error } = await supabase
+            .from('weekly_menu')
+            .delete()
+            .eq('id', entry.id);
+          if (error) {
+            console.log('Delete weekly entry error:', error.message);
+            return;
+          }
+          setWeeklyMenuEntries((prev) => prev.filter((e) => e.id !== entry.id));
+        } catch (err) {
+          console.log('Unexpected delete weekly entry error:', err);
+        } finally {
+          setDeletingWeeklyEntryId(null);
+        }
       }
-      setWeeklyMenuEntries((prev) => prev.filter((e) => e.id !== entry.id));
-    } catch (err) {
-      console.log('Unexpected delete weekly entry error:', err);
-    } finally {
-      setDeletingWeeklyEntryId(null);
-    }
+    );
   };
 
   // Mark an entire day as closed (removes existing items for that day and inserts a closed row)
@@ -834,13 +846,19 @@ export default function StaffWorkspacePage() {
 
   // Reopen a closed day (remove the closed row so items can be added)
   const handleReopenDay = async (dateStr: string) => {
-    if (!confirm('Remove the closed status for this day? You can then add menu items.')) return;
-    try {
-      await supabase.from('weekly_menu').delete().eq('meal_date', dateStr).eq('is_closed', true);
-      await loadWeeklyMenu();
-    } catch (err) {
-      console.log('Unexpected error reopening day:', err);
-    }
+    openDeleteModal(
+      'closed day status',
+      async () => {
+        closeDeleteModal();
+        try {
+          await supabase.from('weekly_menu').delete().eq('meal_date', dateStr).eq('is_closed', true);
+          await loadWeeklyMenu();
+        } catch (err) {
+          console.log('Unexpected error reopening day:', err);
+        }
+      },
+      'Are you sure you want to remove the closed status for this day? You can then add menu items.'
+    );
   };
 
   // ─── Staff Management ────────────────────────────────────────────────────────
@@ -1197,20 +1215,25 @@ export default function StaffWorkspacePage() {
   };
 
   const handleDeleteProduct = async (product: Product) => {
-    if (!confirm(`Delete "${product.name}"? This cannot be undone.`)) return;
-    setDeletingProductId(product.id);
-    try {
-      if (product.image_path) {
-        await supabase.storage.from('product-images').remove([product.image_path]);
+    openDeleteModal(
+      product.name,
+      async () => {
+        closeDeleteModal();
+        setDeletingProductId(product.id);
+        try {
+          if (product.image_path) {
+            await supabase.storage.from('product-images').remove([product.image_path]);
+          }
+          const { error } = await supabase.from('products').delete().eq('id', product.id);
+          if (error) { console.log('Delete error:', error.message); return; }
+          setProducts((prev) => prev.filter((p) => p.id !== product.id));
+        } catch (err) {
+          console.log('Unexpected delete error:', err);
+        } finally {
+          setDeletingProductId(null);
+        }
       }
-      const { error } = await supabase.from('products').delete().eq('id', product.id);
-      if (error) { console.log('Delete error:', error.message); return; }
-      setProducts((prev) => prev.filter((p) => p.id !== product.id));
-    } catch (err) {
-      console.log('Unexpected delete error:', err);
-    } finally {
-      setDeletingProductId(null);
-    }
+    );
   };
 
   const handleToggleAvailable = async (product: Product) => {
@@ -1554,8 +1577,31 @@ export default function StaffWorkspacePage() {
     }
   };
 
+  const deleteModal = {
+    isOpen: false,
+    productName: '',
+    message: '',
+    onConfirm: () => {},
+  };
+
+  const openDeleteModal = (productName: string, onConfirm: () => void, message?: string) => {
+    setDeleteModal({ isOpen: true, productName, onConfirm, message });
+  };
+
+  const closeDeleteModal = () => {
+    setDeleteModal((prev) => ({ ...prev, isOpen: false }));
+  };
+
   return (
-    <div className="min-h-screen bg-[#F5F0E8]">
+    <>
+      <DeleteConfirmModal
+        isOpen={deleteModal.isOpen}
+        productName={deleteModal.productName}
+        message={deleteModal.message}
+        onConfirm={deleteModal.onConfirm}
+        onCancel={closeDeleteModal}
+      />
+      <div className="min-h-screen bg-[#F5F0E8]">
       {showWarning && (
         <InactivityWarningModal
           countdown={countdown}
@@ -1600,7 +1646,7 @@ export default function StaffWorkspacePage() {
         {/* Page Title + Tabs */}
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-[#1A1612] mb-1">Staff Workspace</h1>
-          <p className="text-[#8C8278] text-sm mb-6 text-center max-w-sm">
+          <p className="text-xs text-[#8C8278] mb-6">
             Manage your products, prices, and media library
           </p>
           <div className="flex gap-2 border-b border-[#DDD5C8] flex-wrap">
@@ -1712,7 +1758,7 @@ export default function StaffWorkspacePage() {
                             ref={productImageRef}
                             type="file"
                             accept="image/*"
-                            onChange={(e) => handleProductImageSelect(e.target.files?.[0] || null)}
+                            onChange={handleProductImageSelect}
                             className="hidden"
                           />
                           <button
@@ -2206,7 +2252,7 @@ export default function StaffWorkspacePage() {
 
             {/* Categories Table */}
             {categoriesLoading ? (
-              <div className="flex items-center justify-center py-20">
+              <div className="flex justify-center py-16">
                 <svg className="animate-spin h-8 w-8 text-[#C4622D]" viewBox="0 0 24 24" fill="none">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
@@ -2372,9 +2418,9 @@ export default function StaffWorkspacePage() {
                 }`}
               >
                 {uploading ? (
-                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                  <><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Uploading...</>
                 ) : (
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
+                  <><svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>+ Upload</>
                 )}
               </label>
             </div>
@@ -3042,5 +3088,6 @@ voucher.status === 'paid' ? 'bg-green-100 text-green-700'
         )}
       </main>
     </div>
+    </>
   );
 }
