@@ -45,6 +45,8 @@ export default function CartSidebar() {
   const [voucherLoading, setVoucherLoading] = useState(false);
   const [voucherApplied, setVoucherApplied] = useState(false);
   const [showVoucherSection, setShowVoucherSection] = useState(false);
+  const [voucherMealsUsed, setVoucherMealsUsed] = useState(0);
+  const [voucherMealsRemaining, setVoucherMealsRemaining] = useState(0);
 
   const tax = subtotal * 0.15;
   const delivery = subtotal > 0 ? 15 : 0;
@@ -243,6 +245,10 @@ export default function CartSidebar() {
         })),
         notes: `Order ${newRef} — ${mealsToDeduct} meal(s) redeemed`,
       });
+
+      // Capture confirmed values before clearing cart
+      setVoucherMealsUsed(mealsToDeduct);
+      setVoucherMealsRemaining(newRemaining);
 
       setOrderRef(newRef);
       clearCart();
@@ -1083,11 +1089,11 @@ export default function CartSidebar() {
                   </div>
                   <div className="flex justify-between">
                     <span>Meals Used</span>
-                    <span className="font-semibold">{totalItems > 0 ? totalItems : "—"}</span>
+                    <span className="font-semibold">{voucherMealsUsed > 0 ? voucherMealsUsed : "—"}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Remaining Balance</span>
-                    <span className="font-semibold">{Math.max(0, voucherData.meals_remaining - totalItems)} meals</span>
+                    <span className="font-semibold">{voucherMealsRemaining} meals</span>
                   </div>
                 </div>
               </div>
