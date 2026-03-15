@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import AppImage from "@/components/ui/AppImage";
 import Icon from "@/components/ui/AppIcon";
 import { useCart } from "./CartContext";
@@ -37,6 +37,8 @@ export default function CartSidebar() {
   const [payError, setPayError] = useState("");
   const [phoneError, setPhoneError] = useState("");
   const [orderRef, setOrderRef] = useState("");
+  // Guard to prevent handleVoucherOrder from executing more than once concurrently
+  const voucherOrderInProgress = useRef(false);
 
   // Voucher state
   const [voucherCode, setVoucherCode] = useState("");
@@ -170,6 +172,9 @@ export default function CartSidebar() {
 
   const handleVoucherOrder = async (overrideRef?: string) => {
     if (!voucherData) return;
+    // Prevent double-invocation (e.g. form submit + button click race)
+    if (voucherOrderInProgress.current) return;
+    voucherOrderInProgress.current = true;
     setProcessing(true);
     setPayError("");
 
@@ -177,6 +182,7 @@ export default function CartSidebar() {
     if (mealsToDeduct > voucherData.meals_remaining) {
       setPayError(`Your voucher only has ${voucherData.meals_remaining} meal(s) remaining, but your cart has ${mealsToDeduct} item(s).`);
       setProcessing(false);
+      voucherOrderInProgress.current = false;
       return;
     }
 
@@ -257,6 +263,7 @@ export default function CartSidebar() {
       setPayError(err instanceof Error ? err.message : "Failed to place order. Please try again.");
     } finally {
       setProcessing(false);
+      voucherOrderInProgress.current = false;
     }
   };
 
@@ -742,20 +749,13 @@ export default function CartSidebar() {
                 className="w-full bg-[#C4622D] text-white py-3.5 rounded-full font-semibold text-sm hover:bg-[#A04E22] transition-all shadow-terra flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
               >
                 {voucherApplied ? (
-                  processing ? (
-                    <>
-                      <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-                      </svg>
-                      Placing Order...
-                    </>
-                  ) : (
-                    <>
-                      <Icon name="TicketIcon" size={14} />
-                      Confirm Voucher Order
-                    </>
-                  )
+                  <>
+                    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                    </svg>
+                    Placing Order...
+                  </>
                 ) : (
                   <>
                     <Icon name="LockClosedIcon" size={14} />
