@@ -241,7 +241,7 @@ function ProductsContent() {
               className="flex items-center gap-2 bg-white border border-[#C4622D]/40 text-[#C4622D] px-4 py-2.5 rounded-full text-sm font-semibold hover:bg-[#F5EDE6] transition-all"
             >
               <Icon name="TicketIcon" size={15} />
-              Gift a Voucher
+              Meal Vouchers
             </Link>
             <CartButton />
           </div>

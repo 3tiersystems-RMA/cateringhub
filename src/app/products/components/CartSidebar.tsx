@@ -71,7 +71,7 @@ export default function CartSidebar() {
       }
       if (data.status === "unpaid") {
         setVoucherError(
-          "This voucher has not been paid for yet. Please complete your payment at the Gift a Voucher page before placing an order."
+          "This voucher has not been paid for yet. Please complete your payment at the Meal Vouchers page before placing an order."
         );
         return;
       }
