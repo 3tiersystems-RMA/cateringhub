@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import Icon from "@/components/ui/AppIcon";
 import ProductCard from "./ProductCard";
 import CartSidebar from "./CartSidebar";
@@ -59,6 +60,7 @@ function CartButton() {
 
 function ProductsContent() {
   const [activeCategory, setActiveCategory] = useState<string>("All");
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<"default" | "price-asc" | "price-desc" | "rating">("default");
   const [products, setProducts] = useState<Product[]>([]);
@@ -272,7 +274,13 @@ function ProductsContent() {
           {displayCategories.map((cat) => (
             <button
               key={cat}
-              onClick={() => setActiveCategory(cat)}
+              onClick={() => {
+                if (cat === "Weekly Menu") {
+                  router.push("/weekly-menu");
+                } else {
+                  setActiveCategory(cat);
+                }
+              }}
               className={`px-5 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
                 activeCategory === cat
                   ? "bg-[#C4622D] text-white shadow-terra"
