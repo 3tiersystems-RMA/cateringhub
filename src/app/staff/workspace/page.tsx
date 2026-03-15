@@ -1496,6 +1496,17 @@ export default function StaffWorkspacePage() {
   const handleSelectVoucher = async (voucher: Voucher) => {
     setSelectedVoucher(voucher);
     await loadVoucherRedemptions(voucher.voucher_code);
+    // Re-fetch the voucher row to get the latest meals_remaining from the DB
+    try {
+      const { data } = await supabase
+        .from('vouchers')
+        .select('*')
+        .eq('id', voucher.id)
+        .single();
+      if (data) setSelectedVoucher(data as Voucher);
+    } catch {
+      // keep the snapshot already set above
+    }
   };
 
   const generateVoucherCode = (): string => {
