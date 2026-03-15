@@ -150,7 +150,7 @@ export default function VouchersPage() {
               <span className="text-xs font-semibold text-[#C4622D] uppercase tracking-wider">Meal Vouchers</span>
             </div>
             <h1 className="font-display text-3xl md:text-4xl font-bold text-white mb-3">
-              Gift a Meal Voucher
+Purchase a Meal Voucher
             </h1>
             <p className="text-[#A09890] text-base leading-relaxed max-w-xl mx-auto">
               Purchase a packaged meal voucher upfront and redeem meals at your convenience. 
