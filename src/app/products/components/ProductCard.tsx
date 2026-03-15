@@ -31,7 +31,7 @@ export default function ProductCard({ product, onOpenModal }: ProductCardProps) 
 
   return (
     <article
-      className="group bg-[#FAF7F2] border border-[#DDD5C8] rounded-3xl overflow-hidden hover:border-[#C4622D]/40 hover:shadow-warm hover:-translate-y-1 transition-all duration-400 cursor-pointer"
+      className="group bg-[#FAF7F2] border border-[#DDD5C8] rounded-3xl overflow-hidden hover:border-[#C4622D]/40 hover:shadow-warm hover:-translate-y-1 transition-all duration-400 cursor-pointer flex flex-col"
       onClick={handleCardClick}
       role="button"
       tabIndex={0}
@@ -39,7 +39,7 @@ export default function ProductCard({ product, onOpenModal }: ProductCardProps) 
       aria-label={`View details for ${product.name}`}
     >
       {/* Image */}
-      <div className="relative h-52 overflow-hidden bg-[#EDE7DA]">
+      <div className="relative h-52 overflow-hidden bg-[#EDE7DA] flex-shrink-0">
         <AppImage
           src={product.image}
           alt={product.imageAlt}
@@ -68,9 +68,9 @@ export default function ProductCard({ product, onOpenModal }: ProductCardProps) 
       </div>
 
       {/* Content */}
-      <div className="p-5">
+      <div className="p-5 flex flex-col flex-1">
         {/* Tags */}
-        <div className="flex flex-wrap gap-1.5 mb-3">
+        <div className="flex flex-wrap gap-1.5 mb-3 min-h-[1.5rem]">
           {product.tags.map((tag) => (
             <span key={tag} className="text-xs text-[#8C8278] bg-[#EDE7DA] px-2 py-0.5 rounded-full">
               {tag}
@@ -81,8 +81,10 @@ export default function ProductCard({ product, onOpenModal }: ProductCardProps) 
         <h3 className="font-display text-base font-semibold text-[#1A1612] leading-snug mb-2 line-clamp-2">
           {product.name}
         </h3>
-        <p className="text-xs text-[#8C8278] leading-relaxed mb-4 line-clamp-2">
-          {product.description}
+        <p className="text-xs text-[#8C8278] leading-relaxed mb-4 h-8 overflow-hidden">
+          {product.description && product.description.length > 60
+            ? product.description.slice(0, 60).trimEnd() + "..."
+            : product.description}
         </p>
 
         {/* Rating */}
@@ -104,7 +106,7 @@ export default function ProductCard({ product, onOpenModal }: ProductCardProps) 
         </div>
 
         {/* Price + Add */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mt-auto">
           <div>
             <p className="text-xl font-semibold text-[#1A1612]">
               R{product.price}
