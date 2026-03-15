@@ -297,7 +297,7 @@ function ProductsContent() {
                   activeCategory === cat ? "text-white/70" : "text-[#B5ADA5]"
                 }`}
               >
-                {cat !== "Weekly Menu" && (cat === "All" ? products.length : products.filter((p) => p.category === cat).length)}
+                {cat !== "Weekly Menu" && `(${cat === "All" ? products.length : products.filter((p) => p.category === cat).length})`}
               </span>
             </button>
           ))}
