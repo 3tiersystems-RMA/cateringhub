@@ -151,7 +151,7 @@ function WeeklyMenuContent() {
             <div className="w-12 h-0.5 bg-[#C4622D] mx-auto my-3" />
             <p className="text-[#C4622D] font-semibold text-lg">{monthLabel}</p>
             <p className="text-[#8C8278] text-sm mt-1">
-              All Portions Typically Feed 2 Adults · Delivery Fee Applies or Collect
+              All Portions Typically Feed 2 Adults · Delivery Fee Applies or Collect (Mon-Fri)
             </p>
           </div>
 
