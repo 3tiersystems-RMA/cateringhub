@@ -56,6 +56,7 @@ export default function VouchersPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [issuedCode, setIssuedCode] = useState("");
+  const [copied, setCopied] = useState(false);
 
   const handleSelectPackage = (pkg: VoucherPackage) => {
     setSelectedPackage(pkg);
@@ -104,6 +105,14 @@ export default function VouchersPage() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleCopyCode = () => {
+    if (!issuedCode) return;
+    navigator.clipboard.writeText(issuedCode).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
   };
 
   return (
@@ -345,6 +354,15 @@ export default function VouchersPage() {
                   <div className="relative z-10">
                     <p className="text-xs text-white/40 font-mono uppercase tracking-widest mb-2">Your Voucher Code</p>
                     <p className="text-3xl font-mono font-bold text-[#C4622D] tracking-widest mb-3">{issuedCode}</p>
+                    <div className="flex items-center justify-center gap-3 mb-3">
+                      <button
+                        onClick={handleCopyCode}
+                        className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 text-white text-xs font-medium px-3 py-1.5 rounded-full transition-all"
+                      >
+                        <Icon name={copied ? "CheckIcon" : "ClipboardDocumentIcon"} size={13} />
+                        {copied ? "Copied!" : "Copy Code"}
+                      </button>
+                    </div>
                     <div className="flex items-center justify-center gap-4 text-white/60 text-xs">
                       <span>{selectedPackage.meals} meals</span>
                       <span>·</span>
