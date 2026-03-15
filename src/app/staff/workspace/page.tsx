@@ -13,6 +13,85 @@ type WorkspaceTab = 'products' | 'media' | 'orders' | 'staff' | 'homepage_cards'
 type ProductCategory = string;
 type StaffRole = 'admin' | 'staff' | 'super_admin';
 
+// ─── Orders types ─────────────────────────────────────────────────────────────
+type PaymentStatus = 'pending' | 'paid' | 'failed' | 'awaiting_payment' | 'refunded';
+type FulfillmentStatus = 'new' | 'confirmed' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
+
+interface OrderItem {
+  id: string;
+  name: string;
+  quantity: number;
+  price: number;
+  unit: string;
+  category?: string;
+}
+
+interface Order {
+  id: string;
+  m_payment_id: string | null;
+  payfast_transaction_id: string | null;
+  customer_name: string;
+  customer_email: string;
+  customer_phone: string;
+  items: OrderItem[];
+  subtotal: number;
+  delivery_fee: number;
+  total: number;
+  payment_status: PaymentStatus;
+  fulfillment_status: FulfillmentStatus;
+  event_date: string | null;
+  delivery_address: string;
+  notes: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface OrderUpdateState {
+  fulfillmentSaving: boolean;
+  paymentSaving: boolean;
+  fulfillmentSuccess: boolean;
+  paymentSuccess: boolean;
+  fulfillmentError: string;
+  paymentError: string;
+}
+
+const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
+  pending: 'Pending',
+  paid: 'Paid',
+  failed: 'Failed',
+  awaiting_payment: 'Awaiting Payment',
+  refunded: 'Refunded',
+};
+
+const PAYMENT_STATUS_COLORS: Record<PaymentStatus, string> = {
+  pending: 'bg-amber-100 text-amber-700 border-amber-200',
+  paid: 'bg-green-100 text-green-700 border-green-200',
+  failed: 'bg-red-100 text-red-700 border-red-200',
+  awaiting_payment: 'bg-blue-100 text-blue-700 border-blue-200',
+  refunded: 'bg-gray-100 text-gray-600 border-gray-200',
+};
+
+const FULFILLMENT_STATUS_LABELS: Record<FulfillmentStatus, string> = {
+  new: 'New',
+  confirmed: 'Confirmed',
+  preparing: 'Preparing',
+  ready: 'Ready',
+  delivered: 'Delivered',
+  cancelled: 'Cancelled',
+};
+
+const FULFILLMENT_STATUS_COLORS: Record<FulfillmentStatus, string> = {
+  new: 'bg-blue-100 text-blue-700 border-blue-200',
+  confirmed: 'bg-purple-100 text-purple-700 border-purple-200',
+  preparing: 'bg-orange-100 text-orange-700 border-orange-200',
+  ready: 'bg-teal-100 text-teal-700 border-teal-200',
+  delivered: 'bg-green-100 text-green-700 border-green-200',
+  cancelled: 'bg-red-100 text-red-600 border-red-200',
+};
+
+const FULFILLMENT_OPTIONS: FulfillmentStatus[] = ['new', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled'];
+const PAYMENT_OPTIONS: PaymentStatus[] = ['awaiting_payment', 'paid', 'refunded', 'pending', 'failed'];
+
 interface StorageFile {
   name: string;
   id: string;
@@ -467,6 +546,16 @@ export default function StaffWorkspacePage() {
     message: '',
     onConfirm: () => {},
   });
+
+  // ─── Orders tab state ────────────────────────────────────────────────────────
+  const [wsOrders, setWsOrders] = useState<Order[]>([]);
+  const [wsOrdersLoading, setWsOrdersLoading] = useState(false);
+  const [wsOrdersError, setWsOrdersError] = useState('');
+  const [wsExpandedOrderId, setWsExpandedOrderId] = useState<string | null>(null);
+  const [wsOrderUpdateStates, setWsOrderUpdateStates] = useState<Record<string, OrderUpdateState>>({});
+  const [wsOrderSearch, setWsOrderSearch] = useState('');
+  const [wsFilterPayment, setWsFilterPayment] = useState<string>('all');
+  const [wsFilterFulfillment, setWsFilterFulfillment] = useState<string>('all');
 
   const openDeleteModal = (productName: string, onConfirm: () => void, message?: string) => {
     setDeleteModal({ isOpen: true, productName, onConfirm, message });
@@ -1351,9 +1440,90 @@ export default function StaffWorkspacePage() {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
+  const formatCurrency = (amount: number) => `R${Number(amount || 0).toFixed(2)}`;
+
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return '—';
+    return new Date(dateStr).toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' });
+  };
+
+  // ─── Orders tab helpers ──────────────────────────────────────────────────────
+  const loadWsOrders = async () => {
+    setWsOrdersLoading(true);
+    setWsOrdersError('');
+    try {
+      const { data, error: fetchError } = await supabase
+        .from('orders')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (fetchError) {
+        setWsOrdersError(fetchError.message);
+        setWsOrders([]);
+        return;
+      }
+      setWsOrders(data || []);
+    } catch {
+      setWsOrdersError('Failed to load orders');
+      setWsOrders([]);
+    } finally {
+      setWsOrdersLoading(false);
+    }
+  };
+
+  const getWsOrderUpdateState = (orderId: string): OrderUpdateState =>
+    wsOrderUpdateStates[orderId] || {
+      fulfillmentSaving: false, paymentSaving: false,
+      fulfillmentSuccess: false, paymentSuccess: false,
+      fulfillmentError: '', paymentError: '',
+    };
+
+  const setWsOrderUpdateField = (orderId: string, fields: Partial<OrderUpdateState>) => {
+    setWsOrderUpdateStates((prev) => ({
+      ...prev,
+      [orderId]: { ...getWsOrderUpdateState(orderId), ...fields },
+    }));
+  };
+
+  const handleWsFulfillmentUpdate = async (orderId: string, newStatus: FulfillmentStatus) => {
+    setWsOrderUpdateField(orderId, { fulfillmentSaving: true, fulfillmentSuccess: false, fulfillmentError: '' });
+    try {
+      const { error } = await supabase.from('orders').update({ fulfillment_status: newStatus }).eq('id', orderId);
+      if (error) { setWsOrderUpdateField(orderId, { fulfillmentSaving: false, fulfillmentError: error.message }); return; }
+      setWsOrders((prev) => prev.map((o) => o.id === orderId ? { ...o, fulfillment_status: newStatus } : o));
+      setWsOrderUpdateField(orderId, { fulfillmentSaving: false, fulfillmentSuccess: true });
+      setTimeout(() => setWsOrderUpdateField(orderId, { fulfillmentSuccess: false }), 2500);
+    } catch {
+      setWsOrderUpdateField(orderId, { fulfillmentSaving: false, fulfillmentError: 'Update failed' });
+    }
+  };
+
+  const handleWsPaymentUpdate = async (orderId: string, newStatus: PaymentStatus) => {
+    setWsOrderUpdateField(orderId, { paymentSaving: true, paymentSuccess: false, paymentError: '' });
+    try {
+      const { error } = await supabase.from('orders').update({ payment_status: newStatus }).eq('id', orderId);
+      if (error) { setWsOrderUpdateField(orderId, { paymentSaving: false, paymentError: error.message }); return; }
+      setWsOrders((prev) => prev.map((o) => o.id === orderId ? { ...o, payment_status: newStatus } : o));
+      setWsOrderUpdateField(orderId, { paymentSaving: false, paymentSuccess: true });
+      setTimeout(() => setWsOrderUpdateField(orderId, { paymentSuccess: false }), 2500);
+    } catch {
+      setWsOrderUpdateField(orderId, { paymentSaving: false, paymentError: 'Update failed' });
+    }
+  };
+
   const filteredProducts = filterCategory === 'All'
     ? products
     : products.filter((p) => p.category === filterCategory);
+
+  const wsFilteredOrders = wsOrders.filter((order) => {
+    const matchesSearch =
+      !wsOrderSearch ||
+      order.customer_name.toLowerCase().includes(wsOrderSearch.toLowerCase()) ||
+      (order.m_payment_id || '').toLowerCase().includes(wsOrderSearch.toLowerCase()) ||
+      order.customer_email.toLowerCase().includes(wsOrderSearch.toLowerCase());
+    const matchesPayment = wsFilterPayment === 'all' || order.payment_status === wsFilterPayment;
+    const matchesFulfillment = wsFilterFulfillment === 'all' || order.fulfillment_status === wsFilterFulfillment;
+    return matchesSearch && matchesPayment && matchesFulfillment;
+  });
 
   const buckets: { id: BucketType; label: string; description: string; icon: string }[] = [
     { id: 'product-images', label: 'Product Images', description: 'Menu items, dishes & catering products', icon: '🍽️' },
@@ -1692,7 +1862,7 @@ export default function StaffWorkspacePage() {
               📸 Media Library
             </button>
             <button
-              onClick={() => { setActiveTab('orders'); if (products.length === 0) loadProducts(); }}
+              onClick={() => { setActiveTab('orders'); loadWsOrders(); }}
               className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${
                 activeTab === 'orders' ? 'border-[#C4622D] text-[#C4622D]' : 'border-transparent text-[#8C8278] hover:text-[#5C5347]'
               }`}
@@ -2492,6 +2662,677 @@ export default function StaffWorkspacePage() {
                     </button>
                   </div>
                 ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── ORDERS TAB ── */}
+        {activeTab === 'orders' && (
+          <div>
+            {/* Header row */}
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-xl font-bold text-[#1A1612]">Orders</h2>
+                <p className="text-sm text-[#8C8278] mt-0.5">{wsFilteredOrders.length} of {wsOrders.length} orders</p>
+              </div>
+              <button
+                onClick={loadWsOrders}
+                disabled={wsOrdersLoading}
+                className="flex items-center gap-2 px-4 py-2 bg-white border border-[#DDD5C8] rounded-xl text-sm font-medium text-[#5C5347] hover:bg-[#EDE7DA] transition-colors disabled:opacity-50"
+              >
+                <svg className={`w-4 h-4 ${wsOrdersLoading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Refresh
+              </button>
+            </div>
+
+            {/* Filters */}
+            <div className="bg-white rounded-2xl border border-[#DDD5C8] p-4 mb-6">
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="relative flex-1">
+                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#B5ADA5]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  <input
+                    type="text"
+                    placeholder="Search by name, email, or order ID..."
+                    value={wsOrderSearch}
+                    onChange={(e) => setWsOrderSearch(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2.5 border border-[#DDD5C8] rounded-xl text-sm text-[#1A1612] placeholder-[#B5ADA5] focus:outline-none focus:border-[#C4622D] transition-colors"
+                  />
+                </div>
+                <select
+                  value={wsFilterPayment}
+                  onChange={(e) => setWsFilterPayment(e.target.value)}
+                  className="px-3 py-2.5 border border-[#DDD5C8] rounded-xl text-sm text-[#1A1612] bg-white focus:outline-none focus:border-[#C4622D] transition-colors"
+                >
+                  <option value="all">All Payments</option>
+                  <option value="awaiting_payment">Awaiting Payment</option>
+                  <option value="paid">Paid</option>
+                  <option value="refunded">Refunded</option>
+                  <option value="pending">Pending</option>
+                  <option value="failed">Failed</option>
+                </select>
+                <select
+                  value={wsFilterFulfillment}
+                  onChange={(e) => setWsFilterFulfillment(e.target.value)}
+                  className="px-3 py-2.5 border border-[#DDD5C8] rounded-xl text-sm text-[#1A1612] bg-white focus:outline-none focus:border-[#C4622D] transition-colors"
+                >
+                  <option value="all">All Fulfillment</option>
+                  <option value="new">New</option>
+                  <option value="confirmed">Confirmed</option>
+                  <option value="preparing">Preparing</option>
+                  <option value="ready">Ready</option>
+                  <option value="delivered">Delivered</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Error */}
+            {wsOrdersError && (
+              <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-6 text-red-700 text-sm">
+                {wsOrdersError}
+              </div>
+            )}
+
+            {/* Orders list */}
+            {wsOrdersLoading ? (
+              <div className="bg-white rounded-2xl border border-[#DDD5C8] p-12 flex flex-col items-center justify-center gap-3">
+                <div className="w-8 h-8 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
+                <p className="text-sm text-[#8C8278]">Loading orders...</p>
+              </div>
+            ) : wsFilteredOrders.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-[#DDD5C8] p-12 flex flex-col items-center justify-center gap-3 text-center">
+                <div className="w-14 h-14 rounded-full bg-[#EDE7DA] flex items-center justify-center">
+                  <svg className="w-6 h-6 text-[#B5ADA5]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2h2.25" />
+                  </svg>
+                </div>
+                <p className="text-[#5C5347] font-medium">No orders found</p>
+                <p className="text-sm text-[#B5ADA5]">
+                  {wsOrderSearch || wsFilterPayment !== 'all' || wsFilterFulfillment !== 'all' ?'Try adjusting your filters' :'Orders will appear here once customers complete payments'}
+                </p>
+              </div>
+            ) : (
+              <div className="bg-white rounded-2xl border border-[#DDD5C8] overflow-hidden">
+                {/* Table header */}
+                <div className="hidden lg:grid grid-cols-[1fr_1.5fr_1fr_minmax(80px,auto)_minmax(140px,auto)_minmax(140px,auto)_minmax(80px,auto)] gap-4 px-5 py-3 bg-[#F5F0E8] border-b border-[#DDD5C8] text-xs font-semibold text-[#8C8278] uppercase tracking-wider">
+                  <span className="text-left pl-[22px]">Order ID</span>
+                  <span className="text-left">Customer</span>
+                  <span className="text-left">Items</span>
+                  <span className="text-left">Total</span>
+                  <span className="text-left">Payment</span>
+                  <span className="text-left">Fulfillment</span>
+                  <span className="text-left">Date</span>
+                </div>
+                <div className="divide-y divide-[#EDE7DA]">
+                  {wsFilteredOrders.map((order) => {
+                    const isExpanded = wsExpandedOrderId === order.id;
+                    const itemCount = Array.isArray(order.items) ? order.items.length : 0;
+                    const itemSummary = Array.isArray(order.items) && order.items.length > 0
+                      ? order.items.slice(0, 2).map((i) => `${i.name} x${i.quantity}`).join(', ') +
+                        (order.items.length > 2 ? ` +${order.items.length - 2} more` : '')
+                      : 'No items';
+                    const updateState = getWsOrderUpdateState(order.id);
+
+                    return (
+                      <div key={order.id}>
+                        <div
+                          className="grid grid-cols-1 lg:grid-cols-[1fr_1.5fr_1fr_minmax(80px,auto)_minmax(140px,auto)_minmax(140px,auto)_minmax(80px,auto)] gap-4 px-5 py-4 hover:bg-[#FDFAF6] cursor-pointer transition-colors"
+                          onClick={() => setWsExpandedOrderId(isExpanded ? null : order.id)}
+                        >
+                          {/* Order ID */}
+                          <div className="flex items-center gap-2">
+                            <svg className={`w-3.5 h-3.5 text-[#B5ADA5] flex-shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                            </svg>
+                            <div>
+                              <p className="text-xs font-mono font-semibold text-[#1A1612] truncate max-w-[120px]">
+                                {order.m_payment_id || order.id.slice(0, 8).toUpperCase()}
+                              </p>
+                              <p className="text-xs text-[#B5ADA5] lg:hidden">{formatDate(order.created_at)}</p>
+                            </div>
+                          </div>
+                          {/* Customer */}
+                          <div className="lg:flex lg:flex-col">
+                            <p className="text-sm font-semibold text-[#1A1612]">{order.customer_name || '—'}</p>
+                            <p className="text-xs text-[#8C8278] truncate">{order.customer_email || '—'}</p>
+                          </div>
+                          {/* Items */}
+                          <div className="hidden lg:block">
+                            <p className="text-xs text-[#5C5347] line-clamp-2">{itemSummary}</p>
+                            {itemCount > 0 && <p className="text-xs text-[#B5ADA5]">{itemCount} item{itemCount !== 1 ? 's' : ''}</p>}
+                          </div>
+                          {/* Total */}
+                          <div className="flex items-center">
+                            <span className="text-sm font-bold text-[#1A1612]">{formatCurrency(order.total)}</span>
+                          </div>
+                          {/* Payment Status */}
+                          <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex flex-col items-start gap-0.5">
+                              <select
+                                value={order.payment_status}
+                                onChange={(e) => handleWsPaymentUpdate(order.id, e.target.value as PaymentStatus)}
+                                disabled={updateState.paymentSaving}
+                                className={`text-xs font-semibold border rounded-full px-2.5 py-1 focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30 transition-colors cursor-pointer disabled:opacity-50 ${PAYMENT_STATUS_COLORS[order.payment_status]}`}
+                              >
+                                {PAYMENT_OPTIONS.map((s) => <option key={s} value={s}>{PAYMENT_STATUS_LABELS[s]}</option>)}
+                              </select>
+                              {updateState.paymentSaving && <span className="text-xs text-[#8C8278] flex items-center gap-1"><svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Saving...</span>}
+                              {updateState.paymentSuccess && <span className="text-xs text-green-600 font-medium">✓ Saved</span>}
+                              {updateState.paymentError && <span className="text-xs text-red-500">{updateState.paymentError}</span>}
+                            </div>
+                          </div>
+                          {/* Fulfillment Status */}
+                          <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex flex-col items-start gap-0.5">
+                              <select
+                                value={order.fulfillment_status}
+                                onChange={(e) => handleWsFulfillmentUpdate(order.id, e.target.value as FulfillmentStatus)}
+                                disabled={updateState.fulfillmentSaving}
+                                className={`text-xs font-semibold border rounded-full px-2.5 py-1 focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30 transition-colors cursor-pointer disabled:opacity-50 ${FULFILLMENT_STATUS_COLORS[order.fulfillment_status]}`}
+                              >
+                                {FULFILLMENT_OPTIONS.map((s) => <option key={s} value={s}>{FULFILLMENT_STATUS_LABELS[s]}</option>)}
+                              </select>
+                              {updateState.fulfillmentSaving && <span className="text-xs text-[#8C8278] flex items-center gap-1"><svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Saving...</span>}
+                              {updateState.fulfillmentSuccess && <span className="text-xs text-green-600 font-medium">✓ Saved</span>}
+                              {updateState.fulfillmentError && <span className="text-xs text-red-500">{updateState.fulfillmentError}</span>}
+                            </div>
+                          </div>
+                          {/* Date */}
+                          <div className="hidden lg:flex items-center">
+                            <span className="text-xs text-[#8C8278]">{formatDate(order.created_at)}</span>
+                          </div>
+                        </div>
+
+                        {/* Expanded details */}
+                        {isExpanded && (
+                          <div className="px-5 pb-5 bg-[#FDFAF6] border-t border-[#EDE7DA]">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 pt-4">
+                              {/* Customer Details */}
+                              <div className="bg-white rounded-xl border border-[#DDD5C8] p-4">
+                                <h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3">👤 Customer Details</h4>
+                                <div className="space-y-2">
+                                  <div><p className="text-xs text-[#B5ADA5]">Name</p><p className="text-sm font-medium text-[#1A1612]">{order.customer_name || '—'}</p></div>
+                                  <div><p className="text-xs text-[#B5ADA5]">Email</p><p className="text-sm text-[#1A1612] break-all">{order.customer_email || '—'}</p></div>
+                                  <div><p className="text-xs text-[#B5ADA5]">Phone</p><p className="text-sm text-[#1A1612]">{order.customer_phone || '—'}</p></div>
+                                  <div><p className="text-xs text-[#B5ADA5]">Event Date</p><p className="text-sm text-[#1A1612]">{order.event_date ? formatDate(order.event_date) : '—'}</p></div>
+                                  <div><p className="text-xs text-[#B5ADA5]">Delivery Address</p><p className="text-sm text-[#1A1612]">{order.delivery_address || '—'}</p></div>
+                                  {order.notes && <div><p className="text-xs text-[#B5ADA5]">Notes</p><p className="text-sm text-[#1A1612]">{order.notes}</p></div>}
+                                </div>
+                              </div>
+                              {/* Items Ordered */}
+                              <div className="bg-white rounded-xl border border-[#DDD5C8] p-4">
+                                <h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3">🛍️ Items Ordered</h4>
+                                {Array.isArray(order.items) && order.items.length > 0 ? (
+                                  <div className="space-y-2">
+                                    {order.items.map((item, idx) => (
+                                      <div key={idx} className="flex justify-between items-start gap-2">
+                                        <div className="flex-1 min-w-0">
+                                          <p className="text-sm font-medium text-[#1A1612] truncate">{item.name}</p>
+                                          <p className="text-xs text-[#B5ADA5]">{item.unit} × {item.quantity}</p>
+                                          {item.category && <span className="inline-block mt-0.5 text-[10px] font-medium text-[#C4622D] bg-[#FDF3ED] px-1.5 py-0.5 rounded-full">{item.category}</span>}
+                                        </div>
+                                        <span className="text-sm font-semibold text-[#1A1612] flex-shrink-0">{formatCurrency(item.price * item.quantity)}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <p className="text-sm text-[#B5ADA5]">No item details available</p>
+                                )}
+                              </div>
+                              {/* Payment Summary */}
+                              <div className="bg-white rounded-xl border border-[#DDD5C8] p-4">
+                                <h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3">💳 Payment Summary</h4>
+                                <div className="space-y-2">
+                                  <div className="flex justify-between text-sm"><span className="text-[#8C8278]">Subtotal</span><span className="text-[#1A1612]">{formatCurrency(order.subtotal)}</span></div>
+                                  <div className="flex justify-between text-sm"><span className="text-[#8C8278]">Delivery</span><span className="text-[#1A1612]">{formatCurrency(order.delivery_fee)}</span></div>
+                                  <div className="flex justify-between text-sm font-bold border-t border-[#EDE7DA] pt-2"><span className="text-[#1A1612]">Total</span><span className="text-[#C4622D]">{formatCurrency(order.total)}</span></div>
+                                  <div className="pt-2 space-y-1.5">
+                                    <div>
+                                      <p className="text-xs text-[#B5ADA5]">Payment Status</p>
+                                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border ${PAYMENT_STATUS_COLORS[order.payment_status]}`}>{PAYMENT_STATUS_LABELS[order.payment_status]}</span>
+                                    </div>
+                                    {order.payfast_transaction_id && <div><p className="text-xs text-[#B5ADA5]">PayFast Transaction ID</p><p className="text-xs font-mono text-[#5C5347]">{order.payfast_transaction_id}</p></div>}
+                                    {order.m_payment_id && <div><p className="text-xs text-[#B5ADA5]">Order Reference</p><p className="text-xs font-mono text-[#5C5347]">{order.m_payment_id}</p></div>}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── WEEKLY MENU TAB ── */}
+        {activeTab === 'weekly_menu' && (
+          <div>
+            {/* Add/Edit Item Modal */}
+            {showWeeklyMenuForm && (
+              <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto py-8 px-4">
+                <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl">
+                  <div className="flex items-center justify-between px-6 py-4 border-b border-[#EDE7DA]">
+                    <h2 className="font-bold text-[#1A1612] text-lg">
+                      {editingWeeklyEntry ? 'Edit Menu Item' : 'Add Menu Item'}
+                    </h2>
+                    <button
+                      onClick={() => setShowWeeklyMenuForm(false)}
+                      className="w-8 h-8 rounded-full bg-[#F5F0E8] flex items-center justify-center text-[#8C8278] hover:bg-[#EDE7DA] transition-colors"
+                    >✕</button>
+                  </div>
+                  <form onSubmit={handleSaveWeeklyEntry} className="p-6 space-y-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">Date *</label>
+                      <input
+                        type="date"
+                        required
+                        value={weeklyMenuForm.meal_date}
+                        onChange={(e) => setWeeklyMenuForm({ ...weeklyMenuForm, meal_date: e.target.value })}
+                        className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
+                      />
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        id="wm-is-closed"
+                        checked={weeklyMenuForm.is_closed}
+                        onChange={(e) => setWeeklyMenuForm({ ...weeklyMenuForm, is_closed: e.target.checked })}
+                        className="w-4 h-4 accent-[#C4622D]"
+                      />
+                      <label htmlFor="wm-is-closed" className="text-sm font-medium text-[#5C5347]">Mark day as closed</label>
+                    </div>
+                    {weeklyMenuForm.is_closed ? (
+                      <div>
+                        <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">Closed Reason</label>
+                        <input
+                          type="text"
+                          value={weeklyMenuForm.closed_reason}
+                          onChange={(e) => setWeeklyMenuForm({ ...weeklyMenuForm, closed_reason: e.target.value })}
+                          placeholder="e.g. Public holiday"
+                          className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
+                        />
+                      </div>
+                    ) : (
+                      <>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">Meal Name *</label>
+                          <input
+                            type="text"
+                            required
+                            value={weeklyMenuForm.meal_name}
+                            onChange={(e) => setWeeklyMenuForm({ ...weeklyMenuForm, meal_name: e.target.value })}
+                            placeholder="e.g. Chicken Curry & Rice"
+                            className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">Description</label>
+                          <textarea
+                            rows={2}
+                            value={weeklyMenuForm.description}
+                            onChange={(e) => setWeeklyMenuForm({ ...weeklyMenuForm, description: e.target.value })}
+                            placeholder="Short description..."
+                            className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors resize-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">Price (R) *</label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            required
+                            value={weeklyMenuForm.price}
+                            onChange={(e) => setWeeklyMenuForm({ ...weeklyMenuForm, price: e.target.value })}
+                            placeholder="0.00"
+                            className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
+                          />
+                        </div>
+                      </>
+                    )}
+                    {weeklyMenuFormError && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{weeklyMenuFormError}</p>}
+                    {weeklyMenuFormSuccess && <p className="text-sm text-green-700 bg-green-50 rounded-lg px-3 py-2">{weeklyMenuFormSuccess}</p>}
+                    <div className="flex gap-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowWeeklyMenuForm(false)}
+                        className="flex-1 px-4 py-2.5 border border-[#DDD5C8] rounded-xl text-sm font-semibold text-[#5C5347] hover:bg-[#F5F0E8] transition-colors"
+                      >Cancel</button>
+                      <button
+                        type="submit"
+                        disabled={savingWeeklyEntry}
+                        className="flex-1 px-4 py-2.5 bg-[#C4622D] text-white rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                      >
+                        {savingWeeklyEntry ? <><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Saving...</> : editingWeeklyEntry ? 'Update Item' : 'Add Item'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {/* Close Day Modal */}
+            {closingDayDate && (
+              <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4">
+                <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6">
+                  <h3 className="font-bold text-[#1A1612] text-lg mb-3">Close Day</h3>
+                  <p className="text-sm text-[#5C5347] mb-4">Optionally add a reason for closing <strong>{closingDayDate}</strong>.</p>
+                  <input
+                    type="text"
+                    value={closingDayReason}
+                    onChange={(e) => setClosingDayReason(e.target.value)}
+                    placeholder="e.g. Public holiday"
+                    className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors mb-4"
+                  />
+                  <div className="flex gap-3">
+                    <button onClick={() => { setClosingDayDate(null); setClosingDayReason(''); }} className="flex-1 px-4 py-2.5 border border-[#DDD5C8] rounded-xl text-sm font-semibold text-[#5C5347] hover:bg-[#F5F0E8] transition-colors">Cancel</button>
+                    <button
+                      onClick={() => handleMarkDayClosed(closingDayDate, closingDayReason)}
+                      disabled={savingClosedDay}
+                      className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-xl text-sm font-semibold hover:bg-red-700 transition-colors disabled:opacity-60"
+                    >{savingClosedDay ? 'Saving...' : 'Close Day'}</button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Week navigator */}
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => { const o = weekOffset - 1; setWeekOffset(o); loadWeeklyMenu(o); }}
+                  className="w-9 h-9 rounded-xl border border-[#DDD5C8] bg-white flex items-center justify-center text-[#5C5347] hover:bg-[#EDE7DA] transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                </button>
+                <div className="text-center">
+                  <p className="text-sm font-semibold text-[#1A1612]">
+                    {weekOffset === 0 ? 'This Week' : weekOffset === 1 ? 'Next Week' : weekOffset === -1 ? 'Last Week' : `Week ${weekOffset > 0 ? '+' : ''}${weekOffset}`}
+                  </p>
+                  <p className="text-xs text-[#8C8278]">
+                    {(() => {
+                      const { mondayStr, fridayStr } = getWeekBoundsForOffset(weekOffset);
+                      const fmt = (s: string) => new Date(s + 'T00:00:00').toLocaleDateString('en-ZA', { day: '2-digit', month: 'short' });
+                      return `${fmt(mondayStr)} – ${fmt(fridayStr)}`;
+                    })()}
+                  </p>
+                </div>
+                <button
+                  onClick={() => { const o = weekOffset + 1; setWeekOffset(o); loadWeeklyMenu(o); }}
+                  className="w-9 h-9 rounded-xl border border-[#DDD5C8] bg-white flex items-center justify-center text-[#5C5347] hover:bg-[#EDE7DA] transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                </button>
+              </div>
+              <button
+                onClick={() => { const today = new Date(); const pad = (n: number) => String(n).padStart(2, '0'); const dateStr = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`; openAddWeeklyMenuForm(dateStr); }}
+                className="flex items-center gap-2 px-4 py-2 bg-[#C4622D] text-white rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+                Add Item
+              </button>
+            </div>
+
+            {/* Weekly menu grid */}
+            {weeklyMenuLoading ? (
+              <div className="bg-white rounded-2xl border border-[#DDD5C8] p-12 flex flex-col items-center justify-center gap-3">
+                <div className="w-8 h-8 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
+                <p className="text-sm text-[#8C8278]">Loading menu...</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                {(() => {
+                  const { mondayStr } = getWeekBoundsForOffset(weekOffset);
+                  const pad = (n: number) => String(n).padStart(2, '0');
+                  const days = Array.from({ length: 5 }, (_, i) => {
+                    const d = new Date(mondayStr + 'T00:00:00');
+                    d.setDate(d.getDate() + i);
+                    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+                  });
+                  return days.map((dateStr) => {
+                    const dayEntries = weeklyMenuEntries.filter((e) => e.meal_date === dateStr);
+                    const closedEntry = dayEntries.find((e) => e.is_closed);
+                    const openEntries = dayEntries.filter((e) => !e.is_closed);
+                    const dayLabel = new Date(dateStr + 'T00:00:00').toLocaleDateString('en-ZA', { weekday: 'short', day: '2-digit', month: 'short' });
+                    const isToday = dateStr === (() => { const t = new Date(); const p = (n: number) => String(n).padStart(2, '0'); return `${t.getFullYear()}-${p(t.getMonth() + 1)}-${p(t.getDate())}`; })();
+
+                    return (
+                      <div key={dateStr} className={`bg-white rounded-2xl border ${isToday ? 'border-[#C4622D]' : 'border-[#DDD5C8]'} overflow-hidden flex flex-col`}>
+                        {/* Day header */}
+                        <div className={`px-4 py-3 ${isToday ? 'bg-[#FDF3ED]' : 'bg-[#F5F0E8]'} border-b border-[#EDE7DA]`}>
+                          <p className={`text-xs font-bold uppercase tracking-wider ${isToday ? 'text-[#C4622D]' : 'text-[#5C5347]'}`}>{dayLabel}</p>
+                        </div>
+
+                        {/* Day content */}
+                        <div className="flex-1 p-3 space-y-2">
+                          {closedEntry ? (
+                            <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-center">
+                              <p className="text-xs font-semibold text-red-600">🚫 Closed</p>
+                              {closedEntry.closed_reason && <p className="text-xs text-red-500 mt-0.5">{closedEntry.closed_reason}</p>}
+                              <button
+                                onClick={() => handleReopenDay(dateStr)}
+                                className="mt-2 text-xs text-red-600 underline hover:no-underline"
+                              >Reopen day</button>
+                            </div>
+                          ) : openEntries.length > 0 ? (
+                            openEntries.map((entry) => (
+                              <div key={entry.id} className="bg-[#F5F0E8] rounded-xl p-3">
+                                <p className="text-sm font-semibold text-[#1A1612] leading-tight">{entry.meal_name}</p>
+                                {entry.description && <p className="text-xs text-[#8C8278] mt-0.5 line-clamp-2">{entry.description}</p>}
+                                {entry.price !== null && <p className="text-sm font-bold text-[#C4622D] mt-1">R{Number(entry.price).toFixed(2)}</p>}
+                                <div className="flex gap-2 mt-2">
+                                  <button
+                                    onClick={() => openEditWeeklyMenuForm(entry)}
+                                    className="text-xs text-[#C4622D] font-semibold hover:underline"
+                                  >Edit</button>
+                                  <button
+                                    onClick={() => handleDeleteWeeklyEntry(entry)}
+                                    disabled={deletingWeeklyEntryId === entry.id}
+                                    className="text-xs text-red-500 font-semibold hover:underline disabled:opacity-50"
+                                  >{deletingWeeklyEntryId === entry.id ? '...' : 'Delete'}</button>
+                                </div>
+                              </div>
+                            ))
+                          ) : (
+                            <p className="text-xs text-[#B5ADA5] text-center py-2">No items</p>
+                          )}
+                        </div>
+
+                        {/* Day actions */}
+                        {!closedEntry && (
+                          <div className="px-3 pb-3 flex gap-2">
+                            <button
+                              onClick={() => openAddWeeklyMenuForm(dateStr)}
+                              className="flex-1 text-xs font-semibold text-[#C4622D] border border-[#C4622D] rounded-lg py-1.5 hover:bg-[#FDF3ED] transition-colors"
+                            >+ Add</button>
+                            <button
+                              onClick={() => { setClosingDayDate(dateStr); setClosingDayReason(''); }}
+                              className="flex-1 text-xs font-semibold text-red-600 border border-red-200 rounded-lg py-1.5 hover:bg-red-50 transition-colors"
+                            >Close Day</button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── STAFF MANAGEMENT TAB ── */}
+        {activeTab === 'staff' && (
+          <div>
+            {/* Invite Form Modal */}
+            {showInviteForm && (
+              <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto py-8 px-4">
+                <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl">
+                  <div className="flex items-center justify-between px-6 py-4 border-b border-[#EDE7DA]">
+                    <h2 className="font-bold text-[#1A1612] text-lg">Invite Staff Member</h2>
+                    <button
+                      onClick={() => { setShowInviteForm(false); setInviteError(''); setInviteSuccess(''); }}
+                      className="w-8 h-8 rounded-full bg-[#F5F0E8] flex items-center justify-center text-[#8C8278] hover:bg-[#EDE7DA] transition-colors"
+                    >✕</button>
+                  </div>
+                  <form onSubmit={handleInviteStaff} className="p-6 space-y-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">Full Name *</label>
+                      <input
+                        type="text"
+                        required
+                        value={inviteForm.full_name}
+                        onChange={(e) => setInviteForm({ ...inviteForm, full_name: e.target.value })}
+                        placeholder="Jane Smith"
+                        className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">Email *</label>
+                      <input
+                        type="email"
+                        required
+                        value={inviteForm.email}
+                        onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
+                        placeholder="jane@example.com"
+                        className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">Role</label>
+                      <select
+                        value={inviteForm.role}
+                        onChange={(e) => setInviteForm({ ...inviteForm, role: e.target.value as StaffRole })}
+                        className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] bg-white focus:outline-none focus:border-[#C4622D] transition-colors"
+                      >
+                        <option value="staff">Staff</option>
+                        <option value="admin">Admin</option>
+                        <option value="super_admin">Super Admin</option>
+                      </select>
+                    </div>
+                    {inviteError && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{inviteError}</p>}
+                    {inviteSuccess && <p className="text-sm text-green-700 bg-green-50 rounded-lg px-3 py-2">{inviteSuccess}</p>}
+                    <div className="flex gap-3 pt-2">
+                      <button type="button" onClick={() => setShowInviteForm(false)} className="flex-1 px-4 py-2.5 border border-[#DDD5C8] rounded-xl text-sm font-semibold text-[#5C5347] hover:bg-[#F5F0E8] transition-colors">Cancel</button>
+                      <button
+                        type="submit"
+                        disabled={inviting}
+                        className="flex-1 px-4 py-2.5 bg-purple-600 text-white rounded-xl text-sm font-semibold hover:bg-purple-700 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                      >
+                        {inviting ? <><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Sending...</> : '✉️ Send Invitation'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {/* Header */}
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-xl font-bold text-[#1A1612]">Staff Management</h2>
+                <p className="text-sm text-[#8C8278] mt-0.5">{staffMembers.length} team member{staffMembers.length !== 1 ? 's' : ''}</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={loadStaffMembers}
+                  disabled={staffLoading}
+                  className="flex items-center gap-2 px-4 py-2 bg-white border border-[#DDD5C8] rounded-xl text-sm font-medium text-[#5C5347] hover:bg-[#EDE7DA] transition-colors disabled:opacity-50"
+                >
+                  <svg className={`w-4 h-4 ${staffLoading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                  Refresh
+                </button>
+                <button
+                  onClick={() => { setShowInviteForm(true); setInviteError(''); setInviteSuccess(''); }}
+                  className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-xl text-sm font-semibold hover:bg-purple-700 transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+                  Invite Staff
+                </button>
+              </div>
+            </div>
+
+            {staffActionMsg && (
+              <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-4 text-red-700 text-sm">{staffActionMsg}</div>
+            )}
+            {resetPasswordMsg && (
+              <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 mb-4 text-green-700 text-sm">{resetPasswordMsg}</div>
+            )}
+
+            {staffLoading ? (
+              <div className="bg-white rounded-2xl border border-[#DDD5C8] p-12 flex flex-col items-center justify-center gap-3">
+                <div className="w-8 h-8 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" />
+                <p className="text-sm text-[#8C8278]">Loading staff...</p>
+              </div>
+            ) : staffMembers.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-[#DDD5C8] p-12 flex flex-col items-center justify-center gap-3 text-center">
+                <div className="w-14 h-14 rounded-full bg-purple-100 flex items-center justify-center">
+                  <svg className="w-6 h-6 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg>
+                </div>
+                <p className="text-[#5C5347] font-medium">No staff members found</p>
+                <p className="text-sm text-[#B5ADA5]">Invite your first team member to get started</p>
+              </div>
+            ) : (
+              <div className="bg-white rounded-2xl border border-[#DDD5C8] overflow-hidden">
+                <div className="hidden md:grid grid-cols-[2fr_1.5fr_1fr_1fr_auto] gap-4 px-5 py-3 bg-[#F5F0E8] border-b border-[#DDD5C8] text-xs font-semibold text-[#8C8278] uppercase tracking-wider">
+                  <span>Name</span>
+                  <span>Email</span>
+                  <span>Role</span>
+                  <span>Status</span>
+                  <span>Actions</span>
+                </div>
+                <div className="divide-y divide-[#EDE7DA]">
+                  {staffMembers.map((member) => (
+                    <div key={member.id} className="grid grid-cols-1 md:grid-cols-[2fr_1.5fr_1fr_1fr_auto] gap-4 px-5 py-4 items-center">
+                      <div>
+                        <p className="text-sm font-semibold text-[#1A1612]">{member.full_name || '—'}</p>
+                        <p className="text-xs text-[#B5ADA5] md:hidden">{member.email}</p>
+                      </div>
+                      <p className="hidden md:block text-sm text-[#5C5347] truncate">{member.email}</p>
+                      <div><RoleBadge role={member.role} /></div>
+                      <div>
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${member.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
+                          {member.is_active ? 'Active' : 'Suspended'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {member.id !== user?.id && (
+                          <>
+                            {member.is_active ? (
+                              <button
+                                onClick={() => handleSuspendStaff(member)}
+                                disabled={staffActionId === member.id}
+                                className="text-xs font-semibold text-red-600 border border-red-200 rounded-lg px-2.5 py-1 hover:bg-red-50 transition-colors disabled:opacity-50"
+                              >{staffActionId === member.id ? '...' : 'Suspend'}</button>
+                            ) : (
+                              <button
+                                onClick={() => handleReinstateStaff(member)}
+                                disabled={staffActionId === member.id}
+                                className="text-xs font-semibold text-green-700 border border-green-200 rounded-lg px-2.5 py-1 hover:bg-green-50 transition-colors disabled:opacity-50"
+                              >{staffActionId === member.id ? '...' : 'Reinstate'}</button>
+                            )}
+                            <button
+                              onClick={() => handleResetPassword(member)}
+                              disabled={resetPasswordId === member.id}
+                              className="text-xs font-semibold text-[#C4622D] border border-[#C4622D]/30 rounded-lg px-2.5 py-1 hover:bg-[#FDF3ED] transition-colors disabled:opacity-50"
+                            >{resetPasswordId === member.id ? '...' : 'Reset PW'}</button>
+                          </>
+                        )}
+                        {member.id === user?.id && (
+                          <span className="text-xs text-[#B5ADA5] italic">You</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
