@@ -8,7 +8,7 @@ import { useInactivityTimer } from '@/hooks/useInactivityTimer';
 import { APP_NAME } from "@/lib/constants";
 
 type BucketType = 'product-images' | 'event-photos';
-type WorkspaceTab = 'products' | 'media' | 'orders' | 'staff' | 'homepage_cards' | 'categories';
+type WorkspaceTab = 'products' | 'media' | 'orders' | 'staff' | 'homepage_cards' | 'categories' | 'weekly_menu';
 type ProductCategory = string;
 type StaffRole = 'admin' | 'staff' | 'super_admin';
 
@@ -72,6 +72,18 @@ interface HomepageCard {
   rating: number | null;
   is_visible: boolean;
   display_order: number;
+}
+
+interface WeeklyMenuEntry {
+  id: string;
+  meal_date: string;
+  day_name: string;
+  meal_name: string | null;
+  description: string | null;
+  price: number | null;
+  is_closed: boolean;
+  closed_reason: string | null;
+  created_at: string;
 }
 
 const CARD_TYPE_LABELS: Record<HomepageCard['card_type'], string> = {
@@ -212,42 +224,6 @@ export default function StaffWorkspacePage() {
   const [mediaPickerFiles, setMediaPickerFiles] = useState<StorageFile[]>([]);
   const [mediaPickerLoading, setMediaPickerLoading] = useState(false);
   const [selectedMediaPath, setSelectedMediaPath] = useState<string>('');
-
-  // Staff Management state
-  const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
-  const [staffLoading, setStaffLoading] = useState(false);
-  const [showInviteForm, setShowInviteForm] = useState(false);
-  const [inviteForm, setInviteForm] = useState(emptyInviteForm);
-  const [inviteError, setInviteError] = useState('');
-  const [inviteSuccess, setInviteSuccess] = useState('');
-  const [inviting, setInviting] = useState(false);
-  const [staffActionId, setStaffActionId] = useState<string | null>(null);
-  const [staffActionMsg, setStaffActionMsg] = useState('');
-  const [resetPasswordId, setResetPasswordId] = useState<string | null>(null);
-  const [resetPasswordMsg, setResetPasswordMsg] = useState('');
-
-  // Homepage Cards state
-  const [homepageCards, setHomepageCards] = useState<HomepageCard[]>([]);
-  const [cardsLoading, setCardsLoading] = useState(false);
-  const [editingCard, setEditingCard] = useState<HomepageCard | null>(null);
-  const [showCardForm, setShowCardForm] = useState(false);
-  const [cardForm, setCardForm] = useState<Partial<HomepageCard>>({});
-  const [cardFormError, setCardFormError] = useState('');
-  const [cardFormSuccess, setCardFormSuccess] = useState('');
-  const [savingCard, setSavingCard] = useState(false);
-  const [togglingCardId, setTogglingCardId] = useState<string | null>(null);
-
-  // Categories state
-  const [categoriesList, setCategoriesList] = useState<Category[]>([]);
-  const [categoriesLoading, setCategoriesLoading] = useState(false);
-  const [showCategoryForm, setShowCategoryForm] = useState(false);
-  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
-  const [categoryForm, setCategoryForm] = useState({ name: '', sort_order: '' });
-  const [categoryFormError, setCategoryFormError] = useState('');
-  const [categoryFormSuccess, setCategoryFormSuccess] = useState('');
-  const [savingCategory, setSavingCategory] = useState(false);
-  const [togglingCategoryId, setTogglingCategoryId] = useState<string | null>(null);
-  const [deletingCategoryId, setDeletingCategoryId] = useState<string | null>(null);
 
   // Dynamic categories from DB (for product form dropdowns)
   const [categories, setCategories] = useState<string[]>([]);
@@ -435,6 +411,140 @@ export default function StaffWorkspacePage() {
       console.log('Unexpected delete category error:', err);
     } finally {
       setDeletingCategoryId(null);
+    }
+  };
+
+  // ─── Weekly Menu CRUD ─────────────────────────────────────────────────────────
+
+  const loadWeeklyMenu = async () => {
+    setWeeklyMenuLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('weekly_menu')
+        .select('*')
+        .order('meal_date', { ascending: true });
+      if (error) {
+        console.log('Load weekly menu error:', error.message);
+        setWeeklyMenuEntries([]);
+        return;
+      }
+      setWeeklyMenuEntries((data || []) as WeeklyMenuEntry[]);
+    } catch (err) {
+      console.log('Unexpected error loading weekly menu:', err);
+      setWeeklyMenuEntries([]);
+    } finally {
+      setWeeklyMenuLoading(false);
+    }
+  };
+
+  const getDayNameFromDate = (dateStr: string): string => {
+    if (!dateStr) return '';
+    const d = new Date(dateStr + 'T00:00:00');
+    const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+    return days[d.getDay()] || '';
+  };
+
+  const openAddWeeklyMenuForm = () => {
+    setEditingWeeklyEntry(null);
+    setWeeklyMenuForm({ meal_date: '', day_name: '', meal_name: '', description: '', price: '', is_closed: false, closed_reason: '' });
+    setWeeklyMenuFormError('');
+    setWeeklyMenuFormSuccess('');
+    setShowWeeklyMenuForm(true);
+  };
+
+  const openEditWeeklyMenuForm = (entry: WeeklyMenuEntry) => {
+    setEditingWeeklyEntry(entry);
+    setWeeklyMenuForm({
+      meal_date: entry.meal_date,
+      day_name: entry.day_name,
+      meal_name: entry.meal_name || '',
+      description: entry.description || '',
+      price: entry.price !== null ? String(entry.price) : '',
+      is_closed: entry.is_closed,
+      closed_reason: entry.closed_reason || '',
+    });
+    setWeeklyMenuFormError('');
+    setWeeklyMenuFormSuccess('');
+    setShowWeeklyMenuForm(true);
+  };
+
+  const handleSaveWeeklyEntry = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setWeeklyMenuFormError('');
+    setWeeklyMenuFormSuccess('');
+
+    if (!weeklyMenuForm.meal_date) {
+      setWeeklyMenuFormError('Date is required.');
+      return;
+    }
+    if (!weeklyMenuForm.is_closed && !weeklyMenuForm.meal_name.trim()) {
+      setWeeklyMenuFormError('Meal name is required unless the day is closed.');
+      return;
+    }
+
+    setSavingWeeklyEntry(true);
+    try {
+      const dayName = getDayNameFromDate(weeklyMenuForm.meal_date);
+      const payload = {
+        meal_date: weeklyMenuForm.meal_date,
+        day_name: dayName || weeklyMenuForm.day_name,
+        meal_name: weeklyMenuForm.is_closed ? null : weeklyMenuForm.meal_name.trim() || null,
+        description: weeklyMenuForm.is_closed ? null : weeklyMenuForm.description.trim() || null,
+        price: weeklyMenuForm.is_closed ? null : (weeklyMenuForm.price ? Number(weeklyMenuForm.price) : null),
+        is_closed: weeklyMenuForm.is_closed,
+        closed_reason: weeklyMenuForm.is_closed ? weeklyMenuForm.closed_reason.trim() || null : null,
+      };
+
+      if (editingWeeklyEntry) {
+        const { error } = await supabase
+          .from('weekly_menu')
+          .update(payload)
+          .eq('id', editingWeeklyEntry.id);
+        if (error) {
+          setWeeklyMenuFormError(`Update failed: ${error.message}`);
+          return;
+        }
+        setWeeklyMenuFormSuccess('Entry updated successfully!');
+      } else {
+        const { error } = await supabase
+          .from('weekly_menu')
+          .insert(payload);
+        if (error) {
+          setWeeklyMenuFormError(`Create failed: ${error.message}`);
+          return;
+        }
+        setWeeklyMenuFormSuccess('Entry created successfully!');
+      }
+
+      await loadWeeklyMenu();
+      setTimeout(() => {
+        setShowWeeklyMenuForm(false);
+        setWeeklyMenuFormSuccess('');
+      }, 1200);
+    } catch (err) {
+      setWeeklyMenuFormError('An unexpected error occurred.');
+    } finally {
+      setSavingWeeklyEntry(false);
+    }
+  };
+
+  const handleDeleteWeeklyEntry = async (entry: WeeklyMenuEntry) => {
+    if (!confirm(`Delete menu entry for ${entry.day_name} ${entry.meal_date}?`)) return;
+    setDeletingWeeklyEntryId(entry.id);
+    try {
+      const { error } = await supabase
+        .from('weekly_menu')
+        .delete()
+        .eq('id', entry.id);
+      if (error) {
+        console.log('Delete weekly entry error:', error.message);
+        return;
+      }
+      setWeeklyMenuEntries((prev) => prev.filter((e) => e.id !== entry.id));
+    } catch (err) {
+      console.log('Unexpected delete weekly entry error:', err);
+    } finally {
+      setDeletingWeeklyEntryId(null);
     }
   };
 
@@ -1045,7 +1155,7 @@ export default function StaffWorkspacePage() {
               className="text-sm font-medium text-gray-300 hover:text-white transition-colors px-3 py-1.5 rounded-lg hover:bg-gray-800 flex items-center gap-1.5"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125H8.25ZM6.75 12h.008v.008H6.75V12Zm0 3h.008v.008H6.75V15Zm0 3h.008v.008H6.75V18Z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125H8.25ZM6.75 12h.008v.008H6.75V12Zm0 3h.008v.008H6.75V15Zm0 3h.008v.008H6.75V18Z" />
               </svg>
               Orders
             </a>
@@ -1116,6 +1226,14 @@ export default function StaffWorkspacePage() {
               }`}
             >
               🏠 Homepage Cards
+            </button>
+            <button
+              onClick={() => { setActiveTab('weekly_menu'); if (weeklyMenuEntries.length === 0) loadWeeklyMenu(); }}
+              className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${
+                activeTab === 'weekly_menu' ? 'border-[#C4622D] text-[#C4622D]' : 'border-transparent text-[#8C8278] hover:text-[#5C5347]'
+              }`}
+            >
+              📅 Weekly Menu
             </button>
           </div>
         </div>
@@ -1520,7 +1638,7 @@ export default function StaffWorkspacePage() {
                             title="Edit"
                           >
                             <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v12a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                             </svg>
                           </button>
                           <button
@@ -1533,7 +1651,7 @@ export default function StaffWorkspacePage() {
                               <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
                             ) : (
                               <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0016.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                               </svg>
                             )}
                           </button>
@@ -1629,7 +1747,7 @@ export default function StaffWorkspacePage() {
                 className="flex items-center gap-2 bg-[#C4622D] text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors shadow-sm"
               >
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                 </svg>
                 Add Category
               </button>
@@ -1647,7 +1765,7 @@ export default function StaffWorkspacePage() {
               <div className="text-center py-20 bg-white rounded-2xl border border-[#DDD5C8]">
                 <div className="text-5xl mb-3">🏷️</div>
                 <p className="text-[#5C5347] font-semibold">No categories yet</p>
-                <p className="text-[#B0A89E] text-sm mt-1 mb-4">Add your first category to get started</p>
+                <p className="text-[#B0A89E] text-sm mt-1">Add your first category to get started</p>
                 <button
                   onClick={openAddCategoryForm}
                   className="bg-[#C4622D] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors"
@@ -1716,7 +1834,7 @@ export default function StaffWorkspacePage() {
                         title="Edit category"
                       >
                         <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v12a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                         </svg>
                       </button>
                       <button
@@ -1805,7 +1923,7 @@ export default function StaffWorkspacePage() {
                 {uploading ? (
                   <><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Uploading...</>
                 ) : (
-                  <><svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-1m-4-6l-4-4m0 0L8 8m4-4v6" /></svg>Upload Images</>
+                  <><svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>Upload Images</>
                 )}
               </label>
             </div>
@@ -1854,7 +1972,7 @@ export default function StaffWorkspacePage() {
                         <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
                       ) : (
                         <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v12a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                         </svg>
                       )}
                     </button>
@@ -2154,7 +2272,7 @@ export default function StaffWorkspacePage() {
                         title="Edit card"
                       >
                         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125" />
                         </svg>
                       </button>
                     </div>
@@ -2244,7 +2362,9 @@ export default function StaffWorkspacePage() {
                       <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">{inviteError}</div>
                     )}
                     {inviteSuccess && (
-                      <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-xl px-4 py-3">{inviteSuccess}</div>
+                      <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-xl px-4 py-3 flex items-center gap-2">
+                        {inviteSuccess}
+                      </div>
                     )}
                     <div className="flex gap-3 pt-1">
                       <button
@@ -2366,7 +2486,7 @@ export default function StaffWorkspacePage() {
                               <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
                             ) : (
                               <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 015.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
                               </svg>
                             )}
                             Suspend
@@ -2417,6 +2537,248 @@ export default function StaffWorkspacePage() {
                 You cannot suspend your own account.
               </p>
             </div>
+          </div>
+        )}
+
+        {/* ── WEEKLY MENU TAB ── */}
+        {activeTab === 'weekly_menu' && (
+          <div>
+            {/* Weekly Menu Form Modal */}
+            {showWeeklyMenuForm && (
+              <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto py-8 px-4">
+                <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl">
+                  <div className="flex items-center justify-between px-6 py-4 border-b border-[#EDE7DA]">
+                    <h2 className="font-bold text-[#1A1612] text-lg">
+                      {editingWeeklyEntry ? 'Edit Menu Entry' : 'Add Menu Entry'}
+                    </h2>
+                    <button
+                      onClick={() => setShowWeeklyMenuForm(false)}
+                      className="w-8 h-8 rounded-full bg-[#F5F0E8] flex items-center justify-center text-[#8C8278] hover:bg-[#EDE7DA] transition-colors"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <form onSubmit={handleSaveWeeklyEntry} className="p-6 space-y-4">
+                    {/* Date */}
+                    <div>
+                      <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Date *</label>
+                      <input
+                        type="date"
+                        value={weeklyMenuForm.meal_date}
+                        onChange={(e) => setWeeklyMenuForm({ ...weeklyMenuForm, meal_date: e.target.value })}
+                        className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
+                        required
+                      />
+                    </div>
+
+                    {/* Is Closed Toggle */}
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setWeeklyMenuForm({ ...weeklyMenuForm, is_closed: !weeklyMenuForm.is_closed })}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                          weeklyMenuForm.is_closed ? 'bg-red-500' : 'bg-[#DDD5C8]'
+                        }`}
+                      >
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          weeklyMenuForm.is_closed ? 'translate-x-6' : 'translate-x-1'
+                        }`} />
+                      </button>
+                      <span className="text-sm font-semibold text-[#3D3530]">Closed for the day</span>
+                    </div>
+
+                    {weeklyMenuForm.is_closed ? (
+                      <div>
+                        <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Closed Reason</label>
+                        <input
+                          type="text"
+                          value={weeklyMenuForm.closed_reason}
+                          onChange={(e) => setWeeklyMenuForm({ ...weeklyMenuForm, closed_reason: e.target.value })}
+                          placeholder="e.g. Closed for the day of Eid"
+                          className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
+                        />
+                      </div>
+                    ) : (
+                      <>
+                        <div>
+                          <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Meal Name *</label>
+                          <input
+                            type="text"
+                            value={weeklyMenuForm.meal_name}
+                            onChange={(e) => setWeeklyMenuForm({ ...weeklyMenuForm, meal_name: e.target.value })}
+                            placeholder="e.g. Prawn Orzotto"
+                            className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Description</label>
+                          <input
+                            type="text"
+                            value={weeklyMenuForm.description}
+                            onChange={(e) => setWeeklyMenuForm({ ...weeklyMenuForm, description: e.target.value })}
+                            placeholder="e.g. Creamy rice pasta"
+                            className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Price (R)</label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={weeklyMenuForm.price}
+                            onChange={(e) => setWeeklyMenuForm({ ...weeklyMenuForm, price: e.target.value })}
+                            placeholder="e.g. 240"
+                            className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    {weeklyMenuFormError && (
+                      <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{weeklyMenuFormError}</p>
+                    )}
+                    {weeklyMenuFormSuccess && (
+                      <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">{weeklyMenuFormSuccess}</p>
+                    )}
+
+                    <div className="flex gap-3 pt-2">
+                      <button
+                        type="submit"
+                        disabled={savingWeeklyEntry}
+                        className="flex-1 bg-[#C4622D] text-white py-2.5 rounded-xl font-semibold text-sm hover:bg-[#A04E22] transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+                      >
+                        {savingWeeklyEntry && (
+                          <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                          </svg>
+                        )}
+                        {editingWeeklyEntry ? 'Save Changes' : 'Add Entry'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowWeeklyMenuForm(false)}
+                        className="px-5 py-2.5 rounded-xl border border-[#DDD5C8] text-[#5C5347] text-sm font-semibold hover:bg-[#F5F0E8] transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {/* Header */}
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-xl font-bold text-[#1A1612]">Weekly Menu</h2>
+                <p className="text-sm text-[#8C8278] mt-0.5">Manage daily meal entries for the weekly menu</p>
+              </div>
+              <button
+                onClick={openAddWeeklyMenuForm}
+                className="bg-[#C4622D] text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-all flex items-center gap-2"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+                Add Entry
+              </button>
+            </div>
+
+            {weeklyMenuLoading ? (
+              <div className="space-y-3">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <div key={i} className="h-16 bg-[#EDE7DA] rounded-xl animate-pulse" />
+                ))}
+              </div>
+            ) : weeklyMenuEntries.length === 0 ? (
+              <div className="text-center py-16 bg-white rounded-2xl border border-[#EDE7DA]">
+                <div className="text-4xl mb-3">📅</div>
+                <p className="text-[#5C5347] font-semibold">No menu entries yet</p>
+                <p className="text-sm text-[#B5ADA5] mt-1">Add your first weekly menu entry to get started.</p>
+              </div>
+            ) : (
+              <div className="bg-white rounded-2xl border border-[#EDE7DA] overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-[#F5F0E8] border-b border-[#EDE7DA]">
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wide">Date</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wide">Day</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wide">Meal</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wide hidden md:table-cell">Description</th>
+                      <th className="text-right px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wide">Price</th>
+                      <th className="text-center px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wide">Status</th>
+                      <th className="text-right px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wide">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#F0EAE0]">
+                    {weeklyMenuEntries.map((entry) => (
+                      <tr key={entry.id} className="hover:bg-[#FDFAF6] transition-colors">
+                        <td className="px-4 py-3 font-medium text-[#1A1612]">
+                          {new Date(entry.meal_date + 'T00:00:00').toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </td>
+                        <td className="px-4 py-3 text-[#5C5347] font-semibold">{entry.day_name}</td>
+                        <td className="px-4 py-3 text-[#1A1612]">
+                          {entry.is_closed ? (
+                            <span className="text-[#B5ADA5] italic">{entry.closed_reason || 'Closed'}</span>
+                          ) : (
+                            entry.meal_name || '—'
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-[#8C8278] hidden md:table-cell max-w-xs truncate">
+                          {entry.is_closed ? '—' : (entry.description || '—')}
+                        </td>
+                        <td className="px-4 py-3 text-right font-semibold text-[#1A1612]">
+                          {entry.is_closed ? '—' : (entry.price !== null ? `R${Number(entry.price).toFixed(0)}` : '—')}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          {entry.is_closed ? (
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-red-100 text-red-700">
+                              Closed
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-green-100 text-green-700">
+                              Active
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => openEditWeeklyMenuForm(entry)}
+                              className="p-1.5 rounded-lg text-[#8C8278] hover:text-[#C4622D] hover:bg-[#FDF6F0] transition-colors"
+                              title="Edit"
+                            >
+                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 012.652 2.652L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={() => handleDeleteWeeklyEntry(entry)}
+                              disabled={deletingWeeklyEntryId === entry.id}
+                              className="p-1.5 rounded-lg text-[#8C8278] hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
+                              title="Delete"
+                            >
+                              {deletingWeeklyEntryId === entry.id ? (
+                                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                </svg>
+                              ) : (
+                                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0016.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              )}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
       </main>

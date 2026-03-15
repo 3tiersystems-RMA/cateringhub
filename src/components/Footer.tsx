@@ -21,6 +21,9 @@ export default function Footer() {
             <Link href="/products" className="hover:text-[#C4622D] transition-colors">
               Menu & Order
             </Link>
+            <Link href="/weekly-menu" className="hover:text-[#C4622D] transition-colors">
+              Weekly Menu
+            </Link>
             <a href="#services" className="hover:text-[#C4622D] transition-colors">
               Services
             </a>
