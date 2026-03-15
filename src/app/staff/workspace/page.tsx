@@ -2025,7 +2025,7 @@ export default function StaffWorkspacePage() {
                               <div className="absolute inset-0 bg-[#C4622D]/20 flex items-center justify-center">
                                 <div className="w-6 h-6 rounded-full bg-[#C4622D] flex items-center justify-center">
                                   <svg className="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4m0 0l-4 4m4-4H3" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 012 2h11a2 2 0 012-2v-5m-1.414-9.414a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
                                   </svg>
                                 </div>
                               </div>
@@ -2892,12 +2892,12 @@ export default function StaffWorkspacePage() {
                             <p className="text-xl font-bold text-white">{selectedVoucher.total_meals}</p>
                           </div>
                           <div>
-                            <p className="text-xs text-white/40 mb-0.5">Remaining</p>
-                            <p className="text-xl font-bold text-green-400">{selectedVoucher.meals_remaining}</p>
-                          </div>
-                          <div>
                             <p className="text-xs text-white/40 mb-0.5">Used</p>
                             <p className="text-xl font-bold text-[#C4622D]">{selectedVoucher.total_meals - selectedVoucher.meals_remaining}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-white/40 mb-0.5">Remaining</p>
+                            <p className="text-xl font-bold text-green-400">{selectedVoucher.meals_remaining}</p>
                           </div>
                         </div>
                       </div>
