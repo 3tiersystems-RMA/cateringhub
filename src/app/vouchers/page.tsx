@@ -45,6 +45,9 @@ const BANK_DETAILS = {
   branchCode: "450105",
 };
 
+const formatPrice = (amount: number): string =>
+  `R ${amount.toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
 type Step = "select" | "details" | "confirmation" | "eft-pending";
 
 function generateVoucherCode(): string {
@@ -192,7 +195,7 @@ Purchase a Meal Voucher
                       <p className="text-3xl font-bold text-[#C4622D] mt-1">
                         {pkg.meals} <span className="text-base font-medium text-[#8C8278]">meals</span>
                       </p>
-                      <p className="text-xl font-semibold text-[#1A1612] mt-1">R{pkg.price.toFixed(2)}</p>
+                      <p className="text-xl font-semibold text-[#1A1612] mt-1">{formatPrice(pkg.price)}</p>
                       <p className="text-xs text-[#8C8278] mt-0.5">
                         R{(pkg.price / pkg.meals).toFixed(2)} per meal
                       </p>
@@ -252,7 +255,7 @@ Purchase a Meal Voucher
                   <p className="text-xs text-[#8C8278] font-medium">Selected Package</p>
                   <p className="font-display font-bold text-[#1A1612]">{selectedPackage.label} — {selectedPackage.meals} meals</p>
                 </div>
-                <p className="text-xl font-bold text-[#C4622D]">R{selectedPackage.price.toFixed(2)}</p>
+                <p className="text-xl font-bold text-[#C4622D]">{formatPrice(selectedPackage.price)}</p>
               </div>
 
               <div className="bg-white rounded-2xl border border-[#DDD5C8] p-6">
@@ -343,7 +346,7 @@ Purchase a Meal Voucher
                     ) : (
                       <>
                         <Icon name="TicketIcon" size={14} />
-                        Continue to Payment — R{selectedPackage.price.toFixed(2)}
+                        Continue to Payment — {formatPrice(selectedPackage.price)}
                       </>
                     )}
                   </button>
@@ -377,7 +380,7 @@ Purchase a Meal Voucher
                       <span>·</span>
                       <span>{selectedPackage.label}</span>
                       <span>·</span>
-                      <span>R{selectedPackage.price.toFixed(2)}</span>
+                      <span>{formatPrice(selectedPackage.price)}</span>
                     </div>
                   </div>
                 </div>
@@ -401,7 +404,7 @@ Purchase a Meal Voucher
                       { label: "Account Name", value: BANK_DETAILS.accountName },
                       { label: "Account Number", value: BANK_DETAILS.accountNumber },
                       { label: "Branch Code", value: BANK_DETAILS.branchCode },
-                      { label: "Amount", value: `R${selectedPackage.price.toFixed(2)}` },
+                      { label: "Amount", value: formatPrice(selectedPackage.price) },
                       { label: "Reference", value: issuedCode },
                     ].map(({ label, value }) => (
                       <div key={label} className="flex justify-between items-center py-1.5 border-b border-[#DDD5C8] last:border-0">
@@ -500,7 +503,7 @@ Purchase a Meal Voucher
                     { label: "Name", value: form.name },
                     { label: "Email", value: form.email },
                     { label: "Package", value: `${selectedPackage.label} — ${selectedPackage.meals} meals` },
-                    { label: "Amount Paid", value: `R${selectedPackage.price.toFixed(2)}` },
+                    { label: "Amount Paid", value: formatPrice(selectedPackage.price) },
                     { label: "Status", value: "⏳ Awaiting Verification" },
                   ].map(({ label, value }) => (
                     <div key={label} className="flex justify-between items-center py-1 border-b border-[#DDD5C8] last:border-0">
