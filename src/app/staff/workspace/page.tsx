@@ -106,7 +106,7 @@ interface Voucher {
   customer_phone: string;
   total_meals: number;
   meals_remaining: number;
-  status: 'active' | 'redeemed' | 'expired' | 'unpaid' | 'paid';
+  status: 'redeemed' | 'expired' | 'unpaid' | 'paid';
   purchased_at: string;
   notes: string | null;
 }
@@ -1503,7 +1503,7 @@ export default function StaffWorkspacePage() {
         customer_phone: issueVoucherForm.customer_phone.trim(),
         total_meals: meals,
         meals_remaining: meals,
-        status: 'active',
+        status: 'unpaid',
         notes: issueVoucherForm.notes.trim() || null,
         package_type: pkgTypeMap[meals] || 'none',
       });
@@ -1968,7 +1968,7 @@ export default function StaffWorkspacePage() {
                               <div className="absolute inset-0 bg-[#C4622D]/20 flex items-center justify-center">
                                 <div className="w-6 h-6 rounded-full bg-[#C4622D] flex items-center justify-center">
                                   <svg className="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4m0 0l-4 4m4-4H3" />
                                   </svg>
                                 </div>
                               </div>
@@ -2998,9 +2998,9 @@ export default function StaffWorkspacePage() {
                             </td>
                             <td className="px-4 py-3 text-center">
                               <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                                voucher.status === 'active' || voucher.status === 'paid' ?'bg-green-100 text-green-700'
-                                  : voucher.status === 'unpaid' ?'bg-amber-100 text-amber-700'
-                                  : voucher.status === 'redeemed' ?'bg-[#F5F0E8] text-[#8C8278]' :'bg-red-100 text-red-600'
+voucher.status === 'paid' ? 'bg-green-100 text-green-700'
+: voucher.status === 'unpaid' ? 'bg-amber-100 text-amber-700'
+: voucher.status === 'redeemed' ? 'bg-[#F5F0E8] text-[#8C8278]' : 'bg-red-100 text-red-600'
                               }`}>
                                 {voucher.status.charAt(0).toUpperCase() + voucher.status.slice(1)}
                               </span>
