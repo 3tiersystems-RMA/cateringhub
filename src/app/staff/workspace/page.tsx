@@ -3292,13 +3292,13 @@ export default function StaffWorkspacePage() {
                 <div className="divide-y divide-[#EDE7DA]">
                   {staffMembers.map((member) => (
                     <div key={member.id} className="grid grid-cols-1 md:grid-cols-[2fr_1.5fr_1fr_1fr_auto] gap-4 px-5 py-4 items-center">
-                      <div>
+                      <div className="min-w-0">
                         <p className="text-sm font-semibold text-[#1A1612]">{member.full_name || '—'}</p>
                         <p className="text-xs text-[#B5ADA5] md:hidden">{member.email}</p>
                       </div>
-                      <p className="hidden md:block text-sm text-[#5C5347] truncate">{member.email}</p>
-                      <div><RoleBadge role={member.role} /></div>
-                      <div>
+                      <p className="hidden md:block text-sm text-[#5C5347] truncate min-w-0">{member.email}</p>
+                      <div className="flex items-center"><RoleBadge role={member.role} /></div>
+                      <div className="flex items-center">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${member.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
                           {member.is_active ? 'Active' : 'Suspended'}
                         </span>
