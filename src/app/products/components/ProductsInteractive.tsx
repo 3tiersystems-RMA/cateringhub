@@ -9,6 +9,7 @@ import CartSidebar from "./CartSidebar";
 import ProductModal from "./ProductModal";
 import { CartProvider, useCart } from "./CartContext";
 import { createClient } from "@/lib/supabase/client";
+import type { VoucherData } from "./CartContext";
 
 interface Product {
   id: string;
@@ -60,6 +61,159 @@ function CartButton() {
   );
 }
 
+const PACKAGE_LABEL: Record<string, string> = {
+  "package-6": "6-Meal Package",
+  "package-12": "12-Meal Package",
+  "package-24": "24-Meal Package",
+};
+
+function ApplyVoucherBanner() {
+  const { appliedVoucher, setAppliedVoucher, items, clearCart } = useCart();
+  const supabase = createClient();
+
+  const [showInput, setShowInput] = useState(false);
+  const [voucherCode, setVoucherCode] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleApply = async () => {
+    setError("");
+    const code = voucherCode.trim().toUpperCase();
+    if (!code) { setError("Please enter a voucher code."); return; }
+    setLoading(true);
+    try {
+      const { data, error: dbErr } = await supabase
+        .from("vouchers")
+        .select("voucher_code, customer_name, customer_email, customer_phone, total_meals, meals_remaining, status, package_type")
+        .eq("voucher_code", code)
+        .single();
+
+      if (dbErr || !data) { setError("Voucher code not found. Please check and try again."); return; }
+      if (data.status === "unpaid") {
+        setError("This voucher has not been paid for yet. Please complete your EFT payment at the Meal Vouchers page first.");
+        return;
+      }
+      if (data.status !== "active" && data.status !== "paid") {
+        setError(`This voucher is ${data.status} and cannot be used.`);
+        return;
+      }
+      if (data.meals_remaining <= 0) { setError("This voucher has no meals remaining."); return; }
+
+      setAppliedVoucher(data as VoucherData);
+      setShowInput(false);
+      setVoucherCode("");
+    } catch {
+      setError("Failed to validate voucher. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRemove = () => {
+    setAppliedVoucher(null);
+    setVoucherCode("");
+    setError("");
+    setShowInput(false);
+  };
+
+  if (appliedVoucher) {
+    const pkgLabel = PACKAGE_LABEL[appliedVoucher.package_type || ""] || appliedVoucher.package_type;
+    return (
+      <div className="mb-8 bg-green-50 border border-green-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <div className="w-9 h-9 rounded-xl bg-green-100 flex items-center justify-center flex-shrink-0">
+            <Icon name="TicketIcon" size={18} className="text-green-600" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm font-bold text-green-800">Voucher Active</span>
+              <span className="text-xs font-mono font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded-full">{appliedVoucher.voucher_code}</span>
+              {pkgLabel && (
+                <span className="text-xs font-semibold text-green-700 bg-green-100 px-2 py-0.5 rounded-full">🎟 {pkgLabel}</span>
+              )}
+            </div>
+            <p className="text-xs text-green-600 mt-0.5">
+              {appliedVoucher.meals_remaining} meal(s) remaining · Showing only matching package products below
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={handleRemove}
+          className="flex items-center gap-1.5 text-xs font-semibold text-green-600 hover:text-red-500 transition-colors border border-green-200 hover:border-red-200 px-3 py-1.5 rounded-full"
+        >
+          <Icon name="XMarkIcon" size={12} />
+          Remove Voucher
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mb-8 bg-[#FFF8F3] border border-[#C4622D]/20 rounded-2xl p-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-[#C4622D]/10 flex items-center justify-center flex-shrink-0">
+            <Icon name="TicketIcon" size={18} className="text-[#C4622D]" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-[#1A1612]">Have a Meal Voucher?</p>
+            <p className="text-xs text-[#8C8278]">Apply your voucher code to unlock your package meals</p>
+          </div>
+        </div>
+        {!showInput && (
+          <button
+            onClick={() => setShowInput(true)}
+            className="flex items-center gap-2 bg-[#C4622D] text-white px-4 py-2 rounded-full text-xs font-semibold hover:bg-[#A04E22] transition-all flex-shrink-0"
+          >
+            <Icon name="TicketIcon" size={13} />
+            Apply Voucher
+          </button>
+        )}
+      </div>
+      {showInput && (
+        <div className="mt-3 pt-3 border-t border-[#C4622D]/10">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={voucherCode}
+              onChange={(e) => { setVoucherCode(e.target.value.toUpperCase()); setError(""); }}
+              onKeyDown={(e) => e.key === "Enter" && handleApply()}
+              placeholder="e.g. CK-2026-XXXX"
+              className="flex-1 bg-white border border-[#DDD5C8] rounded-xl px-3 py-2.5 text-sm text-[#1A1612] placeholder-[#B5ADA5] focus:outline-none focus:border-[#C4622D] font-mono transition-colors"
+              autoFocus
+            />
+            <button
+              onClick={handleApply}
+              disabled={loading}
+              className="bg-[#C4622D] text-white px-4 py-2.5 rounded-xl text-xs font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-70 flex items-center gap-1.5"
+            >
+              {loading ? (
+                <svg className="animate-spin h-3 w-3" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                </svg>
+              ) : "Apply"}
+            </button>
+            <button
+              onClick={() => { setShowInput(false); setVoucherCode(""); setError(""); }}
+              className="p-2.5 rounded-xl border border-[#DDD5C8] text-[#8C8278] hover:bg-[#F5F0E8] transition-colors"
+              aria-label="Cancel"
+            >
+              <Icon name="XMarkIcon" size={14} />
+            </button>
+          </div>
+          {error && (
+            <p className="mt-2 text-xs text-red-500 flex items-center gap-1">
+              <Icon name="ExclamationCircleIcon" size={12} />
+              {error}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ProductsContent() {
   const [activeCategory, setActiveCategory] = useState<string>("All");
   const router = useRouter();
@@ -71,7 +225,7 @@ function ProductsContent() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [modalAdded, setModalAdded] = useState(false);
   const sectionRef = useRef<HTMLDivElement>(null);
-  const { addItem } = useCart();
+  const { addItem, appliedVoucher } = useCart();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -79,7 +233,6 @@ function ProductsContent() {
       try {
         const supabase = createClient();
 
-        // Fetch active categories from DB
         const { data: catData } = await supabase
           .from('categories')
           .select('name')
@@ -89,7 +242,6 @@ function ProductsContent() {
         const activeCategories = (catData || []).map((c: any) => c.name as string);
         setCategories(activeCategories);
 
-        // Fetch products
         const { data, error } = await supabase
           .from('products')
           .select('*')
@@ -144,6 +296,11 @@ function ProductsContent() {
   const filtered = useMemo(() => {
     let result = products;
 
+    // If a voucher is applied, only show products matching the voucher's package_type
+    if (appliedVoucher?.package_type && appliedVoucher.package_type !== "none") {
+      result = result.filter((p) => p.packageType === appliedVoucher.package_type);
+    }
+
     if (activeCategory !== "All") {
       result = result.filter((p) => p.category === activeCategory);
     }
@@ -168,7 +325,7 @@ function ProductsContent() {
       default:
         return result;
     }
-  }, [activeCategory, search, sortBy, products]);
+  }, [activeCategory, search, sortBy, products, appliedVoucher]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -207,12 +364,20 @@ function ProductsContent() {
     setTimeout(() => setModalAdded(false), 1800);
   };
 
-  // Build display categories: All + Weekly Menu first + remaining active categories from DB
   const displayCategories = [
     "All",
     "Weekly Menu",
     ...categories.filter((c) => c !== "Weekly Menu"),
   ];
+
+  // When voucher is active, count products for the active category from filtered set
+  const getCategoryCount = (cat: string) => {
+    if (appliedVoucher?.package_type && appliedVoucher.package_type !== "none") {
+      const voucherFiltered = products.filter((p) => p.packageType === appliedVoucher.package_type);
+      return cat === "All" ? voucherFiltered.length : voucherFiltered.filter((p) => p.category === cat).length;
+    }
+    return cat === "All" ? products.length : products.filter((p) => p.category === cat).length;
+  };
 
   return (
     <>
@@ -246,6 +411,9 @@ function ProductsContent() {
             <CartButton />
           </div>
         </div>
+
+        {/* ─── Apply Voucher Banner ─── */}
+        <ApplyVoucherBanner />
 
         {/* Filters & Search */}
         <div className="flex flex-col sm:flex-row gap-4 mb-8">
@@ -285,35 +453,42 @@ function ProductsContent() {
           </div>
         </div>
 
-        {/* Category Tabs — only active categories from DB */}
-        <div className="flex flex-wrap gap-2 mb-10">
-          {displayCategories.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => {
-                if (cat === "Weekly Menu") {
-                  router.push("/weekly-menu");
-                } else {
-                  setActiveCategory(cat);
-                }
-              }}
-              className={`px-5 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-                activeCategory === cat
-                  ? "bg-[#C4622D] text-white shadow-terra"
-                  : "bg-white border border-[#DDD5C8] text-[#5C5347] hover:border-[#C4622D]/40 hover:text-[#C4622D]"
-              }`}
-            >
-              {cat}
-              <span
-                className={`ml-2 text-xs ${
-                  activeCategory === cat ? "text-white/70" : "text-[#B5ADA5]"
+        {/* Category Tabs — hidden when voucher is active (products already filtered) */}
+        {!appliedVoucher?.package_type || appliedVoucher.package_type === "none" ? (
+          <div className="flex flex-wrap gap-2 mb-10">
+            {displayCategories.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => {
+                  if (cat === "Weekly Menu") {
+                    router.push("/weekly-menu");
+                  } else {
+                    setActiveCategory(cat);
+                  }
+                }}
+                className={`px-5 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                  activeCategory === cat
+                    ? "bg-[#C4622D] text-white shadow-terra"
+                    : "bg-white border border-[#DDD5C8] text-[#5C5347] hover:border-[#C4622D]/40 hover:text-[#C4622D]"
                 }`}
               >
-                {cat !== "Weekly Menu" && `(${cat === "All" ? products.length : products.filter((p) => p.category === cat).length})`}
-              </span>
-            </button>
-          ))}
-        </div>
+                {cat}
+                <span
+                  className={`ml-2 text-xs ${
+                    activeCategory === cat ? "text-white/70" : "text-[#B5ADA5]"
+                  }`}
+                >
+                  {cat !== "Weekly Menu" && `(${getCategoryCount(cat)})`}
+                </span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="mb-10 flex items-center gap-2 text-sm text-[#8C8278]">
+            <Icon name="FunnelIcon" size={14} className="text-[#C4622D]" />
+            <span>Showing <strong className="text-[#1A1612]">{PACKAGE_LABEL[appliedVoucher.package_type]}</strong> products only — remove voucher to browse all items</span>
+          </div>
+        )}
 
         {/* Results count */}
         <div className="flex items-center justify-between mb-6">
@@ -362,13 +537,19 @@ function ProductsContent() {
                 <div className="w-16 h-16 rounded-full bg-[#EDE7DA] flex items-center justify-center">
                   <Icon name="FaceFrownIcon" size={28} className="text-[#B5ADA5]" />
                 </div>
-                <p className="text-[#8C8278] text-base font-medium">No items match your search.</p>
-                <button
-                  onClick={() => { setSearch(""); setActiveCategory("All"); }}
-                  className="text-sm font-semibold text-[#C4622D] hover:underline"
-                >
-                  Clear filters
-                </button>
+                <p className="text-[#8C8278] text-base font-medium">
+                  {appliedVoucher?.package_type && appliedVoucher.package_type !== "none"
+                    ? `No ${PACKAGE_LABEL[appliedVoucher.package_type] || "package"} products are available yet.`
+                    : "No items match your search."}
+                </p>
+                {(!appliedVoucher?.package_type || appliedVoucher.package_type === "none") && (
+                  <button
+                    onClick={() => { setSearch(""); setActiveCategory("All"); }}
+                    className="text-sm font-semibold text-[#C4622D] hover:underline"
+                  >
+                    Clear filters
+                  </button>
+                )}
               </div>
             )}
           </div>

@@ -43,6 +43,7 @@ export interface VoucherData {
   voucher_code: string;
   customer_name: string;
   customer_email: string;
+  customer_phone?: string;
   total_meals: number;
   meals_remaining: number;
   status: string;

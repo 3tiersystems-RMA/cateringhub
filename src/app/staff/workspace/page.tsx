@@ -118,6 +118,11 @@ interface VoucherRedemption {
   meals_used: number;
   redeemed_at: string;
   notes: string | null;
+  customer_name?: string;
+  customer_email?: string;
+  meals_remaining_before?: number;
+  meals_remaining_after?: number;
+  products_ordered?: Array<{ id: string; name: string; quantity: number; category: string; price: number }>;
 }
 
 const CARD_TYPE_LABELS: Record<HomepageCard['card_type'], string> = {
@@ -216,6 +221,115 @@ function InactivityWarningModal({
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── Redemption Audit Row ─────────────────────────────────────────────────────
+function RedemptionAuditRow({ redemption, index }: { redemption: VoucherRedemption; index: number }) {
+  const [expanded, setExpanded] = useState(false);
+  const hasProducts = redemption.products_ordered && redemption.products_ordered.length > 0;
+  const hasAuditData = redemption.meals_remaining_before !== undefined && redemption.meals_remaining_after !== undefined;
+
+  return (
+    <div className="border border-[#DDD5C8] rounded-xl overflow-hidden">
+      {/* Row header — always visible, clickable */}
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center justify-between px-4 py-3 bg-[#F5F0E8] hover:bg-[#EDE7DA] transition-colors text-left"
+      >
+        <div className="flex items-center gap-3">
+          <span className="w-6 h-6 rounded-full bg-[#C4622D] text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
+            {index}
+          </span>
+          <div>
+            <p className="text-xs font-semibold text-[#1A1612]">
+              Order: <span className="font-mono text-[#C4622D]">{redemption.order_id || '—'}</span>
+            </p>
+            <p className="text-xs text-[#8C8278]">
+              {new Date(redemption.redeemed_at).toLocaleDateString('en-ZA', {
+                day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+              })}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="text-right">
+            <p className="text-sm font-bold text-[#C4622D]">-{redemption.meals_used} meal{redemption.meals_used !== 1 ? 's' : ''}</p>
+            {hasAuditData && (
+              <p className="text-xs text-[#8C8278]">{redemption.meals_remaining_before} → {redemption.meals_remaining_after} remaining</p>
+            )}
+          </div>
+          <svg
+            className={`w-4 h-4 text-[#8C8278] transition-transform ${expanded ? 'rotate-180' : ''}`}
+            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
+      </button>
+
+      {/* Expanded detail */}
+      {expanded && (
+        <div className="px-4 py-4 bg-white space-y-3 border-t border-[#DDD5C8]">
+          {/* Customer info */}
+          {(redemption.customer_name || redemption.customer_email) && (
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              {redemption.customer_name && (
+                <div>
+                  <p className="text-[#8C8278] mb-0.5">Customer</p>
+                  <p className="font-semibold text-[#1A1612]">{redemption.customer_name}</p>
+                </div>
+              )}
+              {redemption.customer_email && (
+                <div>
+                  <p className="text-[#8C8278] mb-0.5">Email</p>
+                  <p className="font-semibold text-[#1A1612] break-all">{redemption.customer_email}</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Balance change */}
+          {hasAuditData && (
+            <div className="bg-[#F5F0E8] rounded-lg px-3 py-2 flex items-center justify-between text-xs">
+              <span className="text-[#8C8278]">Balance before</span>
+              <span className="font-bold text-[#1A1612]">{redemption.meals_remaining_before} meals</span>
+              <svg className="w-4 h-4 text-[#C4622D]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+              </svg>
+              <span className="font-bold text-green-700">{redemption.meals_remaining_after} meals</span>
+              <span className="text-[#8C8278]">Balance after</span>
+            </div>
+          )}
+
+          {/* Products ordered */}
+          {hasProducts && (
+            <div>
+              <p className="text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-2">Products Ordered</p>
+              <div className="space-y-1">
+                {redemption.products_ordered!.map((p, i) => (
+                  <div key={i} className="flex items-center justify-between text-xs py-1 border-b border-[#F0EBE3] last:border-0">
+                    <div className="flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-[#EDE7DA] text-[#5C5347] text-xs font-bold flex items-center justify-center flex-shrink-0">
+                        {p.quantity}
+                      </span>
+                      <span className="text-[#1A1612] font-medium">{p.name}</span>
+                      <span className="text-[#B5ADA5]">· {p.category}</span>
+                    </div>
+                    <span className="font-semibold text-[#1A1612]">R{(p.price * p.quantity).toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Notes */}
+          {redemption.notes && (
+            <p className="text-xs text-[#8C8278] italic">{redemption.notes}</p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -923,6 +1037,7 @@ export default function StaffWorkspacePage() {
       min_order: product.min_order ? String(product.min_order) : '',
       available: product.available,
       featured: product.featured,
+      sort_order: product.sort_order,
       package_type: product.package_type || 'none',
     });
     setProductImageFile(null);
@@ -1830,10 +1945,10 @@ export default function StaffWorkspacePage() {
                         </svg>
                       </div>
                     ) : mediaPickerFiles.length === 0 ? (
-                      <div className="text-center py-16">
-                        <span className="text-4xl mb-3 block">🖼️</span>
-                        <p className="text-[#5C5347] font-semibold">No images yet</p>
-                        <p className="text-[#B0A89E] text-sm mt-1">Upload your first image above</p>
+                      <div className="text-center py-16 bg-white rounded-2xl border border-[#DDD5C8]">
+                        <div className="text-4xl mb-3">🖼️</div>
+                        <p className="text-[#8C8278] font-medium">No images yet</p>
+                        <p className="text-sm text-[#B5ADA5] mt-1">Upload your first image above</p>
                       </div>
                     ) : (
                       <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
@@ -2308,7 +2423,7 @@ export default function StaffWorkspacePage() {
                         <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
                       ) : (
                         <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 012 2h11a2 2 0 012-2v-5m-1.414-9.414a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
                         </svg>
                       )}
                     </button>
@@ -2765,7 +2880,14 @@ export default function StaffWorkspacePage() {
 
                     {/* Redemption history */}
                     <div>
-                      <h3 className="font-semibold text-[#1A1612] text-sm mb-3">Redemption History</h3>
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-semibold text-[#1A1612] text-sm">Redemption Audit Trail</h3>
+                        {voucherRedemptions.length > 0 && (
+                          <span className="text-xs text-[#8C8278] bg-[#F5F0E8] px-2.5 py-0.5 rounded-full font-mono">
+                            {voucherRedemptions.length} event{voucherRedemptions.length !== 1 ? 's' : ''}
+                          </span>
+                        )}
+                      </div>
                       {redemptionsLoading ? (
                         <div className="flex justify-center py-6">
                           <svg className="animate-spin h-6 w-6 text-[#C4622D]" viewBox="0 0 24 24" fill="none">
@@ -2778,19 +2900,9 @@ export default function StaffWorkspacePage() {
                           No redemptions yet for this voucher.
                         </div>
                       ) : (
-                        <div className="space-y-2">
-                          {voucherRedemptions.map((r) => (
-                            <div key={r.id} className="bg-[#F5F0E8] rounded-xl p-3 flex items-center justify-between">
-                              <div>
-                                <p className="text-xs font-semibold text-[#1A1612]">Order: {r.order_id || '—'}</p>
-                                <p className="text-xs text-[#8C8278]">{new Date(r.redeemed_at).toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
-                                {r.notes && <p className="text-xs text-[#B5ADA5] mt-0.5">{r.notes}</p>}
-                              </div>
-                              <div className="text-right">
-                                <p className="text-sm font-bold text-[#C4622D]">-{r.meals_used}</p>
-                                <p className="text-xs text-[#8C8278]">meal{r.meals_used !== 1 ? 's' : ''}</p>
-                              </div>
-                            </div>
+                        <div className="space-y-3">
+                          {voucherRedemptions.map((r, idx) => (
+                            <RedemptionAuditRow key={r.id} redemption={r} index={voucherRedemptions.length - idx} />
                           ))}
                         </div>
                       )}

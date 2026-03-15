@@ -205,11 +205,22 @@ export default function CartSidebar() {
         .update({ meals_remaining: newRemaining, status: newStatus })
         .eq("voucher_code", voucherData.voucher_code);
 
-      // Insert redemption record
+      // Insert redemption record with full audit trail
       await supabase.from("voucher_redemptions").insert({
         voucher_code: voucherData.voucher_code,
         order_id: newRef,
         meals_used: mealsToDeduct,
+        customer_name: form.name || voucherData.customer_name,
+        customer_email: form.email || voucherData.customer_email,
+        meals_remaining_before: voucherData.meals_remaining,
+        meals_remaining_after: newRemaining,
+        products_ordered: items.map((i) => ({
+          id: i.product.id,
+          name: i.product.name,
+          quantity: i.quantity,
+          category: i.product.category,
+          price: i.product.price,
+        })),
         notes: `Order ${newRef} — ${mealsToDeduct} meal(s) redeemed`,
       });
 
