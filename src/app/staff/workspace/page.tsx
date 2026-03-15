@@ -2095,7 +2095,7 @@ export default function StaffWorkspacePage() {
                           <button
                             onClick={() => handleDeleteProduct(product)}
                             disabled={deletingProductId === product.id}
-                            className="w-8 h-8 rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors disabled:opacity-50"
+                            className="w-8 h-8 rounded-lg bg-red-500 flex items-center justify-center text-white hover:bg-red-600 transition-colors disabled:opacity-50"
                             title="Delete"
                           >
                             {deletingProductId === product.id ? (
