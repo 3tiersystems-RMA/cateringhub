@@ -98,57 +98,69 @@ export default function ServicesSection() {
 
         {/* Bento Grid */}
         <div className="grid lg:grid-cols-3 lg:grid-rows-2 gap-4">
-          {services?.map((svc) =>
-          <div
-            key={svc?.id}
-            className={`srv-reveal reveal hidden-init group relative overflow-hidden rounded-4xl bg-[#EDE7DA] border border-[#DDD5C8] hover:border-[#C4622D]/40 transition-all duration-500 cursor-pointer ${svc?.span} ${svc?.tall ? "min-h-[500px]" : "min-h-[240px]"}`}>
-            
-              {/* Image */}
-              <div className="absolute inset-0">
-                <AppImage
-                src={svc?.image}
-                alt={svc?.imageAlt}
-                fill
-                className="object-cover grayscale group-hover:grayscale-0 group-hover:scale-105 transition-all duration-700 opacity-60 group-hover:opacity-80" />
+          {services?.map((svc) => {
+            const cardContent = (
+              <div
+                key={svc?.id}
+                className={`srv-reveal reveal hidden-init group relative overflow-hidden rounded-4xl bg-[#EDE7DA] border border-[#DDD5C8] hover:border-[#C4622D]/40 transition-all duration-500 cursor-pointer ${svc?.span} ${svc?.tall ? "min-h-[500px]" : "min-h-[240px]"}`}>
               
-                <div className="absolute inset-0 bg-gradient-to-t from-[#1A1612]/80 via-[#1A1612]/20 to-transparent" />
-              </div>
-
-              {/* Content */}
-              <div className="relative z-10 h-full flex flex-col justify-between p-7">
-                <div className="flex items-start justify-between">
-                  <span className={`text-xs font-semibold px-3 py-1 rounded-full ${svc?.badgeColor}`}>
-                    {svc?.badge}
-                  </span>
-                  <div className="w-9 h-9 rounded-full bg-white/10 border border-white/20 flex items-center justify-center backdrop-blur-sm group-hover:bg-[#C4622D] group-hover:border-[#C4622D] transition-all duration-300">
-                    <Icon name="ArrowRightIcon" size={14} className="text-white" />
-                  </div>
+                {/* Image */}
+                <div className="absolute inset-0">
+                  <AppImage
+                  src={svc?.image}
+                  alt={svc?.imageAlt}
+                  fill
+                  className="object-cover grayscale group-hover:grayscale-0 group-hover:scale-105 transition-all duration-700 opacity-60 group-hover:opacity-80" />
+                
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#1A1612]/80 via-[#1A1612]/20 to-transparent" />
                 </div>
 
-                <div>
-                  <p className="text-[#D97B4A] text-xs font-mono uppercase tracking-widest mb-2">
-                    {svc?.stat}
-                  </p>
-                  <h3 className="font-display text-xl md:text-2xl font-semibold text-white mb-2">
-                    {svc?.label}
-                  </h3>
-                  <p className="text-white/65 text-sm leading-relaxed mb-4 hidden group-hover:block transition-all">
-                    {svc?.description}
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {svc?.features?.map((f) =>
-                  <span
-                    key={f}
-                    className="text-xs text-white/60 bg-white/10 px-2.5 py-1 rounded-full border border-white/15">
-                    
-                        {f}
-                      </span>
-                  )}
+                {/* Content */}
+                <div className="relative z-10 h-full flex flex-col justify-between p-7">
+                  <div className="flex items-start justify-between">
+                    <span className={`text-xs font-semibold px-3 py-1 rounded-full ${svc?.badgeColor}`}>
+                      {svc?.badge}
+                    </span>
+                    <div className="w-9 h-9 rounded-full bg-white/10 border border-white/20 flex items-center justify-center backdrop-blur-sm group-hover:bg-[#C4622D] group-hover:border-[#C4622D] transition-all duration-300">
+                      <Icon name="ArrowRightIcon" size={14} className="text-white" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-[#D97B4A] text-xs font-mono uppercase tracking-widest mb-2">
+                      {svc?.stat}
+                    </p>
+                    <h3 className="font-display text-xl md:text-2xl font-semibold text-white mb-2">
+                      {svc?.label}
+                    </h3>
+                    <p className="text-white/65 text-sm leading-relaxed mb-4 hidden group-hover:block transition-all">
+                      {svc?.description}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {svc?.features?.map((f) =>
+                    <span
+                      key={f}
+                      className="text-xs text-white/60 bg-white/10 px-2.5 py-1 rounded-full border border-white/15">
+                      
+                          {f}
+                        </span>
+                    )}
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          )}
+            );
+
+            if (svc?.id === "meals") {
+              return (
+                <Link key={svc?.id} href="/weekly-menu" className={`${svc?.span} block`}>
+                  {cardContent}
+                </Link>
+              );
+            }
+
+            return cardContent;
+          })}
         </div>
 
         {/* Bottom CTA */}
