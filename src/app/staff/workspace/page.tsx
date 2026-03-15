@@ -455,6 +455,27 @@ export default function StaffWorkspacePage() {
   const [markingVoucherPaidId, setMarkingVoucherPaidId] = useState<string | null>(null);
   const [loadingMarkingPaid, setLoadingMarkingPaid] = useState(false);
 
+  // Delete confirmation modal state
+  const [deleteModal, setDeleteModal] = useState<{
+    isOpen: boolean;
+    productName: string;
+    message?: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    productName: '',
+    message: '',
+    onConfirm: () => {},
+  });
+
+  const openDeleteModal = (productName: string, onConfirm: () => void, message?: string) => {
+    setDeleteModal({ isOpen: true, productName, onConfirm, message });
+  };
+
+  const closeDeleteModal = () => {
+    setDeleteModal((prev) => ({ ...prev, isOpen: false }));
+  };
+
   useEffect(() => {
     const init = async () => {
       const { data: { user: currentUser } } = await supabase.auth.getUser();
@@ -1588,26 +1609,6 @@ export default function StaffWorkspacePage() {
     }
   };
 
-  const [deleteModal, setDeleteModal] = useState<{
-    isOpen: boolean;
-    productName: string;
-    message?: string;
-    onConfirm: () => void;
-  }>({
-    isOpen: false,
-    productName: '',
-    message: '',
-    onConfirm: () => {},
-  });
-
-  const openDeleteModal = (productName: string, onConfirm: () => void, message?: string) => {
-    setDeleteModal({ isOpen: true, productName, onConfirm, message });
-  };
-
-  const closeDeleteModal = () => {
-    setDeleteModal((prev) => ({ ...prev, isOpen: false }));
-  };
-
   return (
     <>
       <DeleteConfirmModal
@@ -2738,7 +2739,7 @@ export default function StaffWorkspacePage() {
                           {card.is_visible ? 'Visible' : 'Hidden'}
                         </button>
                         <button
-                          onClick={() => openCardForm(card)}
+                          onClick={() => openCardEditForm(card)}
                           className="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors"
                           title="Edit card"
                         >
