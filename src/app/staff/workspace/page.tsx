@@ -1342,7 +1342,15 @@ export default function StaffWorkspacePage() {
                 activeTab === 'orders' ? 'border-[#C4622D] text-[#C4622D]' : 'border-transparent text-[#8C8278] hover:text-[#5C5347]'
               }`}
             >
-              📋 Orders
+📋 Orders
+            </button>
+            <button
+              onClick={() => { setActiveTab('weekly_menu'); setWeekOffset(0); loadWeeklyMenu(0); }}
+              className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${
+                activeTab === 'weekly_menu' ? 'border-[#C4622D] text-[#C4622D]' : 'border-transparent text-[#8C8278] hover:text-[#5C5347]'
+              }`}
+            >
+📅 Weekly Menu
             </button>
             {isSuperAdmin && (
               <button
@@ -1360,15 +1368,7 @@ export default function StaffWorkspacePage() {
                 activeTab === 'homepage_cards' ? 'border-[#C4622D] text-[#C4622D]' : 'border-transparent text-[#8C8278] hover:text-[#5C5347]'
               }`}
             >
-              🏠 Homepage Cards
-            </button>
-            <button
-              onClick={() => { setActiveTab('weekly_menu'); setWeekOffset(0); loadWeeklyMenu(0); }}
-              className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${
-                activeTab === 'weekly_menu' ? 'border-[#C4622D] text-[#C4622D]' : 'border-transparent text-[#8C8278] hover:text-[#5C5347]'
-              }`}
-            >
-              📅 Weekly Menu
+🏠 Homepage Cards
             </button>
           </div>
         </div>
@@ -1421,7 +1421,7 @@ export default function StaffWorkspacePage() {
                             className="text-sm font-medium text-white bg-[#C4622D] px-4 py-2 rounded-lg hover:bg-[#A04E22] transition-colors flex items-center gap-2"
                           >
                             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-12.142A2 2 0 016.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M4 12l4.586-12.142A2 2 0 018.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                             </svg>
                             {productImagePreview ? 'Change from Media Library' : 'Choose from Media Library'}
                           </button>
