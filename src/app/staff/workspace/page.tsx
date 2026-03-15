@@ -34,6 +34,7 @@ interface Product {
   available: boolean;
   featured: boolean;
   sort_order: number;
+  package_type: string;
   imageUrl?: string;
 }
 
@@ -142,6 +143,8 @@ const emptyForm = {
   min_order: '',
   available: true,
   featured: false,
+  sort_order: 0,
+  package_type: 'none',
 };
 
 const emptyInviteForm = {
@@ -920,6 +923,7 @@ export default function StaffWorkspacePage() {
       min_order: product.min_order ? String(product.min_order) : '',
       available: product.available,
       featured: product.featured,
+      package_type: product.package_type || 'none',
     });
     setProductImageFile(null);
     setProductImagePreview(product.imageUrl || '');
@@ -1032,6 +1036,7 @@ export default function StaffWorkspacePage() {
         available: form.available,
         featured: form.featured,
         image_path: imagePath,
+        package_type: form.package_type || 'none',
       };
 
       if (editingProduct) {
@@ -1375,6 +1380,7 @@ export default function StaffWorkspacePage() {
     setIssuingVoucher(true);
     try {
       const code = generateVoucherCode();
+      const pkgTypeMap: Record<number, string> = { 6: 'package-6', 12: 'package-12', 24: 'package-24' };
       const { error } = await supabase.from('vouchers').insert({
         voucher_code: code,
         customer_name: issueVoucherForm.customer_name.trim(),
@@ -1384,6 +1390,7 @@ export default function StaffWorkspacePage() {
         meals_remaining: meals,
         status: 'active',
         notes: issueVoucherForm.notes.trim() || null,
+        package_type: pkgTypeMap[meals] || 'none',
       });
 
       if (error) {
@@ -1460,7 +1467,7 @@ export default function StaffWorkspacePage() {
               className="text-sm font-medium text-gray-300 hover:text-white transition-colors px-3 py-1.5 rounded-lg hover:bg-gray-800 flex items-center gap-1.5"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2 2 0 002 2v12a2 2 0 00-2 2h-16.94a2 2 0 00-1.71 3h16.94a2 2 0 001.71-3L13.828 15H9v-2.828l8.586-8.586z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2 2 0 002 2v12a2 2 0 00-2 2h-16.94a2 2 0 00-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
               </svg>
               Orders
             </a>
@@ -1721,6 +1728,22 @@ export default function StaffWorkspacePage() {
                       </div>
                     </div>
 
+                    {/* Package Type */}
+                    <div>
+                      <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Package Type</label>
+                      <select
+                        value={form.package_type}
+                        onChange={(e) => setForm({ ...form, package_type: e.target.value })}
+                        className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors bg-white"
+                      >
+                        <option value="none">None — Regular product (no voucher required)</option>
+                        <option value="package-6">6-Meal Package — Requires a 6-meal voucher</option>
+                        <option value="package-12">12-Meal Package — Requires a 12-meal voucher</option>
+                        <option value="package-24">24-Meal Package — Requires a 24-meal voucher</option>
+                      </select>
+                      <p className="text-xs text-[#B0A89E] mt-1">Tag this product to a voucher package tier. Customers must hold a matching paid voucher to order.</p>
+                    </div>
+
                     {/* Toggles */}
                     <div className="flex gap-6">
                       <label className="flex items-center gap-2.5 cursor-pointer">
@@ -1809,7 +1832,7 @@ export default function StaffWorkspacePage() {
                     ) : mediaPickerFiles.length === 0 ? (
                       <div className="text-center py-16">
                         <span className="text-4xl mb-3 block">🖼️</span>
-                        <p className="text-[#5C5347] font-semibold mb-1">No images yet</p>
+                        <p className="text-[#5C5347] font-semibold">No images yet</p>
                         <p className="text-[#B0A89E] text-sm mt-1">Upload your first image above</p>
                       </div>
                     ) : (
@@ -2131,7 +2154,7 @@ export default function StaffWorkspacePage() {
                         title={cat.active ? 'Click to deactivate' : 'Click to activate'}
                       >
                         {togglingCategoryId === cat.id ? (
-                          <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth={4} /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                          <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
                         ) : (
                           <span className={`w-1.5 h-1.5 rounded-full ${cat.active ? 'bg-green-500' : 'bg-[#B5ADA5]'}`} />
                         )}
@@ -2258,8 +2281,8 @@ export default function StaffWorkspacePage() {
             ) : files.length === 0 ? (
               <div className="text-center py-16 bg-white rounded-2xl border border-[#DDD5C8]">
                 <div className="text-4xl mb-3">{activeBucket === 'product-images' ? '🍽️' : '📸'}</div>
-                <p className="text-[#5C5347] font-semibold">No images yet</p>
-                <p className="text-[#B0A89E] text-sm mt-1">Upload your first image above</p>
+                <p className="text-[#8C8278] font-medium">No images yet</p>
+                <p className="text-sm text-[#B5ADA5] mt-1">Upload your first image above</p>
               </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">

@@ -25,6 +25,7 @@ interface Product {
   minOrder?: number;
   badge?: string;
   available: boolean;
+  packageType?: string;
 }
 
 function CartButton() {
@@ -125,6 +126,7 @@ function ProductsContent() {
               minOrder: p.min_order || undefined,
               badge: p.badge || undefined,
               available: p.available,
+              packageType: p.package_type || 'none',
             } as Product;
           })
         );

@@ -17,6 +17,7 @@ export interface CartProduct {
   minOrder?: number;
   badge?: string;
   available: boolean;
+  packageType?: string;
 }
 
 export interface CartItem {
@@ -34,6 +35,18 @@ interface CartContextType {
   subtotal: number;
   isOpen: boolean;
   setIsOpen: (v: boolean) => void;
+  appliedVoucher: VoucherData | null;
+  setAppliedVoucher: (v: VoucherData | null) => void;
+}
+
+export interface VoucherData {
+  voucher_code: string;
+  customer_name: string;
+  customer_email: string;
+  total_meals: number;
+  meals_remaining: number;
+  status: string;
+  package_type?: string;
 }
 
 const CartContext = createContext<CartContextType | null>(null);
@@ -41,6 +54,7 @@ const CartContext = createContext<CartContextType | null>(null);
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [isOpen, setIsOpen] = useState(false);
+  const [appliedVoucher, setAppliedVoucher] = useState<VoucherData | null>(null);
 
   const addItem = useCallback((product: CartProduct, qty = 1) => {
     setItems((prev) => {
@@ -76,7 +90,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   return (
     <CartContext.Provider
-      value={{ items, addItem, removeItem, updateQty, clearCart, totalItems, subtotal, isOpen, setIsOpen }}
+      value={{ items, addItem, removeItem, updateQty, clearCart, totalItems, subtotal, isOpen, setIsOpen, appliedVoucher, setAppliedVoucher }}
     >
       {children}
     </CartContext.Provider>

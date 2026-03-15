@@ -4,6 +4,7 @@ import { useState } from "react";
 import AppImage from "@/components/ui/AppImage";
 import Icon from "@/components/ui/AppIcon";
 import { useCart } from "./CartContext";
+import type { VoucherData } from "./CartContext";
 import { APP_NAME } from "@/lib/constants";
 import { createClient } from "@/lib/supabase/client";
 
@@ -19,17 +20,8 @@ const BANK_DETAILS = {
   branchCode: "450105",
 };
 
-interface VoucherData {
-  voucher_code: string;
-  customer_name: string;
-  customer_email: string;
-  total_meals: number;
-  meals_remaining: number;
-  status: string;
-}
-
 export default function CartSidebar() {
-  const { items, removeItem, updateQty, subtotal, totalItems, isOpen, setIsOpen, clearCart } = useCart();
+  const { items, removeItem, updateQty, subtotal, totalItems, isOpen, setIsOpen, clearCart, appliedVoucher, setAppliedVoucher } = useCart();
   const supabase = createClient();
   const [step, setStep] = useState<CheckoutStep>("cart");
   const [form, setForm] = useState({
@@ -69,7 +61,7 @@ export default function CartSidebar() {
     try {
       const { data, error } = await supabase
         .from("vouchers")
-        .select("voucher_code, customer_name, customer_email, total_meals, meals_remaining, status")
+        .select("voucher_code, customer_name, customer_email, total_meals, meals_remaining, status, package_type")
         .eq("voucher_code", code)
         .single();
 
@@ -91,8 +83,30 @@ export default function CartSidebar() {
         setVoucherError("This voucher has no meals remaining.");
         return;
       }
-      setVoucherData(data as VoucherData);
+
+      // Check if any cart items belong to a different package tier
+      const vPkg = data.package_type || "none";
+      const mismatchedItems = items.filter((i) => {
+        const iPkg = i.product.packageType || "none";
+        if (iPkg === "none") return false; // non-package items are fine
+        return iPkg !== vPkg;
+      });
+      if (mismatchedItems.length > 0) {
+        const labels: Record<string, string> = {
+          "package-6": "6-Meal Package",
+          "package-12": "12-Meal Package",
+          "package-24": "24-Meal Package",
+        };
+        setVoucherError(
+          `Your cart contains items from a different package tier. This voucher is for the ${labels[vPkg] || vPkg}. Please remove mismatched items first.`
+        );
+        return;
+      }
+
+      const voucherResult = data as VoucherData;
+      setVoucherData(voucherResult);
       setVoucherApplied(true);
+      setAppliedVoucher(voucherResult);
       setSelectedMethod("voucher");
       // Pre-fill name and email from voucher
       setForm((prev) => ({
@@ -112,6 +126,7 @@ export default function CartSidebar() {
     setVoucherApplied(false);
     setVoucherCode("");
     setVoucherError("");
+    setAppliedVoucher(null);
     if (selectedMethod === "voucher") setSelectedMethod("eft");
   };
 
@@ -1029,7 +1044,9 @@ export default function CartSidebar() {
                   <li>• Log in to your bank and make an EFT payment to the account above.</li>
                   <li>• Use <span className="font-bold">{orderRef}</span> as your payment reference.</li>
                   <li>• Your order will be confirmed once we receive your payment.</li>
-                  <li>• A confirmation email will be sent to <span className="font-medium">{form.email}</span>.</li>
+                  <li>• A confirmation email will be sent to <span className="font-medium">{form.email}</span>{" "}
+                    within 2 hours.
+                  </li>
                 </ul>
               </div>
             )}

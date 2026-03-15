@@ -93,6 +93,8 @@ export default function VouchersPage() {
     try {
       const code = generateVoucherCode();
       // Insert voucher with 'unpaid' status — becomes 'paid' only after staff verification
+      // Map total_meals to package_type
+      const pkgTypeMap: Record<number, string> = { 6: "package-6", 12: "package-12", 24: "package-24" };
       const { error } = await supabase.from("vouchers").insert({
         voucher_code: code,
         customer_name: form.name.trim(),
@@ -102,6 +104,7 @@ export default function VouchersPage() {
         meals_remaining: selectedPackage.meals,
         status: "unpaid",
         notes: form.notes.trim() || null,
+        package_type: pkgTypeMap[selectedPackage.meals] || "none",
       });
 
       if (error) {

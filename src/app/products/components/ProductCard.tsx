@@ -11,15 +11,41 @@ interface ProductCardProps {
   onOpenModal?: (product: CartProduct) => void;
 }
 
+const PACKAGE_LABEL: Record<string, string> = {
+  "package-6": "6-Meal Package",
+  "package-12": "12-Meal Package",
+  "package-24": "24-Meal Package",
+};
+
+const PACKAGE_VOUCHER_MAP: Record<string, string> = {
+  "package-6": "package-6",
+  "package-12": "package-12",
+  "package-24": "package-24",
+};
+
 export default function ProductCard({ product, onOpenModal }: ProductCardProps) {
-  const { addItem } = useCart();
+  const { addItem, appliedVoucher, setIsOpen } = useCart();
   const [added, setAdded] = useState(false);
 
   const isSoldOut = !product.available || product.badge === "Sold Out";
+  const isPackageProduct = product.packageType && product.packageType !== "none";
+
+  // Determine if this package product is unlocked by the applied voucher
+  const voucherPackageType = appliedVoucher?.package_type;
+  const isUnlockedByVoucher =
+    isPackageProduct && voucherPackageType === product.packageType;
+
+  // Package product with no voucher or wrong voucher tier
+  const isVoucherRequired = isPackageProduct && !isUnlockedByVoucher;
 
   const handleAdd = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (isSoldOut) return;
+    if (isVoucherRequired) {
+      // Open cart sidebar so customer can enter their voucher
+      setIsOpen(true);
+      return;
+    }
     addItem(product);
     setAdded(true);
     setTimeout(() => setAdded(false), 1800);
@@ -56,6 +82,11 @@ export default function ProductCard({ product, onOpenModal }: ProductCardProps) 
           {!product.available && (
             <span className="text-xs font-semibold bg-[#8C8278] text-white px-2.5 py-0.5 rounded-full">
               Sold Out
+            </span>
+          )}
+          {isPackageProduct && (
+            <span className="text-xs font-semibold bg-[#1A1612] text-white px-2.5 py-0.5 rounded-full flex items-center gap-1">
+              🎟 {PACKAGE_LABEL[product.packageType!] || "Package"}
             </span>
           )}
         </div>
@@ -118,31 +149,54 @@ export default function ProductCard({ product, onOpenModal }: ProductCardProps) 
               </p>
             )}
           </div>
-          <button
-            onClick={handleAdd}
-            disabled={isSoldOut}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-xs font-semibold transition-all duration-300 ${
-              added
-                ? "bg-green-500 text-white scale-95"
-                : isSoldOut
-                ? "bg-[#EDE7DA] text-[#B5ADA5] cursor-not-allowed"
-                : "bg-[#C4622D] text-white hover:bg-[#A04E22] hover:shadow-terra"
-            }`}
-            aria-label={`Add ${product.name} to cart`}
-          >
-            {added ? (
-              <>
-                <Icon name="CheckIcon" size={14} />
-                Added!
-              </>
-            ) : (
-              <>
-                <Icon name="PlusIcon" size={14} />
-                Add
-              </>
-            )}
-          </button>
+          {isVoucherRequired ? (
+            <button
+              onClick={handleAdd}
+              className="flex items-center gap-1.5 px-3 py-2.5 rounded-full text-xs font-semibold transition-all duration-300 bg-amber-50 border border-amber-300 text-amber-700 hover:bg-amber-100"
+              aria-label={`Enter a voucher to order ${product.name}`}
+            >
+              <Icon name="TicketIcon" size={13} />
+              Enter Voucher
+            </button>
+          ) : (
+            <button
+              onClick={handleAdd}
+              disabled={isSoldOut}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-xs font-semibold transition-all duration-300 ${
+                added
+                  ? "bg-green-500 text-white scale-95"
+                  : isSoldOut
+                  ? "bg-[#EDE7DA] text-[#B5ADA5] cursor-not-allowed"
+                  : "bg-[#C4622D] text-white hover:bg-[#A04E22] hover:shadow-terra"
+              }`}
+              aria-label={`Add ${product.name} to cart`}
+            >
+              {added ? (
+                <>
+                  <Icon name="CheckIcon" size={14} />
+                  Added!
+                </>
+              ) : (
+                <>
+                  <Icon name="PlusIcon" size={14} />
+                  Add
+                </>
+              )}
+            </button>
+          )}
         </div>
+
+        {/* Voucher hint for package products */}
+        {isVoucherRequired && (
+          <p className="text-xs text-amber-600 mt-2 text-center">
+            Requires a valid {PACKAGE_LABEL[product.packageType!] || "package"} voucher
+          </p>
+        )}
+        {isUnlockedByVoucher && (
+          <p className="text-xs text-green-600 mt-2 text-center flex items-center justify-center gap-1">
+            <Icon name="CheckIcon" size={11} /> Voucher applied — ready to order
+          </p>
+        )}
       </div>
     </article>
   );
