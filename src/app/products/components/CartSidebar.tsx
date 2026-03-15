@@ -61,7 +61,7 @@ export default function CartSidebar() {
     try {
       const { data, error } = await supabase
         .from("vouchers")
-        .select("voucher_code, customer_name, customer_email, total_meals, meals_remaining, status, package_type")
+        .select("voucher_code, customer_name, customer_email, customer_phone, total_meals, meals_remaining, status, package_type")
         .eq("voucher_code", code)
         .single();
 
@@ -113,6 +113,7 @@ export default function CartSidebar() {
         ...prev,
         name: prev.name || data.customer_name,
         email: prev.email || data.customer_email,
+        phone: prev.phone || data.customer_phone || "",
       }));
     } catch {
       setVoucherError("Failed to validate voucher. Please try again.");
