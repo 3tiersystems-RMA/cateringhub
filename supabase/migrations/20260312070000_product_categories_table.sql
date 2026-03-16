@@ -58,9 +58,10 @@ VALUES
     ('Packaged Meals',    'packaged-meals',    true, 2),
     ('À La Carte',        'a-la-carte',        true, 3),
     ('Frozen Meals',      'frozen-meals',      true, 4)
-ON CONFLICT (slug) DO UPDATE
-    SET name = EXCLUDED.name,
-        sort_order = EXCLUDED.sort_order;
+ON CONFLICT (name) DO UPDATE
+    SET slug       = EXCLUDED.slug,
+        sort_order = EXCLUDED.sort_order,
+        active     = EXCLUDED.active;
 
 -- ─── 4. Convert products.category from enum to TEXT ──────────────────────────
 -- Step 4a: Add a temporary text column
