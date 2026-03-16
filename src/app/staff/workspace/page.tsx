@@ -482,6 +482,8 @@ export default function StaffWorkspacePage() {
   const [staffActionMsg, setStaffActionMsg] = useState('');
   const [resetPasswordId, setResetPasswordId] = useState<string | null>(null);
   const [resetPasswordMsg, setResetPasswordMsg] = useState('');
+  const [staffRoleFilter, setStaffRoleFilter] = useState<string>('all');
+  const [staffStatusFilter, setStaffStatusFilter] = useState<string>('all');
 
   // Homepage cards state
   const [homepageCards, setHomepageCards] = useState<HomepageCard[]>([]);
@@ -1523,6 +1525,15 @@ export default function StaffWorkspacePage() {
     const matchesPayment = wsFilterPayment === 'all' || order.payment_status === wsFilterPayment;
     const matchesFulfillment = wsFilterFulfillment === 'all' || order.fulfillment_status === wsFilterFulfillment;
     return matchesSearch && matchesPayment && matchesFulfillment;
+  });
+
+  const filteredStaffMembers = staffMembers.filter((member) => {
+    const matchesRole = staffRoleFilter === 'all' || member.role === staffRoleFilter;
+    const matchesStatus =
+      staffStatusFilter === 'all' ||
+      (staffStatusFilter === 'active' && member.is_active) ||
+      (staffStatusFilter === 'suspended' && !member.is_active);
+    return matchesRole && matchesStatus;
   });
 
   const buckets: { id: BucketType; label: string; description: string; icon: string }[] = [
@@ -3267,6 +3278,40 @@ export default function StaffWorkspacePage() {
               <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 mb-4 text-green-700 text-sm">{resetPasswordMsg}</div>
             )}
 
+            {/* Role & Status filter pills */}
+            <div className="flex flex-wrap gap-3 mb-4">
+              <div className="flex gap-2 flex-wrap">
+                {(['all', 'staff', 'admin', 'super_admin'] as const).map((role) => (
+                  <button
+                    key={role}
+                    onClick={() => setStaffRoleFilter(role)}
+                    className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                      staffRoleFilter === role
+                        ? 'bg-[#C4622D] text-white'
+                        : 'bg-white border border-[#DDD5C8] text-[#5C5347] hover:border-[#C4622D]'
+                    }`}
+                  >
+                    {role === 'all' ? 'All Roles' : role === 'super_admin' ? 'Super Admin' : role === 'admin' ? 'Admin' : 'Staff'}
+                  </button>
+                ))}
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                {(['all', 'active', 'suspended'] as const).map((status) => (
+                  <button
+                    key={status}
+                    onClick={() => setStaffStatusFilter(status)}
+                    className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                      staffStatusFilter === status
+                        ? 'bg-[#C4622D] text-white'
+                        : 'bg-white border border-[#DDD5C8] text-[#5C5347] hover:border-[#C4622D]'
+                    }`}
+                  >
+                    {status === 'all' ? 'All Status' : status.charAt(0).toUpperCase() + status.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {staffLoading ? (
               <div className="bg-white rounded-2xl border border-[#DDD5C8] p-12 flex flex-col items-center justify-center gap-3">
                 <div className="w-8 h-8 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" />
@@ -3282,7 +3327,7 @@ export default function StaffWorkspacePage() {
               </div>
             ) : (
               <div className="bg-white rounded-2xl border border-[#DDD5C8] overflow-hidden">
-                <div className="hidden md:grid grid-cols-[2fr_1.5fr_1fr_1fr_auto] gap-4 px-5 py-3 bg-[#F5F0E8] border-b border-[#DDD5C8] text-xs font-semibold text-[#8C8278] uppercase tracking-wider">
+                <div className="hidden md:grid grid-cols-[2fr_1.5fr_minmax(130px,1fr)_1fr_auto] gap-4 px-5 py-3 bg-[#F5F0E8] border-b border-[#DDD5C8] text-xs font-semibold text-[#8C8278] uppercase tracking-wider">
                   <span>Name</span>
                   <span>Email</span>
                   <span>Role</span>
@@ -3290,15 +3335,15 @@ export default function StaffWorkspacePage() {
                   <span>Actions</span>
                 </div>
                 <div className="divide-y divide-[#EDE7DA]">
-                  {staffMembers.map((member) => (
-                    <div key={member.id} className="grid grid-cols-1 md:grid-cols-[2fr_1.5fr_1fr_1fr_auto] gap-4 px-5 py-4 items-center">
+                  {filteredStaffMembers.map((member) => (
+                    <div key={member.id} className="grid grid-cols-1 md:grid-cols-[2fr_1.5fr_minmax(130px,1fr)_1fr_auto] gap-4 px-5 py-4 items-center">
                       <div className="min-w-0">
                         <p className="text-sm font-semibold text-[#1A1612]">{member.full_name || '—'}</p>
                         <p className="text-xs text-[#B5ADA5] md:hidden">{member.email}</p>
                       </div>
                       <p className="hidden md:block text-sm text-[#5C5347] truncate min-w-0">{member.email}</p>
-                      <div className="flex items-center"><RoleBadge role={member.role} /></div>
-                      <div className="flex items-center">
+                      <div className="flex items-center justify-self-start"><RoleBadge role={member.role} /></div>
+                      <div className="flex items-center justify-self-start">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${member.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
                           {member.is_active ? 'Active' : 'Suspended'}
                         </span>
