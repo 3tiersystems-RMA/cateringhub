@@ -2241,19 +2241,30 @@ export default function StaffWorkspacePage() {
             {/* Products Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
               <div className="flex gap-2 flex-wrap">
-                {['All', ...categories].map((cat) => (
-                  <button
-                    key={cat}
-                    onClick={() => setFilterCategory(cat)}
-                    className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors ${
-                      filterCategory === cat
-                        ? 'bg-[#C4622D] text-white'
-                        : 'bg-white border border-[#DDD5C8] text-[#5C5347] hover:border-[#C4622D]'
-                    }`}
-                  >
-                    {cat}
-                  </button>
-                ))}
+                {(() => {
+                  const categoryOrder = ['Weekly Menu', 'Packaged Meals', 'Voucher Meals', 'Frozen Meals', 'Prepared Meals', 'A La Carte'];
+                  const sortedCategories = [...categories].sort((a, b) => {
+                    const ai = categoryOrder.indexOf(a);
+                    const bi = categoryOrder.indexOf(b);
+                    if (ai === -1 && bi === -1) return 0;
+                    if (ai === -1) return 1;
+                    if (bi === -1) return -1;
+                    return ai - bi;
+                  });
+                  return ['All', ...sortedCategories].map((cat) => (
+                    <button
+                      key={cat}
+                      onClick={() => setFilterCategory(cat)}
+                      className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                        filterCategory === cat
+                          ? 'bg-[#C4622D] text-white'
+                          : 'bg-white border border-[#DDD5C8] text-[#5C5347] hover:border-[#C4622D]'
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ));
+                })()}
               </div>
               <button
                 onClick={openCreateForm}
