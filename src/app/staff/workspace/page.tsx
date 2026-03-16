@@ -8,7 +8,7 @@ import { useInactivityTimer } from '@/hooks/useInactivityTimer';
 import { APP_NAME } from "@/lib/constants";
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal';
 
-type BucketType = 'product-images' | 'event-photos';
+type BucketType = 'product-images' | 'event-photos' | 'document-management';
 type WorkspaceTab = 'products' | 'media' | 'orders' | 'staff' | 'homepage_cards' | 'categories' | 'weekly_menu' | 'vouchers';
 type ProductCategory = string;
 type StaffRole = 'admin' | 'staff' | 'super_admin';
@@ -1539,6 +1539,7 @@ export default function StaffWorkspacePage() {
   const buckets: { id: BucketType; label: string; description: string; icon: string }[] = [
     { id: 'product-images', label: 'Product Images', description: 'Menu items, dishes & catering products', icon: '🍽️' },
     { id: 'event-photos', label: 'Event Photos', description: 'Marketing photos from events', icon: '📸' },
+    { id: 'document-management', label: 'Document Management', description: 'Files, contracts & documents', icon: '📄' },
   ];
 
   // ─── Homepage Cards ──────────────────────────────────────────────────────────
