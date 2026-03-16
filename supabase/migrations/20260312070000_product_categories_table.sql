@@ -55,10 +55,12 @@ USING (public.is_staff_member());
 INSERT INTO public.categories (name, slug, active, sort_order)
 VALUES
     ('Catering Packages', 'catering-packages', true, 1),
-    ('Packaged Meals',    'prepared-meals',    true, 2),
+    ('Packaged Meals',    'packaged-meals',    true, 2),
     ('À La Carte',        'a-la-carte',        true, 3),
     ('Frozen Meals',      'frozen-meals',      true, 4)
-ON CONFLICT (name) DO NOTHING;
+ON CONFLICT (slug) DO UPDATE
+    SET name = EXCLUDED.name,
+        sort_order = EXCLUDED.sort_order;
 
 -- ─── 4. Convert products.category from enum to TEXT ──────────────────────────
 -- Step 4a: Add a temporary text column
