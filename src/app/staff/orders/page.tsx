@@ -101,6 +101,13 @@ export default function StaffOrdersPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPayment, setFilterPayment] = useState<string>('all');
   const [filterFulfillment, setFilterFulfillment] = useState<string>('all');
+  const [voucherPriceMap, setVoucherPriceMap] = useState<Record<string, number>>({});
+
+  const VOUCHER_PACKAGE_PRICES: Record<string, number> = {
+    'package-6': 690,
+    'package-12': 1320,
+    'package-24': 2520,
+  };
 
   useEffect(() => {
     const init = async () => {
@@ -128,7 +135,33 @@ export default function StaffOrdersPage() {
         setOrders([]);
         return;
       }
-      setOrders(data || []);
+      const orders = data || [];
+      setOrders(orders);
+
+      // Extract voucher codes from notes (e.g. "Voucher: CK-2026-DL4NLA.")
+      const voucherCodes: string[] = [];
+      orders.forEach((o) => {
+        if (o.notes) {
+          const match = o.notes.match(/Voucher:\s*([A-Z0-9-]+)/i);
+          if (match) voucherCodes.push(match[1].replace(/\.$/, ''));
+        }
+      });
+
+      if (voucherCodes.length > 0) {
+        const { data: voucherData } = await supabase
+          .from('vouchers')
+          .select('voucher_code, package_type')
+          .in('voucher_code', voucherCodes);
+
+        if (voucherData) {
+          const priceMap: Record<string, number> = {};
+          voucherData.forEach((v) => {
+            const price = VOUCHER_PACKAGE_PRICES[v.package_type];
+            if (price !== undefined) priceMap[v.voucher_code] = price;
+          });
+          setVoucherPriceMap(priceMap);
+        }
+      }
     } catch (err) {
       setError('Failed to load orders');
       setOrders([]);
@@ -508,7 +541,20 @@ export default function StaffOrdersPage() {
                               {order.notes && (
                                 <div>
                                   <p className="text-xs text-[#B5ADA5]">Notes</p>
-                                  <p className="text-sm text-[#1A1612]">{order.notes}</p>
+                                  <p className="text-sm text-[#1A1612]">
+                                    {(() => {
+                                      const match = order.notes.match(/^(Voucher:\s*)([A-Z0-9-]+)(\.?)(.*)$/i);
+                                      if (match) {
+                                        const code = match[2];
+                                        const price = voucherPriceMap[code];
+                                        const priceStr = price !== undefined
+                                          ? ` (R ${price.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`
+                                          : '';
+                                        return `Voucher: ${code}${priceStr}${match[4]}`;
+                                      }
+                                      return order.notes;
+                                    })()}
+                                  </p>
                                 </div>
                               )}
                             </div>
