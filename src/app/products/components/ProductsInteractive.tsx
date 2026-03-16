@@ -10,6 +10,7 @@ import ProductModal from "./ProductModal";
 import { CartProvider, useCart } from "./CartContext";
 import { createClient } from "@/lib/supabase/client";
 import type { VoucherData } from "./CartContext";
+import VoucherErrorModal from "@/components/ui/VoucherErrorModal";
 
 interface Product {
   id: string;
@@ -74,7 +75,7 @@ function ApplyVoucherBanner() {
   const [showInput, setShowInput] = useState(false);
   const [voucherCode, setVoucherCode] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [voucherErrorModal, setVoucherErrorModal] = useState<{ open: boolean; message: string }>({ open: false, message: "" });
   const bannerRef = useRef<HTMLDivElement>(null);
 
   // Register the opener so ProductCard can trigger it
@@ -89,9 +90,8 @@ function ApplyVoucherBanner() {
   }, [registerVoucherBannerOpener]);
 
   const handleApply = async () => {
-    setError("");
     const code = voucherCode.trim().toUpperCase();
-    if (!code) { setError("Please enter a voucher code."); return; }
+    if (!code) { setVoucherErrorModal({ open: true, message: "Please enter a voucher code." }); return; }
     setLoading(true);
     try {
       const { data, error: dbErr } = await supabase
@@ -100,22 +100,22 @@ function ApplyVoucherBanner() {
         .eq("voucher_code", code)
         .single();
 
-      if (dbErr || !data) { setError("Voucher code not found. Please check and try again."); return; }
+      if (dbErr || !data) { setVoucherErrorModal({ open: true, message: "Voucher code not found. Please check and try again." }); return; }
       if (data.status === "unpaid") {
-        setError("This voucher has not been paid for yet. Please complete your EFT payment at the Meal Vouchers page first.");
+        setVoucherErrorModal({ open: true, message: "This voucher has not been paid for yet. Please complete your EFT payment at the Meal Vouchers page first." });
         return;
       }
       if (data.status !== "active" && data.status !== "paid") {
-        setError(`This voucher is ${data.status} and cannot be used.`);
+        setVoucherErrorModal({ open: true, message: `This voucher is ${data.status} and cannot be used.` });
         return;
       }
-      if (data.meals_remaining <= 0) { setError("This voucher has no meals remaining."); return; }
+      if (data.meals_remaining <= 0) { setVoucherErrorModal({ open: true, message: "No meals remaining on this voucher." }); return; }
 
       setAppliedVoucher(data as VoucherData);
       setShowInput(false);
       setVoucherCode("");
     } catch {
-      setError("Failed to validate voucher. Please try again.");
+      setVoucherErrorModal({ open: true, message: "Failed to validate voucher. Please try again." });
     } finally {
       setLoading(false);
     }
@@ -124,7 +124,6 @@ function ApplyVoucherBanner() {
   const handleRemove = () => {
     setAppliedVoucher(null);
     setVoucherCode("");
-    setError("");
     setShowInput(false);
   };
 
@@ -188,7 +187,7 @@ function ApplyVoucherBanner() {
             <input
               type="text"
               value={voucherCode}
-              onChange={(e) => { setVoucherCode(e.target.value.toUpperCase()); setError(""); }}
+              onChange={(e) => { setVoucherCode(e.target.value.toUpperCase()); }}
               onKeyDown={(e) => e.key === "Enter" && handleApply()}
               placeholder="e.g. CK-2026-XXXX"
               className="flex-1 bg-white border border-[#DDD5C8] rounded-xl px-3 py-2.5 text-sm text-[#1A1612] placeholder-[#B5ADA5] focus:outline-none focus:border-[#C4622D] font-mono transition-colors"
@@ -207,21 +206,20 @@ function ApplyVoucherBanner() {
               ) : "Apply"}
             </button>
             <button
-              onClick={() => { setShowInput(false); setVoucherCode(""); setError(""); }}
+              onClick={() => { setShowInput(false); setVoucherCode(""); }}
               className="p-2.5 rounded-xl border border-[#DDD5C8] text-[#8C8278] hover:bg-[#F5F0E8] transition-colors"
               aria-label="Cancel"
             >
               <Icon name="XMarkIcon" size={14} />
             </button>
           </div>
-          {error && (
-            <p className="mt-2 text-xs text-red-500 flex items-center gap-1">
-              <Icon name="ExclamationCircleIcon" size={12} />
-              {error}
-            </p>
-          )}
         </div>
       )}
+      <VoucherErrorModal
+        isOpen={voucherErrorModal.open}
+        message={voucherErrorModal.message}
+        onClose={() => setVoucherErrorModal({ open: false, message: "" })}
+      />
     </div>
   );
 }
