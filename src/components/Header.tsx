@@ -10,6 +10,7 @@ const navLinks = [
   { label: "Home", href: "/homepage" },
   { label: "Menu & Order", href: "/products" },
   { label: "Meal Vouchers", href: "/vouchers" },
+  { label: "Order History", href: "/order-history" },
 ];
 
 export default function Header() {
