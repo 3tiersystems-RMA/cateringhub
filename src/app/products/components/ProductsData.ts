@@ -1,7 +1,7 @@
 export interface Product {
   id: number;
   name: string;
-  category: "Catering Packages" | "Prepared Meals" | "À La Carte" | "Frozen Meals";
+  category: "Catering Packages" | "Packaged Meals" | "À La Carte" | "Frozen Meals";
   price: number;
   unit: string;
   image: string;
@@ -79,11 +79,11 @@ export const products: Product[] = [
   minOrder: 10,
   available: true
 },
-// PREPARED MEALS
+// PACKAGED MEALS
 {
   id: 5,
   name: "Herb-Roasted Chicken & Vegetables",
-  category: "Prepared Meals",
+  category: "Packaged Meals",
   price: 14,
   unit: "per serving",
   image: "https://images.unsplash.com/photo-1518492104633-130d0cc84637",
@@ -98,7 +98,7 @@ export const products: Product[] = [
 {
   id: 6,
   name: "Truffle Mushroom Risotto",
-  category: "Prepared Meals",
+  category: "Packaged Meals",
   price: 16,
   unit: "per serving",
   image: "https://images.unsplash.com/photo-1724116380653-a5371c60944a",
@@ -112,7 +112,7 @@ export const products: Product[] = [
 {
   id: 7,
   name: "Teriyaki Salmon Bowl",
-  category: "Prepared Meals",
+  category: "Packaged Meals",
   price: 18,
   unit: "per serving",
   image: "https://images.unsplash.com/photo-1516701864306-96b7ebae2d9f",
@@ -126,7 +126,7 @@ export const products: Product[] = [
 {
   id: 8,
   name: "Braised Short Rib & Mash",
-  category: "Prepared Meals",
+  category: "Packaged Meals",
   price: 22,
   unit: "per serving",
   image: "https://images.unsplash.com/photo-1681830696268-4b4a55b1f427",
@@ -141,7 +141,7 @@ export const products: Product[] = [
 {
   id: 9,
   name: "Thai Green Curry",
-  category: "Prepared Meals",
+  category: "Packaged Meals",
   price: 13,
   unit: "per serving",
   image: "https://img.rocket.new/generatedImages/rocket_gen_img_1158bf432-1765352762715.png",
@@ -257,5 +257,5 @@ export const products: Product[] = [
 }];
 
 
-export const categories = ["All", "Catering Packages", "Prepared Meals", "À La Carte", "Frozen Meals"] as const;
+export const categories = ["All", "Catering Packages", "Packaged Meals", "À La Carte", "Frozen Meals"] as const;
 export type Category = (typeof categories)[number];

@@ -7,7 +7,7 @@ import { APP_NAME } from "@/lib/constants";
 export const metadata: Metadata = {
   title: `Menu & Order Online — ${APP_NAME}`,
   description:
-    "Browse our full catering packages, weekly prepared meals, and à la carte platters. Order online with secure payment. Chef-crafted, locally sourced.",
+    "Browse our full catering packages, weekly packaged meals, and à la carte platters. Order online with secure payment. Chef-crafted, locally sourced.",
   keywords: ["catering menu", "meal prep order", "food platters", "online catering order"],
 };
 

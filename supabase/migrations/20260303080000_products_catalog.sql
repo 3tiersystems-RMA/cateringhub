@@ -6,7 +6,7 @@ DROP TABLE IF EXISTS public.products CASCADE;
 DROP TYPE IF EXISTS public.product_category CASCADE;
 
 -- 2. Category enum
-CREATE TYPE public.product_category AS ENUM ('Catering Packages', 'Prepared Meals', 'À La Carte');
+CREATE TYPE public.product_category AS ENUM ('Catering Packages', 'Packaged Meals', 'À La Carte');
 
 -- 3. Products table
 CREATE TABLE public.products (
@@ -107,11 +107,11 @@ VALUES
     ('Elegant Plated Dinner', 'Catering Packages'::public.product_category, 72.00, 'per head', 'Three-course plated dinner with amuse-bouche, choice of entree, and dessert. Staff included.', ARRAY['Fine Dining', 'Wedding'], 'Premium', 20, true, true, 2),
     ('Mediterranean Buffet', 'Catering Packages'::public.product_category, 45.00, 'per head', 'Mezze station, grilled meats, roasted vegetables, couscous, and baklava dessert.', ARRAY['Vegetarian Friendly', 'Buffet'], NULL, 25, true, false, 3),
     ('Corporate Lunch Box', 'Catering Packages'::public.product_category, 18.00, 'per box', 'Gourmet sandwich or wrap, seasonal salad, fresh fruit, and a cookie. Minimum 10 boxes.', ARRAY['Corporate', 'Individual'], NULL, 10, true, false, 4),
-    ('Herb-Roasted Chicken & Vegetables', 'Prepared Meals'::public.product_category, 14.00, 'per serving', 'Free-range chicken thighs roasted with rosemary, garlic, and seasonal root vegetables.', ARRAY['High Protein', 'Gluten-Free'], 'Weekly Pick', NULL, true, true, 5),
-    ('Truffle Mushroom Risotto', 'Prepared Meals'::public.product_category, 16.00, 'per serving', 'Arborio rice slow-cooked with wild mushrooms, truffle oil, and aged Parmigiano-Reggiano.', ARRAY['Vegetarian', 'Comfort'], NULL, NULL, true, false, 6),
-    ('Teriyaki Salmon Bowl', 'Prepared Meals'::public.product_category, 18.00, 'per serving', 'Atlantic salmon in house teriyaki glaze, brown rice, edamame, pickled ginger, sesame.', ARRAY['Omega-3', 'Low Carb Option'], NULL, NULL, true, false, 7),
-    ('Braised Short Rib & Mash', 'Prepared Meals'::public.product_category, 22.00, 'per serving', '48-hour braised beef short rib, truffle mashed potatoes, red wine reduction, gremolata.', ARRAY['High Protein', 'Comfort'], 'Chef''s Pick', NULL, true, true, 8),
-    ('Thai Green Curry', 'Prepared Meals'::public.product_category, 13.00, 'per serving', 'House-made green curry paste, coconut milk, seasonal vegetables, jasmine rice, Thai basil.', ARRAY['Vegan', 'Spicy'], NULL, NULL, true, false, 9),
+    ('Herb-Roasted Chicken & Vegetables', 'Packaged Meals'::public.product_category, 14.00, 'per serving', 'Free-range chicken thighs roasted with rosemary, garlic, and seasonal root vegetables.', ARRAY['High Protein', 'Gluten-Free'], 'Weekly Pick', NULL, true, true, 5),
+    ('Truffle Mushroom Risotto', 'Packaged Meals'::public.product_category, 16.00, 'per serving', 'Arborio rice slow-cooked with wild mushrooms, truffle oil, and aged Parmigiano-Reggiano.', ARRAY['Vegetarian', 'Comfort'], NULL, NULL, true, false, 6),
+    ('Teriyaki Salmon Bowl', 'Packaged Meals'::public.product_category, 18.00, 'per serving', 'Atlantic salmon in house teriyaki glaze, brown rice, edamame, pickled ginger, sesame.', ARRAY['Omega-3', 'Low Carb Option'], NULL, NULL, true, false, 7),
+    ('Braised Short Rib & Mash', 'Packaged Meals'::public.product_category, 22.00, 'per serving', '48-hour braised beef short rib, truffle mashed potatoes, red wine reduction, gremolata.', ARRAY['High Protein', 'Comfort'], 'Chef''s Pick', NULL, true, true, 8),
+    ('Thai Green Curry', 'Packaged Meals'::public.product_category, 13.00, 'per serving', 'House-made green curry paste, coconut milk, seasonal vegetables, jasmine rice, Thai basil.', ARRAY['Vegan', 'Spicy'], NULL, NULL, true, false, 9),
     ('Charcuterie & Cheese Board', 'À La Carte'::public.product_category, 65.00, 'per board (serves 8-10)', 'Curated selection of 4 artisan cheeses, 3 cured meats, seasonal fruit, nuts, and house crackers.', ARRAY['Entertaining', 'Crowd Favorite'], 'Most Ordered', NULL, true, true, 10),
     ('Seasonal Salad Platter', 'À La Carte'::public.product_category, 42.00, 'per platter (serves 6-8)', 'Market greens, roasted beets, candied walnuts, goat cheese, house vinaigrette on the side.', ARRAY['Vegan Option', 'Fresh'], NULL, NULL, true, false, 11),
     ('Dessert Petit Fours', 'À La Carte'::public.product_category, 48.00, 'per dozen', 'Rotating seasonal selection of 4 varieties: macarons, chocolate truffles, lemon tartlets, eclairs.', ARRAY['Sweet', 'Elegant'], NULL, NULL, true, false, 12);
