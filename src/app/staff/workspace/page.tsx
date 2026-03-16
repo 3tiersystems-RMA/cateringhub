@@ -3327,57 +3327,72 @@ export default function StaffWorkspacePage() {
               </div>
             ) : (
               <div className="bg-white rounded-2xl border border-[#DDD5C8] overflow-hidden">
-                <div className="hidden md:grid grid-cols-[2fr_1.5fr_minmax(130px,1fr)_1fr_auto] gap-4 px-5 py-3 bg-[#F5F0E8] border-b border-[#DDD5C8] text-xs font-semibold text-[#8C8278] uppercase tracking-wider">
-                  <span>Name</span>
-                  <span>Email</span>
-                  <span>Role</span>
-                  <span>Status</span>
-                  <span>Actions</span>
-                </div>
-                <div className="divide-y divide-[#EDE7DA]">
-                  {filteredStaffMembers.map((member) => (
-                    <div key={member.id} className="grid grid-cols-1 md:grid-cols-[2fr_1.5fr_minmax(130px,1fr)_1fr_auto] gap-4 px-5 py-4 items-center">
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-[#1A1612]">{member.full_name || '—'}</p>
-                        <p className="text-xs text-[#B5ADA5] md:hidden">{member.email}</p>
-                      </div>
-                      <p className="hidden md:block text-sm text-[#5C5347] truncate min-w-0">{member.email}</p>
-                      <div className="flex items-center justify-self-start"><RoleBadge role={member.role} /></div>
-                      <div className="flex items-center justify-self-start">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${member.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
-                          {member.is_active ? 'Active' : 'Suspended'}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {member.id !== user?.id && (
-                          <>
-                            {member.is_active ? (
-                              <button
-                                onClick={() => handleSuspendStaff(member)}
-                                disabled={staffActionId === member.id}
-                                className="text-xs font-semibold text-red-600 border border-red-200 rounded-lg px-2.5 py-1 hover:bg-red-50 transition-colors disabled:opacity-50"
-                              >{staffActionId === member.id ? '...' : 'Suspend'}</button>
+                <table className="w-full table-fixed border-collapse">
+                  <colgroup>
+                    <col style={{ width: '22%' }} />
+                    <col style={{ width: '28%' }} />
+                    <col style={{ width: '18%' }} />
+                    <col style={{ width: '14%' }} />
+                    <col style={{ width: '18%' }} />
+                  </colgroup>
+                  <thead>
+                    <tr className="bg-[#F5F0E8] border-b border-[#DDD5C8]">
+                      <th className="px-5 py-3 text-left text-xs font-semibold text-[#8C8278] uppercase tracking-wider">Name</th>
+                      <th className="px-5 py-3 text-left text-xs font-semibold text-[#8C8278] uppercase tracking-wider">Email</th>
+                      <th className="px-5 py-3 text-left text-xs font-semibold text-[#8C8278] uppercase tracking-wider">Role</th>
+                      <th className="px-5 py-3 text-left text-xs font-semibold text-[#8C8278] uppercase tracking-wider">Status</th>
+                      <th className="px-5 py-3 text-left text-xs font-semibold text-[#8C8278] uppercase tracking-wider">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#EDE7DA]">
+                    {filteredStaffMembers.map((member) => (
+                      <tr key={member.id} className="align-middle">
+                        <td className="px-5 py-4">
+                          <p className="text-sm font-semibold text-[#1A1612] truncate">{member.full_name || '—'}</p>
+                        </td>
+                        <td className="px-5 py-4">
+                          <p className="text-sm text-[#5C5347] truncate">{member.email}</p>
+                        </td>
+                        <td className="px-5 py-4">
+                          <RoleBadge role={member.role} />
+                        </td>
+                        <td className="px-5 py-4">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${member.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
+                            {member.is_active ? 'Active' : 'Suspended'}
+                          </span>
+                        </td>
+                        <td className="px-5 py-4">
+                          <div className="flex items-center gap-2">
+                            {member.id !== user?.id ? (
+                              <>
+                                {member.is_active ? (
+                                  <button
+                                    onClick={() => handleSuspendStaff(member)}
+                                    disabled={staffActionId === member.id}
+                                    className="text-xs font-semibold text-red-600 border border-red-200 rounded-lg px-2.5 py-1 hover:bg-red-50 transition-colors disabled:opacity-50"
+                                  >{staffActionId === member.id ? '...' : 'Suspend'}</button>
+                                ) : (
+                                  <button
+                                    onClick={() => handleReinstateStaff(member)}
+                                    disabled={staffActionId === member.id}
+                                    className="text-xs font-semibold text-green-700 border border-green-200 rounded-lg px-2.5 py-1 hover:bg-green-50 transition-colors disabled:opacity-50"
+                                  >{staffActionId === member.id ? '...' : 'Reinstate'}</button>
+                                )}
+                                <button
+                                  onClick={() => handleResetPassword(member)}
+                                  disabled={resetPasswordId === member.id}
+                                  className="text-xs font-semibold text-[#C4622D] border border-[#C4622D]/30 rounded-lg px-2.5 py-1 hover:bg-[#FDF3ED] transition-colors disabled:opacity-50"
+                                >{resetPasswordId === member.id ? '...' : 'Reset PW'}</button>
+                              </>
                             ) : (
-                              <button
-                                onClick={() => handleReinstateStaff(member)}
-                                disabled={staffActionId === member.id}
-                                className="text-xs font-semibold text-green-700 border border-green-200 rounded-lg px-2.5 py-1 hover:bg-green-50 transition-colors disabled:opacity-50"
-                              >{staffActionId === member.id ? '...' : 'Reinstate'}</button>
+                              <span className="text-xs text-[#B5ADA5] italic">You</span>
                             )}
-                            <button
-                              onClick={() => handleResetPassword(member)}
-                              disabled={resetPasswordId === member.id}
-                              className="text-xs font-semibold text-[#C4622D] border border-[#C4622D]/30 rounded-lg px-2.5 py-1 hover:bg-[#FDF3ED] transition-colors disabled:opacity-50"
-                            >{resetPasswordId === member.id ? '...' : 'Reset PW'}</button>
-                          </>
-                        )}
-                        {member.id === user?.id && (
-                          <span className="text-xs text-[#B5ADA5] italic">You</span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>
