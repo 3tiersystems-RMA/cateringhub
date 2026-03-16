@@ -2702,8 +2702,8 @@ export default function StaffWorkspacePage() {
 
             {/* Filters */}
             <div className="bg-white rounded-2xl border border-[#DDD5C8] p-4 mb-6">
-              <div className="flex flex-col sm:flex-row gap-3">
-                <div className="relative flex-1">
+              <div className="flex flex-col gap-3">
+                <div className="relative">
                   <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#B5ADA5]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
@@ -2715,31 +2715,36 @@ export default function StaffWorkspacePage() {
                     className="w-full pl-9 pr-4 py-2.5 border border-[#DDD5C8] rounded-xl text-sm text-[#1A1612] placeholder-[#B5ADA5] focus:outline-none focus:border-[#C4622D] transition-colors"
                   />
                 </div>
-                <select
-                  value={wsFilterPayment}
-                  onChange={(e) => setWsFilterPayment(e.target.value)}
-                  className="px-3 py-2.5 border border-[#DDD5C8] rounded-xl text-sm text-[#1A1612] bg-white focus:outline-none focus:border-[#C4622D] transition-colors"
-                >
-                  <option value="all">All Payments</option>
-                  <option value="awaiting_payment">Awaiting Payment</option>
-                  <option value="paid">Paid</option>
-                  <option value="refunded">Refunded</option>
-                  <option value="pending">Pending</option>
-                  <option value="failed">Failed</option>
-                </select>
-                <select
-                  value={wsFilterFulfillment}
-                  onChange={(e) => setWsFilterFulfillment(e.target.value)}
-                  className="px-3 py-2.5 border border-[#DDD5C8] rounded-xl text-sm text-[#1A1612] bg-white focus:outline-none focus:border-[#C4622D] transition-colors"
-                >
-                  <option value="all">All Fulfillment</option>
-                  <option value="new">New</option>
-                  <option value="confirmed">Confirmed</option>
-                  <option value="preparing">Preparing</option>
-                  <option value="ready">Ready</option>
-                  <option value="delivered">Delivered</option>
-                  <option value="cancelled">Cancelled</option>
-                </select>
+                <div className="flex flex-wrap gap-2">
+                  {(['all', 'awaiting_payment', 'paid', 'refunded', 'pending', 'failed'] as const).map((val) => (
+                    <button
+                      key={val}
+                      onClick={() => setWsFilterPayment(val)}
+                      className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                        wsFilterPayment === val
+                          ? 'bg-[#C4622D] text-white'
+                          : 'bg-white border border-[#DDD5C8] text-[#5C5347] hover:border-[#C4622D]'
+                      }`}
+                    >
+                      {val === 'all' ? 'All Payments' : val === 'awaiting_payment' ? 'Awaiting Payment' : val.charAt(0).toUpperCase() + val.slice(1)}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {(['all', 'new', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled'] as const).map((val) => (
+                    <button
+                      key={val}
+                      onClick={() => setWsFilterFulfillment(val)}
+                      className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                        wsFilterFulfillment === val
+                          ? 'bg-[#C4622D] text-white'
+                          : 'bg-white border border-[#DDD5C8] text-[#5C5347] hover:border-[#C4622D]'
+                      }`}
+                    >
+                      {val === 'all' ? 'All Fulfillment' : val.charAt(0).toUpperCase() + val.slice(1)}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
