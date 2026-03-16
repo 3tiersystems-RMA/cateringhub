@@ -374,11 +374,11 @@ function ProductsContent() {
     setTimeout(() => setModalAdded(false), 1800);
   };
 
-  const displayCategories = [
-    "All",
-    "Weekly Menu",
-    ...categories.filter((c) => c !== "Weekly Menu"),
-  ];
+  const displayCategories = (() => {
+    const desiredOrder = ["All", "Weekly Menu", "Packaged Meals", "Voucher Meals", "Frozen Meals", "Prepared Meals", "À La Carte"];
+    const available = ["All", "Weekly Menu", ...categories];
+    return desiredOrder.filter((c) => available.includes(c));
+  })();
 
   // When voucher is active, count products for the active category from filtered set
   const getCategoryCount = (cat: string) => {
