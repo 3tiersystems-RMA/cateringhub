@@ -146,7 +146,7 @@ export default function VouchersPage() {
       <Header />
       <main className="pt-20 min-h-screen bg-[#F5F0E8]">
         {/* Hero */}
-        <section className="bg-gradient-to-br from-[#1A1612] to-[#3D342D] py-16 px-4">
+        <section className="bg-black py-16 px-4">
           <div className="max-w-3xl mx-auto text-center">
             <div className="inline-flex items-center gap-2 bg-[#C4622D]/20 border border-[#C4622D]/30 rounded-full px-4 py-1.5 mb-4">
               <Icon name="GiftIcon" size={14} className="text-[#C4622D]" />
