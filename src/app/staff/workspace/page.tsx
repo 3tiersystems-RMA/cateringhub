@@ -3339,12 +3339,12 @@ export default function StaffWorkspacePage() {
                       <button
                         type="button"
                         onClick={() => setShowWeeklyMenuForm(false)}
-                        className="flex-1 px-4 py-2.5 border border-[#DDD5C8] rounded-xl text-sm font-semibold text-[#5C5347] hover:bg-[#F5F0E8] transition-colors"
+                        className="flex-1 py-2.5 rounded-xl border border-[#DDD5C8] text-sm font-semibold text-[#5C5347] hover:bg-[#F5F0E8] transition-colors"
                       >Cancel</button>
                       <button
                         type="submit"
                         disabled={savingWeeklyEntry}
-                        className="flex-1 px-4 py-2.5 bg-[#C4622D] text-white rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                        className="flex-1 py-2.5 rounded-xl bg-[#C4622D] text-white text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                       >
                         {savingWeeklyEntry ? <><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Saving...</> : editingWeeklyEntry ? 'Update Item' : 'Add Item'}
                       </button>
@@ -3452,10 +3452,12 @@ export default function StaffWorkspacePage() {
                             <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-center">
                               <p className="text-xs font-semibold text-red-600">🚫 Closed</p>
                               {closedEntry.closed_reason && <p className="text-xs text-red-500 mt-0.5">{closedEntry.closed_reason}</p>}
+                              {weekOffset >= 0 && (
                               <button
                                 onClick={() => handleReopenDay(dateStr)}
                                 className="mt-2 text-xs text-red-600 underline hover:no-underline"
                               >Reopen day</button>
+                              )}
                             </div>
                           ) : openEntries.length > 0 ? (
                             openEntries.map((entry) => (
@@ -3463,6 +3465,7 @@ export default function StaffWorkspacePage() {
                                 <p className="text-sm font-semibold text-[#1A1612] leading-tight">{entry.meal_name}</p>
                                 {entry.description && <p className="text-xs text-[#8C8278] mt-0.5 line-clamp-2">{entry.description}</p>}
                                 {entry.price !== null && <p className="text-sm font-bold text-[#C4622D] mt-1">R{Number(entry.price).toFixed(2)}</p>}
+                                {weekOffset >= 0 && (
                                 <div className="flex gap-2 mt-2">
                                   <button
                                     onClick={() => openEditWeeklyMenuForm(entry)}
@@ -3474,6 +3477,7 @@ export default function StaffWorkspacePage() {
                                     className="text-xs text-red-500 font-semibold hover:underline disabled:opacity-50"
                                   >{deletingWeeklyEntryId === entry.id ? '...' : 'Delete'}</button>
                                 </div>
+                                )}
                               </div>
                             ))
                           ) : (
@@ -3482,7 +3486,7 @@ export default function StaffWorkspacePage() {
                         </div>
 
                         {/* Day actions */}
-                        {!closedEntry && (
+                        {!closedEntry && weekOffset >= 0 && (
                           <div className="px-3 pb-3 flex gap-2">
                             <button
                               onClick={() => openAddWeeklyMenuForm(dateStr)}
