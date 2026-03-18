@@ -14,6 +14,7 @@ interface VoucherPackage {
   label: string;
   description: string;
   popular?: boolean;
+  badge?: string;
 }
 
 const PACKAGES: VoucherPackage[] = [
@@ -22,6 +23,13 @@ const PACKAGES: VoucherPackage[] = [
     price: 690,
     label: "Starter Pack",
     description: "Perfect for trying out our packaged meals. 6 meals to use at your convenience.",
+  },
+  {
+    meals: 10,
+    price: 1350,
+    label: "10-Package Meal",
+    description: "Health conscious option with a 2 week rotation. Nutritionist designed for a balanced lifestyle.",
+    badge: "Nutritionist Designed",
   },
   {
     meals: 12,
@@ -97,7 +105,7 @@ export default function VouchersPage() {
       const code = generateVoucherCode();
       // Insert voucher with 'unpaid' status — becomes 'paid' only after staff verification
       // Map total_meals to package_type
-      const pkgTypeMap: Record<number, string> = { 6: "package-6", 12: "package-12", 24: "package-24" };
+      const pkgTypeMap: Record<number, string> = { 6: "package-6", 10: "package-10", 12: "package-12", 24: "package-24" };
       const { error } = await supabase.from("vouchers").insert({
         voucher_code: code,
         customer_name: form.name.trim(),
@@ -173,7 +181,7 @@ Purchase a Meal Voucher
               <p className="text-[#8C8278] text-sm text-center mb-8">
                 All packages include chef-crafted meals. Each portion typically feeds 2 adults.
               </p>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {PACKAGES.map((pkg) => (
                   <div
                     key={pkg.meals}
@@ -185,6 +193,11 @@ Purchase a Meal Voucher
                     {pkg.popular && (
                       <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#C4622D] text-white text-xs font-bold px-3 py-1 rounded-full">
                         Most Popular
+                      </div>
+                    )}
+                    {pkg.badge && (
+                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#4A7C59] text-white text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap">
+                        {pkg.badge}
                       </div>
                     )}
                     <div className="text-center">
