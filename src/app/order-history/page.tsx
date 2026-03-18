@@ -299,6 +299,9 @@ export default function OrderHistoryPage() {
                     const displayTotal = isVoucherOrder && voucherAmounts[order.id] != null
                       ? voucherAmounts[order.id]
                       : order.total;
+                    const voucherNumber = isVoucherOrder
+                      ? (order.notes?.match(/Voucher:\s*([A-Z0-9-]+)/i)?.[1] ?? null)
+                      : null;
 
                     return (
                       <div
@@ -321,11 +324,15 @@ export default function OrderHistoryPage() {
                               </div>
                               <p className="text-sm text-white font-medium truncate">
                                 {isVoucherOrder ? "Voucher" : `${itemCount} item${itemCount !== 1 ? "s" : ""}`}
-                                {order.event_date && (
+                                {isVoucherOrder && voucherNumber ? (
+                                  <span className="text-[#A09890] font-normal">
+                                    {" "}· {voucherNumber}
+                                  </span>
+                                ) : !isVoucherOrder && order.event_date ? (
                                   <span className="text-[#A09890] font-normal">
                                     {" "}· Event: {formatDate(order.event_date)}
                                   </span>
-                                )}
+                                ) : null}
                               </p>
                             </div>
 
