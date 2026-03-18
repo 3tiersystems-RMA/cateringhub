@@ -84,6 +84,13 @@ function formatCurrency(amount: number) {
   return `R ${amount.toFixed(2)}`;
 }
 
+const VOUCHER_MEAL_PRICES: Record<number, number> = {
+  6: 690,
+  10: 1350,
+  12: 1320,
+  24: 2520,
+};
+
 export default function OrderHistoryPage() {
   const router = useRouter();
   const [orders, setOrders] = useState<Order[]>([]);
@@ -93,8 +100,42 @@ export default function OrderHistoryPage() {
   const [emailInput, setEmailInput] = useState("");
   const [emailSubmitted, setEmailSubmitted] = useState(false);
   const [lookupLoading, setLookupLoading] = useState(false);
+  const [voucherAmounts, setVoucherAmounts] = useState<Record<string, number>>({});
 
   const supabase = createClient();
+
+  const fetchVoucherAmounts = async (fetchedOrders: Order[]) => {
+    const voucherCodes: string[] = [];
+    const codeToOrderId: Record<string, string> = {};
+
+    for (const order of fetchedOrders) {
+      if (order.notes) {
+        const match = order.notes.match(/Voucher:\s*([A-Z0-9-]+)/i);
+        if (match) {
+          voucherCodes.push(match[1]);
+          codeToOrderId[match[1]] = order.id;
+        }
+      }
+    }
+
+    if (voucherCodes.length === 0) return;
+
+    const { data } = await supabase
+      .from("vouchers")
+      .select("voucher_code, total_meals")
+      .in("voucher_code", voucherCodes);
+
+    if (data) {
+      const amounts: Record<string, number> = {};
+      for (const v of data) {
+        const orderId = codeToOrderId[v.voucher_code];
+        if (orderId) {
+          amounts[orderId] = VOUCHER_MEAL_PRICES[v.total_meals] ?? 0;
+        }
+      }
+      setVoucherAmounts(amounts);
+    }
+  };
 
   const fetchOrdersByEmail = async (email: string) => {
     const { data, error: fetchError } = await supabase
@@ -115,6 +156,7 @@ export default function OrderHistoryPage() {
           const data = await fetchOrdersByEmail(session.user.email);
           setOrders(data || []);
           setEmailSubmitted(true);
+          await fetchVoucherAmounts(data || []);
         }
       } catch (err) {
         console.error("Order fetch error:", err);
@@ -135,6 +177,7 @@ export default function OrderHistoryPage() {
       const data = await fetchOrdersByEmail(emailInput);
       setOrders(data || []);
       setEmailSubmitted(true);
+      await fetchVoucherAmounts(data || []);
     } catch (err) {
       setError("Unable to find orders. Please check your email and try again.");
     } finally {
@@ -253,6 +296,9 @@ export default function OrderHistoryPage() {
                     const isExpanded = expandedOrder === order.id;
                     const itemCount = order.items?.reduce((sum, i) => sum + i.quantity, 0) || 0;
                     const isVoucherOrder = !!(order.notes && /Voucher:\s*[A-Z0-9-]+/i.test(order.notes));
+                    const displayTotal = isVoucherOrder && voucherAmounts[order.id] != null
+                      ? voucherAmounts[order.id]
+                      : order.total;
 
                     return (
                       <div
@@ -296,7 +342,7 @@ export default function OrderHistoryPage() {
                             {/* Right: Total + Actions */}
                             <div className="flex items-center gap-3">
                               <span className="text-lg font-bold text-white">
-                                {formatCurrency(order.total)}
+                                {formatCurrency(displayTotal)}
                               </span>
                               <button
                                 onClick={() => handleReorder(order)}
