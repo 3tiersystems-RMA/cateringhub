@@ -3,7 +3,7 @@
 import AppImage from "@/components/ui/AppImage";
 import Icon from "@/components/ui/AppIcon";
 import { useCart } from "./CartContext";
-import type { VoucherData } from "./CartContext";
+import type { VoucherData, DiscountVoucherData } from "./CartContext";
 
 import { createClient } from "@/lib/supabase/client";
 
@@ -20,6 +20,19 @@ interface CartStepCartProps {
   setVoucherApplied: (v: boolean) => void;
   showVoucherSection: boolean;
   setShowVoucherSection: (v: boolean) => void;
+  // Discount Voucher props
+  dvCode: string;
+  setDvCode: (v: string) => void;
+  dvData: DiscountVoucherData | null;
+  setDvData: (v: DiscountVoucherData | null) => void;
+  dvError: string;
+  setDvError: (v: string) => void;
+  dvLoading: boolean;
+  setDvLoading: (v: boolean) => void;
+  dvApplied: boolean;
+  setDvApplied: (v: boolean) => void;
+  showDvSection: boolean;
+  setShowDvSection: (v: boolean) => void;
   onProceed: () => void;
   subtotal: number;
   tax: number;
@@ -40,13 +53,25 @@ export default function CartStepCart({
   setVoucherApplied,
   showVoucherSection,
   setShowVoucherSection,
+  dvCode,
+  setDvCode,
+  dvData,
+  setDvData,
+  dvError,
+  setDvError,
+  dvLoading,
+  setDvLoading,
+  dvApplied,
+  setDvApplied,
+  showDvSection,
+  setShowDvSection,
   onProceed,
   subtotal,
   tax,
   delivery,
   total,
 }: CartStepCartProps) {
-  const { items, removeItem, updateQty, totalItems, setIsOpen, setAppliedVoucher } = useCart();
+  const { items, removeItem, updateQty, totalItems, setIsOpen, setAppliedVoucher, setAppliedDiscountVoucher } = useCart();
   const supabase = createClient();
 
   const handleValidateVoucher = async () => {
@@ -107,6 +132,51 @@ export default function CartStepCart({
     setAppliedVoucher(null);
   };
 
+  const handleValidateDiscountVoucher = async () => {
+    setDvError("");
+    const code = dvCode.trim().toUpperCase();
+    if (!code) { setDvError("Please enter a discount voucher code."); return; }
+    setDvLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("discount_vouchers")
+        .select("id, dv_code, dv_amount, status, expiry_date, times_used")
+        .eq("dv_code", code)
+        .single();
+
+      if (error || !data) { setDvError("Discount voucher code not found. Please check and try again."); return; }
+      if (data.status !== "Active") {
+        setDvError("This discount voucher is inactive and cannot be used.");
+        return;
+      }
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const expiry = new Date(data.expiry_date + "T00:00:00");
+      if (expiry < today) {
+        setDvError("This discount voucher has expired.");
+        return;
+      }
+
+      setDvData(data as DiscountVoucherData);
+      setDvApplied(true);
+      setAppliedDiscountVoucher(data as DiscountVoucherData);
+    } catch {
+      setDvError("Failed to validate discount voucher. Please try again.");
+    } finally {
+      setDvLoading(false);
+    }
+  };
+
+  const handleRemoveDiscountVoucher = () => {
+    setDvData(null);
+    setDvApplied(false);
+    setDvCode("");
+    setDvError("");
+    setAppliedDiscountVoucher(null);
+  };
+
+  const discountedTotal = dvApplied && dvData ? Math.max(0, total - dvData.dv_amount) : total;
+
   return (
     <>
       <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
@@ -153,7 +223,7 @@ export default function CartStepCart({
           ))
         )}
 
-        {/* Voucher Section */}
+        {/* Meal Voucher Section */}
         {items.length > 0 && (
           <div className="bg-white rounded-2xl border border-[#DDD5C8] overflow-hidden">
             <button
@@ -162,7 +232,7 @@ export default function CartStepCart({
             >
               <div className="flex items-center gap-2">
                 <Icon name="TicketIcon" size={15} className="text-[#C4622D]" />
-                <span>Have a Voucher?</span>
+                <span>Have a Meal Voucher?</span>
               </div>
               <Icon name={showVoucherSection ? "ChevronUpIcon" : "ChevronDownIcon"} size={14} className="text-[#B5ADA5]" />
             </button>
@@ -225,6 +295,73 @@ export default function CartStepCart({
             )}
           </div>
         )}
+
+        {/* Discount Voucher Section */}
+        {items.length > 0 && !voucherApplied && (
+          <div className="bg-white rounded-2xl border border-[#DDD5C8] overflow-hidden">
+            <button
+              onClick={() => setShowDvSection(!showDvSection)}
+              className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold text-[#5C5347] hover:bg-[#F5F0E8] transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <Icon name="TagIcon" size={15} className="text-[#C4622D]" />
+                <span>Have a Discount Voucher?</span>
+              </div>
+              <Icon name={showDvSection ? "ChevronUpIcon" : "ChevronDownIcon"} size={14} className="text-[#B5ADA5]" />
+            </button>
+            {showDvSection && (
+              <div className="px-4 pb-4 border-t border-[#F0EBE3]">
+                {!dvApplied ? (
+                  <div className="pt-3 space-y-2">
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={dvCode}
+                        onChange={(e) => { setDvCode(e.target.value.toUpperCase()); setDvError(""); }}
+                        placeholder="e.g. DV-2026-XXXX"
+                        className="flex-1 bg-[#F5F0E8] border border-[#DDD5C8] rounded-xl px-3 py-2.5 text-sm text-[#1A1612] placeholder-[#B5ADA5] focus:outline-none focus:border-[#C4622D] font-mono transition-colors"
+                      />
+                      <button
+                        onClick={handleValidateDiscountVoucher}
+                        disabled={dvLoading}
+                        className="bg-[#C4622D] text-white px-4 py-2.5 rounded-xl text-xs font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-70 flex items-center gap-1.5"
+                      >
+                        {dvLoading ? (
+                          <svg className="animate-spin h-3 w-3" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                          </svg>
+                        ) : "Apply"}
+                      </button>
+                    </div>
+                    {dvError && (
+                      <p className="text-xs text-red-500 flex items-center gap-1">
+                        <Icon name="ExclamationCircleIcon" size={12} />
+                        {dvError}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="pt-3">
+                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 flex items-start justify-between gap-2">
+                      <div>
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <Icon name="CheckCircleIcon" size={14} className="text-blue-600" />
+                          <p className="text-xs font-semibold text-blue-800">Discount Voucher Applied!</p>
+                        </div>
+                        <p className="text-xs text-blue-700 font-mono font-bold">{dvData?.dv_code}</p>
+                        <p className="text-xs text-blue-600 mt-0.5">R{dvData?.dv_amount.toFixed(2)} discount · Expires {dvData?.expiry_date}</p>
+                      </div>
+                      <button onClick={handleRemoveDiscountVoucher} className="text-blue-500 hover:text-red-500 transition-colors flex-shrink-0" aria-label="Remove discount voucher">
+                        <Icon name="XMarkIcon" size={14} />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Order Summary Footer */}
@@ -237,9 +374,19 @@ export default function CartStepCart({
             {voucherApplied && (
               <div className="flex justify-between text-green-600 font-medium"><span>Voucher Payment</span><span>✓ Applied</span></div>
             )}
+            {dvApplied && dvData && (
+              <div className="flex justify-between font-medium">
+                <span className="text-[#5C5347]">Discount Voucher</span>
+                <span className="text-red-600 font-semibold">R {dvData.dv_amount.toFixed(2)}-</span>
+              </div>
+            )}
             <div className="flex justify-between font-semibold text-[#1A1612] text-base pt-2 border-t border-[#DDD5C8]">
               <span>Total</span>
-              <span>{voucherApplied ? <span className="text-green-600">R0.00 (Voucher)</span> : `R${total.toFixed(2)}`}</span>
+              <span>
+                {voucherApplied
+                  ? <span className="text-green-600">R0.00 (Voucher)</span>
+                  : `R${discountedTotal.toFixed(2)}`}
+              </span>
             </div>
           </div>
           <div className="flex flex-col gap-2">
@@ -248,12 +395,8 @@ export default function CartStepCart({
             </button>
             <button onClick={onProceed} className="w-full bg-[#C4622D] text-white py-3.5 rounded-full font-semibold text-sm hover:bg-[#A04E22] transition-all shadow-terra hover:shadow-terra-lg flex items-center justify-center gap-2">
               Enter your Details
-              <Icon name="ArrowRightIcon" size={16} />
             </button>
           </div>
-          <p className="text-xs text-center text-[#B5ADA5]">
-            {voucherApplied ? "Your voucher will be redeemed on order confirmation" : "Full payment required to confirm booking"}
-          </p>
         </div>
       )}
     </>

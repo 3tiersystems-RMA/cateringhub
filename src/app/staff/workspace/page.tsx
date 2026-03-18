@@ -10,7 +10,7 @@ import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal';
 import GoogleDriveDocuments from './components/GoogleDriveDocuments';
 
 type BucketType = 'product-images' | 'event-photos' | 'document-management';
-type WorkspaceTab = 'products' | 'media' | 'orders' | 'staff' | 'homepage_cards' | 'categories' | 'weekly_menu' | 'vouchers';
+type WorkspaceTab = 'products' | 'media' | 'orders' | 'staff' | 'homepage_cards' | 'categories' | 'weekly_menu' | 'vouchers' | 'discount_vouchers';
 type ProductCategory = string;
 type StaffRole = 'admin' | 'staff' | 'super_admin';
 
@@ -190,6 +190,16 @@ interface Voucher {
   status: 'redeemed' | 'expired' | 'unpaid' | 'paid';
   purchased_at: string;
   notes: string | null;
+}
+
+interface DiscountVoucher {
+  id: string;
+  dv_code: string;
+  dv_amount: number;
+  status: 'Active' | 'Inactive';
+  expiry_date: string;
+  times_used: number;
+  created_at: string;
 }
 
 interface VoucherRedemption {
@@ -545,6 +555,18 @@ export default function StaffWorkspacePage() {
   const [voucherSearchQuery, setVoucherSearchQuery] = useState('');
   const [markingVoucherPaidId, setMarkingVoucherPaidId] = useState<string | null>(null);
   const [loadingMarkingPaid, setLoadingMarkingPaid] = useState(false);
+
+  // Discount Vouchers state
+  const [discountVouchers, setDiscountVouchers] = useState<DiscountVoucher[]>([]);
+  const [dvLoading, setDvLoading] = useState(false);
+  const [showDvForm, setShowDvForm] = useState(false);
+  const [editingDv, setEditingDv] = useState<DiscountVoucher | null>(null);
+  const [dvForm, setDvForm] = useState({ dv_amount: '', expiry_date: '', status: 'Active\' as \'Active\' | \'Inactive' });
+  const [dvFormError, setDvFormError] = useState('');
+  const [dvFormSuccess, setDvFormSuccess] = useState('');
+  const [savingDv, setSavingDv] = useState(false);
+  const [dvSearchQuery, setDvSearchQuery] = useState('');
+  const [generatingQrId, setGeneratingQrId] = useState<string | null>(null);
 
   // Delete confirmation modal state
   const [deleteModal, setDeleteModal] = useState<{
@@ -1845,6 +1867,157 @@ export default function StaffWorkspacePage() {
     }
   };
 
+  // ─── Discount Vouchers CRUD ──────────────────────────────────────────────────
+
+  const generateDvCode = (): string => {
+    const year = new Date().getFullYear();
+    const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
+    const rand2 = Math.random().toString(36).slice(2, 4).toUpperCase();
+    return `DV-${year}-${rand}${rand2}`;
+  };
+
+  const loadDiscountVouchers = async () => {
+    setDvLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('discount_vouchers')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) {
+        console.log('Load discount vouchers error:', error.message);
+        setDiscountVouchers([]);
+        return;
+      }
+      setDiscountVouchers((data || []) as DiscountVoucher[]);
+    } catch (err) {
+      console.log('Unexpected error loading discount vouchers:', err);
+      setDiscountVouchers([]);
+    } finally {
+      setDvLoading(false);
+    }
+  };
+
+  const openCreateDvForm = () => {
+    setEditingDv(null);
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 30);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const defaultExpiry = `${tomorrow.getFullYear()}-${pad(tomorrow.getMonth() + 1)}-${pad(tomorrow.getDate())}`;
+    setDvForm({ dv_amount: '', expiry_date: defaultExpiry, status: 'Active' });
+    setDvFormError('');
+    setDvFormSuccess('');
+    setShowDvForm(true);
+  };
+
+  const openEditDvForm = (dv: DiscountVoucher) => {
+    setEditingDv(dv);
+    setDvForm({ dv_amount: String(dv.dv_amount), expiry_date: dv.expiry_date, status: dv.status });
+    setDvFormError('');
+    setDvFormSuccess('');
+    setShowDvForm(true);
+  };
+
+  const handleSaveDv = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setDvFormError('');
+    setDvFormSuccess('');
+
+    const amount = Number(dvForm.dv_amount);
+    if (!dvForm.dv_amount || isNaN(amount) || amount <= 0) {
+      setDvFormError('Please enter a valid discount amount.');
+      return;
+    }
+    if (!dvForm.expiry_date) {
+      setDvFormError('Expiry date is required.');
+      return;
+    }
+
+    setSavingDv(true);
+    try {
+      if (editingDv) {
+        const { error } = await supabase
+          .from('discount_vouchers')
+          .update({ dv_amount: amount, expiry_date: dvForm.expiry_date, status: dvForm.status })
+          .eq('id', editingDv.id);
+        if (error) {
+          setDvFormError(`Update failed: ${error.message}`);
+          return;
+        }
+        setDvFormSuccess('Discount voucher updated successfully!');
+      } else {
+        const code = generateDvCode();
+        const { error } = await supabase
+          .from('discount_vouchers')
+          .insert({ dv_code: code, dv_amount: amount, expiry_date: dvForm.expiry_date, status: 'Active', times_used: 0 });
+        if (error) {
+          setDvFormError(`Create failed: ${error.message}`);
+          return;
+        }
+        setDvFormSuccess('Discount voucher created successfully!');
+      }
+
+      await loadDiscountVouchers();
+      setTimeout(() => {
+        setShowDvForm(false);
+        setDvFormSuccess('');
+      }, 1500);
+    } catch (err) {
+      setDvFormError('An unexpected error occurred.');
+    } finally {
+      setSavingDv(false);
+    }
+  };
+
+  const handleGenerateDvQr = async (dv: DiscountVoucher) => {
+    setGeneratingQrId(dv.id);
+    try {
+      const QRCode = (await import('qrcode')).default;
+      const qrText = `Discount Voucher\nCode: ${dv.dv_code}\nAmount: R${Number(dv.dv_amount).toFixed(2)}\nExpiry: ${dv.expiry_date}`;
+      const canvas = document.createElement('canvas');
+      await QRCode.toCanvas(canvas, qrText, {
+        width: 400,
+        margin: 2,
+        color: { dark: '#1A1612', light: '#FFFFFF' },
+      });
+
+      // Draw label below QR
+      const labelCanvas = document.createElement('canvas');
+      const ctx = labelCanvas.getContext('2d');
+      if (!ctx) return;
+      labelCanvas.width = 400;
+      labelCanvas.height = 520;
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, 400, 520);
+      ctx.drawImage(canvas, 0, 0, 400, 400);
+
+      ctx.fillStyle = '#1A1612';
+      ctx.font = 'bold 18px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(dv.dv_code, 200, 430);
+
+      ctx.font = '16px sans-serif';
+      ctx.fillStyle = '#C4622D';
+      ctx.fillText(`R${Number(dv.dv_amount).toFixed(2)} Discount`, 200, 458);
+
+      ctx.font = '14px sans-serif';
+      ctx.fillStyle = '#5C5347';
+      ctx.fillText(`Expires: ${dv.expiry_date}`, 200, 482);
+
+      ctx.font = '12px sans-serif';
+      ctx.fillStyle = '#8C8278';
+      ctx.fillText(APP_NAME, 200, 508);
+
+      const link = document.createElement('a');
+      link.download = `DV-QR-${dv.dv_code}.png`;
+      link.href = labelCanvas.toDataURL('image/png');
+      link.click();
+    } catch (err) {
+      console.log('QR generation error:', err);
+    } finally {
+      setGeneratingQrId(null);
+    }
+  };
+
   return (
     <>
       <DeleteConfirmModal
@@ -1950,6 +2123,14 @@ export default function StaffWorkspacePage() {
               }`}
             >
               🎟️ Vouchers
+            </button>
+            <button
+              onClick={() => { setActiveTab('discount_vouchers'); loadDiscountVouchers(); }}
+              className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${
+                activeTab === 'discount_vouchers' ? 'border-[#C4622D] text-[#C4622D]' : 'border-transparent text-[#8C8278] hover:text-[#5C5347]'
+              }`}
+            >
+              🏷️ Discount Vouchers
             </button>
             {isSuperAdmin && (
               <button
@@ -4073,6 +4254,214 @@ voucher.status === 'paid' ? 'bg-green-100 text-green-700'
                             </td>
                           </tr>
                         ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── DISCOUNT VOUCHERS TAB ── */}
+        {activeTab === 'discount_vouchers' && (
+          <div>
+            {/* DV Form Modal */}
+            {showDvForm && (
+              <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto py-8 px-4">
+                <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl">
+                  <div className="flex items-center justify-between px-6 py-4 border-b border-[#EDE7DA]">
+                    <h2 className="font-bold text-[#1A1612] text-lg">
+                      {editingDv ? 'Edit Discount Voucher' : 'Generate Discount Voucher'}
+                    </h2>
+                    <button
+                      onClick={() => setShowDvForm(false)}
+                      className="w-8 h-8 rounded-full bg-[#F5F0E8] flex items-center justify-center text-[#8C8278] hover:bg-[#EDE7DA] transition-colors"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <form onSubmit={handleSaveDv} className="p-6 space-y-4">
+                    {editingDv && (
+                      <div>
+                        <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">DV Code</label>
+                        <div className="bg-[#F5F0E8] border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm font-mono font-bold text-[#C4622D]">
+                          {editingDv.dv_code}
+                        </div>
+                      </div>
+                    )}
+                    <div>
+                      <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">Discount Amount (R) *</label>
+                      <input
+                        type="number"
+                        required
+                        min="0.01"
+                        step="0.01"
+                        value={dvForm.dv_amount}
+                        onChange={(e) => setDvForm({ ...dvForm, dv_amount: e.target.value })}
+                        placeholder="e.g. 25.00"
+                        className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">Expiry Date *</label>
+                      <input
+                        type="date"
+                        required
+                        value={dvForm.expiry_date}
+                        onChange={(e) => setDvForm({ ...dvForm, expiry_date: e.target.value })}
+                        className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
+                      />
+                    </div>
+                    {editingDv && (
+                      <div>
+                        <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">Status *</label>
+                        <select
+                          value={dvForm.status}
+                          onChange={(e) => setDvForm({ ...dvForm, status: e.target.value as 'Active' | 'Inactive' })}
+                          className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors bg-white"
+                        >
+                          <option value="Active">Active</option>
+                          <option value="Inactive">Inactive</option>
+                        </select>
+                      </div>
+                    )}
+                    {dvFormError && (
+                      <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">{dvFormError}</div>
+                    )}
+                    {dvFormSuccess && (
+                      <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-xl px-4 py-3">{dvFormSuccess}</div>
+                    )}
+                    <div className="flex gap-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowDvForm(false)}
+                        className="flex-1 py-2.5 rounded-xl border border-[#DDD5C8] text-sm font-semibold text-[#5C5347] hover:bg-[#F5F0E8] transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={savingDv}
+                        className="flex-1 py-2.5 rounded-xl bg-[#C4622D] text-white text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                      >
+                        {savingDv ? (
+                          <><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Saving...</>
+                        ) : editingDv ? 'Save Changes' : 'Generate Voucher'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+              <div>
+                <h2 className="text-xl font-bold text-[#1A1612]">Discount Vouchers</h2>
+                <p className="text-sm text-[#8C8278]">{discountVouchers.length} discount voucher{discountVouchers.length !== 1 ? 's' : ''} total</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <input
+                  type="text"
+                  value={dvSearchQuery}
+                  onChange={(e) => setDvSearchQuery(e.target.value)}
+                  placeholder="Search by code..."
+                  className="bg-white border border-[#DDD5C8] rounded-full px-4 py-2 text-sm text-[#1A1612] placeholder-[#B5ADA5] focus:outline-none focus:border-[#C4622D] transition-colors w-48"
+                />
+                <button
+                  onClick={openCreateDvForm}
+                  className="flex items-center gap-2 bg-[#C4622D] text-white px-4 py-2 rounded-full text-sm font-semibold hover:bg-[#A04E22] transition-colors"
+                >
+                  + Generate Voucher
+                </button>
+              </div>
+            </div>
+
+            {/* Table */}
+            {dvLoading ? (
+              <div className="flex justify-center py-16">
+                <svg className="animate-spin h-8 w-8 text-[#C4622D]" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+              </div>
+            ) : discountVouchers.length === 0 ? (
+              <div className="text-center py-16 bg-white rounded-2xl border border-[#DDD5C8]">
+                <div className="text-4xl mb-3">🏷️</div>
+                <p className="text-[#8C8278] font-medium">No discount vouchers yet.</p>
+                <p className="text-sm text-[#B5ADA5] mt-1">Generate your first discount voucher to get started.</p>
+              </div>
+            ) : (
+              <div className="bg-white rounded-2xl border border-[#DDD5C8] overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-[#F5F0E8] border-b border-[#DDD5C8]">
+                        <th className="text-left px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wider">DV Code</th>
+                        <th className="text-right px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wider">Amount</th>
+                        <th className="text-center px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wider">Status</th>
+                        <th className="text-left px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wider hidden md:table-cell">Expiry Date</th>
+                        <th className="text-center px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wider hidden sm:table-cell">Times Used</th>
+                        <th className="px-4 py-3"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#F0EBE3]">
+                      {discountVouchers
+                        .filter((dv) => {
+                          if (!dvSearchQuery.trim()) return true;
+                          return dv.dv_code.toLowerCase().includes(dvSearchQuery.toLowerCase());
+                        })
+                        .map((dv) => {
+                          const isExpired = new Date(dv.expiry_date + 'T00:00:00') < new Date(new Date().toDateString());
+                          return (
+                            <tr key={dv.id} className="hover:bg-[#FDFAF7] transition-colors">
+                              <td className="px-4 py-3">
+                                <span className="font-mono font-bold text-[#C4622D] text-xs">{dv.dv_code}</span>
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                <span className="font-bold text-[#1A1612]">R{Number(dv.dv_amount).toFixed(2)}</span>
+                              </td>
+                              <td className="px-4 py-3 text-center">
+                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                                  isExpired ? 'bg-gray-100 text-gray-500'
+                                  : dv.status === 'Active'? 'bg-green-100 text-green-700' :'bg-red-100 text-red-600'
+                                }`}>
+                                  {isExpired ? 'Expired' : dv.status}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 hidden md:table-cell">
+                                <span className={`text-xs ${isExpired ? 'text-red-500 font-semibold' : 'text-[#5C5347]'}`}>{dv.expiry_date}</span>
+                              </td>
+                              <td className="px-4 py-3 text-center hidden sm:table-cell">
+                                <span className="text-xs font-semibold text-[#1A1612]">{dv.times_used}</span>
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-2 justify-end">
+                                  <button
+                                    onClick={() => handleGenerateDvQr(dv)}
+                                    disabled={generatingQrId === dv.id}
+                                    className="text-xs font-semibold text-white bg-[#1A1612] hover:bg-[#3D342D] px-2.5 py-1 rounded-full transition-colors disabled:opacity-60 whitespace-nowrap flex items-center gap-1"
+                                    title="Download QR Code"
+                                  >
+                                    {generatingQrId === dv.id ? (
+                                      <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                                    ) : (
+                                      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                                      </svg>
+                                    )} QR
+                                  </button>
+                                  <button
+                                    onClick={() => openEditDvForm(dv)}
+                                    className="text-xs font-semibold text-[#C4622D] hover:underline whitespace-nowrap"
+                                  >
+                                    Edit
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
                     </tbody>
                   </table>
                 </div>

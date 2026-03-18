@@ -39,6 +39,8 @@ interface CartContextType {
   setAppliedVoucher: (v: VoucherData | null) => void;
   openVoucherBanner: () => void;
   registerVoucherBannerOpener: (fn: () => void) => void;
+  appliedDiscountVoucher: DiscountVoucherData | null;
+  setAppliedDiscountVoucher: (v: DiscountVoucherData | null) => void;
 }
 
 export interface VoucherData {
@@ -52,12 +54,22 @@ export interface VoucherData {
   package_type?: string;
 }
 
+export interface DiscountVoucherData {
+  id: string;
+  dv_code: string;
+  dv_amount: number;
+  status: string;
+  expiry_date: string;
+  times_used: number;
+}
+
 const CartContext = createContext<CartContextType | null>(null);
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [appliedVoucher, setAppliedVoucher] = useState<VoucherData | null>(null);
+  const [appliedDiscountVoucher, setAppliedDiscountVoucher] = useState<DiscountVoucherData | null>(null);
   const voucherBannerOpenerRef = useRef<(() => void) | null>(null);
 
   const registerVoucherBannerOpener = useCallback((fn: () => void) => {
@@ -104,7 +116,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   return (
     <CartContext.Provider
-      value={{ items, addItem, removeItem, updateQty, clearCart, totalItems, subtotal, isOpen, setIsOpen, appliedVoucher, setAppliedVoucher, openVoucherBanner, registerVoucherBannerOpener }}
+      value={{
+        items, addItem, removeItem, updateQty, clearCart, totalItems, subtotal,
+        isOpen, setIsOpen,
+        appliedVoucher, setAppliedVoucher,
+        openVoucherBanner, registerVoucherBannerOpener,
+        appliedDiscountVoucher, setAppliedDiscountVoucher,
+      }}
     >
       {children}
     </CartContext.Provider>

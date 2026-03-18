@@ -1,7 +1,7 @@
 "use client";
 
 import Icon from "@/components/ui/AppIcon";
-import type { VoucherData } from "./CartContext";
+import type { VoucherData, DiscountVoucherData } from "./CartContext";
 import { APP_NAME } from "@/lib/constants";
 
 const BANK_DETAILS = {
@@ -16,10 +16,13 @@ type PaymentMethod = "eft" | "payfast" | "voucher";
 interface CartStepPaymentProps {
   voucherApplied: boolean;
   voucherData: VoucherData | null;
+  dvApplied: boolean;
+  dvData: DiscountVoucherData | null;
   selectedMethod: PaymentMethod;
   setSelectedMethod: (m: PaymentMethod) => void;
   orderRef: string;
   total: number;
+  discountedTotal: number;
   totalItems: number;
   payError: string;
   processing: boolean;
@@ -31,10 +34,13 @@ interface CartStepPaymentProps {
 export default function CartStepPayment({
   voucherApplied,
   voucherData,
+  dvApplied,
+  dvData,
   selectedMethod,
   setSelectedMethod,
   orderRef,
   total,
+  discountedTotal,
   totalItems,
   payError,
   processing,
@@ -49,6 +55,8 @@ export default function CartStepPayment({
     </svg>
   );
 
+  const displayTotal = voucherApplied ? 0 : discountedTotal;
+
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
@@ -61,10 +69,13 @@ export default function CartStepPayment({
               {voucherApplied ? "Voucher Payment" : "Total Due Now"}
             </p>
             <p className="text-2xl font-display font-semibold mb-1">
-              {voucherApplied ? "R0.00" : `R${total.toFixed(2)}`}
+              {voucherApplied ? "R0.00" : `R${displayTotal.toFixed(2)}`}
             </p>
             {voucherApplied && (
               <p className="text-xs text-green-400 font-mono">Paid via voucher {voucherData?.voucher_code}</p>
+            )}
+            {dvApplied && dvData && !voucherApplied && (
+              <p className="text-xs text-red-400 font-mono">Discount applied: R {dvData.dv_amount.toFixed(2)}-</p>
             )}
             <div className="mt-4 flex items-center gap-2">
               <Icon name="BuildingLibraryIcon" size={18} className="text-[#D4A853]" />
@@ -173,9 +184,21 @@ export default function CartStepPayment({
 
         {/* Order total recap */}
         <div className="bg-[#EDE7DA] rounded-2xl p-4 space-y-1.5 text-sm">
+          {dvApplied && dvData && !voucherApplied && (
+            <>
+              <div className="flex justify-between text-[#5C5347]">
+                <span>Order Amount</span>
+                <span>R{total.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between font-medium">
+                <span className="text-[#5C5347]">Discount Voucher ({dvData.dv_code})</span>
+                <span className="text-red-600 font-semibold">R {dvData.dv_amount.toFixed(2)}-</span>
+              </div>
+            </>
+          )}
           <div className="flex justify-between font-semibold text-[#1A1612]">
             <span>Total Due Now</span>
-            <span className="text-[#C4622D]">{voucherApplied ? "R0.00 (Voucher)" : `R${total.toFixed(2)}`}</span>
+            <span className="text-[#C4622D]">{voucherApplied ? "R0.00 (Voucher)" : `R${displayTotal.toFixed(2)}`}</span>
           </div>
         </div>
 

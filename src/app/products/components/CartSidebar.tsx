@@ -3,7 +3,7 @@
 import { useState, useRef } from "react";
 import Icon from "@/components/ui/AppIcon";
 import { useCart } from "./CartContext";
-import type { VoucherData } from "./CartContext";
+import type { VoucherData, DiscountVoucherData } from "./CartContext";
 import { APP_NAME } from "@/lib/constants";
 import { createClient } from "@/lib/supabase/client";
 import CartStepCart from "./CartStepCart";
@@ -27,7 +27,7 @@ export default function CartSidebar() {
   const [orderRef, setOrderRef] = useState("");
   const voucherOrderInProgress = useRef(false);
 
-  // Voucher state
+  // Meal Voucher state
   const [voucherCode, setVoucherCode] = useState("");
   const [voucherData, setVoucherData] = useState<VoucherData | null>(null);
   const [voucherError, setVoucherError] = useState("");
@@ -37,9 +37,18 @@ export default function CartSidebar() {
   const [voucherMealsUsed, setVoucherMealsUsed] = useState(0);
   const [voucherMealsRemaining, setVoucherMealsRemaining] = useState(0);
 
+  // Discount Voucher state
+  const [dvCode, setDvCode] = useState("");
+  const [dvData, setDvData] = useState<DiscountVoucherData | null>(null);
+  const [dvError, setDvError] = useState("");
+  const [dvLoading, setDvLoading] = useState(false);
+  const [dvApplied, setDvApplied] = useState(false);
+  const [showDvSection, setShowDvSection] = useState(false);
+
   const tax = subtotal * 0.15;
   const delivery = subtotal > 0 ? 15 : 0;
   const total = subtotal + tax + delivery;
+  const discountedTotal = dvApplied && dvData ? Math.max(0, total - dvData.dv_amount) : total;
 
   const handleDetailsSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -139,6 +148,10 @@ export default function CartSidebar() {
     setProcessing(true);
     setPayError("");
     try {
+      const orderNotes = dvApplied && dvData
+        ? `Discount Voucher: ${dvData.dv_code} (R${dvData.dv_amount.toFixed(2)} credit). ${form.notes}`.trim()
+        : form.notes;
+
       const response = await fetch("/api/orders/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -149,13 +162,22 @@ export default function CartSidebar() {
             id: i.product.id, name: i.product.name, quantity: i.quantity,
             price: i.product.price, unit: i.product.unit, category: i.product.category,
           })),
-          subtotal, delivery_fee: delivery, total,
+          subtotal, delivery_fee: delivery, total: discountedTotal,
           payment_status: "awaiting_payment", payment_method: "eft",
-          event_date: form.date || null, delivery_address: form.address, notes: form.notes,
+          event_date: form.date || null, delivery_address: form.address, notes: orderNotes,
         }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Failed to place order. Please try again.");
+
+      // Increment times_used on discount voucher if applied
+      if (dvApplied && dvData) {
+        await supabase
+          .from("discount_vouchers")
+          .update({ times_used: dvData.times_used + 1 })
+          .eq("dv_code", dvData.dv_code);
+      }
+
       setOrderRef(result.reference ?? orderRef);
       clearCart();
       setStep("eft-success");
@@ -171,21 +193,34 @@ export default function CartSidebar() {
     setProcessing(true);
     setPayError("");
     try {
+      const orderNotes = dvApplied && dvData
+        ? `Discount Voucher: ${dvData.dv_code} (R${dvData.dv_amount.toFixed(2)} credit). ${form.notes}`.trim()
+        : form.notes;
+
       const response = await fetch("/api/payfast/initiate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: form.name, email: form.email, phone: form.phone,
-          amount: total.toFixed(2), itemName: `${APP_NAME} Order`,
+          amount: discountedTotal.toFixed(2), itemName: `${APP_NAME} Order`,
           itemDescription: `Event: ${form.date || "TBD"} | ${form.address || ""}`.trim(),
           items: items.map((i) => ({
             id: i.product.id, name: i.product.name, quantity: i.quantity,
             price: i.product.price, unit: i.product.unit, category: i.product.category,
           })),
-          subtotal, deliveryFee: delivery, total,
-          eventDate: form.date || "", deliveryAddress: form.address || "", notes: form.notes || "",
+          subtotal, deliveryFee: delivery, total: discountedTotal,
+          eventDate: form.date || "", deliveryAddress: form.address || "", notes: orderNotes || "",
         }),
       });
+
+      // Increment times_used on discount voucher if applied
+      if (dvApplied && dvData) {
+        await supabase
+          .from("discount_vouchers")
+          .update({ times_used: dvData.times_used + 1 })
+          .eq("dv_code", dvData.dv_code);
+      }
+
       if (!response.ok) {
         const err = await response.json().catch(() => ({}));
         throw new Error(err.error || "Failed to initiate payment");
@@ -273,6 +308,18 @@ export default function CartSidebar() {
             setVoucherApplied={setVoucherApplied}
             showVoucherSection={showVoucherSection}
             setShowVoucherSection={setShowVoucherSection}
+            dvCode={dvCode}
+            setDvCode={setDvCode}
+            dvData={dvData}
+            setDvData={setDvData}
+            dvError={dvError}
+            setDvError={setDvError}
+            dvLoading={dvLoading}
+            setDvLoading={setDvLoading}
+            dvApplied={dvApplied}
+            setDvApplied={setDvApplied}
+            showDvSection={showDvSection}
+            setShowDvSection={setShowDvSection}
             onProceed={() => {
               if (voucherApplied && voucherData) {
                 setForm((prev) => ({
@@ -310,10 +357,13 @@ export default function CartSidebar() {
           <CartStepPayment
             voucherApplied={voucherApplied}
             voucherData={voucherData}
+            dvApplied={dvApplied}
+            dvData={dvData}
             selectedMethod={selectedMethod}
             setSelectedMethod={setSelectedMethod}
             orderRef={orderRef}
             total={total}
+            discountedTotal={discountedTotal}
             totalItems={totalItems}
             payError={payError}
             processing={processing}
