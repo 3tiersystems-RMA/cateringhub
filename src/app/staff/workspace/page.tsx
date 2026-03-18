@@ -2283,7 +2283,14 @@ export default function StaffWorkspacePage() {
                       <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Package Type</label>
                       <select
                         value={form.package_type}
-                        onChange={(e) => setForm({ ...form, package_type: e.target.value })}
+                        onChange={(e) => {
+                          const newPackageType = e.target.value;
+                          const updatedForm: typeof form = { ...form, package_type: newPackageType };
+                          if (!editingProduct && newPackageType === 'package-10') {
+                            updatedForm.tags = 'Gluten-Free, Dairy-Free';
+                          }
+                          setForm(updatedForm);
+                        }}
                         className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors bg-white"
                       >
                         {packageTypes.map((pt) => (
