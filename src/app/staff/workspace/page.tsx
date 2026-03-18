@@ -1296,7 +1296,8 @@ export default function StaffWorkspacePage() {
     setFormSuccess('');
 
     if (!form.name.trim()) { setFormError('Product name is required.'); return; }
-    if (!form.price || isNaN(Number(form.price)) || Number(form.price) <= 0) {
+    const isPackageType = ['package-6','package-10','package-12','package-24'].includes(form.package_type);
+    if (!isPackageType && (!form.price || isNaN(Number(form.price)) || Number(form.price) <= 0)) {
       setFormError('Please enter a valid price.'); return;
     }
     if (!form.description.trim()) { setFormError('Description is required.'); return; }
@@ -1324,7 +1325,7 @@ export default function StaffWorkspacePage() {
       const payload = {
         name: form.name.trim(),
         category: form.category,
-        price: Number(form.price),
+        price: (isPackageType && (!form.price || Number(form.price) === 0)) ? null : Number(form.price),
         unit: form.unit.trim() || 'per serving',
         description: form.description.trim(),
         tags: form.tags ? form.tags.split(',').map((t) => t.trim()).filter(Boolean) : [],
@@ -2063,7 +2064,9 @@ export default function StaffWorkspacePage() {
                         </select>
                       </div>
                       <div>
-                        <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Price (R) *</label>
+                        <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">
+                          Price (R){['package-6','package-10','package-12','package-24'].includes(form.package_type) ? <span className="text-[#B0A89E] font-normal ml-1">(Optional)</span> : ' *'}
+                        </label>
                         <input
                           type="number"
                           value={form.price}
@@ -2072,7 +2075,6 @@ export default function StaffWorkspacePage() {
                           min="0"
                           step="0.01"
                           className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
-                          required
                         />
                       </div>
                     </div>
@@ -2138,21 +2140,6 @@ export default function StaffWorkspacePage() {
                           className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
                         />
                       </div>
-                    </div>
-
-                    {/* Package Type */}
-                    <div>
-                      <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Package Type</label>
-                      <select
-                        value={form.package_type}
-                        onChange={(e) => setForm({ ...form, package_type: e.target.value })}
-                        className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors bg-white"
-                      >
-                        {packageTypes.map((pt) => (
-                          <option key={pt.value} value={pt.value}>{pt.label}</option>
-                        ))}
-                      </select>
-                      <p className="text-xs text-[#B0A89E] mt-1">Tag this product to a voucher package tier. Customers must hold a matching paid voucher to order.</p>
                     </div>
 
                     {/* Toggles */}

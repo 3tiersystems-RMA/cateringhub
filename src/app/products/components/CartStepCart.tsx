@@ -140,7 +140,9 @@ export default function CartStepCart({
                     </button>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-[#1A1612]">R{(item.product.price * item.quantity).toFixed(2)}</span>
+                    {(item.product.price && item.product.price > 0) ? (
+                      <span className="text-sm font-semibold text-[#1A1612]">R{(item.product.price * item.quantity).toFixed(2)}</span>
+                    ) : null}
                     <button onClick={() => removeItem(item.product.id)} className="p-1 rounded-full hover:bg-red-50 hover:text-red-500 transition-colors text-[#B5ADA5]" aria-label="Remove item">
                       <Icon name="TrashIcon" size={13} />
                     </button>

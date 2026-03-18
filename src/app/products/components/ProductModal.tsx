@@ -136,7 +136,9 @@ export default function ProductModal({ product, onClose, added, onAdd }: Product
           {/* Price block */}
           <div className="flex items-end justify-between gap-4">
             <div>
-              <p className="text-3xl font-semibold text-[#1A1612]">R{product.price}</p>
+              {(product.price && product.price > 0) ? (
+                <p className="text-3xl font-semibold text-[#1A1612]">R{product.price}</p>
+              ) : null}
               <p className="text-xs text-[#B5ADA5] font-mono mt-0.5">{product.unit}</p>
               {product.minOrder && (
                 <p className="text-xs text-[#C4622D] mt-1 font-medium">

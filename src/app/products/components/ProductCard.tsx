@@ -140,9 +140,11 @@ export default function ProductCard({ product, onOpenModal }: ProductCardProps) 
         {/* Price + Add */}
         <div className="flex items-center justify-between mt-auto">
           <div>
-            <p className="text-xl font-semibold text-[#1A1612]">
-              R{product.price}
-            </p>
+            {(product.price && product.price > 0) ? (
+              <p className="text-xl font-semibold text-[#1A1612]">
+                R{product.price}
+              </p>
+            ) : null}
             <p className="text-xs text-[#B5ADA5] font-mono">{product.unit}</p>
             {product.minOrder && (
               <p className="text-xs text-[#C4622D] mt-0.5">
