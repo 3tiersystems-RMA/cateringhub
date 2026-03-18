@@ -1901,7 +1901,33 @@ export default function StaffWorkspacePage() {
         setDiscountVouchers([]);
         return;
       }
-      setDiscountVouchers((data || []) as DiscountVoucher[]);
+
+      const vouchers = (data || []) as DiscountVoucher[];
+
+      // Auto-deactivate expired vouchers: the day after expiry_date, set status to Inactive
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const expiredActive = vouchers.filter((dv) => {
+        if (dv.status !== 'Active') return false;
+        const expiry = new Date(dv.expiry_date);
+        expiry.setHours(0, 0, 0, 0);
+        // expired = expiry date is strictly before today
+        return expiry < today;
+      });
+
+      if (expiredActive.length > 0) {
+        const expiredIds = expiredActive.map((dv) => dv.id);
+        await supabase
+          .from('discount_vouchers')
+          .update({ status: 'Inactive' })
+          .in('id', expiredIds);
+        // Reflect change locally
+        vouchers.forEach((dv) => {
+          if (expiredIds.includes(dv.id)) dv.status = 'Inactive';
+        });
+      }
+
+      setDiscountVouchers(vouchers);
     } catch (err) {
       console.log('Unexpected error loading discount vouchers:', err);
       setDiscountVouchers([]);
