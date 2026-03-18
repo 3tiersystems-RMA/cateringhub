@@ -408,13 +408,28 @@ export default function OrderHistoryPage() {
                                 <span>Subtotal</span>
                                 <span>{formatCurrency(order.subtotal)}</span>
                               </div>
+                              {(() => {
+                                const discountMatch = order.notes?.match(/\(R([\d.]+)\s*credit\)/);
+                                const discountAmt = discountMatch ? parseFloat(discountMatch[1]) : 0;
+                                if (discountAmt <= 0) return null;
+                                return (
+                                  <div className="flex justify-between text-sm">
+                                    <span className="text-red-500 font-medium">Discount</span>
+                                    <span className="text-red-500 font-medium">R{discountAmt.toFixed(2)}-</span>
+                                  </div>
+                                );
+                              })()}
                               <div className="flex justify-between text-sm text-[#A09890]">
                                 <span>Delivery</span>
                                 <span>{order.delivery_fee > 0 ? formatCurrency(order.delivery_fee) : "Free"}</span>
                               </div>
                               <div className="flex justify-between text-sm font-bold text-white border-t border-[#222] pt-2 mt-2">
                                 <span>Total</span>
-                                <span>{formatCurrency(order.total)}</span>
+                                <span>{(() => {
+                                  const discountMatch = order.notes?.match(/\(R([\d.]+)\s*credit\)/);
+                                  const discountAmt = discountMatch ? parseFloat(discountMatch[1]) : 0;
+                                  return formatCurrency((order.subtotal || 0) - discountAmt + (order.delivery_fee || 0));
+                                })()}</span>
                               </div>
                             </div>
 
