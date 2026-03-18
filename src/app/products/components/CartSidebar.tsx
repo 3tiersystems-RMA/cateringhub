@@ -10,6 +10,7 @@ import CartStepCart from "./CartStepCart";
 import CartStepDetails from "./CartStepDetails";
 import CartStepPayment from "./CartStepPayment";
 import CartStepSuccess from "./CartStepSuccess";
+import VoucherErrorModal from "@/components/ui/VoucherErrorModal";
 
 type CheckoutStep = "cart" | "details" | "payment" | "eft-success" | "confirmation";
 type PaymentMethod = "eft" | "payfast" | "voucher";
@@ -22,15 +23,25 @@ export default function CartSidebar() {
   const [form, setForm] = useState({ name: "", email: "", phone: "", date: "", address: "", notes: "" });
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>("eft");
   const [processing, setProcessing] = useState(false);
-  const [payError, setPayError] = useState("");
-  const [phoneError, setPhoneError] = useState("");
+  const [payError, setPayErrorState] = useState("");
+  const [phoneError, setPhoneErrorState] = useState("");
   const [orderRef, setOrderRef] = useState("");
   const voucherOrderInProgress = useRef(false);
+
+  // Global error modal
+  const [errorModal, setErrorModal] = useState<{ open: boolean; message: string; title: string }>({ open: false, message: "", title: "Error" });
+  const showError = (message: string, title = "Error") => setErrorModal({ open: true, message, title });
+  const closeError = () => setErrorModal({ open: false, message: "", title: "Error" });
+
+  // Wrapped setters that show modal instead of inline
+  const setPayError = (msg: string) => { if (msg) showError(msg, "Payment Error"); else setPayErrorState(""); };
+  const setPhoneError = (msg: string) => { if (msg) showError(msg, "Phone Number Error"); else setPhoneErrorState(""); };
+  const setVoucherError = (msg: string) => { if (msg) showError(msg, "Voucher Error"); };
+  const setDvError = (msg: string) => { if (msg) showError(msg, "Discount Voucher Error"); };
 
   // Meal Voucher state
   const [voucherCode, setVoucherCode] = useState("");
   const [voucherData, setVoucherData] = useState<VoucherData | null>(null);
-  const [voucherError, setVoucherError] = useState("");
   const [voucherLoading, setVoucherLoading] = useState(false);
   const [voucherApplied, setVoucherApplied] = useState(false);
   const [showVoucherSection, setShowVoucherSection] = useState(false);
@@ -40,7 +51,6 @@ export default function CartSidebar() {
   // Discount Voucher state
   const [dvCode, setDvCode] = useState("");
   const [dvData, setDvData] = useState<DiscountVoucherData | null>(null);
-  const [dvError, setDvError] = useState("");
   const [dvLoading, setDvLoading] = useState(false);
   const [dvApplied, setDvApplied] = useState(false);
   const [showDvSection, setShowDvSection] = useState(false);
@@ -55,7 +65,6 @@ export default function CartSidebar() {
     const stripped = form.phone.replace(/\D/g, "");
     if (stripped.length !== 10) { setPhoneError("Mobile number must be exactly 10 digits"); return; }
     if (stripped[0] !== "0") { setPhoneError("Mobile number must start with 0 (e.g. 0821234567)"); return; }
-    setPhoneError("");
     const ref = `CK-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
     setOrderRef(ref);
     setStep("payment");
@@ -66,7 +75,6 @@ export default function CartSidebar() {
     const stripped = form.phone.replace(/\D/g, "");
     if (stripped.length !== 10) { setPhoneError("Mobile number must be exactly 10 digits"); return; }
     if (stripped[0] !== "0") { setPhoneError("Mobile number must start with 0 (e.g. 0821234567)"); return; }
-    setPhoneError("");
     const ref = `CK-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
     setOrderRef(ref);
     await handleVoucherOrder(ref);
@@ -77,7 +85,6 @@ export default function CartSidebar() {
     if (voucherOrderInProgress.current) return;
     voucherOrderInProgress.current = true;
     setProcessing(true);
-    setPayError("");
 
     const mealsToDeduct = totalItems;
     if (mealsToDeduct > voucherData.meals_remaining) {
@@ -146,7 +153,6 @@ export default function CartSidebar() {
 
   const handleEFTConfirm = async () => {
     setProcessing(true);
-    setPayError("");
     try {
       const orderNotes = dvApplied && dvData
         ? `Discount Voucher: ${dvData.dv_code} (R${dvData.dv_amount.toFixed(2)} credit). ${form.notes}`.trim()
@@ -170,7 +176,6 @@ export default function CartSidebar() {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Failed to place order. Please try again.");
 
-      // Increment times_used on discount voucher if applied
       if (dvApplied && dvData) {
         await supabase
           .from("discount_vouchers")
@@ -191,7 +196,6 @@ export default function CartSidebar() {
   const handlePayFastCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
     setProcessing(true);
-    setPayError("");
     try {
       const orderNotes = dvApplied && dvData
         ? `Discount Voucher: ${dvData.dv_code} (R${dvData.dv_amount.toFixed(2)} credit). ${form.notes}`.trim()
@@ -213,7 +217,6 @@ export default function CartSidebar() {
         }),
       });
 
-      // Increment times_used on discount voucher if applied
       if (dvApplied && dvData) {
         await supabase
           .from("discount_vouchers")
@@ -241,6 +244,12 @@ export default function CartSidebar() {
 
   return (
     <>
+      <VoucherErrorModal
+        isOpen={errorModal.open}
+        message={errorModal.message}
+        title={errorModal.title}
+        onClose={closeError}
+      />
       <div className="fixed inset-0 bg-[#1A1612]/40 backdrop-blur-sm z-40" onClick={handleClose} aria-hidden="true" />
       <aside className="cart-panel fixed right-0 top-0 h-full w-full max-w-md bg-[#F5F0E8] z-50 shadow-2xl flex flex-col">
         {/* Header */}
@@ -300,7 +309,7 @@ export default function CartSidebar() {
             setVoucherCode={setVoucherCode}
             voucherData={voucherData}
             setVoucherData={setVoucherData}
-            voucherError={voucherError}
+            voucherError=""
             setVoucherError={setVoucherError}
             voucherLoading={voucherLoading}
             setVoucherLoading={setVoucherLoading}
@@ -312,7 +321,7 @@ export default function CartSidebar() {
             setDvCode={setDvCode}
             dvData={dvData}
             setDvData={setDvData}
-            dvError={dvError}
+            dvError=""
             setDvError={setDvError}
             dvLoading={dvLoading}
             setDvLoading={setDvLoading}
@@ -342,9 +351,9 @@ export default function CartSidebar() {
           <CartStepDetails
             form={form}
             setForm={setForm}
-            phoneError={phoneError}
+            phoneError=""
             setPhoneError={setPhoneError}
-            payError={payError}
+            payError=""
             voucherApplied={voucherApplied}
             voucherData={voucherData}
             processing={processing}
@@ -365,7 +374,7 @@ export default function CartSidebar() {
             total={total}
             discountedTotal={discountedTotal}
             totalItems={totalItems}
-            payError={payError}
+            payError=""
             processing={processing}
             onEFTConfirm={handleEFTConfirm}
             onPayFastCheckout={handlePayFastCheckout}

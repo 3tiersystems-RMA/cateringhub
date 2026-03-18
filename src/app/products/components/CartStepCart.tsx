@@ -261,12 +261,6 @@ export default function CartStepCart({
                         ) : "Apply"}
                       </button>
                     </div>
-                    {voucherError && (
-                      <p className="text-xs text-red-500 flex items-center gap-1">
-                        <Icon name="ExclamationCircleIcon" size={12} />
-                        {voucherError}
-                      </p>
-                    )}
                   </div>
                 ) : (
                   <div className="pt-3">
@@ -334,12 +328,6 @@ export default function CartStepCart({
                         ) : "Apply"}
                       </button>
                     </div>
-                    {dvError && (
-                      <p className="text-xs text-red-500 flex items-center gap-1">
-                        <Icon name="ExclamationCircleIcon" size={12} />
-                        {dvError}
-                      </p>
-                    )}
                   </div>
                 ) : (
                   <div className="pt-3">

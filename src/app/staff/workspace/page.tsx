@@ -7,6 +7,7 @@ import AppLogo from '@/components/ui/AppLogo';
 import { useInactivityTimer } from '@/hooks/useInactivityTimer';
 import { APP_NAME } from "@/lib/constants";
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal';
+import VoucherErrorModal from '@/components/ui/VoucherErrorModal';
 import GoogleDriveDocuments from './components/GoogleDriveDocuments';
 
 type BucketType = 'product-images' | 'event-photos' | 'document-management';
@@ -599,6 +600,21 @@ export default function StaffWorkspacePage() {
     setDeleteModal((prev) => ({ ...prev, isOpen: false }));
   };
 
+  // ─── Global error modal ───────────────────────────────────────────────────────
+  const [globalErrorModal, setGlobalErrorModal] = useState<{ open: boolean; message: string; title: string }>({ open: false, message: '', title: 'Error' });
+  const showGlobalError = (message: string, title = 'Error') => setGlobalErrorModal({ open: true, message, title });
+  const closeGlobalError = () => setGlobalErrorModal({ open: false, message: '', title: 'Error' });
+
+  // Wrapped error setters that show modal instead of inline
+  const showFormError = (msg: string) => { if (msg) showGlobalError(msg, 'Product Error'); };
+  const showCategoryFormError = (msg: string) => { if (msg) showGlobalError(msg, 'Category Error'); };
+  const showInviteError = (msg: string) => { if (msg) showGlobalError(msg, 'Invite Error'); };
+  const showCardFormError = (msg: string) => { if (msg) showGlobalError(msg, 'Homepage Card Error'); };
+  const showWeeklyMenuFormError = (msg: string) => { if (msg) showGlobalError(msg, 'Weekly Menu Error'); };
+  const showIssueVoucherError = (msg: string) => { if (msg) showGlobalError(msg, 'Voucher Error'); };
+  const showUploadError = (msg: string) => { if (msg) showGlobalError(msg, 'Upload Error'); };
+  const showDvFormError = (msg: string) => { if (msg) showGlobalError(msg, 'Discount Voucher Error'); };
+
   useEffect(() => {
     const init = async () => {
       const { data: { user: currentUser } } = await supabase.auth.getUser();
@@ -739,7 +755,7 @@ export default function StaffWorkspacePage() {
     setCategoryFormSuccess('');
 
     if (!categoryForm.name.trim()) {
-      setCategoryFormError('Category name is required.');
+      showCategoryFormError('Category name is required.');
       return;
     }
 
@@ -763,7 +779,7 @@ export default function StaffWorkspacePage() {
           .update(payload)
           .eq('id', editingCategory.id);
         if (error) {
-          setCategoryFormError(`Update failed: ${error.message}`);
+          showCategoryFormError(`Update failed: ${error.message}`);
           return;
         }
         setCategoryFormSuccess('Category updated successfully!');
@@ -772,7 +788,7 @@ export default function StaffWorkspacePage() {
           .from('categories')
           .insert({ ...payload, active: true });
         if (error) {
-          setCategoryFormError(`Create failed: ${error.message}`);
+          showCategoryFormError(`Create failed: ${error.message}`);
           return;
         }
         setCategoryFormSuccess('Category created successfully!');
@@ -785,7 +801,7 @@ export default function StaffWorkspacePage() {
         setCategoryFormSuccess('');
       }, 1200);
     } catch (err) {
-      setCategoryFormError('An unexpected error occurred.');
+      showCategoryFormError('An unexpected error occurred.');
     } finally {
       setSavingCategory(false);
     }
@@ -916,15 +932,15 @@ export default function StaffWorkspacePage() {
     setWeeklyMenuFormSuccess('');
 
     if (!weeklyMenuForm.meal_date) {
-      setWeeklyMenuFormError('Date is required.');
+      showWeeklyMenuFormError('Date is required.');
       return;
     }
     if (!weeklyMenuForm.is_closed && !weeklyMenuForm.meal_name.trim()) {
-      setWeeklyMenuFormError('Meal name is required unless the day is closed.');
+      showWeeklyMenuFormError('Meal name is required unless the day is closed.');
       return;
     }
     if (!weeklyMenuForm.is_closed && (!weeklyMenuForm.price || isNaN(Number(weeklyMenuForm.price)) || Number(weeklyMenuForm.price) <= 0)) {
-      setWeeklyMenuFormError('A valid price is required for menu items.');
+      showWeeklyMenuFormError('A valid price is required for menu items.');
       return;
     }
 
@@ -947,7 +963,7 @@ export default function StaffWorkspacePage() {
           .update(payload)
           .eq('id', editingWeeklyEntry.id);
         if (error) {
-          setWeeklyMenuFormError(`Update failed: ${error.message}`);
+          showWeeklyMenuFormError(`Update failed: ${error.message}`);
           return;
         }
         setWeeklyMenuFormSuccess('Item updated successfully!');
@@ -956,7 +972,7 @@ export default function StaffWorkspacePage() {
           .from('weekly_menu')
           .insert(payload);
         if (error) {
-          setWeeklyMenuFormError(`Create failed: ${error.message}`);
+          showWeeklyMenuFormError(`Create failed: ${error.message}`);
           return;
         }
         setWeeklyMenuFormSuccess('Item added successfully!');
@@ -968,7 +984,7 @@ export default function StaffWorkspacePage() {
         setWeeklyMenuFormSuccess('');
       }, 1000);
     } catch (err) {
-      setWeeklyMenuFormError('An unexpected error occurred.');
+      showWeeklyMenuFormError('An unexpected error occurred.');
     } finally {
       setSavingWeeklyEntry(false);
     }
@@ -1075,8 +1091,8 @@ export default function StaffWorkspacePage() {
     setInviteError('');
     setInviteSuccess('');
 
-    if (!inviteForm.full_name.trim()) { setInviteError('Full name is required.'); return; }
-    if (!inviteForm.email.trim()) { setInviteError('Email is required.'); return; }
+    if (!inviteForm.full_name.trim()) { showInviteError('Full name is required.'); return; }
+    if (!inviteForm.email.trim()) { showInviteError('Email is required.'); return; }
 
     setInviting(true);
     try {
@@ -1092,7 +1108,7 @@ export default function StaffWorkspacePage() {
 
       const result = await response.json();
       if (!response.ok) {
-        setInviteError(result.error || 'Failed to send invitation.');
+        showInviteError(result.error || 'Failed to send invitation.');
         return;
       }
 
@@ -1104,7 +1120,7 @@ export default function StaffWorkspacePage() {
         setInviteSuccess('');
       }, 2000);
     } catch (err) {
-      setInviteError('An unexpected error occurred.');
+      showInviteError('An unexpected error occurred.');
     } finally {
       setInviting(false);
     }
@@ -1257,7 +1273,7 @@ export default function StaffWorkspacePage() {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith('image/')) {
-      setFormError('Please select an image file.');
+      showFormError('Please select an image file.');
       return;
     }
     setProductImageFile(file);
@@ -1318,12 +1334,12 @@ export default function StaffWorkspacePage() {
     setFormError('');
     setFormSuccess('');
 
-    if (!form.name.trim()) { setFormError('Product name is required.'); return; }
+    if (!form.name.trim()) { showFormError('Product name is required.'); return; }
     const isPackageType = ['package-6','package-10','package-12','package-24'].includes(form.package_type);
     if (!isPackageType && (!form.price || isNaN(Number(form.price)) || Number(form.price) <= 0)) {
-      setFormError('Please enter a valid price.'); return;
+      showFormError('Please enter a valid price.'); return;
     }
-    if (!form.description.trim()) { setFormError('Description is required.'); return; }
+    if (!form.description.trim()) { showFormError('Description is required.'); return; }
 
     setSaving(true);
     try {
@@ -1339,7 +1355,7 @@ export default function StaffWorkspacePage() {
           }
           imagePath = uploaded;
         } else {
-          setFormError('Image upload failed. Please try again.');
+          showFormError('Image upload failed. Please try again.');
           setSaving(false);
           return;
         }
@@ -1368,12 +1384,12 @@ export default function StaffWorkspacePage() {
           .select();
         if (error) {
           console.error('Update error:', JSON.stringify(error));
-          setFormError(`Update failed: ${error.message}`);
+          showFormError(`Update failed: ${error.message}`);
           setSaving(false);
           return;
         }
         if (!updateData || updateData.length === 0) {
-          setFormError('Update was blocked — you may not have permission to edit this product. Please ensure your account has staff access.');
+          showFormError('Update was blocked — you may not have permission to edit this product. Please ensure your account has staff access.');
           setSaving(false);
           return;
         }
@@ -1382,7 +1398,7 @@ export default function StaffWorkspacePage() {
         const { error } = await supabase.from('products').insert(payload);
         if (error) {
           console.error('Insert error:', JSON.stringify(error));
-          setFormError(error.message);
+          showFormError(error.message);
           setSaving(false);
           return;
         }
@@ -1396,7 +1412,7 @@ export default function StaffWorkspacePage() {
       }, 1200);
     } catch (err) {
       console.log('Save product error:', err);
-      setFormError('An unexpected error occurred.');
+      showFormError('An unexpected error occurred.');
     } finally {
       setSaving(false);
     }
@@ -1489,7 +1505,7 @@ export default function StaffWorkspacePage() {
       await loadFiles(activeBucket);
     }
     if (errorCount > 0) {
-      setUploadError(`${errorCount} file${errorCount > 1 ? 's' : ''} failed. Only image files are accepted.`);
+      showUploadError(`${errorCount} file${errorCount > 1 ? 's' : ''} failed. Only image files are accepted.`);
     }
     setUploading(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -1566,12 +1582,13 @@ export default function StaffWorkspacePage() {
     setWsOrderUpdateField(orderId, { fulfillmentSaving: true, fulfillmentSuccess: false, fulfillmentError: '' });
     try {
       const { error } = await supabase.from('orders').update({ fulfillment_status: newStatus }).eq('id', orderId);
-      if (error) { setWsOrderUpdateField(orderId, { fulfillmentSaving: false, fulfillmentError: error.message }); return; }
+      if (error) { setWsOrderUpdateField(orderId, { fulfillmentSaving: false, fulfillmentError: '' }); showGlobalError(error.message, 'Fulfillment Update Error'); return; }
       setWsOrders((prev) => prev.map((o) => o.id === orderId ? { ...o, fulfillment_status: newStatus } : o));
       setWsOrderUpdateField(orderId, { fulfillmentSaving: false, fulfillmentSuccess: true });
       setTimeout(() => setWsOrderUpdateField(orderId, { fulfillmentSuccess: false }), 2500);
     } catch {
-      setWsOrderUpdateField(orderId, { fulfillmentSaving: false, fulfillmentError: 'Update failed' });
+      setWsOrderUpdateField(orderId, { fulfillmentSaving: false, fulfillmentError: '' });
+      showGlobalError('Update failed', 'Fulfillment Update Error');
     }
   };
 
@@ -1579,12 +1596,13 @@ export default function StaffWorkspacePage() {
     setWsOrderUpdateField(orderId, { paymentSaving: true, paymentSuccess: false, paymentError: '' });
     try {
       const { error } = await supabase.from('orders').update({ payment_status: newStatus }).eq('id', orderId);
-      if (error) { setWsOrderUpdateField(orderId, { paymentSaving: false, paymentError: error.message }); return; }
+      if (error) { setWsOrderUpdateField(orderId, { paymentSaving: false, paymentError: '' }); showGlobalError(error.message, 'Payment Update Error'); return; }
       setWsOrders((prev) => prev.map((o) => o.id === orderId ? { ...o, payment_status: newStatus } : o));
       setWsOrderUpdateField(orderId, { paymentSaving: false, paymentSuccess: true });
       setTimeout(() => setWsOrderUpdateField(orderId, { paymentSuccess: false }), 2500);
     } catch {
-      setWsOrderUpdateField(orderId, { paymentSaving: false, paymentError: 'Update failed' });
+      setWsOrderUpdateField(orderId, { paymentSaving: false, paymentError: '' });
+      showGlobalError('Update failed', 'Payment Update Error');
     }
   };
 
@@ -1645,13 +1663,8 @@ export default function StaffWorkspacePage() {
     setEditingCard(card);
     setCardForm({
       title: card.title,
+      subtitle: card.subtitle,
       description: card.description,
-      price: card.price,
-      price_unit: card.price_unit,
-      badge_label: card.badge_label,
-      event_date: card.event_date,
-      guest_count: card.guest_count,
-      prep_percentage: card.prep_percentage,
       reviewer_name: card.reviewer_name,
       reviewer_event: card.reviewer_event,
       rating: card.rating,
@@ -1669,7 +1682,7 @@ export default function StaffWorkspacePage() {
     setCardFormSuccess('');
 
     if (!cardForm.title?.trim()) {
-      setCardFormError('Title is required.');
+      showCardFormError('Title is required.');
       return;
     }
 
@@ -1696,7 +1709,7 @@ export default function StaffWorkspacePage() {
         .eq('id', editingCard.id);
 
       if (error) {
-        setCardFormError(`Save failed: ${error.message}`);
+        showCardFormError(`Save failed: ${error.message}`);
         return;
       }
 
@@ -1707,7 +1720,7 @@ export default function StaffWorkspacePage() {
         setCardFormSuccess('');
       }, 1200);
     } catch (err) {
-      setCardFormError('An unexpected error occurred.');
+      showCardFormError('An unexpected error occurred.');
     } finally {
       setSavingCard(false);
     }
@@ -1800,10 +1813,10 @@ export default function StaffWorkspacePage() {
     setIssueVoucherError('');
     setIssueVoucherSuccess('');
 
-    if (!issueVoucherForm.customer_name.trim()) { setIssueVoucherError('Customer name is required.'); return; }
-    if (!issueVoucherForm.customer_email.trim()) { setIssueVoucherError('Customer email is required.'); return; }
+    if (!issueVoucherForm.customer_name.trim()) { showIssueVoucherError('Customer name is required.'); return; }
+    if (!issueVoucherForm.customer_email.trim()) { showIssueVoucherError('Customer email is required.'); return; }
     const meals = Number(issueVoucherForm.total_meals);
-    if (!meals || meals <= 0) { setIssueVoucherError('Please enter a valid number of meals.'); return; }
+    if (!meals || meals <= 0) { showIssueVoucherError('Please enter a valid number of meals.'); return; }
 
     setIssuingVoucher(true);
     try {
@@ -1822,7 +1835,7 @@ export default function StaffWorkspacePage() {
       });
 
       if (error) {
-        setIssueVoucherError(`Failed to issue voucher: ${error.message}`);
+        showIssueVoucherError(`Failed to issue voucher: ${error.message}`);
         return;
       }
 
@@ -1834,7 +1847,7 @@ export default function StaffWorkspacePage() {
         setIssueVoucherSuccess('');
       }, 2000);
     } catch (err) {
-      setIssueVoucherError('An unexpected error occurred.');
+      showIssueVoucherError('An unexpected error occurred.');
     } finally {
       setIssuingVoucher(false);
     }
@@ -1924,11 +1937,11 @@ export default function StaffWorkspacePage() {
 
     const amount = Number(dvForm.dv_amount);
     if (!dvForm.dv_amount || isNaN(amount) || amount <= 0) {
-      setDvFormError('Please enter a valid discount amount.');
+      showDvFormError('Please enter a valid discount amount.');
       return;
     }
     if (!dvForm.expiry_date) {
-      setDvFormError('Expiry date is required.');
+      showDvFormError('Expiry date is required.');
       return;
     }
 
@@ -1940,7 +1953,7 @@ export default function StaffWorkspacePage() {
           .update({ dv_amount: amount, expiry_date: dvForm.expiry_date, status: dvForm.status })
           .eq('id', editingDv.id);
         if (error) {
-          setDvFormError(`Update failed: ${error.message}`);
+          showDvFormError(`Update failed: ${error.message}`);
           return;
         }
         setDvFormSuccess('Discount voucher updated successfully!');
@@ -1950,7 +1963,7 @@ export default function StaffWorkspacePage() {
           .from('discount_vouchers')
           .insert({ dv_code: code, dv_amount: amount, expiry_date: dvForm.expiry_date, status: 'Active', times_used: 0 });
         if (error) {
-          setDvFormError(`Create failed: ${error.message}`);
+          showDvFormError(`Create failed: ${error.message}`);
           return;
         }
         setDvFormSuccess('Discount voucher created successfully!');
@@ -1962,7 +1975,7 @@ export default function StaffWorkspacePage() {
         setDvFormSuccess('');
       }, 1500);
     } catch (err) {
-      setDvFormError('An unexpected error occurred.');
+      showDvFormError('An unexpected error occurred.');
     } finally {
       setSavingDv(false);
     }
@@ -2020,6 +2033,12 @@ export default function StaffWorkspacePage() {
 
   return (
     <>
+      <VoucherErrorModal
+        isOpen={globalErrorModal.open}
+        message={globalErrorModal.message}
+        title={globalErrorModal.title}
+        onClose={closeGlobalError}
+      />
       <DeleteConfirmModal
         isOpen={deleteModal.isOpen}
         productName={deleteModal.productName}
@@ -3091,7 +3110,6 @@ export default function StaffWorkspacePage() {
                               </select>
                               {updateState.paymentSaving && <span className="text-xs text-[#8C8278] flex items-center gap-1"><svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Saving...</span>}
                               {updateState.paymentSuccess && <span className="text-xs text-green-600 font-medium">✓ Saved</span>}
-                              {updateState.paymentError && <span className="text-xs text-red-500">{updateState.paymentError}</span>}
                             </div>
                           </div>
                           {/* Fulfillment Status */}
@@ -3107,7 +3125,6 @@ export default function StaffWorkspacePage() {
                               </select>
                               {updateState.fulfillmentSaving && <span className="text-xs text-[#8C8278] flex items-center gap-1"><svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Saving...</span>}
                               {updateState.fulfillmentSuccess && <span className="text-xs text-green-600 font-medium">✓ Saved</span>}
-                              {updateState.fulfillmentError && <span className="text-xs text-red-500">{updateState.fulfillmentError}</span>}
                             </div>
                           </div>
                           {/* Date */}
@@ -4447,7 +4464,7 @@ voucher.status === 'paid' ? 'bg-green-100 text-green-700'
                                       <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
                                     ) : (
                                       <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
                                       </svg>
                                     )} QR
                                   </button>

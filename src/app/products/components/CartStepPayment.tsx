@@ -201,13 +201,6 @@ export default function CartStepPayment({
             <span className="text-[#C4622D]">{voucherApplied ? "R0.00 (Voucher)" : `R${displayTotal.toFixed(2)}`}</span>
           </div>
         </div>
-
-        {payError && (
-          <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
-            <Icon name="ExclamationCircleIcon" size={16} className="text-red-500 flex-shrink-0 mt-0.5" />
-            <p className="text-xs text-red-600">{payError}</p>
-          </div>
-        )}
       </div>
 
       <div className="px-6 py-5 border-t border-[#DDD5C8]">

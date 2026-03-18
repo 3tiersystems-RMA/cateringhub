@@ -4,9 +4,10 @@ interface VoucherErrorModalProps {
   isOpen: boolean;
   message: string;
   onClose: () => void;
+  title?: string;
 }
 
-export default function VoucherErrorModal({ isOpen, message, onClose }: VoucherErrorModalProps) {
+export default function VoucherErrorModal({ isOpen, message, onClose, title = 'Error' }: VoucherErrorModalProps) {
   if (!isOpen) return null;
 
   return (
@@ -19,7 +20,7 @@ export default function VoucherErrorModal({ isOpen, message, onClose }: VoucherE
             </svg>
           </div>
         </div>
-        <h2 className="text-xl font-bold text-[#1A1612] text-center mb-3">Voucher Error</h2>
+        <h2 className="text-xl font-bold text-[#1A1612] text-center mb-3">{title}</h2>
         <p className="text-[#5C5347] text-sm text-center mb-6">{message}</p>
         <button
           onClick={onClose}
