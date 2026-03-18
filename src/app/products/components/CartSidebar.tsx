@@ -273,7 +273,17 @@ export default function CartSidebar() {
             setVoucherApplied={setVoucherApplied}
             showVoucherSection={showVoucherSection}
             setShowVoucherSection={setShowVoucherSection}
-            onProceed={() => setStep("details")}
+            onProceed={() => {
+              if (voucherApplied && voucherData) {
+                setForm((prev) => ({
+                  ...prev,
+                  name: prev.name || voucherData.customer_name || "",
+                  email: prev.email || voucherData.customer_email || "",
+                  phone: prev.phone || voucherData.customer_phone || "",
+                }));
+              }
+              setStep("details");
+            }}
             subtotal={subtotal}
             tax={tax}
             delivery={delivery}

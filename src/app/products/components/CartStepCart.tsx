@@ -81,6 +81,7 @@ export default function CartStepCart({
       if (mismatchedItems.length > 0) {
         const labels: Record<string, string> = {
           "package-6": "6-Meal Package",
+          "package-10": "10-Meal Package",
           "package-12": "12-Meal Package",
           "package-24": "24-Meal Package",
         };
