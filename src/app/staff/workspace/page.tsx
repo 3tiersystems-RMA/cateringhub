@@ -3197,11 +3197,21 @@ export default function StaffWorkspacePage() {
                               </div>
                               {/* Payment Summary */}
                               <div className="bg-white rounded-xl border border-[#DDD5C8] p-4">
-                                <h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3">💳 Payment Summary</h4>
-                                <div className="space-y-2">
-                                  <div className="flex justify-between text-sm"><span className="text-[#8C8278]">Subtotal</span><span className="text-[#1A1612]">{formatCurrency(order.subtotal)}</span></div>
-                                  <div className="flex justify-between text-sm"><span className="text-[#8C8278]">Delivery</span><span className="text-[#1A1612]">{formatCurrency(order.delivery_fee)}</span></div>
-                                  <div className="flex justify-between text-sm font-bold border-t border-[#EDE7DA] pt-2"><span className="text-[#1A1612]">Total</span><span className="text-[#C4622D]">{formatCurrency(order.total)}</span></div>
+                                <h4 className="text-base font-bold text-[#1A1612] mb-4">Payment Summary</h4>
+                                <div className="space-y-3">
+                                  <div className="flex justify-between text-sm"><span className="text-[#1A1612]">Subtotal</span><span className="text-[#1A1612]">{formatCurrency(order.subtotal)}</span></div>
+                                  {(() => {
+                                    const discountMatch = order.notes?.match(/\(R([\d.]+)\s*credit\)/);
+                                    const discountAmt = discountMatch ? parseFloat(discountMatch[1]) : 0;
+                                    return (
+                                      <div className="flex justify-between text-sm">
+                                        <span className="text-red-600 font-medium">Discount</span>
+                                        <span className="text-red-600 font-medium">{discountAmt > 0 ? `R${discountAmt.toFixed(2)}-` : 'R0.00-'}</span>
+                                      </div>
+                                    );
+                                  })()}
+                                  <div className="flex justify-between text-sm"><span className="text-[#1A1612]">Delivery</span><span className="text-[#1A1612]">{formatCurrency(order.delivery_fee)}</span></div>
+                                  <div className="flex justify-between text-sm font-bold border-t border-[#EDE7DA] pt-3"><span className="text-[#1A1612]">Total</span><span className="text-[#C4A882]">{formatCurrency(order.total)}</span></div>
                                   <div className="pt-2 space-y-1.5">
                                     <div>
                                       <p className="text-xs text-[#B5ADA5]">Payment Status</p>
