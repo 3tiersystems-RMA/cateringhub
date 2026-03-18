@@ -105,6 +105,7 @@ export default function StaffOrdersPage() {
 
   const VOUCHER_PACKAGE_PRICES: Record<string, number> = {
     'package-6': 690,
+    'package-10': 1350,
     'package-12': 1320,
     'package-24': 2520,
   };

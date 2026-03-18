@@ -1733,7 +1733,7 @@ export default function StaffWorkspacePage() {
     setIssuingVoucher(true);
     try {
       const code = generateVoucherCode();
-      const pkgTypeMap: Record<number, string> = { 6: 'package-6', 12: 'package-12', 24: 'package-24' };
+      const pkgTypeMap: Record<number, string> = { 6: 'package-6', 10: 'package-10', 12: 'package-12', 24: 'package-24' };
       const { error } = await supabase.from('vouchers').insert({
         voucher_code: code,
         customer_name: issueVoucherForm.customer_name.trim(),
@@ -2099,6 +2099,7 @@ export default function StaffWorkspacePage() {
                       >
                         <option value="none">None — Regular product (no voucher required)</option>
                         <option value="package-6">6-Meal Package — Requires a 6-meal voucher</option>
+                        <option value="package-10">10-Meal Package — Requires a 10-meal voucher</option>
                         <option value="package-12">12-Meal Package — Requires a 12-meal voucher</option>
                         <option value="package-24">24-Meal Package — Requires a 24-meal voucher</option>
                       </select>
