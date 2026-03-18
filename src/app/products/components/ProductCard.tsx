@@ -104,7 +104,7 @@ export default function ProductCard({ product, onOpenModal }: ProductCardProps) 
         {/* Tags */}
         <div className="flex flex-wrap gap-1.5 mb-3 min-h-[1.5rem]">
           {product.tags.map((tag) => (
-            <span key={tag} className="text-xs text-[#8C8278] bg-[#EDE7DA] px-2 py-0.5 rounded-full">
+            <span key={tag} className="text-xs text-white bg-black px-2 py-0.5 rounded-full cursor-default transition-colors duration-200 hover:bg-white hover:text-[#C4622D]">
               {tag}
             </span>
           ))}
