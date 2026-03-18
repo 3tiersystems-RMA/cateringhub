@@ -3211,7 +3211,7 @@ export default function StaffWorkspacePage() {
                                     );
                                   })()}
                                   <div className="flex justify-between text-sm"><span className="text-[#1A1612]">Delivery</span><span className="text-[#1A1612]">{formatCurrency(order.delivery_fee)}</span></div>
-                                  <div className="flex justify-between text-sm font-bold border-t border-[#EDE7DA] pt-3"><span className="text-[#1A1612]">Total</span><span className="text-[#C4A882]">{formatCurrency(order.total)}</span></div>
+                                  <div className="flex justify-between text-sm font-bold border-t border-[#EDE7DA] pt-3"><span className="text-[#1A1612]">Total</span><span className="text-[#C4A882]">{(() => { const discountMatch = order.notes?.match(/\(R([\d.]+)\s*credit\)/); const discountAmt = discountMatch ? parseFloat(discountMatch[1]) : 0; return formatCurrency((order.subtotal || 0) - discountAmt + (order.delivery_fee || 0)); })()}</span></div>
                                   <div className="pt-2 space-y-1.5">
                                     <div>
                                       <p className="text-xs text-[#B5ADA5]">Payment Status</p>
