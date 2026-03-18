@@ -601,6 +601,16 @@ export default function StaffOrdersPage() {
                                 <span className="text-[#1A1612]">{formatCurrency(order.subtotal)}</span>
                               </div>
                               <div className="flex justify-between text-sm">
+                                <span className="text-[#8C8278]">Discount</span>
+                                <span className="text-red-600">
+                                  {(() => {
+                                    const match = order.notes?.match(/Discount Voucher:.*?\(R([\d.]+)\s*credit\)/i);
+                                    const amount = match ? parseFloat(match[1]) : 0;
+                                    return `-${formatCurrency(amount)}`;
+                                  })()}
+                                </span>
+                              </div>
+                              <div className="flex justify-between text-sm">
                                 <span className="text-[#8C8278]">Delivery</span>
                                 <span className="text-[#1A1612]">{formatCurrency(order.delivery_fee)}</span>
                               </div>
