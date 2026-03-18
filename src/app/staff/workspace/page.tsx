@@ -1208,10 +1208,11 @@ export default function StaffWorkspacePage() {
 
   const openEditForm = (product: Product) => {
     setEditingProduct(product);
+    const isPackageType = ['package-6','package-10','package-12','package-24'].includes(product.package_type || '');
     setForm({
       name: product.name,
       category: product.category,
-      price: String(product.price),
+      price: (isPackageType && product.price === 0) ? '' : String(product.price),
       unit: product.unit,
       description: product.description,
       tags: product.tags?.join(', ') || '',
@@ -1325,7 +1326,7 @@ export default function StaffWorkspacePage() {
       const payload = {
         name: form.name.trim(),
         category: form.category,
-        price: (isPackageType && (!form.price || Number(form.price) === 0)) ? null : Number(form.price),
+        price: (isPackageType && (!form.price || Number(form.price) === 0)) ? 0 : Number(form.price),
         unit: form.unit.trim() || 'per serving',
         description: form.description.trim(),
         tags: form.tags ? form.tags.split(',').map((t) => t.trim()).filter(Boolean) : [],
