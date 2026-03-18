@@ -52,7 +52,7 @@ const FULFILLMENT_COLORS: Record<FulfillmentStatus, string> = {
   confirmed: "bg-purple-500/15 text-purple-300 border border-purple-500/30",
   preparing: "bg-amber-500/15 text-amber-300 border border-amber-500/30",
   ready: "bg-teal-500/15 text-teal-300 border border-teal-500/30",
-  delivered: "bg-green-500/15 text-green-300 border border-green-500/30",
+  delivered: "bg-white text-black border border-green-500/30",
   cancelled: "bg-red-500/15 text-red-300 border border-red-500/30",
 };
 
