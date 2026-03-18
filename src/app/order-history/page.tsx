@@ -252,6 +252,7 @@ export default function OrderHistoryPage() {
                   {orders.map((order) => {
                     const isExpanded = expandedOrder === order.id;
                     const itemCount = order.items?.reduce((sum, i) => sum + i.quantity, 0) || 0;
+                    const isVoucherOrder = !!(order.notes && /Voucher:\s*[A-Z0-9-]+/i.test(order.notes));
 
                     return (
                       <div
@@ -273,7 +274,7 @@ export default function OrderHistoryPage() {
                                 </span>
                               </div>
                               <p className="text-sm text-white font-medium truncate">
-                                {itemCount} item{itemCount !== 1 ? "s" : ""}
+                                {isVoucherOrder ? "Voucher" : `${itemCount} item${itemCount !== 1 ? "s" : ""}`}
                                 {order.event_date && (
                                   <span className="text-[#A09890] font-normal">
                                     {" "}· Event: {formatDate(order.event_date)}
