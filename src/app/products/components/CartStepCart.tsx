@@ -358,7 +358,7 @@ export default function CartStepCart({
           <div className="space-y-2 text-sm">
             <div className="flex justify-between text-[#5C5347]"><span>Subtotal</span><span>R{subtotal.toFixed(2)}</span></div>
             <div className="flex justify-between text-[#5C5347]"><span>Delivery</span><span>R{delivery.toFixed(2)}</span></div>
-            <div className="flex justify-between text-[#5C5347]"><span>Tax (15%)</span><span>R{tax.toFixed(2)}</span></div>
+            <div className="flex justify-between text-[#5C5347]"><span>Tax (0%)</span><span>R{tax.toFixed(2)}</span></div>
             {voucherApplied && (
               <div className="flex justify-between text-green-600 font-medium"><span>Voucher Payment</span><span>✓ Applied</span></div>
             )}
