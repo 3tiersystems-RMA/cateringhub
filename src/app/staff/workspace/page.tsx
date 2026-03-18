@@ -2051,6 +2051,20 @@ export default function StaffWorkspacePage() {
                       />
                     </div>
 
+                    {/* Package Type */}
+                    <div>
+                      <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Package Type</label>
+                      <select
+                        value={form.package_type}
+                        onChange={(e) => setForm({ ...form, package_type: e.target.value })}
+                        className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors bg-white"
+                      >
+                        {packageTypes.map((pt) => (
+                          <option key={pt.value} value={pt.value}>{pt.label}</option>
+                        ))}
+                      </select>
+                    </div>
+
                     {/* Category + Price */}
                     <div className="grid grid-cols-2 gap-4">
                       <div>
