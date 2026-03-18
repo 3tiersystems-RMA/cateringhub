@@ -459,6 +459,15 @@ export default function StaffWorkspacePage() {
   // Dynamic categories from DB (for product form dropdowns)
   const [categories, setCategories] = useState<string[]>([]);
 
+  // Dynamic package types from DB (for product form Package Type dropdown)
+  const [packageTypes, setPackageTypes] = useState<{ value: string; label: string }[]>([
+    { value: 'none', label: 'None — Regular product (no voucher required)' },
+    { value: 'package-6', label: '6-Meal Package — Requires a 6-meal voucher' },
+    { value: 'package-10', label: '10-Meal Package — Requires a 10-meal voucher' },
+    { value: 'package-12', label: '12-Meal Package — Requires a 12-meal voucher' },
+    { value: 'package-24', label: '24-Meal Package — Requires a 24-meal voucher' },
+  ]);
+
   // Categories management state
   const [categoriesList, setCategoriesList] = useState<Category[]>([]);
   const [categoriesLoading, setCategoriesLoading] = useState(false);
@@ -585,6 +594,7 @@ export default function StaffWorkspacePage() {
       if (profile) setUserProfile(profile as StaffMember);
 
       await loadCategoryNames();
+      await loadPackageTypes();
       await loadProducts();
     };
     init();
@@ -619,6 +629,47 @@ export default function StaffWorkspacePage() {
       }
     } catch (err) {
       console.log('Error loading categories:', err);
+    }
+  };
+
+  // ─── Load package types from DB ───────────────────────────────────────────────
+  const loadPackageTypes = async () => {
+    try {
+      const { data } = await supabase
+        .from('products')
+        .select('package_type')
+        .neq('package_type', null);
+
+      // Known base types always present
+      const knownTypes: { value: string; label: string }[] = [
+        { value: 'none', label: 'None — Regular product (no voucher required)' },
+        { value: 'package-6', label: '6-Meal Package — Requires a 6-meal voucher' },
+        { value: 'package-10', label: '10-Meal Package — Requires a 10-meal voucher' },
+        { value: 'package-12', label: '12-Meal Package — Requires a 12-meal voucher' },
+        { value: 'package-24', label: '24-Meal Package — Requires a 24-meal voucher' },
+      ];
+
+      if (data && data.length > 0) {
+        // Collect distinct values from DB
+        const dbValues = Array.from(new Set(data.map((r: any) => r.package_type as string)));
+
+        // Merge: start with known types, then append any DB values not already covered
+        const knownValues = new Set(knownTypes.map((t) => t.value));
+        const extra = dbValues
+          .filter((v) => v && !knownValues.has(v))
+          .map((v) => {
+            // Auto-generate a label for unknown types (e.g. "package-30" → "30-Meal Package")
+            const match = v.match(/^package-(\d+)$/);
+            const label = match
+              ? `${match[1]}-Meal Package — Requires a ${match[1]}-meal voucher`
+              : `${v} — Requires a matching voucher`;
+            return { value: v, label };
+          });
+
+        setPackageTypes([...knownTypes, ...extra]);
+      }
+    } catch (err) {
+      console.log('Error loading package types:', err);
     }
   };
 
@@ -2097,11 +2148,9 @@ export default function StaffWorkspacePage() {
                         onChange={(e) => setForm({ ...form, package_type: e.target.value })}
                         className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors bg-white"
                       >
-                        <option value="none">None — Regular product (no voucher required)</option>
-                        <option value="package-6">6-Meal Package — Requires a 6-meal voucher</option>
-                        <option value="package-10">10-Meal Package — Requires a 10-meal voucher</option>
-                        <option value="package-12">12-Meal Package — Requires a 12-meal voucher</option>
-                        <option value="package-24">24-Meal Package — Requires a 24-meal voucher</option>
+                        {packageTypes.map((pt) => (
+                          <option key={pt.value} value={pt.value}>{pt.label}</option>
+                        ))}
                       </select>
                       <p className="text-xs text-[#B0A89E] mt-1">Tag this product to a voucher package tier. Customers must hold a matching paid voucher to order.</p>
                     </div>
