@@ -2533,7 +2533,13 @@ export default function StaffWorkspacePage() {
                   return ['All', ...sortedCategories].map((cat) => (
                     <button
                       key={cat}
-                      onClick={() => setFilterCategory(cat)}
+                      onClick={() => {
+                        if (cat === 'Weekly Menu') {
+                          router.push('/weekly-menu');
+                        } else {
+                          setFilterCategory(cat);
+                        }
+                      }}
                       className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors ${
                         filterCategory === cat
                           ? 'bg-[#C4622D] text-white'
