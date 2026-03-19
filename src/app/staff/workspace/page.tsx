@@ -2750,7 +2750,7 @@ export default function StaffWorkspacePage() {
                   <div key={cat.id} className="bg-white rounded-2xl border border-[#EDE7DA] px-5 py-4 flex items-center justify-between">
                     <div>
                       <p className="font-semibold text-[#1A1612] text-sm">{cat.name}</p>
-                      <p className="text-xs text-[#8C8278] mt-0.5">Slug: {cat.slug} · Order: {cat.sort_order}</p>
+                      <p className="text-xs text-[#8C8278] mt-0.5">{cat.slug.charAt(0).toUpperCase() + cat.slug.slice(1)} · Order: {cat.sort_order}</p>
                     </div>
                     <div className="flex items-center gap-3">
                       <button
