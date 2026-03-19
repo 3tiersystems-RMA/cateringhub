@@ -155,11 +155,27 @@ export default function ProductCard({ product, onOpenModal }: ProductCardProps) 
           {isVoucherRequired ? (
             <button
               onClick={handleAdd}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-full text-xs font-semibold transition-all duration-300 bg-[#C4622D] text-white hover:bg-[#A04E22] hover:shadow-terra"
+              disabled={isSoldOut}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-xs font-semibold transition-all duration-300 ${
+                added
+                  ? "bg-green-500 text-white scale-95"
+                  : isSoldOut
+                  ? "bg-[#EDE7DA] text-[#B5ADA5] cursor-not-allowed"
+                  : "bg-[#C4622D] text-white hover:bg-[#A04E22] hover:shadow-terra"
+              }`}
               aria-label={`Add ${product.name} to cart`}
             >
-              <Icon name="PlusIcon" size={14} />
-              Add
+              {added ? (
+                <>
+                  <Icon name="CheckIcon" size={14} />
+                  Added!
+                </>
+              ) : (
+                <>
+                  <Icon name="PlusIcon" size={14} />
+                  Add
+                </>
+              )}
             </button>
           ) : (
             <button
