@@ -22,7 +22,7 @@ const FALLBACK_TESTIMONIALS: Testimonial[] = [
   quote: "Cardamom made our daughter's wedding absolutely magical. Every dish was a conversation starter — guests are still talking about the lamb three months later.",
   name: "Patricia & James Holloway",
   role: "Wedding · 180 guests",
-  avatar_url: "https://img.rocket.new/generatedImages/rocket_gen_img_1e8e20ed5-1772436647889.png",
+  avatar_url: null,
   rating: 5,
   is_active: true,
   display_order: 1
@@ -32,7 +32,7 @@ const FALLBACK_TESTIMONIALS: Testimonial[] = [
   quote: "We've used Cardamom for our quarterly board lunches for two years. Consistent quality, always on time, and the team is a pleasure to work with.",
   name: "Marcus Webb",
   role: "VP Operations · TechNova Inc.",
-  avatar_url: "https://img.rocket.new/generatedImages/rocket_gen_img_167c14e98-1772624814714.png",
+  avatar_url: null,
   rating: 5,
   is_active: true,
   display_order: 2
@@ -42,7 +42,7 @@ const FALLBACK_TESTIMONIALS: Testimonial[] = [
   quote: "The weekly meal prep service changed my life. I eat better than I ever have, and I've reclaimed 6 hours a week I used to spend cooking.",
   name: "Danielle Torres",
   role: "Meal Prep Subscriber · 8 months",
-  avatar_url: "https://img.rocket.new/generatedImages/rocket_gen_img_14d8a3889-1770881542627.png",
+  avatar_url: null,
   rating: 5,
   is_active: true,
   display_order: 3
