@@ -86,16 +86,13 @@ export default function TestimonialSection() {
         const supabase = createClient();
         const { data, error } = await supabase.
         from("testimonials").
-        select("*").
+        select("id, quote, name, role, avatar_url, rating, is_active, display_order").
         eq("is_active", true).
         order("display_order", { ascending: true });
         if (!error && data && data.length > 0) {
           setTestimonials(data as Testimonial[]);
         }
       } catch {
-
-
-
         // keep fallback
       }};fetchTestimonials();}, []);
 
