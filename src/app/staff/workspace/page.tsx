@@ -2226,97 +2226,115 @@ export default function StaffWorkspacePage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 md:px-8 py-8">
-        {/* Page Title + Tabs */}
-        <div className="mb-8">
+        {/* Page Title */}
+        <div className="mb-6">
           <h1 className="text-2xl font-bold text-[#1A1612] mb-1">Staff Workspace</h1>
-          <p className="text-xs text-[#8C8278] mb-6">
-            Manage your products, prices, and media library
-          </p>
-          <div className="flex gap-2 border-b border-[#DDD5C8] flex-wrap">
-            <button
-              onClick={() => { setActiveTab('products'); if (products.length === 0) loadProducts(); }}
-              className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${
-                activeTab === 'products' ? 'border-[#C4622D] text-[#C4622D]' : 'border-transparent text-[#8C8278] hover:text-[#5C5347]'
-              }`}
-            >
-              🍽️ Products & Pricing
-            </button>
-            <button
-              onClick={() => { setActiveTab('categories'); if (categoriesList.length === 0) loadCategories(); }}
-              className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${
-                activeTab === 'categories' ? 'border-[#C4622D] text-[#C4622D]' : 'border-transparent text-[#8C8278] hover:text-[#5C5347]'
-              }`}
-            >
-              🏷️ Categories
-            </button>
-            <button
-              onClick={() => { setActiveTab('media'); if (files.length === 0) loadFiles(activeBucket); }}
-              className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${
-                activeTab === 'media' ? 'border-[#C4622D] text-[#C4622D]' : 'border-transparent text-[#8C8278] hover:text-[#5C5347]'
-              }`}
-            >
-              📸 Media Library
-            </button>
-            <button
-              onClick={() => { setActiveTab('orders'); loadWsOrders(); }}
-              className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${
-                activeTab === 'orders' ? 'border-[#C4622D] text-[#C4622D]' : 'border-transparent text-[#8C8278] hover:text-[#5C5347]'
-              }`}
-            >
-              📋 Orders
-            </button>
-            <button
-              onClick={() => { setActiveTab('weekly_menu'); setWeekOffset(0); loadWeeklyMenu(0); }}
-              className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${
-                activeTab === 'weekly_menu' ? 'border-[#C4622D] text-[#C4622D]' : 'border-transparent text-[#8C8278]'
-              }`}
-            >
-              📅 Weekly Menu
-            </button>
-            <button
-              onClick={() => { setActiveTab('vouchers'); loadVouchers(); }}
-              className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${
-                activeTab === 'vouchers' ? 'border-[#C4622D] text-[#C4622D]' : 'border-transparent text-[#8C8278]'
-              }`}
-            >
-              🎟️ Vouchers
-            </button>
-            <button
-              onClick={() => { setActiveTab('discount_vouchers'); loadDiscountVouchers(); }}
-              className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${
-                activeTab === 'discount_vouchers' ? 'border-[#C4622D] text-[#C4622D]' : 'border-transparent text-[#8C8278] hover:text-[#5C5347]'
-              }`}
-            >
-              🏷️ Discount Vouchers
-            </button>
-            {isSuperAdmin && (
+          <p className="text-xs text-[#8C8278]">Manage your products, prices, and media library</p>
+        </div>
+
+        {/* Sidebar + Content Layout */}
+        <div className="flex gap-6 items-start">
+
+          {/* ── LEFT SIDEBAR ── */}
+          <aside className="w-56 flex-shrink-0 bg-white border border-[#EDE7DA] rounded-2xl shadow-sm overflow-hidden sticky top-6">
+            <nav className="flex flex-col py-2">
               <button
-                onClick={() => { setActiveTab('staff'); if (staffMembers.length === 0) loadStaffMembers(); }}
-                className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${
-                  activeTab === 'staff' ? 'border-purple-600 text-purple-600' : 'border-transparent text-[#8C8278] hover:text-[#5C5347]'
+                onClick={() => { setActiveTab('products'); if (products.length === 0) loadProducts(); }}
+                className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
+                  activeTab === 'products' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'
                 }`}
               >
-                👥 Staff Management
+                <span className="text-base">🍽️</span>
+                <span>Products &amp; Pricing</span>
               </button>
-            )}
-            <button
-              onClick={() => { setActiveTab('homepage_cards'); if (homepageCards.length === 0) loadHomepageCards(); }}
-              className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${
-                activeTab === 'homepage_cards' ? 'border-[#C4622D] text-[#C4622D]' : 'border-transparent text-[#8C8278]'
-              }`}
-            >
-              🏠 Homepage Cards
-            </button>
-            <button
-              onClick={() => { setActiveTab('testimonials'); if (testimonials.length === 0) loadTestimonials(); }}
-              className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${
-                activeTab === 'testimonials' ? 'border-[#C4622D] text-[#C4622D]' : 'border-transparent text-[#8C8278] hover:text-[#5C5347]'
-              }`}
-            >
-              💬 Testimonials
-            </button>
-          </div>
-        </div>
+              <button
+                onClick={() => { setActiveTab('categories'); if (categoriesList.length === 0) loadCategories(); }}
+                className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
+                  activeTab === 'categories' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'
+                }`}
+              >
+                <span className="text-base">🏷️</span>
+                <span>Categories</span>
+              </button>
+              <button
+                onClick={() => { setActiveTab('media'); if (files.length === 0) loadFiles(activeBucket); }}
+                className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
+                  activeTab === 'media' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'
+                }`}
+              >
+                <span className="text-base">📸</span>
+                <span>Media Library</span>
+              </button>
+              <button
+                onClick={() => { setActiveTab('orders'); loadWsOrders(); }}
+                className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
+                  activeTab === 'orders' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'
+                }`}
+              >
+                <span className="text-base">📋</span>
+                <span>Orders</span>
+              </button>
+              <button
+                onClick={() => { setActiveTab('weekly_menu'); setWeekOffset(0); loadWeeklyMenu(0); }}
+                className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
+                  activeTab === 'weekly_menu' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'
+                }`}
+              >
+                <span className="text-base">📅</span>
+                <span>Weekly Menu</span>
+              </button>
+              <button
+                onClick={() => { setActiveTab('vouchers'); loadVouchers(); }}
+                className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
+                  activeTab === 'vouchers' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'
+                }`}
+              >
+                <span className="text-base">🎟️</span>
+                <span>Vouchers</span>
+              </button>
+              <button
+                onClick={() => { setActiveTab('discount_vouchers'); loadDiscountVouchers(); }}
+                className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
+                  activeTab === 'discount_vouchers' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'
+                }`}
+              >
+                <span className="text-base">🏷️</span>
+                <span>Discount Vouchers</span>
+              </button>
+              {isSuperAdmin && (
+                <button
+                  onClick={() => { setActiveTab('staff'); if (staffMembers.length === 0) loadStaffMembers(); }}
+                  className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
+                    activeTab === 'staff' ? 'bg-purple-50 text-purple-600 border-r-2 border-purple-600' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'
+                  }`}
+                >
+                  <span className="text-base">👥</span>
+                  <span>Staff Management</span>
+                </button>
+              )}
+              <button
+                onClick={() => { setActiveTab('homepage_cards'); if (homepageCards.length === 0) loadHomepageCards(); }}
+                className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
+                  activeTab === 'homepage_cards' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'
+                }`}
+              >
+                <span className="text-base">🏠</span>
+                <span>Homepage Cards</span>
+              </button>
+              <button
+                onClick={() => { setActiveTab('testimonials'); if (testimonials.length === 0) loadTestimonials(); }}
+                className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
+                  activeTab === 'testimonials' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'
+                }`}
+              >
+                <span className="text-base">💬</span>
+                <span>Testimonials</span>
+              </button>
+            </nav>
+          </aside>
+
+          {/* ── RIGHT CONTENT AREA ── */}
+          <div className="flex-1 min-w-0">
 
         {/* ── PRODUCTS TAB ── */}
         {activeTab === 'products' && (
@@ -3808,6 +3826,8 @@ export default function StaffWorkspacePage() {
           </div>
         )}
 
+          </div>
+        </div>
       </main>
     </div>
     </>
