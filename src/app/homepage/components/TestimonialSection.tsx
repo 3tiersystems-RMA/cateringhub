@@ -32,7 +32,7 @@ const FALLBACK_TESTIMONIALS: Testimonial[] = [
   quote: "We've used Cardamom for our quarterly board lunches for two years. Consistent quality, always on time, and the team is a pleasure to work with.",
   name: "Marcus Webb",
   role: "VP Operations · TechNova Inc.",
-  avatar_url: "https://img.rocket.new/generatedImages/rocket_gen_img_194f61f27-1773720518780.png",
+  avatar_url: "https://img.rocket.new/generatedImages/rocket_gen_img_162394200-1773114820577.png",
   rating: 5,
   is_active: true,
   display_order: 2
@@ -56,23 +56,23 @@ function NeutralAvatar() {
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       className="w-full h-full"
-      aria-label="Anonymous reviewer"
-    >
+      aria-label="Anonymous reviewer">
+      
       <rect width="80" height="80" fill="rgba(255,255,255,0.15)" />
       {/* Left figure (female silhouette) */}
       <circle cx="28" cy="26" r="9" fill="rgba(255,255,255,0.55)" />
       <path
         d="M14 58c0-9 6.3-15 14-15s14 6 14 15"
-        fill="rgba(255,255,255,0.55)"
-      />
+        fill="rgba(255,255,255,0.55)" />
+      
       {/* Right figure (male silhouette) */}
       <circle cx="52" cy="26" r="9" fill="rgba(255,255,255,0.35)" />
       <path
         d="M38 58c0-9 6.3-15 14-15s14 6 14 15"
-        fill="rgba(255,255,255,0.35)"
-      />
-    </svg>
-  );
+        fill="rgba(255,255,255,0.35)" />
+      
+    </svg>);
+
 }
 
 export default function TestimonialSection() {
@@ -94,9 +94,9 @@ export default function TestimonialSection() {
         }
       } catch {
 
+
         // keep fallback
-      }};
-    fetchTestimonials();
+      }};fetchTestimonials();
   }, []);
 
   useEffect(() => {
@@ -152,16 +152,16 @@ export default function TestimonialSection() {
           <div className="flex flex-col gap-6">
             <div className="flex items-center gap-5">
               <div className="w-20 h-20 rounded-2xl overflow-hidden flex-shrink-0 border-2 border-white/20">
-                {t?.avatar_url ? (
-                  <AppImage
-                    src={t.avatar_url}
-                    alt={`${t?.name ?? "Customer"} testimonial photo`}
-                    width={80}
-                    height={80}
-                    className="object-cover w-full h-full grayscale" />
-                ) : (
-                  <NeutralAvatar />
-                )}
+                {t?.avatar_url ?
+                <AppImage
+                  src={t.avatar_url}
+                  alt={`${t?.name ?? "Customer"} testimonial photo`}
+                  width={80}
+                  height={80}
+                  className="object-cover w-full h-full grayscale" /> :
+
+                <NeutralAvatar />
+                }
               </div>
               <div>
                 <p className="text-white font-semibold text-lg">{t?.name}</p>
