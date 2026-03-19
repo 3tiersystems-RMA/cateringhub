@@ -32,7 +32,7 @@ const FALLBACK_TESTIMONIALS: Testimonial[] = [
   quote: "We've used Cardamom for our quarterly board lunches for two years. Consistent quality, always on time, and the team is a pleasure to work with.",
   name: "Marcus Webb",
   role: "VP Operations · TechNova Inc.",
-  avatar_url: "https://img.rocket.new/generatedImages/rocket_gen_img_162394200-1773114820577.png",
+  avatar_url: "https://img.rocket.new/generatedImages/rocket_gen_img_167c14e98-1772624814714.png",
   rating: 5,
   is_active: true,
   display_order: 2
@@ -95,9 +95,9 @@ export default function TestimonialSection() {
       } catch {
 
 
+
         // keep fallback
-      }};fetchTestimonials();
-  }, []);
+      }};fetchTestimonials();}, []);
 
   useEffect(() => {
     if (testimonials.length === 0) return;
