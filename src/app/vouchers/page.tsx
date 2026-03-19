@@ -217,8 +217,8 @@ Purchase a Meal Voucher
                     <button
                       className={`w-full py-3 rounded-full font-semibold text-sm transition-all ${
                         pkg.popular
-                          ? "bg-[#C4622D] text-white hover:bg-[#A04E22]"
-                          : "bg-[#F5F0E8] text-[#C4622D] hover:bg-[#EDE7DA] border border-[#C4622D]/30"
+                          ? "bg-[#C4622D] text-white hover:bg-white hover:text-black"
+                          : "bg-[#F5F0E8] text-[#C4622D] hover:bg-white hover:text-black border border-[#C4622D]/30"
                       }`}
                     >
                       Select Package
