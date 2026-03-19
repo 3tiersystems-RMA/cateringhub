@@ -590,6 +590,7 @@ export default function StaffWorkspacePage() {
   const [savingDv, setSavingDv] = useState(false);
   const [dvSearchQuery, setDvSearchQuery] = useState('');
   const [generatingQrId, setGeneratingQrId] = useState<string | null>(null);
+  const [productSearchQuery, setProductSearchQuery] = useState('');
 
   // Testimonials state
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
@@ -1636,9 +1637,10 @@ export default function StaffWorkspacePage() {
     }
   };
 
-  const filteredProducts = filterCategory === 'All'
+  const filteredProducts = (filterCategory === 'All'
     ? products
-    : products.filter((p) => p.category === filterCategory);
+    : products.filter((p) => p.category === filterCategory)
+  ).filter((p) => !productSearchQuery || p.name.toLowerCase().includes(productSearchQuery.toLowerCase()));
 
   const wsFilteredOrders = wsOrders.filter((order) => {
     const matchesSearch =
@@ -2585,15 +2587,32 @@ export default function StaffWorkspacePage() {
                 <h2 className="text-lg font-bold text-[#1A1612]">Products & Pricing</h2>
                 <p className="text-xs text-[#8C8278] mt-0.5">{products.length} products</p>
               </div>
-              <button
-                onClick={openCreateForm}
-                className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors flex items-center gap-2"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                </svg>
-                Add Product
-              </button>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={productSearchQuery}
+                    onChange={(e) => setProductSearchQuery(e.target.value)}
+                    placeholder="Search by product name..."
+                    className="border border-[#DDD5C8] rounded-xl px-4 py-2 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors w-56"
+                  />
+                  <button
+                    onClick={() => {}}
+                    className="border border-[#DDD5C8] text-[#5C5347] px-4 py-2 rounded-xl text-sm font-semibold hover:border-[#C4622D] hover:text-[#C4622D] transition-colors"
+                  >
+                    Search
+                  </button>
+                </div>
+                <button
+                  onClick={openCreateForm}
+                  className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                  </svg>
+                  Add Product
+                </button>
+              </div>
             </div>
 
             {/* Category filter */}
