@@ -11,7 +11,8 @@ import VoucherErrorModal from '@/components/ui/VoucherErrorModal';
 import GoogleDriveDocuments from './components/GoogleDriveDocuments';
 
 type BucketType = 'product-images' | 'event-photos' | 'document-management';
-type WorkspaceTab = 'products' | 'media' | 'orders' | 'staff' | 'homepage_cards' | 'categories' | 'weekly_menu' | 'vouchers' | 'discount_vouchers';
+type WorkspaceTab = 'products' | 'media' | 'orders' | 'staff' | 'homepage_cards' | 'categories' | 'weekly_menu' | 'vouchers' | 'discount_vouchers' | 'testimonials';
+
 type ProductCategory = string;
 type StaffRole = 'admin' | 'staff' | 'super_admin';
 
@@ -203,6 +204,28 @@ interface DiscountVoucher {
   created_at: string;
 }
 
+interface Testimonial {
+  id: string;
+  quote: string;
+  name: string;
+  role: string;
+  avatar_url: string | null;
+  rating: number;
+  is_active: boolean;
+  display_order: number;
+  created_at: string;
+}
+
+interface TestimonialForm {
+  quote: string;
+  name: string;
+  role: string;
+  avatar_url: string;
+  rating: number;
+  is_active: boolean;
+  display_order: string;
+}
+
 interface VoucherRedemption {
   id: string;
   voucher_code: string;
@@ -338,8 +361,7 @@ function RedemptionAuditRow({ redemption, index }: { redemption: VoucherRedempti
             <p className="text-xs font-semibold text-[#1A1612]">
               Order: <span className="font-mono text-[#C4622D]">{redemption.order_id || '—'}</span>
             </p>
-            <p className="text-xs text-[#8C8278]">
-              {new Date(redemption.redeemed_at).toLocaleDateString('en-ZA', {
+            <p className="text-xs text-[#8C8278]">{new Date(redemption.redeemed_at).toLocaleDateString('en-ZA', {
                 day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
               })}
             </p>
@@ -568,6 +590,16 @@ export default function StaffWorkspacePage() {
   const [savingDv, setSavingDv] = useState(false);
   const [dvSearchQuery, setDvSearchQuery] = useState('');
   const [generatingQrId, setGeneratingQrId] = useState<string | null>(null);
+
+  // Testimonials state
+  const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
+  const [testimonialsLoading, setTestimonialsLoading] = useState(false);
+  const [showTestimonialForm, setShowTestimonialForm] = useState(false);
+  const [editingTestimonial, setEditingTestimonial] = useState<Testimonial | null>(null);
+  const [testimonialForm, setTestimonialForm] = useState<TestimonialForm>({
+    quote: '', name: '', role: '', avatar_url: '', rating: 5, is_active: true, display_order: '0',
+  });
+  const [savingTestimonial, setSavingTestimonial] = useState(false);
 
   // Delete confirmation modal state
   const [deleteModal, setDeleteModal] = useState<{
@@ -1279,7 +1311,6 @@ export default function StaffWorkspacePage() {
     setProductImageFile(file);
     setProductImagePreview(URL.createObjectURL(file));
     setSelectedMediaPath('');
-    setFormError('');
   };
 
   const openMediaPicker = async () => {
@@ -1312,7 +1343,6 @@ export default function StaffWorkspacePage() {
     setSelectedMediaPath(file.name);
     setProductImageFile(null);
     setShowMediaPicker(false);
-    setFormError('');
   };
 
   const uploadProductImage = async (file: File): Promise<string | null> => {
@@ -2057,6 +2087,88 @@ export default function StaffWorkspacePage() {
     }
   };
 
+  // ─── Testimonials CRUD ────────────────────────────────────────────────────────
+
+  const loadTestimonials = async () => {
+    setTestimonialsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('testimonials')
+        .select('*')
+        .order('display_order', { ascending: true });
+      if (error) { console.log('Load testimonials error:', error.message); setTestimonials([]); return; }
+      setTestimonials((data || []) as Testimonial[]);
+    } catch (err) {
+      console.log('Unexpected error loading testimonials:', err);
+      setTestimonials([]);
+    } finally {
+      setTestimonialsLoading(false);
+    }
+  };
+
+  const openAddTestimonialForm = () => {
+    setEditingTestimonial(null);
+    setTestimonialForm({ quote: '', name: '', role: '', avatar_url: '', rating: 5, is_active: true, display_order: String(testimonials.length + 1) });
+    setShowTestimonialForm(true);
+  };
+
+  const openEditTestimonialForm = (t: Testimonial) => {
+    setEditingTestimonial(t);
+    setTestimonialForm({ quote: t.quote, name: t.name, role: t.role, avatar_url: t.avatar_url || '', rating: t.rating, is_active: t.is_active, display_order: String(t.display_order) });
+    setShowTestimonialForm(true);
+  };
+
+  const handleSaveTestimonial = async () => {
+    if (!testimonialForm.quote.trim() || !testimonialForm.name.trim() || !testimonialForm.role.trim()) {
+      showGlobalError('Quote, Name and Role are required.', 'Testimonial Error');
+      return;
+    }
+    setSavingTestimonial(true);
+    const payload = {
+      quote: testimonialForm.quote.trim(),
+      name: testimonialForm.name.trim(),
+      role: testimonialForm.role.trim(),
+      avatar_url: testimonialForm.avatar_url.trim() || null,
+      rating: testimonialForm.rating,
+      is_active: testimonialForm.is_active,
+      display_order: parseInt(testimonialForm.display_order) || 0,
+    };
+    try {
+      if (editingTestimonial) {
+        const { error } = await supabase.from('testimonials').update(payload).eq('id', editingTestimonial.id);
+        if (error) { showGlobalError(`Update failed: ${error.message}`, 'Testimonial Error'); return; }
+      } else {
+        const { error } = await supabase.from('testimonials').insert(payload);
+        if (error) { showGlobalError(`Create failed: ${error.message}`, 'Testimonial Error'); return; }
+      }
+      setShowTestimonialForm(false);
+      await loadTestimonials();
+    } catch (err) {
+      showGlobalError('An unexpected error occurred.', 'Testimonial Error');
+    } finally {
+      setSavingTestimonial(false);
+    }
+  };
+
+  const handleToggleTestimonialActive = async (t: Testimonial) => {
+    const { error } = await supabase.from('testimonials').update({ is_active: !t.is_active }).eq('id', t.id);
+    if (!error) setTestimonials((prev) => prev.map((x) => x.id === t.id ? { ...x, is_active: !t.is_active } : x));
+  };
+
+  const handleDeleteTestimonial = (t: Testimonial) => {
+    setDeleteModal({
+      isOpen: true,
+      productName: t.name,
+      message: `Are you sure you want to delete the testimonial from "${t.name}"? This cannot be undone.`,
+      onConfirm: async () => {
+        closeDeleteModal();
+        const { error } = await supabase.from('testimonials').delete().eq('id', t.id);
+        if (!error) setTestimonials((prev) => prev.filter((x) => x.id !== t.id));
+        else showGlobalError(`Delete failed: ${error.message}`, 'Testimonial Error');
+      },
+    });
+  };
+
   return (
     <>
       <VoucherErrorModal
@@ -2096,10 +2208,10 @@ export default function StaffWorkspacePage() {
             </div>
             <a
               href="/staff/orders"
-              className="text-sm font-medium text-gray-300 hover:text-white transition-colors px-3 py-1.5 rounded-lg hover:bg-gray-800 flex items-center gap-1.5"
+              className="text-sm font-medium text-[#C4622D] hover:text-[#E07040] transition-colors px-3 py-1.5 rounded-lg hover:bg-gray-800 flex items-center gap-1.5"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2 2 0 002 2v12a2 2 0 00-2 2h-16.938a2 2 0 00-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2 2 0 002-2V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" />
               </svg>
               Orders
             </a>
@@ -2151,7 +2263,7 @@ export default function StaffWorkspacePage() {
                 activeTab === 'orders' ? 'border-[#C4622D] text-[#C4622D]' : 'border-transparent text-[#8C8278] hover:text-[#5C5347]'
               }`}
             >
-📋 Orders
+              📋 Orders
             </button>
             <button
               onClick={() => { setActiveTab('weekly_menu'); setWeekOffset(0); loadWeeklyMenu(0); }}
@@ -2159,7 +2271,7 @@ export default function StaffWorkspacePage() {
                 activeTab === 'weekly_menu' ? 'border-[#C4622D] text-[#C4622D]' : 'border-transparent text-[#8C8278]'
               }`}
             >
-📅 Weekly Menu
+              📅 Weekly Menu
             </button>
             <button
               onClick={() => { setActiveTab('vouchers'); loadVouchers(); }}
@@ -2190,10 +2302,18 @@ export default function StaffWorkspacePage() {
             <button
               onClick={() => { setActiveTab('homepage_cards'); if (homepageCards.length === 0) loadHomepageCards(); }}
               className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${
-                activeTab === 'homepage_cards' ? 'border-[#C4622D] text-[#C4622D]' : 'border-transparent text-[#8C8278] hover:text-[#5C5347]'
+                activeTab === 'homepage_cards' ? 'border-[#C4622D] text-[#C4622D]' : 'border-transparent text-[#8C8278]'
               }`}
             >
-🏠 Homepage Cards
+              🏠 Homepage Cards
+            </button>
+            <button
+              onClick={() => { setActiveTab('testimonials'); if (testimonials.length === 0) loadTestimonials(); }}
+              className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${
+                activeTab === 'testimonials' ? 'border-[#C4622D] text-[#C4622D]' : 'border-transparent text-[#8C8278] hover:text-[#5C5347]'
+              }`}
+            >
+              💬 Testimonials
             </button>
           </div>
         </div>
@@ -2209,75 +2329,16 @@ export default function StaffWorkspacePage() {
                     <h2 className="font-bold text-[#1A1612] text-lg">
                       {editingProduct ? 'Edit Product' : 'Add New Product'}
                     </h2>
-                    <button
-                      onClick={() => setShowForm(false)}
-                      className="w-8 h-8 rounded-full bg-[#F5F0E8] flex items-center justify-center text-[#8C8278] hover:bg-[#EDE7DA] transition-colors"
-                    >
-                      ✕
+                    <button onClick={() => setShowForm(false)} className="text-[#8C8278] hover:text-[#1A1612] transition-colors">
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
                     </button>
                   </div>
-
-                  <form onSubmit={handleSaveProduct} className="p-6 space-y-5">
-                    {/* Image Upload */}
-                    <div>
-                      <label className="block text-sm font-semibold text-[#3D3530] mb-2">Product Image</label>
-                      <div className="flex items-start gap-4">
-                        <div
-                          className="w-24 h-24 rounded-xl border-2 border-dashed border-[#DDD5C8] bg-[#F5F0E8] flex items-center justify-center overflow-hidden flex-shrink-0 cursor-pointer hover:border-[#C4622D] transition-colors"
-                          onClick={openMediaPicker}
-                        >
-                          {productImagePreview ? (
-                            <img src={productImagePreview} alt="Preview" className="w-full h-full object-cover" />
-                          ) : (
-                            <span className="text-3xl">🍽️</span>
-                          )}
-                        </div>
-                        <div className="flex-1 flex flex-col gap-2">
-                          <input
-                            ref={productImageRef}
-                            type="file"
-                            accept="image/*"
-                            onChange={handleProductImageSelect}
-                            className="hidden"
-                          />
-                          <button
-                            type="button"
-                            onClick={openMediaPicker}
-                            className="text-sm font-medium text-white bg-[#C4622D] px-4 py-2 rounded-lg hover:bg-[#A04E22] transition-colors flex items-center gap-2"
-                          >
-                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 012.652 2.652L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                            {productImagePreview ? 'Change from Media Library' : 'Choose from Media Library'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => productImageRef.current?.click()}
-                            className="text-sm font-medium text-[#C4622D] border border-[#C4622D] px-4 py-2 rounded-lg hover:bg-[#FDF6F0] transition-colors"
-                          >
-                            Upload from Device
-                          </button>
-                          <p className="text-xs text-[#B0A89E]">JPG, PNG, WebP · Max 10MB</p>
-                          {uploadingProductImage && (
-                            <p className="text-xs text-[#C4622D]">Uploading image...</p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Name */}
-                    <div>
-                      <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Product Name *</label>
-                      <input
-                        type="text"
-                        value={form.name}
-                        onChange={(e) => setForm({ ...form, name: e.target.value })}
-                        placeholder="e.g. Classic BBQ Package"
-                        className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
-                        required
-                      />
-                    </div>
-
+                  <form onSubmit={handleSaveProduct} className="px-6 py-5 space-y-4">
+                    {formSuccess && (
+                      <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-700 font-medium">{formSuccess}</div>
+                    )}
                     {/* Package Type */}
                     <div>
                       <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Package Type</label>
@@ -2298,22 +2359,35 @@ export default function StaffWorkspacePage() {
                         ))}
                       </select>
                     </div>
-
-                    {/* Category + Price */}
+                    {/* Product Name */}
+                    <div>
+                      <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Product Name *</label>
+                      <input
+                        type="text"
+                        value={form.name}
+                        onChange={(e) => setForm({ ...form, name: e.target.value })}
+                        placeholder="e.g. Grilled Chicken Platter"
+                        className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
+                      />
+                    </div>
+                    {/* Category */}
+                    <div>
+                      <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Category</label>
+                      <select
+                        value={form.category}
+                        onChange={(e) => setForm({ ...form, category: e.target.value })}
+                        className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors bg-white"
+                      >
+                        {categories.map((cat) => (
+                          <option key={cat} value={cat}>{cat}</option>
+                        ))}
+                      </select>
+                    </div>
+                    {/* Price + Unit */}
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Category *</label>
-                        <select
-                          value={form.category}
-                          onChange={(e) => setForm({ ...form, category: e.target.value })}
-                          className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors bg-white"
-                        >
-                          {categories.map((c) => <option key={c} value={c}>{c}</option>)}
-                        </select>
-                      </div>
-                      <div>
                         <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">
-                          Price (R){['package-6','package-10','package-12','package-24'].includes(form.package_type) ? <span className="text-[#B0A89E] font-normal ml-1">(Optional)</span> : ' *'}
+                          Price (R) {['package-6','package-10','package-12','package-24'].includes(form.package_type) ? '(Optional)' : '*'}
                         </label>
                         <input
                           type="number"
@@ -2325,10 +2399,6 @@ export default function StaffWorkspacePage() {
                           className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
                         />
                       </div>
-                    </div>
-
-                    {/* Unit + Min Order */}
-                    <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Unit</label>
                         <input
@@ -2339,110 +2409,151 @@ export default function StaffWorkspacePage() {
                           className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
                         />
                       </div>
-                      <div>
-                        <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Min. Order</label>
-                        <input
-                          type="number"
-                          value={form.min_order}
-                          onChange={(e) => setForm({ ...form, min_order: e.target.value })}
-                          placeholder="Optional"
-                          min="1"
-                          className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
-                        />
-                      </div>
                     </div>
-
                     {/* Description */}
                     <div>
                       <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Description *</label>
                       <textarea
                         value={form.description}
                         onChange={(e) => setForm({ ...form, description: e.target.value })}
-                        placeholder="Describe the product..."
                         rows={3}
+                        placeholder="Brief description of the product..."
                         className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors resize-none"
-                        required
                       />
                     </div>
-
-                    {/* Tags + Badge */}
+                    {/* Tags */}
+                    <div>
+                      <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Tags (comma-separated)</label>
+                      <input
+                        type="text"
+                        value={form.tags}
+                        onChange={(e) => setForm({ ...form, tags: e.target.value })}
+                        placeholder="e.g. Gluten-Free, Halal, Vegan"
+                        className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
+                      />
+                    </div>
+                    {/* Badge + Min Order */}
                     <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Tags</label>
-                        <input
-                          type="text"
-                          value={form.tags}
-                          onChange={(e) => setForm({ ...form, tags: e.target.value })}
-                          placeholder="Vegan, Gluten-Free, ..."
-                          className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
-                        />
-                        <p className="text-xs text-[#B0A89E] mt-1">Comma-separated</p>
-                      </div>
                       <div>
                         <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Badge Label</label>
                         <input
                           type="text"
                           value={form.badge}
                           onChange={(e) => setForm({ ...form, badge: e.target.value })}
-                          placeholder="e.g. Best Seller, New, Popular"
+                          placeholder="e.g. Popular, New"
+                          className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Min Order</label>
+                        <input
+                          type="number"
+                          value={form.min_order}
+                          onChange={(e) => setForm({ ...form, min_order: e.target.value })}
+                          placeholder="e.g. 10"
+                          min="1"
                           className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
                         />
                       </div>
                     </div>
-
                     {/* Toggles */}
                     <div className="flex gap-6">
-                      <label className="flex items-center gap-2.5 cursor-pointer">
-                        <div
-                          onClick={() => setForm({ ...form, available: !form.available })}
-                          className={`w-10 h-6 rounded-full transition-colors relative ${
-                            form.available ? 'bg-[#C4622D]' : 'bg-[#DDD5C8]'
-                          }`}
-                        >
-                          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${
-                            form.available ? 'translate-x-5' : 'translate-x-1'
-                          }`} />
-                        </div>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" checked={form.available} onChange={(e) => setForm({ ...form, available: e.target.checked })} className="w-4 h-4 accent-[#C4622D]" />
                         <span className="text-sm font-medium text-[#3D3530]">Available</span>
                       </label>
-                      <label className="flex items-center gap-2.5 cursor-pointer">
-                        <div
-                          onClick={() => setForm({ ...form, featured: !form.featured })}
-                          className={`w-10 h-6 rounded-full transition-colors relative ${
-                            form.featured ? 'bg-[#C4622D]' : 'bg-[#DDD5C8]'
-                          }`}
-                        >
-                          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${
-                            form.featured ? 'translate-x-5' : 'translate-x-1'
-                          }`} />
-                        </div>
-                        <span className="text-sm font-medium text-[#3D3530]">Featured on Homepage</span>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" checked={form.featured} onChange={(e) => setForm({ ...form, featured: e.target.checked })} className="w-4 h-4 accent-[#C4622D]" />
+                        <span className="text-sm font-medium text-[#3D3530]">Featured</span>
                       </label>
                     </div>
-
-                    {formError && (
-                      <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">{formError}</div>
+                    {/* Product Image */}
+                    <div>
+                      <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Product Image</label>
+                      {productImagePreview && (
+                        <div className="mb-3 relative w-32 h-32 rounded-xl overflow-hidden border border-[#DDD5C8]">
+                          <img src={productImagePreview} alt="Preview" className="w-full h-full object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => { setProductImagePreview(''); setProductImageFile(null); setSelectedMediaPath(''); }}
+                            className="absolute top-1 right-1 bg-white/80 rounded-full p-0.5 hover:bg-white"
+                          >
+                            <svg className="w-4 h-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      )}
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => productImageRef.current?.click()}
+                          className="flex-1 border border-dashed border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#8C8278] hover:border-[#C4622D] hover:text-[#C4622D] transition-colors text-center"
+                        >
+                          {uploadingProductImage ? 'Uploading...' : '📁 Upload New Image'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={openMediaPicker}
+                          className="flex-1 border border-dashed border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#8C8278] hover:border-[#C4622D] hover:text-[#C4622D] transition-colors text-center"
+                        >
+                          🖼️ Pick from Library
+                        </button>
+                      </div>
+                      <input ref={productImageRef} type="file" accept="image/*" className="hidden" onChange={handleProductImageSelect} />
+                    </div>
+                    {/* Media Picker Modal */}
+                    {showMediaPicker && (
+                      <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4">
+                        <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl">
+                          <div className="flex items-center justify-between px-5 py-4 border-b border-[#EDE7DA]">
+                            <h3 className="font-bold text-[#1A1612]">Pick from Media Library</h3>
+                            <button onClick={() => setShowMediaPicker(false)} className="text-[#8C8278] hover:text-[#1A1612]">
+                              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
+                          <div className="overflow-y-auto p-4 flex-1">
+                            {mediaPickerLoading ? (
+                              <div className="flex justify-center py-8">
+                                <svg className="animate-spin h-6 w-6 text-[#C4622D]" viewBox="0 0 24 24" fill="none">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                </svg>
+                              </div>
+                            ) : mediaPickerFiles.length === 0 ? (
+                              <p className="text-center text-[#8C8278] py-8 text-sm">No images in Product Images library.</p>
+                            ) : (
+                              <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                                {mediaPickerFiles.map((file) => (
+                                  <button
+                                    key={file.id}
+                                    type="button"
+                                    onClick={() => handleSelectMediaImage(file)}
+                                    className="aspect-square rounded-xl overflow-hidden border-2 border-transparent hover:border-[#C4622D] transition-all"
+                                  >
+                                    <img src={file.signedUrl} alt={file.name} className="w-full h-full object-cover" />
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     )}
-                    {formSuccess && (
-                      <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-xl px-4 py-3">{formSuccess}</div>
-                    )}
-
                     <div className="flex gap-3 pt-2">
                       <button
                         type="button"
                         onClick={() => setShowForm(false)}
-                        className="flex-1 py-2.5 rounded-xl border border-[#DDD5C8] text-sm font-semibold text-[#5C5347] hover:bg-[#F5F0E8] transition-colors"
-                      >
-                        Cancel
-                      </button>
+                        className="flex-1 px-4 py-2.5 border border-[#DDD5C8] rounded-xl text-sm font-semibold text-[#5C5347] hover:bg-[#F5F0E8] transition-colors"
+                      >Cancel</button>
                       <button
                         type="submit"
-                        disabled={saving}
-                        className="flex-1 py-2.5 rounded-xl bg-[#C4622D] text-white text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                        disabled={saving || uploadingProductImage}
+                        className="flex-1 px-4 py-2.5 bg-[#C4622D] text-white rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                       >
-                        {saving ? (
-                          <><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Saving...</>
-                        ) : editingProduct ? 'Save Changes' : 'Add Product'}
+                        {saving ? <><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Saving...</> : editingProduct ? 'Save Changes' : 'Add Product'}
                       </button>
                     </div>
                   </form>
@@ -2450,212 +2561,101 @@ export default function StaffWorkspacePage() {
               </div>
             )}
 
-            {/* Media Library Picker Modal */}
-            {showMediaPicker && (
-              <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50">
-                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col">
-                  <div className="flex items-center justify-between px-6 py-4 border-b border-[#EDE7DA]">
-                    <div>
-                      <h3 className="text-base font-bold text-[#1A1612]">Media Library</h3>
-                      <p className="text-xs text-[#8C8278] mt-0.5">Select an image from your product images</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setShowMediaPicker(false)}
-                      className="w-8 h-8 rounded-full bg-[#F5F0E8] flex items-center justify-center text-[#8C8278] hover:bg-[#EDE7DA] transition-colors"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                  <div className="flex-1 overflow-y-auto p-6">
-                    {mediaPickerLoading ? (
-                      <div className="flex items-center justify-center py-16">
-                        <svg className="animate-spin h-8 w-8 text-[#C4622D]" viewBox="0 0 24 24" fill="none">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                        </svg>
-                      </div>
-                    ) : mediaPickerFiles.length === 0 ? (
-                      <div className="text-center py-16 bg-white rounded-2xl border border-[#DDD5C8]">
-                        <div className="text-4xl mb-3">🖼️</div>
-                        <p className="text-[#8C8278] font-medium">No images yet</p>
-                        <p className="text-sm text-[#B5ADA5] mt-1">Upload your first image above</p>
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-                        {mediaPickerFiles.map((file) => (
-                          <button
-                            key={file.name}
-                            type="button"
-                            onClick={() => handleSelectMediaImage(file)}
-                            className={`relative aspect-square rounded-xl overflow-hidden border-2 transition-all hover:scale-105 ${
-                              selectedMediaPath === file.name
-                                ? 'border-[#C4622D] ring-2 ring-[#C4622D]/30'
-                                : 'border-[#DDD5C8] hover:border-[#C4622D]'
-                            }`}
-                          >
-                            <img src={file.signedUrl} alt={file.name} className="w-full h-full object-cover" />
-                            {selectedMediaPath === file.name && (
-                              <div className="absolute inset-0 bg-[#C4622D]/20 flex items-center justify-center">
-                                <div className="w-6 h-6 rounded-full bg-[#C4622D] flex items-center justify-center">
-                                  <svg className="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 012 2h11a2 2 0 012-2v-5m-1.414-9.414a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                                  </svg>
-                                </div>
-                              </div>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  {mediaPickerFiles.length > 0 && (
-                    <div className="px-6 py-4 border-t border-[#EDE7DA] flex justify-end gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setShowMediaPicker(false)}
-                        className="px-4 py-2 rounded-xl border border-[#DDD5C8] text-sm font-semibold text-[#5C5347] hover:bg-[#F5F0E8] transition-colors"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
             {/* Products Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-              <div className="flex gap-2 flex-wrap">
-                {(() => {
-                  const categoryOrder = ['Weekly Menu', 'Packaged Meals', 'Voucher Meals', 'Frozen Meals', 'Prepared Meals', 'A La Carte'];
-                  const sortedCategories = [...categories].sort((a, b) => {
-                    const ai = categoryOrder.indexOf(a);
-                    const bi = categoryOrder.indexOf(b);
-                    if (ai === -1 && bi === -1) return 0;
-                    if (ai === -1) return 1;
-                    if (bi === -1) return -1;
-                    return ai - bi;
-                  });
-                  return ['All', ...sortedCategories].map((cat) => (
-                    <button
-                      key={cat}
-                      onClick={() => {
-                        if (cat === 'Weekly Menu') {
-                          router.push('/weekly-menu');
-                        } else {
-                          setFilterCategory(cat);
-                        }
-                      }}
-                      className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors ${
-                        filterCategory === cat
-                          ? 'bg-[#C4622D] text-white'
-                          : 'bg-white border border-[#DDD5C8] text-[#5C5347] hover:border-[#C4622D]'
-                      }`}
-                    >
-                      {cat}
-                    </button>
-                  ));
-                })()}
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-lg font-bold text-[#1A1612]">Products & Pricing</h2>
+                <p className="text-xs text-[#8C8278] mt-0.5">{products.length} products</p>
               </div>
               <button
                 onClick={openCreateForm}
-                className="flex items-center gap-2 bg-[#C4622D] text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors shadow-sm"
+                className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors flex items-center gap-2"
               >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
                 </svg>
                 Add Product
               </button>
             </div>
 
-            {/* Products Grid */}
+            {/* Category filter */}
+            <div className="flex gap-2 flex-wrap mb-6">
+              {['All', ...categories].map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => {
+                    if (cat === 'Weekly Menu') { window.location.href = '/weekly-menu'; return; }
+                    setFilterCategory(cat);
+                  }}
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                    filterCategory === cat
+                      ? 'bg-[#C4622D] text-white'
+                      : 'bg-white border border-[#DDD5C8] text-[#5C5347] hover:border-[#C4622D] hover:text-[#C4622D]'
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+
+            {/* Products List */}
             {productsLoading ? (
-              <div className="flex items-center justify-center py-20">
+              <div className="flex justify-center py-16">
                 <svg className="animate-spin h-8 w-8 text-[#C4622D]" viewBox="0 0 24 24" fill="none">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
               </div>
             ) : filteredProducts.length === 0 ? (
-              <div className="text-center py-20 bg-white rounded-2xl border border-[#DDD5C8]">
-                <div className="text-5xl mb-3">🍽️</div>
-                <p className="text-[#5C5347] font-semibold">No products yet</p>
-                <p className="text-[#B0A89E] text-sm mt-1">Add your first product to get started</p>
-                <button
-                  onClick={openCreateForm}
-                  className="bg-[#C4622D] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors"
-                >
-                  Add Product
-                </button>
+              <div className="text-center py-16 text-[#8C8278]">
+                <p className="text-lg font-medium mb-2">No products found</p>
+                <p className="text-sm">Add your first product to get started.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              <div className="space-y-3">
                 {filteredProducts.map((product) => (
-                  <div
-                    key={product.id}
-                    className="bg-white rounded-2xl border border-[#DDD5C8] overflow-hidden hover:border-[#C4622D]/40 hover:shadow-md transition-all duration-200"
-                  >
-                    <div className="relative h-40 bg-[#F5F0E8] overflow-hidden">
+                  <div key={product.id} className="bg-white rounded-2xl border border-[#EDE7DA] p-4 flex items-center gap-4">
+                    <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 bg-[#F5F0E8]">
                       {product.imageUrl ? (
                         <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-4xl">🍽️</div>
+                        <div className="w-full h-full flex items-center justify-center text-2xl">🍽️</div>
                       )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-semibold text-[#1A1612] text-sm">{product.name}</p>
+                        {product.badge && (
+                          <span className="bg-[#C4622D] text-white text-xs px-2 py-0.5 rounded-full font-semibold">{product.badge}</span>
+                        )}
+                        {!product.available && (
+                          <span className="bg-gray-100 text-gray-500 text-xs px-2 py-0.5 rounded-full">Unavailable</span>
+                        )}
+                      </div>
+                      <p className="text-xs text-[#8C8278] mt-0.5">{product.category}</p>
+                      <p className="text-sm font-bold text-[#C4622D] mt-1">
+                        {product.price > 0 ? `R${Number(product.price).toFixed(2)} ${product.unit}` : product.package_type !== 'none' ? 'Package price on request' : ''}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
                       <button
                         onClick={() => handleToggleAvailable(product)}
-                        className={`absolute top-2 right-2 text-xs font-semibold px-2.5 py-1 rounded-full transition-colors ${
-                          product.available ? 'bg-green-500 text-white' : 'bg-[#8C8278] text-white'
+                        className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors ${
+                          product.available
+                            ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100' :'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100'
                         }`}
                       >
                         {product.available ? 'Available' : 'Hidden'}
                       </button>
-                      {product.badge && (
-                        <span className="absolute top-2 left-2 text-xs font-semibold bg-[#C4622D] text-white px-2.5 py-0.5 rounded-full">
-                          {product.badge}
-                        </span>
-                      )}
-                      {product.featured && (
-                        <span className="absolute bottom-2 left-2 text-xs font-semibold bg-[#D4A853] text-white px-2.5 py-0.5 rounded-full">
-                          ⭐ Featured
-                        </span>
-                      )}
-                    </div>
-                    <div className="p-4">
-                      <p className="text-xs font-mono text-[#C4622D] uppercase tracking-wider mb-1">{product.category}</p>
-                      <h3 className="font-semibold text-[#1A1612] text-sm leading-snug mb-1 line-clamp-1">{product.name}</h3>
-                      <p className="text-xs text-[#8C8278] line-clamp-2 mb-3">{product.description}</p>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-lg font-bold text-[#1A1612]">R{product.price}</p>
-                          <p className="text-xs text-[#B0A89E]">{product.unit}</p>
-                        </div>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => openEditForm(product)}
-                            className="w-8 h-8 rounded-lg bg-[#F5F0E8] flex items-center justify-center text-[#5C5347] hover:bg-[#EDE7DA] transition-colors"
-                            title="Edit"
-                          >
-                            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 012.652 2.652L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                          </button>
-                          <button
-                            onClick={() => handleDeleteProduct(product)}
-                            disabled={deletingProductId === product.id}
-                            className="w-8 h-8 rounded-lg bg-red-500 flex items-center justify-center text-white hover:bg-red-600 transition-colors disabled:opacity-50"
-                            title="Delete"
-                          >
-                            {deletingProductId === product.id ? (
-                              <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
-                            ) : (
-                              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0016.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
-                            )}
-                          </button>
-                        </div>
-                      </div>
+                      <button
+                        onClick={() => openEditForm(product)}
+                        className="text-xs font-semibold text-[#C4622D] hover:underline"
+                      >Edit</button>
+                      <button
+                        onClick={() => handleDeleteProduct(product)}
+                        disabled={deletingProductId === product.id}
+                        className="text-xs font-semibold text-red-500 hover:underline disabled:opacity-50"
+                      >{deletingProductId === product.id ? '...' : 'Delete'}</button>
                     </div>
                   </div>
                 ))}
@@ -2667,31 +2667,29 @@ export default function StaffWorkspacePage() {
         {/* ── CATEGORIES TAB ── */}
         {activeTab === 'categories' && (
           <div>
-            {/* Category Form Modal */}
             {showCategoryForm && (
-              <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4">
+              <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto py-8 px-4">
                 <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
                   <div className="flex items-center justify-between px-6 py-4 border-b border-[#EDE7DA]">
-                    <h2 className="font-bold text-[#1A1612] text-lg">
-                      {editingCategory ? 'Edit Category' : 'Add New Category'}
-                    </h2>
-                    <button
-                      onClick={() => setShowCategoryForm(false)}
-                      className="w-8 h-8 rounded-full bg-[#F5F0E8] flex items-center justify-center text-[#8C8278] hover:bg-[#EDE7DA] transition-colors"
-                    >
-                      ✕
+                    <h2 className="font-bold text-[#1A1612] text-lg">{editingCategory ? 'Edit Category' : 'Add Category'}</h2>
+                    <button onClick={() => setShowCategoryForm(false)} className="text-[#8C8278] hover:text-[#1A1612]">
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
                     </button>
                   </div>
-                  <form onSubmit={handleSaveCategory} className="p-6 space-y-4">
+                  <form onSubmit={handleSaveCategory} className="px-6 py-5 space-y-4">
+                    {categoryFormSuccess && (
+                      <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-700 font-medium">{categoryFormSuccess}</div>
+                    )}
                     <div>
                       <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Category Name *</label>
                       <input
                         type="text"
                         value={categoryForm.name}
                         onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })}
-                        placeholder="e.g. Seasonal Specials"
+                        placeholder="e.g. Catering Packages"
                         className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
-                        required
                       />
                     </div>
                     <div>
@@ -2701,194 +2699,78 @@ export default function StaffWorkspacePage() {
                         value={categoryForm.sort_order}
                         onChange={(e) => setCategoryForm({ ...categoryForm, sort_order: e.target.value })}
                         placeholder="0"
-                        min="0"
                         className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
                       />
-                      <p className="text-xs text-[#B0A89E] mt-1">Lower numbers appear first</p>
                     </div>
-                    {categoryFormError && (
-                      <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">{categoryFormError}</div>
-                    )}
-                    {categoryFormSuccess && (
-                      <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-xl px-4 py-3">{categoryFormSuccess}</div>
-                    )}
-                    <div className="flex gap-3 pt-1">
-                      <button
-                        type="button"
-                        onClick={() => setShowCategoryForm(false)}
-                        className="flex-1 py-2.5 rounded-xl border border-[#DDD5C8] text-[#5C5347] text-sm font-semibold hover:bg-[#F5F0E8] transition-colors"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="submit"
-                        disabled={savingCategory}
-                        className="flex-1 py-2.5 rounded-xl bg-[#C4622D] text-white text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-                      >
-                        {savingCategory ? (
-                          <><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Saving...</>
-                        ) : editingCategory ? 'Save Changes' : 'Add Category'}
+                    <div className="flex gap-3 pt-2">
+                      <button type="button" onClick={() => setShowCategoryForm(false)} className="flex-1 px-4 py-2.5 border border-[#DDD5C8] rounded-xl text-sm font-semibold text-[#5C5347] hover:bg-[#F5F0E8] transition-colors">Cancel</button>
+                      <button type="submit" disabled={savingCategory} className="flex-1 px-4 py-2.5 bg-[#C4622D] text-white rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-60">
+                        {savingCategory ? 'Saving...' : editingCategory ? 'Save Changes' : 'Add Category'}
                       </button>
                     </div>
                   </form>
                 </div>
               </div>
             )}
-
-            {/* Categories Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+            <div className="flex items-center justify-between mb-6">
               <div>
-                <h2 className="text-lg font-bold text-[#1A1612]">Food Categories</h2>
-                <p className="text-sm text-[#8C8278] mt-0.5">Active categories appear on the Menu &amp; Order page and all other places categories are displayed</p>
+                <h2 className="text-lg font-bold text-[#1A1612]">Product Categories</h2>
+                <p className="text-xs text-[#8C8278] mt-0.5">{categoriesList.length} categories</p>
               </div>
-              <button
-                onClick={openAddCategoryForm}
-                className="flex items-center gap-2 bg-[#C4622D] text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors shadow-sm"
-              >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                </svg>
+              <button onClick={openAddCategoryForm} className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors flex items-center gap-2">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
                 Add Category
               </button>
             </div>
-
-            {/* Categories Table */}
             {categoriesLoading ? (
-              <div className="flex justify-center py-16">
-                <svg className="animate-spin h-8 w-8 text-[#C4622D]" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-              </div>
+              <div className="flex justify-center py-16"><svg className="animate-spin h-8 w-8 text-[#C4622D]" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg></div>
             ) : categoriesList.length === 0 ? (
-              <div className="text-center py-20 bg-white rounded-2xl border border-[#DDD5C8]">
-                <div className="text-5xl mb-3">🏷️</div>
-                <p className="text-[#5C5347] font-semibold">No categories yet</p>
-                <p className="text-[#B0A89E] text-sm mt-1">Add your first category to get started</p>
-                <button
-                  onClick={openAddCategoryForm}
-                  className="bg-[#C4622D] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors"
-                >
-                  Add Category
-                </button>
-              </div>
+              <div className="text-center py-16 text-[#8C8278]"><p className="text-lg font-medium mb-2">No categories yet</p><p className="text-sm">Add your first category.</p></div>
             ) : (
-              <div className="bg-white rounded-2xl border border-[#DDD5C8] overflow-hidden">
-                {/* Table Header */}
-                <div className="hidden md:grid grid-cols-12 gap-4 px-6 py-3 bg-[#F5F0E8] border-b border-[#EDE7DA] text-xs font-semibold text-[#8C8278] uppercase tracking-wider">
-                  <div className="col-span-5">Name</div>
-                  <div className="col-span-2 text-center">Sort Order</div>
-                  <div className="col-span-2 text-center">Status</div>
-                  <div className="col-span-3 text-right">Actions</div>
-                </div>
-
-                {categoriesList.map((cat, idx) => (
-                  <div
-                    key={cat.id}
-                    className={`px-6 py-4 flex flex-col md:grid md:grid-cols-12 md:items-center gap-3 md:gap-4 ${
-                      idx < categoriesList.length - 1 ? 'border-b border-[#EDE7DA]' : ''
-                    }`}
-                  >
-                    {/* Name */}
-                    <div className="col-span-5 flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-[#F5F0E8] flex items-center justify-center text-base flex-shrink-0">
-                        🏷️
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold text-[#1A1612]">{cat.name}</p>
-                        <p className="text-xs text-[#B0A89E]">{cat.slug}</p>
-                      </div>
+              <div className="space-y-3">
+                {categoriesList.map((cat) => (
+                  <div key={cat.id} className="bg-white rounded-2xl border border-[#EDE7DA] px-5 py-4 flex items-center justify-between">
+                    <div>
+                      <p className="font-semibold text-[#1A1612] text-sm">{cat.name}</p>
+                      <p className="text-xs text-[#8C8278] mt-0.5">Slug: {cat.slug} · Order: {cat.sort_order}</p>
                     </div>
-
-                    {/* Sort Order */}
-                    <div className="col-span-2 text-center">
-                      <span className="text-sm text-[#5C5347] font-mono">{cat.sort_order}</span>
-                    </div>
-
-                    {/* Status Toggle */}
-                    <div className="col-span-2 flex justify-center">
+                    <div className="flex items-center gap-3">
                       <button
                         onClick={() => handleToggleCategoryActive(cat)}
                         disabled={togglingCategoryId === cat.id}
-                        className={`inline-flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-full transition-colors disabled:opacity-50 ${
-                          cat.active
-                            ? 'bg-green-100 text-green-700 hover:bg-green-200' :'bg-[#F5F0E8] text-[#8C8278] hover:bg-[#EDE7DA]'
-                        }`}
-                        title={cat.active ? 'Click to deactivate' : 'Click to activate'}
-                      >
-                        {togglingCategoryId === cat.id ? (
-                          <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
-                        ) : (
-                          <span className={`w-1.5 h-1.5 rounded-full ${cat.active ? 'bg-green-500' : 'bg-[#B5ADA5]'}`} />
-                        )}
-                        {cat.active ? 'Active' : 'Inactive'}
-                      </button>
-                    </div>
-
-                    {/* Actions */}
-                    <div className="col-span-3 flex items-center justify-end gap-2">
-                      <button
-                        onClick={() => openEditCategoryForm(cat)}
-                        className="w-8 h-8 rounded-lg bg-[#F5F0E8] flex items-center justify-center text-[#5C5347] hover:bg-[#EDE7DA] transition-colors"
-                        title="Edit category"
-                      >
-                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 012.652 2.652L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                      </button>
-                      <button
-                        onClick={() => handleDeleteCategory(cat)}
-                        disabled={deletingCategoryId === cat.id}
-                        className="w-8 h-8 rounded-lg bg-red-500 flex items-center justify-center text-white hover:bg-red-600 transition-colors disabled:opacity-50"
-                        title="Delete category"
-                      >
-                        {deletingCategoryId === cat.id ? (
-                          <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
-                        ) : (
-                          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0016.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        )}
-                      </button>
+                        className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors disabled:opacity-50 ${cat.active ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-50 text-gray-500 border-gray-200'}`}
+                      >{togglingCategoryId === cat.id ? '...' : cat.active ? 'Active' : 'Inactive'}</button>
+                      <button onClick={() => openEditCategoryForm(cat)} className="text-xs font-semibold text-[#C4622D] hover:underline">Edit</button>
+                      <button onClick={() => handleDeleteCategory(cat)} disabled={deletingCategoryId === cat.id} className="text-xs font-semibold text-red-500 hover:underline disabled:opacity-50">{deletingCategoryId === cat.id ? '...' : 'Delete'}</button>
                     </div>
                   </div>
                 ))}
               </div>
             )}
-
-            {/* Info box */}
-            <div className="mt-6 bg-[#F5F0E8] border border-[#DDD5C8] rounded-xl p-4">
-              <p className="text-sm font-semibold text-[#3D3530] mb-1">ℹ️ About Categories</p>
-              <p className="text-xs text-[#5C5347] leading-relaxed">
-                Only <strong>Active</strong> categories are shown on the Menu &amp; Order page and all other places where food categories are displayed.
-                Set a category to <strong>Inactive</strong> to hide it from customers — useful for seasonal menus.
-                Products in inactive categories remain in the database but will not be visible to customers.
-              </p>
-            </div>
           </div>
         )}
 
         {/* ── MEDIA LIBRARY TAB ── */}
         {activeTab === 'media' && (
           <div>
-            <div className="flex gap-3 mb-6 flex-wrap">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-lg font-bold text-[#1A1612]">Media Library</h2>
+            </div>
+            {/* Bucket selector */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
               {buckets.map((bucket) => (
                 <button
                   key={bucket.id}
                   onClick={() => handleBucketChange(bucket.id)}
-                  className={`flex items-center gap-2.5 px-5 py-3 rounded-xl font-medium text-sm transition-all duration-200 ${
+                  className={`p-4 rounded-2xl border-2 text-left transition-all ${
                     activeBucket === bucket.id
-                      ? 'bg-[#C4622D] text-white shadow-md'
-                      : 'bg-white text-[#5C5347] border border-[#DDD5C8] hover:border-[#C4622D] hover:text-[#C4622D]'
+                      ? 'border-[#C4622D] bg-[#FFF5EF]'
+                      : 'border-[#EDE7DA] bg-white hover:border-[#C4622D]/40'
                   }`}
                 >
-                  <span>{bucket.icon}</span>
-                  <div className="text-left">
-                    <div>{bucket.label}</div>
-                    <div className={`text-xs font-normal ${
-                      activeBucket === bucket.id ? 'text-orange-100' : 'text-[#B0A89E]'
-                    }`}>{bucket.description}</div>
-                  </div>
+                  <div className="text-2xl mb-1">{bucket.icon}</div>
+                  <p className="font-semibold text-[#1A1612] text-sm">{bucket.label}</p>
+                  <p className="text-xs text-[#8C8278] mt-0.5">{bucket.description}</p>
                 </button>
               ))}
             </div>
@@ -2897,87 +2779,51 @@ export default function StaffWorkspacePage() {
               <GoogleDriveDocuments />
             ) : (
               <>
+                {/* Upload area */}
                 <div
                   onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
                   onDragLeave={() => setDragOver(false)}
                   onDrop={(e) => { e.preventDefault(); setDragOver(false); handleUpload(e.dataTransfer.files); }}
-                  className={`bg-white rounded-2xl border-2 border-dashed p-8 mb-6 text-center transition-all duration-200 ${
-                    dragOver ? 'border-[#C4622D] bg-orange-50' : 'border-[#DDD5C8] hover:border-[#C4622D]'
-                  }`}
+                  className={`border-2 border-dashed rounded-2xl p-8 text-center mb-6 transition-colors ${dragOver ? 'border-[#C4622D] bg-[#FFF5EF]' : 'border-[#DDD5C8] hover:border-[#C4622D]/50'}`}
                 >
-                  <div className="text-4xl mb-3">{activeBucket === 'product-images' ? '🍽️' : '📸'}</div>
-                  <p className="text-[#3D3530] font-semibold mb-1">Drop images here or click to upload</p>
-                  <p className="text-[#B0A89E] text-sm mb-4">Supports JPG, PNG, WebP, GIF · Max 10MB per file</p>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={(e) => handleUpload(e.target.files)}
-                    className="hidden"
-                    id="file-upload"
-                  />
-                  <label
-                    htmlFor="file-upload"
-                    className={`inline-flex items-center gap-2 bg-[#C4622D] text-white px-6 py-2.5 rounded-full text-sm font-semibold cursor-pointer hover:bg-[#A04E22] transition-all duration-200 ${
-                      uploading ? 'opacity-60 cursor-not-allowed' : ''
-                    }`}
+                  <div className="text-4xl mb-3">📸</div>
+                  <p className="font-semibold text-[#1A1612] mb-1">Drop images here or click to upload</p>
+                  <p className="text-xs text-[#8C8278] mb-4">Supports JPG, PNG, WebP</p>
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    className="bg-[#C4622D] text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-60"
                   >
-                    {uploading ? (
-                      <><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Uploading...</>
-                    ) : (
-                      <><svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>+ Upload</>
-                    )}
-                  </label>
+                    {uploading ? 'Uploading...' : 'Choose Files'}
+                  </button>
+                  <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => handleUpload(e.target.files)} />
                 </div>
+                {uploadSuccess && <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-700 font-medium mb-4">{uploadSuccess}</div>}
 
-                {uploadError && (
-                  <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">{uploadError}</div>
-                )}
-                {uploadSuccess && (
-                  <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-xl px-4 py-3">{uploadSuccess}</div>
-                )}
-
+                {/* Files grid */}
                 {mediaLoading ? (
-                  <div className="flex items-center justify-center py-20">
-                    <svg className="animate-spin h-8 w-8 text-[#C4622D]" viewBox="0 0 24 24" fill="none">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
-                  </div>
+                  <div className="flex justify-center py-16"><svg className="animate-spin h-8 w-8 text-[#C4622D]" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg></div>
                 ) : files.length === 0 ? (
-                  <div className="text-center py-16 bg-white rounded-2xl border border-[#DDD5C8]">
-                    <div className="text-4xl mb-3">{activeBucket === 'product-images' ? '🍽️' : '📸'}</div>
-                    <p className="text-[#8C8278] font-medium">No images yet</p>
-                    <p className="text-sm text-[#B5ADA5] mt-1">Upload your first image above</p>
-                  </div>
+                  <div className="text-center py-16 text-[#8C8278]"><p className="text-lg font-medium mb-2">No files yet</p><p className="text-sm">Upload your first image above.</p></div>
                 ) : (
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                     {files.map((file) => (
-                      <div key={file.name} className="group relative bg-white rounded-2xl border border-[#DDD5C8] overflow-hidden hover:border-[#C4622D]/40 hover:shadow-md transition-all">
-                        <div className="aspect-square bg-[#F5F0E8] overflow-hidden">
-                          {file.signedUrl ? (
-                            <img src={file.signedUrl} alt={file.name} className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-3xl">🖼️</div>
-                          )}
+                      <div key={file.id} className="group relative bg-white rounded-2xl border border-[#EDE7DA] overflow-hidden">
+                        <div className="aspect-square">
+                          <img src={file.signedUrl} alt={file.name} className="w-full h-full object-cover" />
                         </div>
                         <div className="p-2">
-                          <p className="text-xs text-[#5C5347] font-medium truncate">{file.name}</p>
-                          <p className="text-xs text-[#B0A89E]">{formatFileSize(file.metadata?.size)}</p>
+                          <p className="text-xs text-[#5C5347] truncate font-medium">{file.name}</p>
+                          <p className="text-xs text-[#8C8278]">{formatFileSize(file.metadata?.size)}</p>
                         </div>
                         <button
                           onClick={() => handleDeleteFile(file.name)}
                           disabled={deletingId === file.name}
-                          className="absolute top-2 right-2 w-7 h-7 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 disabled:opacity-50"
+                          className="absolute top-2 right-2 bg-white/90 text-red-500 rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50 disabled:opacity-50"
                         >
-                          {deletingId === file.name ? (
-                            <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
-                          ) : (
-                            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 012 2h11a2 2 0 012-2v-5m-1.414-9.414a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                            </svg>
-                          )}
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
                         </button>
                       </div>
                     ))}
@@ -2991,257 +2837,145 @@ export default function StaffWorkspacePage() {
         {/* ── ORDERS TAB ── */}
         {activeTab === 'orders' && (
           <div>
-            {/* Header row */}
             <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-xl font-bold text-[#1A1612]">Orders</h2>
-                <p className="text-sm text-[#8C8278] mt-0.5">{wsFilteredOrders.length} of {wsOrders.length} orders</p>
-              </div>
-              <button
-                onClick={loadWsOrders}
-                disabled={wsOrdersLoading}
-                className="flex items-center gap-2 px-4 py-2 bg-white border border-[#DDD5C8] rounded-xl text-sm font-medium text-[#5C5347] hover:bg-[#EDE7DA] transition-colors disabled:opacity-50"
-              >
-                <svg className={`w-4 h-4 ${wsOrdersLoading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                Refresh
-              </button>
+              <h2 className="text-lg font-bold text-[#1A1612]">Orders</h2>
+              <button onClick={loadWsOrders} className="text-sm font-semibold text-[#C4622D] hover:underline">Refresh</button>
             </div>
-
             {/* Filters */}
-            <div className="bg-white rounded-2xl border border-[#DDD5C8] p-4 mb-6">
-              <div className="flex flex-col gap-3">
-                <div className="relative">
-                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#B5ADA5]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                  <input
-                    type="text"
-                    placeholder="Search by name, email, or order ID..."
-                    value={wsOrderSearch}
-                    onChange={(e) => setWsOrderSearch(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2.5 border border-[#DDD5C8] rounded-xl text-sm text-[#1A1612] placeholder-[#B5ADA5] focus:outline-none focus:border-[#C4622D] transition-colors"
-                  />
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {(['all', 'awaiting_payment', 'paid', 'refunded', 'pending', 'failed'] as const).map((val) => (
-                    <button
-                      key={val}
-                      onClick={() => setWsFilterPayment(val)}
-                      className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors ${
-                        wsFilterPayment === val
-                          ? 'bg-[#C4622D] text-white'
-                          : 'bg-white border border-[#DDD5C8] text-[#5C5347] hover:border-[#C4622D]'
-                      }`}
-                    >
-                      {val === 'all' ? 'All Payments' : val === 'awaiting_payment' ? 'Awaiting Payment' : val.charAt(0).toUpperCase() + val.slice(1)}
-                    </button>
-                  ))}
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {(['all', 'new', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled'] as const).map((val) => (
-                    <button
-                      key={val}
-                      onClick={() => setWsFilterFulfillment(val)}
-                      className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors ${
-                        wsFilterFulfillment === val
-                          ? 'bg-[#C4622D] text-white'
-                          : 'bg-white border border-[#DDD5C8] text-[#5C5347] hover:border-[#C4622D]'
-                      }`}
-                    >
-                      {val === 'all' ? 'All Fulfillment' : val.charAt(0).toUpperCase() + val.slice(1)}
-                    </button>
-                  ))}
-                </div>
-              </div>
+            <div className="flex flex-wrap gap-3 mb-5">
+              <input
+                type="text"
+                value={wsOrderSearch}
+                onChange={(e) => setWsOrderSearch(e.target.value)}
+                placeholder="Search by name, email or payment ID..."
+                className="flex-1 min-w-[200px] border border-[#DDD5C8] rounded-xl px-4 py-2 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
+              />
+              <select value={wsFilterPayment} onChange={(e) => setWsFilterPayment(e.target.value)} className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] bg-white">
+                <option value="all">All Payments</option>
+                {PAYMENT_OPTIONS.map((s) => <option key={s} value={s}>{PAYMENT_STATUS_LABELS[s]}</option>)}
+              </select>
+              <select value={wsFilterFulfillment} onChange={(e) => setWsFilterFulfillment(e.target.value)} className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] bg-white">
+                <option value="all">All Fulfillment</option>
+                {FULFILLMENT_OPTIONS.map((s) => <option key={s} value={s}>{FULFILLMENT_STATUS_LABELS[s]}</option>)}
+              </select>
             </div>
-
-            {/* Error */}
-            {wsOrdersError && (
-              <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-6 text-red-700 text-sm">
-                {wsOrdersError}
-              </div>
-            )}
-
-            {/* Orders list */}
             {wsOrdersLoading ? (
-              <div className="bg-white rounded-2xl border border-[#DDD5C8] p-12 flex flex-col items-center justify-center gap-3">
-                <div className="w-8 h-8 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
-                <p className="text-sm text-[#8C8278]">Loading orders...</p>
-              </div>
+              <div className="flex justify-center py-16"><svg className="animate-spin h-8 w-8 text-[#C4622D]" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg></div>
+            ) : wsOrdersError ? (
+              <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">{wsOrdersError}</div>
             ) : wsFilteredOrders.length === 0 ? (
-              <div className="bg-white rounded-2xl border border-[#DDD5C8] p-12 flex flex-col items-center justify-center gap-3 text-center">
-                <div className="w-14 h-14 rounded-full bg-[#EDE7DA] flex items-center justify-center">
-                  <svg className="w-6 h-6 text-[#B5ADA5]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2h2.25" />
-                  </svg>
-                </div>
-                <p className="text-[#5C5347] font-medium">No orders found</p>
-                <p className="text-sm text-[#B5ADA5]">
-                  {wsOrderSearch || wsFilterPayment !== 'all' || wsFilterFulfillment !== 'all' ?'Try adjusting your filters' :'Orders will appear here once customers complete payments'}
-                </p>
-              </div>
+              <div className="text-center py-16 text-[#8C8278]"><p className="text-lg font-medium">No orders found</p></div>
             ) : (
-              <div className="bg-white rounded-2xl border border-[#DDD5C8] overflow-hidden">
-                {/* Table header */}
-                <div className="hidden lg:grid grid-cols-[1fr_1.5fr_1fr_minmax(80px,auto)_minmax(140px,auto)_minmax(140px,auto)_minmax(80px,auto)] gap-4 px-5 py-3 bg-[#F5F0E8] border-b border-[#DDD5C8] text-xs font-semibold text-[#8C8278] uppercase tracking-wider">
-                  <span className="text-left pl-[22px]">Order ID</span>
-                  <span className="text-left">Customer</span>
-                  <span className="text-left">Items</span>
-                  <span className="text-left">Total</span>
-                  <span className="text-left">Payment</span>
-                  <span className="text-left">Fulfillment</span>
-                  <span className="text-left">Date</span>
-                </div>
-                <div className="divide-y divide-[#EDE7DA]">
-                  {wsFilteredOrders.map((order) => {
-                    const isExpanded = wsExpandedOrderId === order.id;
-                    const itemCount = Array.isArray(order.items) ? order.items.length : 0;
-                    const itemSummary = Array.isArray(order.items) && order.items.length > 0
-                      ? order.items.slice(0, 2).map((i) => `${i.name} x${i.quantity}`).join(', ') +
-                        (order.items.length > 2 ? ` +${order.items.length - 2} more` : '')
-                      : 'No items';
-                    const updateState = getWsOrderUpdateState(order.id);
-
-                    return (
-                      <div key={order.id}>
-                        <div
-                          className="grid grid-cols-1 lg:grid-cols-[1fr_1.5fr_1fr_minmax(80px,auto)_minmax(140px,auto)_minmax(140px,auto)_minmax(80px,auto)] gap-4 px-5 py-4 hover:bg-[#FDFAF6] cursor-pointer transition-colors"
-                          onClick={() => setWsExpandedOrderId(isExpanded ? null : order.id)}
-                        >
-                          {/* Order ID */}
-                          <div className="flex items-center gap-2">
-                            <svg className={`w-3.5 h-3.5 text-[#B5ADA5] flex-shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                            </svg>
-                            <div>
-                              <p className="text-xs font-mono font-semibold text-[#1A1612] truncate max-w-[120px]">
-                                {order.m_payment_id || order.id.slice(0, 8).toUpperCase()}
-                              </p>
-                              <p className="text-xs text-[#B5ADA5] lg:hidden">{formatDate(order.created_at)}</p>
-                            </div>
+              <div className="space-y-3">
+                {wsFilteredOrders.map((order) => {
+                  const isExpanded = wsExpandedOrderId === order.id;
+                  const updateState = getWsOrderUpdateState(order.id);
+                  const discountMatch = order.notes?.match(/\(R([\d.]+)\s+credit\)/);
+                  const discountAmount = discountMatch ? parseFloat(discountMatch[1]) : 0;
+                  const computedTotal = order.subtotal - discountAmount + order.delivery_fee;
+                  return (
+                    <div key={order.id} className="bg-white rounded-2xl border border-[#EDE7DA] overflow-hidden">
+                      <button
+                        onClick={() => setWsExpandedOrderId(isExpanded ? null : order.id)}
+                        className="w-full px-5 py-4 flex items-center justify-between text-left hover:bg-[#FDFAF7] transition-colors"
+                      >
+                        <div className="flex items-center gap-4">
+                          <div>
+                            <p className="font-semibold text-[#1A1612] text-sm">{order.customer_name}</p>
+                            <p className="text-xs text-[#8C8278] mt-0.5">{order.customer_email}</p>
                           </div>
-                          {/* Customer */}
-                          <div className="lg:flex lg:flex-col">
-                            <p className="text-sm font-semibold text-[#1A1612]">{order.customer_name || '—'}</p>
-                            <p className="text-xs text-[#8C8278] truncate">{order.customer_email || '—'}</p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${PAYMENT_STATUS_COLORS[order.payment_status]}`}>
+                            {PAYMENT_STATUS_LABELS[order.payment_status]}
+                          </span>
+                          <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${FULFILLMENT_STATUS_COLORS[order.fulfillment_status]}`}>
+                            {FULFILLMENT_STATUS_LABELS[order.fulfillment_status]}
+                          </span>
+                          <p className="text-sm font-bold text-[#1A1612]">R{computedTotal.toFixed(2)}</p>
+                          <svg className={`w-4 h-4 text-[#8C8278] transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </div>
+                      </button>
+                      {isExpanded && (
+                        <div className="border-t border-[#EDE7DA] px-5 py-4 space-y-4">
+                          {/* Order details */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                            <div>
+                              <p className="text-xs text-[#8C8278] mb-1">Phone</p>
+                              <p className="font-medium text-[#1A1612]">{order.customer_phone || '—'}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-[#8C8278] mb-1">Event Date</p>
+                              <p className="font-medium text-[#1A1612]">{order.event_date ? formatDate(order.event_date) : '—'}</p>
+                            </div>
+                            <div className="sm:col-span-2">
+                              <p className="text-xs text-[#8C8278] mb-1">Delivery Address</p>
+                              <p className="font-medium text-[#1A1612]">{order.delivery_address || '—'}</p>
+                            </div>
+                            {order.notes && (
+                              <div className="sm:col-span-2">
+                                <p className="text-xs text-[#8C8278] mb-1">Notes</p>
+                                <p className="font-medium text-[#1A1612] text-xs">{order.notes}</p>
+                              </div>
+                            )}
                           </div>
                           {/* Items */}
-                          <div className="hidden lg:block">
-                            <p className="text-xs text-[#5C5347] line-clamp-2">{itemSummary}</p>
-                            {itemCount > 0 && <p className="text-xs text-[#B5ADA5]">{itemCount} item{itemCount !== 1 ? 's' : ''}</p>}
-                          </div>
-                          {/* Total */}
-                          <div className="flex items-center">
-                            <span className="text-sm font-bold text-[#1A1612]">{formatCurrency(order.total)}</span>
-                          </div>
-                          {/* Payment Status */}
-                          <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                            <div className="flex flex-col items-start gap-0.5">
-                              <select
-                                value={order.payment_status}
-                                onChange={(e) => handleWsPaymentUpdate(order.id, e.target.value as PaymentStatus)}
-                                disabled={updateState.paymentSaving}
-                                className={`text-xs font-semibold border rounded-full px-2.5 py-1 focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30 transition-colors cursor-pointer disabled:opacity-50 ${PAYMENT_STATUS_COLORS[order.payment_status]}`}
-                              >
-                                {PAYMENT_OPTIONS.map((s) => <option key={s} value={s}>{PAYMENT_STATUS_LABELS[s]}</option>)}
-                              </select>
-                              {updateState.paymentSaving && <span className="text-xs text-[#8C8278] flex items-center gap-1"><svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Saving...</span>}
-                              {updateState.paymentSuccess && <span className="text-xs text-green-600 font-medium">✓ Saved</span>}
+                          <div>
+                            <p className="text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-2">Items</p>
+                            <div className="space-y-1">
+                              {(order.items || []).map((item, i) => (
+                                <div key={i} className="flex justify-between text-sm py-1 border-b border-[#F5F0E8] last:border-0">
+                                  <span className="text-[#1A1612]">{item.quantity}× {item.name}</span>
+                                  <span className="font-semibold text-[#1A1612]">R{(item.price * item.quantity).toFixed(2)}</span>
+                                </div>
+                              ))}
                             </div>
                           </div>
-                          {/* Fulfillment Status */}
-                          <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                            <div className="flex flex-col items-start gap-0.5">
+                          {/* Payment Summary */}
+                          <div className="bg-[#F5F0E8] rounded-xl p-4 text-sm space-y-1">
+                            <p className="font-bold text-[#1A1612] text-base mb-2">Payment Summary</p>
+                            <div className="flex justify-between"><span className="text-[#5C5347]">Subtotal</span><span className="font-semibold">R{Number(order.subtotal).toFixed(2)}</span></div>
+                            {discountAmount > 0 && (
+                              <div className="flex justify-between"><span className="text-red-600">Discount</span><span className="font-semibold text-red-600">-R{discountAmount.toFixed(2)}</span></div>
+                            )}
+                            <div className="flex justify-between"><span className="text-[#5C5347]">Delivery</span><span className="font-semibold">R{Number(order.delivery_fee).toFixed(2)}</span></div>
+                            <div className="flex justify-between border-t border-[#DDD5C8] pt-1 mt-1"><span className="font-bold text-[#1A1612]">Total</span><span className="font-bold text-[#C4A882]">R{computedTotal.toFixed(2)}</span></div>
+                          </div>
+                          {/* Status updates */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                              <p className="text-xs font-semibold text-[#5C5347] mb-2">Fulfillment Status</p>
                               <select
                                 value={order.fulfillment_status}
                                 onChange={(e) => handleWsFulfillmentUpdate(order.id, e.target.value as FulfillmentStatus)}
                                 disabled={updateState.fulfillmentSaving}
-                                className={`text-xs font-semibold border rounded-full px-2.5 py-1 focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30 transition-colors cursor-pointer disabled:opacity-50 ${FULFILLMENT_STATUS_COLORS[order.fulfillment_status]}`}
+                                className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] bg-white disabled:opacity-60"
                               >
                                 {FULFILLMENT_OPTIONS.map((s) => <option key={s} value={s}>{FULFILLMENT_STATUS_LABELS[s]}</option>)}
                               </select>
-                              {updateState.fulfillmentSaving && <span className="text-xs text-[#8C8278] flex items-center gap-1"><svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Saving...</span>}
-                              {updateState.fulfillmentSuccess && <span className="text-xs text-green-600 font-medium">✓ Saved</span>}
+                              {updateState.fulfillmentSuccess && <p className="text-xs text-green-600 mt-1">✓ Updated</p>}
+                            </div>
+                            <div>
+                              <p className="text-xs font-semibold text-[#5C5347] mb-2">Payment Status</p>
+                              <select
+                                value={order.payment_status}
+                                onChange={(e) => handleWsPaymentUpdate(order.id, e.target.value as PaymentStatus)}
+                                disabled={updateState.paymentSaving}
+                                className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] bg-white disabled:opacity-60"
+                              >
+                                {PAYMENT_OPTIONS.map((s) => <option key={s} value={s}>{PAYMENT_STATUS_LABELS[s]}</option>)}
+                              </select>
+                              {updateState.paymentSuccess && <p className="text-xs text-green-600 mt-1">✓ Updated</p>}
                             </div>
                           </div>
-                          {/* Date */}
-                          <div className="hidden lg:flex items-center">
-                            <span className="text-xs text-[#8C8278]">{formatDate(order.created_at)}</span>
-                          </div>
+                          <p className="text-xs text-[#8C8278]">Created: {formatDate(order.created_at)}</p>
                         </div>
-
-                        {/* Expanded details */}
-                        {isExpanded && (
-                          <div className="px-5 pb-5 bg-[#FDFAF6] border-t border-[#EDE7DA]">
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 pt-4">
-                              {/* Customer Details */}
-                              <div className="bg-white rounded-xl border border-[#DDD5C8] p-4">
-                                <h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3">👤 Customer Details</h4>
-                                <div className="space-y-2">
-                                  <div><p className="text-xs text-[#B5ADA5]">Name</p><p className="text-sm font-medium text-[#1A1612]">{order.customer_name || '—'}</p></div>
-                                  <div><p className="text-xs text-[#B5ADA5]">Email</p><p className="text-sm text-[#1A1612] break-all">{order.customer_email || '—'}</p></div>
-                                  <div><p className="text-xs text-[#B5ADA5]">Phone</p><p className="text-sm text-[#1A1612]">{order.customer_phone || '—'}</p></div>
-                                  <div><p className="text-xs text-[#B5ADA5]">Event Date</p><p className="text-sm text-[#1A1612]">{order.event_date ? formatDate(order.event_date) : '—'}</p></div>
-                                  <div><p className="text-xs text-[#B5ADA5]">Delivery Address</p><p className="text-sm text-[#1A1612]">{order.delivery_address || '—'}</p></div>
-                                  {order.notes && <div><p className="text-xs text-[#B5ADA5]">Notes</p><p className="text-sm text-[#1A1612]">{order.notes}</p></div>}
-                                </div>
-                              </div>
-                              {/* Items Ordered */}
-                              <div className="bg-white rounded-xl border border-[#DDD5C8] p-4">
-                                <h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3">🛍️ Items Ordered</h4>
-                                {Array.isArray(order.items) && order.items.length > 0 ? (
-                                  <div className="space-y-2">
-                                    {order.items.map((item, idx) => (
-                                      <div key={idx} className="flex justify-between items-start gap-2">
-                                        <div className="flex-1 min-w-0">
-                                          <p className="text-sm font-medium text-[#1A1612] truncate">{item.name}</p>
-                                          <p className="text-xs text-[#B5ADA5]">{item.unit} × {item.quantity}</p>
-                                          {item.category && <span className="inline-block mt-0.5 text-[10px] font-medium text-[#C4622D] bg-[#FDF3ED] px-1.5 py-0.5 rounded-full">{item.category}</span>}
-                                        </div>
-                                        <span className="text-sm font-semibold text-[#1A1612] flex-shrink-0">{formatCurrency(item.price * item.quantity)}</span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <p className="text-sm text-[#B5ADA5]">No item details available</p>
-                                )}
-                              </div>
-                              {/* Payment Summary */}
-                              <div className="bg-white rounded-xl border border-[#DDD5C8] p-4">
-                                <h4 className="text-base font-bold text-[#1A1612] mb-4">Payment Summary</h4>
-                                <div className="space-y-3">
-                                  <div className="flex justify-between text-sm"><span className="text-[#1A1612]">Subtotal</span><span className="text-[#1A1612]">{formatCurrency(order.subtotal)}</span></div>
-                                  {(() => {
-                                    const discountMatch = order.notes?.match(/\(R([\d.]+)\s*credit\)/);
-                                    const discountAmt = discountMatch ? parseFloat(discountMatch[1]) : 0;
-                                    return (
-                                      <div className="flex justify-between text-sm">
-                                        <span className="text-red-600 font-medium">Discount</span>
-                                        <span className="text-red-600 font-medium">{discountAmt > 0 ? `R${discountAmt.toFixed(2)}-` : 'R0.00-'}</span>
-                                      </div>
-                                    );
-                                  })()}
-                                  <div className="flex justify-between text-sm"><span className="text-[#1A1612]">Delivery</span><span className="text-[#1A1612]">{formatCurrency(order.delivery_fee)}</span></div>
-                                  <div className="flex justify-between text-sm font-bold border-t border-[#EDE7DA] pt-3"><span className="text-[#1A1612]">Total</span><span className="text-[#C4A882]">{(() => { const discountMatch = order.notes?.match(/\(R([\d.]+)\s*credit\)/); const discountAmt = discountMatch ? parseFloat(discountMatch[1]) : 0; return formatCurrency((order.subtotal || 0) - discountAmt + (order.delivery_fee || 0)); })()}</span></div>
-                                  <div className="pt-2 space-y-1.5">
-                                    <div>
-                                      <p className="text-xs text-[#B5ADA5]">Payment Status</p>
-                                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border ${PAYMENT_STATUS_COLORS[order.payment_status]}`}>{PAYMENT_STATUS_LABELS[order.payment_status]}</span>
-                                    </div>
-                                    {order.payfast_transaction_id && <div><p className="text-xs text-[#B5ADA5]">PayFast Transaction ID</p><p className="text-xs font-mono text-[#5C5347]">{order.payfast_transaction_id}</p></div>}
-                                    {order.m_payment_id && <div><p className="text-xs text-[#B5ADA5]">Order Reference</p><p className="text-xs font-mono text-[#5C5347]">{order.m_payment_id}</p></div>}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -3253,99 +2987,47 @@ export default function StaffWorkspacePage() {
             {/* Add/Edit Item Modal */}
             {showWeeklyMenuForm && (
               <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto py-8 px-4">
-                <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl">
+                <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
                   <div className="flex items-center justify-between px-6 py-4 border-b border-[#EDE7DA]">
-                    <h2 className="font-bold text-[#1A1612] text-lg">
-                      {editingWeeklyEntry ? 'Edit Menu Item' : 'Add Menu Item'}
-                    </h2>
-                    <button
-                      onClick={() => setShowWeeklyMenuForm(false)}
-                      className="w-8 h-8 rounded-full bg-[#F5F0E8] flex items-center justify-center text-[#8C8278] hover:bg-[#EDE7DA] transition-colors"
-                    >✕</button>
+                    <h2 className="font-bold text-[#1A1612] text-lg">{editingWeeklyEntry ? 'Edit Menu Item' : 'Add Menu Item'}</h2>
+                    <button onClick={() => setShowWeeklyMenuForm(false)} className="text-[#8C8278] hover:text-[#1A1612]">
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
                   </div>
-                  <form onSubmit={handleSaveWeeklyEntry} className="p-6 space-y-4">
+                  <form onSubmit={handleSaveWeeklyEntry} className="px-6 py-5 space-y-4">
+                    {weeklyMenuFormSuccess && <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-700 font-medium">{weeklyMenuFormSuccess}</div>}
                     <div>
-                      <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">Date *</label>
-                      <input
-                        type="date"
-                        required
-                        value={weeklyMenuForm.meal_date}
-                        onChange={(e) => setWeeklyMenuForm({ ...weeklyMenuForm, meal_date: e.target.value })}
-                        className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
-                      />
+                      <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Date *</label>
+                      <input type="date" value={weeklyMenuForm.meal_date} onChange={(e) => setWeeklyMenuForm({ ...weeklyMenuForm, meal_date: e.target.value })} className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors" />
                     </div>
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        id="wm-is-closed"
-                        checked={weeklyMenuForm.is_closed}
-                        onChange={(e) => setWeeklyMenuForm({ ...weeklyMenuForm, is_closed: e.target.checked })}
-                        className="w-4 h-4 accent-[#C4622D]"
-                      />
-                      <label htmlFor="wm-is-closed" className="text-sm font-medium text-[#5C5347]">Mark day as closed</label>
-                    </div>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={weeklyMenuForm.is_closed} onChange={(e) => setWeeklyMenuForm({ ...weeklyMenuForm, is_closed: e.target.checked })} className="w-4 h-4 accent-[#C4622D]" />
+                      <span className="text-sm font-medium text-[#3D3530]">Mark day as closed</span>
+                    </label>
                     {weeklyMenuForm.is_closed ? (
                       <div>
-                        <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">Closed Reason</label>
-                        <input
-                          type="text"
-                          value={weeklyMenuForm.closed_reason}
-                          onChange={(e) => setWeeklyMenuForm({ ...weeklyMenuForm, closed_reason: e.target.value })}
-                          placeholder="e.g. Public holiday"
-                          className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
-                        />
+                        <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Closed Reason</label>
+                        <input type="text" value={weeklyMenuForm.closed_reason} onChange={(e) => setWeeklyMenuForm({ ...weeklyMenuForm, closed_reason: e.target.value })} placeholder="e.g. Public Holiday" className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors" />
                       </div>
                     ) : (
                       <>
                         <div>
-                          <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">Meal Name *</label>
-                          <input
-                            type="text"
-                            required
-                            value={weeklyMenuForm.meal_name}
-                            onChange={(e) => setWeeklyMenuForm({ ...weeklyMenuForm, meal_name: e.target.value })}
-                            placeholder="e.g. Chicken Curry & Rice"
-                            className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
-                          />
+                          <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Meal Name *</label>
+                          <input type="text" value={weeklyMenuForm.meal_name} onChange={(e) => setWeeklyMenuForm({ ...weeklyMenuForm, meal_name: e.target.value })} placeholder="e.g. Grilled Chicken" className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors" />
                         </div>
                         <div>
-                          <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">Description</label>
-                          <textarea
-                            rows={2}
-                            value={weeklyMenuForm.description}
-                            onChange={(e) => setWeeklyMenuForm({ ...weeklyMenuForm, description: e.target.value })}
-                            placeholder="Short description..."
-                            className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors resize-none"
-                          />
+                          <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Description</label>
+                          <textarea value={weeklyMenuForm.description} onChange={(e) => setWeeklyMenuForm({ ...weeklyMenuForm, description: e.target.value })} rows={2} placeholder="Brief description..." className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors resize-none" />
                         </div>
                         <div>
-                          <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">Price (R) *</label>
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            required
-                            value={weeklyMenuForm.price}
-                            onChange={(e) => setWeeklyMenuForm({ ...weeklyMenuForm, price: e.target.value })}
-                            placeholder="0.00"
-                            className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
-                          />
+                          <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Price (R) *</label>
+                          <input type="number" value={weeklyMenuForm.price} onChange={(e) => setWeeklyMenuForm({ ...weeklyMenuForm, price: e.target.value })} placeholder="0.00" min="0" step="0.01" className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors" />
                         </div>
                       </>
                     )}
-                    {weeklyMenuFormError && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{weeklyMenuFormError}</p>}
-                    {weeklyMenuFormSuccess && <p className="text-sm text-green-700 bg-green-50 rounded-lg px-3 py-2">{weeklyMenuFormSuccess}</p>}
                     <div className="flex gap-3 pt-2">
-                      <button
-                        type="button"
-                        onClick={() => setShowWeeklyMenuForm(false)}
-                        className="flex-1 py-2.5 rounded-xl border border-[#DDD5C8] text-sm font-semibold text-[#5C5347] hover:bg-[#F5F0E8] transition-colors"
-                      >Cancel</button>
-                      <button
-                        type="submit"
-                        disabled={savingWeeklyEntry}
-                        className="flex-1 py-2.5 rounded-xl bg-[#C4622D] text-white text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-                      >
+                      <button type="button" onClick={() => setShowWeeklyMenuForm(false)} className="flex-1 py-2.5 rounded-xl border border-[#DDD5C8] text-sm font-semibold text-[#5C5347] hover:bg-[#F5F0E8] transition-colors">Cancel</button>
+                      <button type="submit" disabled={savingWeeklyEntry} className="flex-1 py-2.5 rounded-xl bg-[#C4622D] text-white text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
                         {savingWeeklyEntry ? <><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Saving...</> : editingWeeklyEntry ? 'Update Item' : 'Add Item'}
                       </button>
                     </div>
@@ -3358,22 +3040,14 @@ export default function StaffWorkspacePage() {
             {closingDayDate && (
               <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4">
                 <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6">
-                  <h3 className="font-bold text-[#1A1612] text-lg mb-3">Close Day</h3>
-                  <p className="text-sm text-[#5C5347] mb-4">Optionally add a reason for closing <strong>{closingDayDate}</strong>.</p>
-                  <input
-                    type="text"
-                    value={closingDayReason}
-                    onChange={(e) => setClosingDayReason(e.target.value)}
-                    placeholder="e.g. Public holiday"
-                    className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors mb-4"
-                  />
+                  <h3 className="font-bold text-[#1A1612] mb-3">Close Day</h3>
+                  <p className="text-sm text-[#5C5347] mb-4">Mark <strong>{closingDayDate}</strong> as closed. Optionally add a reason.</p>
+                  <input type="text" value={closingDayReason} onChange={(e) => setClosingDayReason(e.target.value)} placeholder="e.g. Public Holiday (optional)" className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors mb-4" />
                   <div className="flex gap-3">
-                    <button onClick={() => { setClosingDayDate(null); setClosingDayReason(''); }} className="flex-1 px-4 py-2.5 border border-[#DDD5C8] rounded-xl text-sm font-semibold text-[#5C5347] hover:bg-[#F5F0E8] transition-colors">Cancel</button>
-                    <button
-                      onClick={() => handleMarkDayClosed(closingDayDate, closingDayReason)}
-                      disabled={savingClosedDay}
-                      className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-xl text-sm font-semibold hover:bg-red-700 transition-colors disabled:opacity-60"
-                    >{savingClosedDay ? 'Saving...' : 'Close Day'}</button>
+                    <button onClick={() => { setClosingDayDate(null); setClosingDayReason(''); }} className="flex-1 py-2.5 rounded-xl border border-[#DDD5C8] text-sm font-semibold text-[#5C5347] hover:bg-[#F5F0E8] transition-colors">Cancel</button>
+                    <button onClick={() => handleMarkDayClosed(closingDayDate, closingDayReason)} disabled={savingClosedDay} className="flex-1 py-2.5 rounded-xl bg-red-500 text-white text-sm font-semibold hover:bg-red-600 transition-colors disabled:opacity-60">
+                      {savingClosedDay ? 'Saving...' : 'Close Day'}
+                    </button>
                   </div>
                 </div>
               </div>
@@ -3381,121 +3055,90 @@ export default function StaffWorkspacePage() {
 
             {/* Week navigator */}
             <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => { const o = weekOffset - 1; setWeekOffset(o); loadWeeklyMenu(o); }}
-                  className="w-9 h-9 rounded-xl border border-[#DDD5C8] bg-white flex items-center justify-center text-[#5C5347] hover:bg-[#EDE7DA] transition-colors"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
-                </button>
-                <div className="text-center">
-                  <p className="text-sm font-semibold text-[#1A1612]">
-                    {weekOffset === 0 ? 'This Week' : weekOffset === 1 ? 'Next Week' : weekOffset === -1 ? 'Last Week' : `Week ${weekOffset > 0 ? '+' : ''}${weekOffset}`}
-                  </p>
-                  <p className="text-xs text-[#8C8278]">
-                    {(() => {
-                      const { mondayStr, fridayStr } = getWeekBoundsForOffset(weekOffset);
-                      const fmt = (s: string) => new Date(s + 'T00:00:00').toLocaleDateString('en-ZA', { day: '2-digit', month: 'short' });
-                      return `${fmt(mondayStr)} – ${fmt(fridayStr)}`;
-                    })()}
-                  </p>
-                </div>
-                <button
-                  onClick={() => { const o = weekOffset + 1; setWeekOffset(o); loadWeeklyMenu(o); }}
-                  className="w-9 h-9 rounded-xl border border-[#DDD5C8] bg-white flex items-center justify-center text-[#5C5347] hover:bg-[#EDE7DA] transition-colors"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
-                </button>
+              <div>
+                <h2 className="text-lg font-bold text-[#1A1612]">Weekly Menu</h2>
+                <p className="text-xs text-[#8C8278] mt-0.5">
+                  {(() => {
+                    const { mondayStr, fridayStr } = getWeekBoundsForOffset(weekOffset);
+                    return `${mondayStr} — ${fridayStr}`;
+                  })()}
+                  {weekOffset === 0 ? ' (Current Week)' : weekOffset > 0 ? ` (+${weekOffset} week${weekOffset > 1 ? 's' : ''})` : ` (${weekOffset} week${weekOffset < -1 ? 's' : ''})`}
+                </p>
               </div>
-              <button
-                onClick={() => { const today = new Date(); const pad = (n: number) => String(n).padStart(2, '0'); const dateStr = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`; openAddWeeklyMenuForm(dateStr); }}
-                className="flex items-center gap-2 px-4 py-2 bg-[#C4622D] text-white rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
-                Add Item
-              </button>
+              <div className="flex items-center gap-2">
+                <button onClick={() => { const newOffset = weekOffset - 1; setWeekOffset(newOffset); loadWeeklyMenu(newOffset); }} className="p-2 rounded-xl border border-[#DDD5C8] hover:bg-[#F5F0E8] transition-colors">
+                  <svg className="w-4 h-4 text-[#5C5347]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                </button>
+                <button onClick={() => { setWeekOffset(0); loadWeeklyMenu(0); }} className="px-3 py-1.5 text-xs font-semibold text-[#C4622D] border border-[#C4622D]/30 rounded-xl hover:bg-[#FFF5EF] transition-colors">Today</button>
+                <button onClick={() => { const newOffset = weekOffset + 1; setWeekOffset(newOffset); loadWeeklyMenu(newOffset); }} className="p-2 rounded-xl border border-[#DDD5C8] hover:bg-[#F5F0E8] transition-colors">
+                  <svg className="w-4 h-4 text-[#5C5347]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                </button>
+                {weekOffset >= 0 && (
+                  <button onClick={() => { const { mondayStr } = getWeekBoundsForOffset(weekOffset); openAddWeeklyMenuForm(mondayStr); }} className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+                    Add Item
+                  </button>
+                )}
+              </div>
             </div>
 
-            {/* Weekly menu grid */}
             {weeklyMenuLoading ? (
-              <div className="bg-white rounded-2xl border border-[#DDD5C8] p-12 flex flex-col items-center justify-center gap-3">
-                <div className="w-8 h-8 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
-                <p className="text-sm text-[#8C8278]">Loading menu...</p>
-              </div>
+              <div className="flex justify-center py-16"><svg className="animate-spin h-8 w-8 text-[#C4622D]" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg></div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                 {(() => {
-                  const { mondayStr } = getWeekBoundsForOffset(weekOffset);
-                  const pad = (n: number) => String(n).padStart(2, '0');
-                  const days = Array.from({ length: 5 }, (_, i) => {
-                    const d = new Date(mondayStr + 'T00:00:00');
-                    d.setDate(d.getDate() + i);
-                    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-                  });
-                  return days.map((dateStr) => {
+                  const { monday } = getWeekBoundsForOffset(weekOffset);
+                  const days = ['MON', 'TUE', 'WED', 'THU', 'FRI'];
+                  return days.map((dayName, i) => {
+                    const d = new Date(monday);
+                    d.setDate(monday.getDate() + i);
+                    const pad = (n: number) => String(n).padStart(2, '0');
+                    const dateStr = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
                     const dayEntries = weeklyMenuEntries.filter((e) => e.meal_date === dateStr);
                     const closedEntry = dayEntries.find((e) => e.is_closed);
                     const openEntries = dayEntries.filter((e) => !e.is_closed);
-                    const dayLabel = new Date(dateStr + 'T00:00:00').toLocaleDateString('en-ZA', { weekday: 'short', day: '2-digit', month: 'short' });
-                    const isToday = dateStr === (() => { const t = new Date(); const p = (n: number) => String(n).padStart(2, '0'); return `${t.getFullYear()}-${p(t.getMonth() + 1)}-${p(t.getDate())}`; })();
-
                     return (
-                      <div key={dateStr} className={`bg-white rounded-2xl border ${isToday ? 'border-[#C4622D]' : 'border-[#DDD5C8]'} overflow-hidden flex flex-col`}>
-                        {/* Day header */}
-                        <div className={`px-4 py-3 ${isToday ? 'bg-[#FDF3ED]' : 'bg-[#F5F0E8]'} border-b border-[#EDE7DA]`}>
-                          <p className={`text-xs font-bold uppercase tracking-wider ${isToday ? 'text-[#C4622D]' : 'text-[#5C5347]'}`}>{dayLabel}</p>
+                      <div key={dayName} className="bg-white rounded-2xl border border-[#EDE7DA] overflow-hidden">
+                        <div className="bg-[#F5F0E8] px-3 py-2 flex items-center justify-between">
+                          <div>
+                            <p className="text-xs font-bold text-[#C4622D] uppercase tracking-wider">{dayName}</p>
+                            <p className="text-xs text-[#8C8278]">{d.getDate()} {d.toLocaleString('en', { month: 'short' })}</p>
+                          </div>
+                          {!closedEntry && weekOffset >= 0 && (
+                            <button onClick={() => setClosingDayDate(dateStr)} className="text-xs text-[#8C8278] hover:text-red-500 transition-colors font-medium">Close Day</button>
+                          )}
                         </div>
-
-                        {/* Day content */}
-                        <div className="flex-1 p-3 space-y-2">
+                        <div className="p-3 space-y-2 min-h-[80px]">
                           {closedEntry ? (
                             <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-center">
                               <p className="text-xs font-semibold text-red-600">🚫 Closed</p>
                               {closedEntry.closed_reason && <p className="text-xs text-red-500 mt-0.5">{closedEntry.closed_reason}</p>}
                               {weekOffset >= 0 && (
-                              <button
-                                onClick={() => handleReopenDay(dateStr)}
-                                className="mt-2 text-xs text-red-600 underline hover:no-underline"
-                              >Reopen day</button>
+                                <button onClick={() => handleReopenDay(dateStr)} className="mt-2 text-xs text-red-600 underline hover:no-underline">Reopen day</button>
                               )}
                             </div>
                           ) : openEntries.length > 0 ? (
                             openEntries.map((entry) => (
-                              <div key={entry.id} className="bg-[#F5F0E8] rounded-xl p-3">
+                              <div key={entry.id} className="bg-[#F5F0E8] rounded-xl p-2.5">
                                 <p className="text-sm font-semibold text-[#1A1612] leading-tight">{entry.meal_name}</p>
                                 {entry.description && <p className="text-xs text-[#8C8278] mt-0.5 line-clamp-2">{entry.description}</p>}
                                 {entry.price !== null && <p className="text-sm font-bold text-[#C4622D] mt-1">R{Number(entry.price).toFixed(2)}</p>}
                                 {weekOffset >= 0 && (
-                                <div className="flex gap-2 mt-2">
-                                  <button
-                                    onClick={() => openEditWeeklyMenuForm(entry)}
-                                    className="text-xs text-[#C4622D] font-semibold hover:underline"
-                                  >Edit</button>
-                                  <button
-                                    onClick={() => handleDeleteWeeklyEntry(entry)}
-                                    disabled={deletingWeeklyEntryId === entry.id}
-                                    className="text-xs text-red-500 font-semibold hover:underline disabled:opacity-50"
-                                  >{deletingWeeklyEntryId === entry.id ? '...' : 'Delete'}</button>
-                                </div>
+                                  <div className="flex gap-2 mt-2">
+                                    <button onClick={() => openEditWeeklyMenuForm(entry)} className="text-xs text-[#C4622D] font-semibold hover:underline">Edit</button>
+                                    <button onClick={() => handleDeleteWeeklyEntry(entry)} disabled={deletingWeeklyEntryId === entry.id} className="text-xs text-red-500 font-semibold hover:underline disabled:opacity-50">{deletingWeeklyEntryId === entry.id ? '...' : 'Delete'}</button>
+                                  </div>
                                 )}
                               </div>
                             ))
                           ) : (
-                            <p className="text-xs text-[#B5ADA5] text-center py-2">No items</p>
+                            <p className="text-xs text-[#B5ADA5] text-center py-4">No items</p>
                           )}
                         </div>
-
                         {/* Day actions */}
                         {!closedEntry && weekOffset >= 0 && (
                           <div className="px-3 pb-3 flex gap-2">
-                            <button
-                              onClick={() => openAddWeeklyMenuForm(dateStr)}
-                              className="flex-1 text-xs font-semibold text-[#C4622D] border border-[#C4622D] rounded-lg py-1.5 hover:bg-[#FDF3ED] transition-colors"
-                            >+ Add</button>
-                            <button
-                              onClick={() => { setClosingDayDate(dateStr); setClosingDayReason(''); }}
-                              className="flex-1 text-xs font-semibold text-red-600 border border-red-200 rounded-lg py-1.5 hover:bg-red-50 transition-colors"
-                            >Close Day</button>
+                            <button onClick={() => openAddWeeklyMenuForm(dateStr)} className="flex-1 text-xs font-semibold text-[#C4622D] border border-[#C4622D]/30 rounded-lg py-1.5 hover:bg-[#FFF5EF] transition-colors">+ Add</button>
                           </div>
                         )}
                       </div>
@@ -3507,65 +3150,50 @@ export default function StaffWorkspacePage() {
           </div>
         )}
 
-        {/* ── STAFF MANAGEMENT TAB ── */}
-        {activeTab === 'staff' && (
+        {/* ── VOUCHERS TAB ── */}
+        {activeTab === 'vouchers' && (
           <div>
-            {/* Invite Form Modal */}
-            {showInviteForm && (
+            {/* Issue Voucher Modal */}
+            {showIssueVoucherForm && (
               <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto py-8 px-4">
-                <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl">
+                <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
                   <div className="flex items-center justify-between px-6 py-4 border-b border-[#EDE7DA]">
-                    <h2 className="font-bold text-[#1A1612] text-lg">Invite Staff Member</h2>
-                    <button
-                      onClick={() => { setShowInviteForm(false); setInviteError(''); setInviteSuccess(''); }}
-                      className="w-8 h-8 rounded-full bg-[#F5F0E8] flex items-center justify-center text-[#8C8278] hover:bg-[#EDE7DA] transition-colors"
-                    >✕</button>
+                    <h2 className="font-bold text-[#1A1612] text-lg">Issue New Voucher</h2>
+                    <button onClick={() => setShowIssueVoucherForm(false)} className="text-[#8C8278] hover:text-[#1A1612]">
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
                   </div>
-                  <form onSubmit={handleInviteStaff} className="p-6 space-y-4">
+                  <form onSubmit={handleIssueVoucher} className="px-6 py-5 space-y-4">
+                    {issueVoucherSuccess && <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-700 font-medium">{issueVoucherSuccess}</div>}
                     <div>
-                      <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">Full Name *</label>
-                      <input
-                        type="text"
-                        required
-                        value={inviteForm.full_name}
-                        onChange={(e) => setInviteForm({ ...inviteForm, full_name: e.target.value })}
-                        placeholder="Jane Smith"
-                        className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
-                      />
+                      <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Customer Name *</label>
+                      <input type="text" value={issueVoucherForm.customer_name} onChange={(e) => setIssueVoucherForm({ ...issueVoucherForm, customer_name: e.target.value })} placeholder="Full name" className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors" />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">Email *</label>
-                      <input
-                        type="email"
-                        required
-                        value={inviteForm.email}
-                        onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
-                        placeholder="jane@example.com"
-                        className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
-                      />
+                      <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Email *</label>
+                      <input type="email" value={issueVoucherForm.customer_email} onChange={(e) => setIssueVoucherForm({ ...issueVoucherForm, customer_email: e.target.value })} placeholder="customer@email.com" className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors" />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">Role</label>
-                      <select
-                        value={inviteForm.role}
-                        onChange={(e) => setInviteForm({ ...inviteForm, role: e.target.value as StaffRole })}
-                        className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] bg-white focus:outline-none focus:border-[#C4622D] transition-colors"
-                      >
-                        <option value="staff">Staff</option>
-                        <option value="admin">Admin</option>
-                        <option value="super_admin">Super Admin</option>
+                      <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Phone</label>
+                      <input type="tel" value={issueVoucherForm.customer_phone} onChange={(e) => setIssueVoucherForm({ ...issueVoucherForm, customer_phone: e.target.value })} placeholder="+27..." className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Total Meals *</label>
+                      <select value={issueVoucherForm.total_meals} onChange={(e) => setIssueVoucherForm({ ...issueVoucherForm, total_meals: e.target.value })} className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] bg-white">
+                        <option value="6">6 Meals</option>
+                        <option value="10">10 Meals</option>
+                        <option value="12">12 Meals</option>
+                        <option value="24">24 Meals</option>
                       </select>
                     </div>
-                    {inviteError && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{inviteError}</p>}
-                    {inviteSuccess && <p className="text-sm text-green-700 bg-green-50 rounded-lg px-3 py-2">{inviteSuccess}</p>}
+                    <div>
+                      <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Notes</label>
+                      <textarea value={issueVoucherForm.notes} onChange={(e) => setIssueVoucherForm({ ...issueVoucherForm, notes: e.target.value })} rows={2} placeholder="Optional notes..." className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors resize-none" />
+                    </div>
                     <div className="flex gap-3 pt-2">
-                      <button type="button" onClick={() => setShowInviteForm(false)} className="flex-1 px-4 py-2.5 border border-[#DDD5C8] rounded-xl text-sm font-semibold text-[#5C5347] hover:bg-[#F5F0E8] transition-colors">Cancel</button>
-                      <button
-                        type="submit"
-                        disabled={inviting}
-                        className="flex-1 px-4 py-2.5 bg-purple-600 text-white rounded-xl text-sm font-semibold hover:bg-purple-700 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-                      >
-                        {inviting ? <><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Sending...</> : '✉️ Send Invitation'}
+                      <button type="button" onClick={() => setShowIssueVoucherForm(false)} className="flex-1 px-4 py-2.5 border border-[#DDD5C8] rounded-xl text-sm font-semibold text-[#5C5347] hover:bg-[#F5F0E8] transition-colors">Cancel</button>
+                      <button type="submit" disabled={issuingVoucher} className="flex-1 px-4 py-2.5 bg-[#C4622D] text-white rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-60">
+                        {issuingVoucher ? 'Issuing...' : 'Issue Voucher'}
                       </button>
                     </div>
                   </form>
@@ -3573,153 +3201,341 @@ export default function StaffWorkspacePage() {
               </div>
             )}
 
-            {/* Header */}
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h2 className="text-xl font-bold text-[#1A1612]">Staff Management</h2>
-                <p className="text-sm text-[#8C8278] mt-0.5">{staffMembers.length} team member{staffMembers.length !== 1 ? 's' : ''}</p>
+                <h2 className="text-lg font-bold text-[#1A1612]">Meal Vouchers</h2>
+                <p className="text-xs text-[#8C8278] mt-0.5">{vouchers.length} vouchers</p>
               </div>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={loadStaffMembers}
-                  disabled={staffLoading}
-                  className="flex items-center gap-2 px-4 py-2 bg-white border border-[#DDD5C8] rounded-xl text-sm font-medium text-[#5C5347] hover:bg-[#EDE7DA] transition-colors disabled:opacity-50"
-                >
-                  <svg className={`w-4 h-4 ${staffLoading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                  Refresh
-                </button>
-                <button
-                  onClick={() => { setShowInviteForm(true); setInviteError(''); setInviteSuccess(''); }}
-                  className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-xl text-sm font-semibold hover:bg-purple-700 transition-colors"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
-                  Invite Staff
-                </button>
-              </div>
+              <button onClick={() => setShowIssueVoucherForm(true)} className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors flex items-center gap-2">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+                Issue Voucher
+              </button>
             </div>
 
-            {staffActionMsg && (
-              <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-4 text-red-700 text-sm">{staffActionMsg}</div>
-            )}
-            {resetPasswordMsg && (
-              <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 mb-4 text-green-700 text-sm">{resetPasswordMsg}</div>
-            )}
-
-            {/* Role & Status filter pills */}
-            <div className="flex flex-wrap gap-3 mb-4">
-              <div className="flex gap-2 flex-wrap">
-                {(['all', 'staff', 'admin', 'super_admin'] as const).map((role) => (
-                  <button
-                    key={role}
-                    onClick={() => setStaffRoleFilter(role)}
-                    className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors ${
-                      staffRoleFilter === role
-                        ? 'bg-[#C4622D] text-white'
-                        : 'bg-white border border-[#DDD5C8] text-[#5C5347] hover:border-[#C4622D]'
-                    }`}
-                  >
-                    {role === 'all' ? 'All Roles' : role === 'super_admin' ? 'Super Admin' : role === 'admin' ? 'Admin' : 'Staff'}
-                  </button>
-                ))}
-              </div>
-              <div className="flex gap-2 flex-wrap">
-                {(['all', 'active', 'suspended'] as const).map((status) => (
-                  <button
-                    key={status}
-                    onClick={() => setStaffStatusFilter(status)}
-                    className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors ${
-                      staffStatusFilter === status
-                        ? 'bg-[#C4622D] text-white'
-                        : 'bg-white border border-[#DDD5C8] text-[#5C5347] hover:border-[#C4622D]'
-                    }`}
-                  >
-                    {status === 'all' ? 'All Status' : status.charAt(0).toUpperCase() + status.slice(1)}
-                  </button>
-                ))}
-              </div>
+            {/* Search */}
+            <div className="mb-4">
+              <input type="text" value={voucherSearchQuery} onChange={(e) => setVoucherSearchQuery(e.target.value)} placeholder="Search by name, email or code..." className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors" />
             </div>
 
-            {staffLoading ? (
-              <div className="bg-white rounded-2xl border border-[#DDD5C8] p-12 flex flex-col items-center justify-center gap-3">
-                <div className="w-8 h-8 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" />
-                <p className="text-sm text-[#8C8278]">Loading staff...</p>
-              </div>
-            ) : staffMembers.length === 0 ? (
-              <div className="bg-white rounded-2xl border border-[#DDD5C8] p-12 flex flex-col items-center justify-center gap-3 text-center">
-                <div className="w-14 h-14 rounded-full bg-purple-100 flex items-center justify-center">
-                  <svg className="w-6 h-6 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg>
-                </div>
-                <p className="text-[#5C5347] font-medium">No staff members found</p>
-                <p className="text-sm text-[#B5ADA5]">Invite your first team member to get started</p>
-              </div>
+            {vouchersLoading ? (
+              <div className="flex justify-center py-16"><svg className="animate-spin h-8 w-8 text-[#C4622D]" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg></div>
             ) : (
-              <div className="bg-white rounded-2xl border border-[#DDD5C8] overflow-hidden">
-                <table className="w-full table-fixed border-collapse">
-                  <colgroup>
-                    <col style={{ width: '22%' }} />
-                    <col style={{ width: '28%' }} />
-                    <col style={{ width: '18%' }} />
-                    <col style={{ width: '14%' }} />
-                    <col style={{ width: '18%' }} />
-                  </colgroup>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Voucher list */}
+                <div className="space-y-3">
+                  {vouchers.filter((v) => {
+                    if (!voucherSearchQuery) return true;
+                    const q = voucherSearchQuery.toLowerCase();
+                    return v.customer_name.toLowerCase().includes(q) || v.customer_email.toLowerCase().includes(q) || v.voucher_code.toLowerCase().includes(q);
+                  }).map((voucher) => {
+                    const statusColors: Record<string, string> = {
+                      paid: 'bg-green-100 text-green-700 border-green-200',
+                      unpaid: 'bg-amber-100 text-amber-700 border-amber-200',
+                      redeemed: 'bg-gray-100 text-gray-600 border-gray-200',
+                      expired: 'bg-red-100 text-red-600 border-red-200',
+                    };
+                    return (
+                      <div
+                        key={voucher.id}
+                        onClick={() => handleSelectVoucher(voucher)}
+                        className={`bg-white rounded-2xl border cursor-pointer transition-all p-4 ${selectedVoucher?.id === voucher.id ? 'border-[#C4622D] shadow-md' : 'border-[#EDE7DA] hover:border-[#C4622D]/40'}`}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <p className="font-semibold text-[#1A1612] text-sm">{voucher.customer_name}</p>
+                            <p className="text-xs text-[#8C8278] mt-0.5">{voucher.customer_email}</p>
+                            <p className="text-xs font-mono text-[#C4622D] mt-1">{voucher.voucher_code}</p>
+                          </div>
+                          <div className="text-right">
+                            <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border ${statusColors[voucher.status] || 'bg-gray-100 text-gray-600 border-gray-200'}`}>
+                              {voucher.status.charAt(0).toUpperCase() + voucher.status.slice(1)}
+                            </span>
+                            <p className="text-xs text-[#8C8278] mt-1">{voucher.meals_remaining}/{voucher.total_meals} meals left</p>
+                          </div>
+                        </div>
+                        {voucher.status === 'unpaid' && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleMarkVoucherAsPaid(voucher); }}
+                            disabled={markingVoucherPaidId === voucher.id}
+                            className="mt-3 w-full py-1.5 rounded-xl bg-green-600 text-white text-xs font-semibold hover:bg-green-700 transition-colors disabled:opacity-60"
+                          >
+                            {markingVoucherPaidId === voucher.id ? 'Marking...' : 'Mark as Paid'}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Redemption detail panel */}
+                {selectedVoucher && (
+                  <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5">
+                    <div className="flex items-start justify-between mb-4">
+                      <div>
+                        <h3 className="font-bold text-[#1A1612]">{selectedVoucher.customer_name}</h3>
+                        <p className="text-xs font-mono text-[#C4622D] mt-0.5">{selectedVoucher.voucher_code}</p>
+                      </div>
+                      <button onClick={() => setSelectedVoucher(null)} className="text-[#8C8278] hover:text-[#1A1612]">
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 mb-4">
+                      <div className="bg-[#F5F0E8] rounded-xl p-3 text-center">
+                        <p className="text-2xl font-bold text-[#C4622D]">{selectedVoucher.meals_remaining}</p>
+                        <p className="text-xs text-[#8C8278]">Meals Remaining</p>
+                      </div>
+                      <div className="bg-[#F5F0E8] rounded-xl p-3 text-center">
+                        <p className="text-2xl font-bold text-[#1A1612]">{selectedVoucher.total_meals}</p>
+                        <p className="text-xs text-[#8C8278]">Total Meals</p>
+                      </div>
+                    </div>
+                    <p className="text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-3">Redemption History</p>
+                    {redemptionsLoading ? (
+                      <div className="flex justify-center py-4"><svg className="animate-spin h-5 w-5 text-[#C4622D]" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg></div>
+                    ) : voucherRedemptions.length === 0 ? (
+                      <p className="text-xs text-[#8C8278] text-center py-4">No redemptions yet.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {voucherRedemptions.map((r, i) => (
+                          <RedemptionAuditRow key={r.id} redemption={r} index={i + 1} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── DISCOUNT VOUCHERS TAB ── */}
+        {activeTab === 'discount_vouchers' && (
+          <div>
+            {/* DV Form Modal */}
+            {showDvForm && (
+              <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto py-8 px-4">
+                <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
+                  <div className="flex items-center justify-between px-6 py-4 border-b border-[#EDE7DA]">
+                    <h2 className="font-bold text-[#1A1612] text-lg">{editingDv ? 'Edit Discount Voucher' : 'Generate Discount Voucher'}</h2>
+                    <button onClick={() => setShowDvForm(false)} className="text-[#8C8278] hover:text-[#1A1612]">
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                  </div>
+                  <form onSubmit={handleSaveDv} className="px-6 py-5 space-y-4">
+                    {dvFormSuccess && <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-700 font-medium">{dvFormSuccess}</div>}
+                    <div>
+                      <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Discount Amount (R) *</label>
+                      <input type="number" value={dvForm.dv_amount} onChange={(e) => setDvForm({ ...dvForm, dv_amount: e.target.value })} placeholder="e.g. 50.00" min="0.01" step="0.01" className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Expiry Date *</label>
+                      <input type="date" value={dvForm.expiry_date} onChange={(e) => setDvForm({ ...dvForm, expiry_date: e.target.value })} className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors" />
+                    </div>
+                    {editingDv && (
+                      <div>
+                        <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Status</label>
+                        <select value={dvForm.status} onChange={(e) => setDvForm({ ...dvForm, status: e.target.value as 'Active' | 'Inactive' })} className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] bg-white">
+                          <option value="Active">Active</option>
+                          <option value="Inactive">Inactive</option>
+                        </select>
+                      </div>
+                    )}
+                    <div className="flex gap-3 pt-2">
+                      <button type="button" onClick={() => setShowDvForm(false)} className="flex-1 px-4 py-2.5 border border-[#DDD5C8] rounded-xl text-sm font-semibold text-[#5C5347] hover:bg-[#F5F0E8] transition-colors">Cancel</button>
+                      <button type="submit" disabled={savingDv} className="flex-1 px-4 py-2.5 bg-[#C4622D] text-white rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-60">
+                        {savingDv ? 'Saving...' : editingDv ? 'Save Changes' : 'Generate'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-lg font-bold text-[#1A1612]">Discount Vouchers</h2>
+                <p className="text-xs text-[#8C8278] mt-0.5">{discountVouchers.length} vouchers</p>
+              </div>
+              <button onClick={openCreateDvForm} className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors flex items-center gap-2">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+                Generate DV
+              </button>
+            </div>
+
+            <div className="mb-4">
+              <input type="text" value={dvSearchQuery} onChange={(e) => setDvSearchQuery(e.target.value)} placeholder="Search by code..." className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors" />
+            </div>
+
+            {dvLoading ? (
+              <div className="flex justify-center py-16"><svg className="animate-spin h-8 w-8 text-[#C4622D]" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg></div>
+            ) : discountVouchers.length === 0 ? (
+              <div className="text-center py-16 text-[#8C8278]"><p className="text-lg font-medium">No discount vouchers yet</p></div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
                   <thead>
-                    <tr className="bg-[#F5F0E8] border-b border-[#DDD5C8]">
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-[#8C8278] uppercase tracking-wider">Name</th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-[#8C8278] uppercase tracking-wider">Email</th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-[#8C8278] uppercase tracking-wider">Role</th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-[#8C8278] uppercase tracking-wider">Status</th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-[#8C8278] uppercase tracking-wider">Actions</th>
+                    <tr className="border-b border-[#EDE7DA]">
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider">Code</th>
+                      <th className="text-right px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider">Amount</th>
+                      <th className="text-center px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider">Status</th>
+                      <th className="px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider hidden md:table-cell">Expiry</th>
+                      <th className="text-center px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider hidden sm:table-cell">Used</th>
+                      <th className="px-4 py-3"></th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#EDE7DA]">
-                    {filteredStaffMembers.map((member) => (
-                      <tr key={member.id} className="align-middle">
-                        <td className="px-5 py-4">
-                          <p className="text-sm font-semibold text-[#1A1612] truncate">{member.full_name || '—'}</p>
-                        </td>
-                        <td className="px-5 py-4">
-                          <p className="text-sm text-[#5C5347] truncate">{member.email}</p>
-                        </td>
-                        <td className="px-5 py-4">
-                          <RoleBadge role={member.role} />
-                        </td>
-                        <td className="px-5 py-4">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${member.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
-                            {member.is_active ? 'Active' : 'Suspended'}
-                          </span>
-                        </td>
-                        <td className="px-5 py-4">
-                          <div className="flex items-center gap-2">
-                            {member.id !== user?.id ? (
-                              <>
-                                {member.is_active ? (
-                                  <button
-                                    onClick={() => handleSuspendStaff(member)}
-                                    disabled={staffActionId === member.id}
-                                    className="text-xs font-semibold text-red-600 border border-red-200 rounded-lg px-2.5 py-1 hover:bg-red-50 transition-colors disabled:opacity-50"
-                                  >{staffActionId === member.id ? '...' : 'Suspend'}</button>
-                                ) : (
-                                  <button
-                                    onClick={() => handleReinstateStaff(member)}
-                                    disabled={staffActionId === member.id}
-                                    className="text-xs font-semibold text-green-700 border border-green-200 rounded-lg px-2.5 py-1 hover:bg-green-50 transition-colors disabled:opacity-50"
-                                  >{staffActionId === member.id ? '...' : 'Reinstate'}</button>
-                                )}
+                  <tbody className="divide-y divide-[#F5F0E8]">
+                    {discountVouchers
+                      .filter((dv) => !dvSearchQuery || dv.dv_code.toLowerCase().includes(dvSearchQuery.toLowerCase()))
+                      .map((dv) => {
+                        const today = new Date(); today.setHours(0,0,0,0);
+                        const expiry = new Date(dv.expiry_date); expiry.setHours(0,0,0,0);
+                        const isExpired = expiry < today;
+                        return (
+                          <tr key={dv.id} className="hover:bg-[#FDFAF7] transition-colors">
+                            <td className="px-4 py-3">
+                              <span className="font-mono text-sm font-semibold text-[#1A1612]">{dv.dv_code}</span>
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <span className="font-bold text-[#1A1612]">R{Number(dv.dv_amount).toFixed(2)}</span>
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${isExpired ? 'bg-gray-100 text-gray-500' : dv.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
+                                {isExpired ? 'Expired' : dv.status}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 hidden md:table-cell">
+                              <span className={`text-xs ${isExpired ? 'text-red-500 font-semibold' : 'text-[#5C5347]'}`}>{dv.expiry_date}</span>
+                            </td>
+                            <td className="px-4 py-3 text-center hidden sm:table-cell">
+                              <span className="text-xs font-semibold text-[#1A1612]">{dv.times_used}</span>
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-2 justify-end">
                                 <button
-                                  onClick={() => handleResetPassword(member)}
-                                  disabled={resetPasswordId === member.id}
-                                  className="text-xs font-semibold text-[#C4622D] border border-[#C4622D]/30 rounded-lg px-2.5 py-1 hover:bg-[#FDF3ED] transition-colors disabled:opacity-50"
-                                >{resetPasswordId === member.id ? '...' : 'Reset PW'}</button>
-                              </>
-                            ) : (
-                              <span className="text-xs text-[#B5ADA5] italic">You</span>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                                  onClick={() => handleGenerateDvQr(dv)}
+                                  disabled={generatingQrId === dv.id}
+                                  className="text-xs font-semibold text-white bg-[#1A1612] hover:bg-[#3D342D] px-2.5 py-1 rounded-full transition-colors disabled:opacity-60 whitespace-nowrap flex items-center gap-1"
+                                  title="Download QR Code"
+                                >
+                                  {generatingQrId === dv.id ? (
+                                    <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                                  ) : (
+                                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" /></svg>
+                                  )} QR
+                                </button>
+                                <button onClick={() => openEditDvForm(dv)} className="text-xs font-semibold text-[#C4622D] hover:underline whitespace-nowrap">Edit</button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                   </tbody>
                 </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── STAFF MANAGEMENT TAB ── */}
+        {activeTab === 'staff' && isSuperAdmin && (
+          <div>
+            {showInviteForm && (
+              <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto py-8 px-4">
+                <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
+                  <div className="flex items-center justify-between px-6 py-4 border-b border-[#EDE7DA]">
+                    <h2 className="font-bold text-[#1A1612] text-lg">Invite Staff Member</h2>
+                    <button onClick={() => setShowInviteForm(false)} className="text-[#8C8278] hover:text-[#1A1612]">
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                  </div>
+                  <form onSubmit={handleInviteStaff} className="px-6 py-5 space-y-4">
+                    {inviteSuccess && <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-700 font-medium">{inviteSuccess}</div>}
+                    <div>
+                      <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Full Name *</label>
+                      <input type="text" value={inviteForm.full_name} onChange={(e) => setInviteForm({ ...inviteForm, full_name: e.target.value })} placeholder="Jane Smith" className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Email *</label>
+                      <input type="email" value={inviteForm.email} onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })} placeholder="jane@example.com" className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Role</label>
+                      <select value={inviteForm.role} onChange={(e) => setInviteForm({ ...inviteForm, role: e.target.value as StaffRole })} className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] bg-white">
+                        <option value="staff">Staff</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                    </div>
+                    <div className="flex gap-3 pt-2">
+                      <button type="button" onClick={() => setShowInviteForm(false)} className="flex-1 px-4 py-2.5 border border-[#DDD5C8] rounded-xl text-sm font-semibold text-[#5C5347] hover:bg-[#F5F0E8] transition-colors">Cancel</button>
+                      <button type="submit" disabled={inviting} className="flex-1 px-4 py-2.5 bg-[#C4622D] text-white rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-60">
+                        {inviting ? 'Sending...' : 'Send Invitation'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-lg font-bold text-[#1A1612]">Staff Management</h2>
+                <p className="text-xs text-[#8C8278] mt-0.5">{staffMembers.length} members</p>
+              </div>
+              <button onClick={() => setShowInviteForm(true)} className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors flex items-center gap-2">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+                Invite Staff
+              </button>
+            </div>
+
+            {/* Filters */}
+            <div className="flex gap-3 mb-5 flex-wrap">
+              <select value={staffRoleFilter} onChange={(e) => setStaffRoleFilter(e.target.value)} className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] bg-white">
+                <option value="all">All Roles</option>
+                <option value="super_admin">Super Admin</option>
+                <option value="admin">Admin</option>
+                <option value="staff">Staff</option>
+              </select>
+              <select value={staffStatusFilter} onChange={(e) => setStaffStatusFilter(e.target.value)} className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] bg-white">
+                <option value="all">All Status</option>
+                <option value="active">Active</option>
+                <option value="suspended">Suspended</option>
+              </select>
+            </div>
+
+            {resetPasswordMsg && <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-700 font-medium mb-4">{resetPasswordMsg}</div>}
+
+            {staffLoading ? (
+              <div className="flex justify-center py-16"><svg className="animate-spin h-8 w-8 text-[#C4622D]" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg></div>
+            ) : filteredStaffMembers.length === 0 ? (
+              <div className="text-center py-16 text-[#8C8278]"><p className="text-lg font-medium">No staff members found</p></div>
+            ) : (
+              <div className="space-y-3">
+                {filteredStaffMembers.map((member) => (
+                  <div key={member.id} className="bg-white rounded-2xl border border-[#EDE7DA] px-5 py-4 flex items-center justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold text-[#1A1612] text-sm">{member.full_name}</p>
+                        <RoleBadge role={member.role} />
+                        {!member.is_active && <span className="text-xs bg-red-100 text-red-600 border border-red-200 px-2 py-0.5 rounded-full font-semibold">Suspended</span>}
+                      </div>
+                      <p className="text-xs text-[#8C8278] mt-0.5">{member.email}</p>
+                    </div>
+                    {member.id !== user?.id && (
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleResetPassword(member)}
+                          disabled={resetPasswordId === member.id}
+                          className="text-xs font-semibold text-[#5C5347] border border-[#DDD5C8] px-3 py-1.5 rounded-full hover:bg-[#F5F0E8] transition-colors disabled:opacity-50"
+                        >{resetPasswordId === member.id ? '...' : 'Reset Password'}</button>
+                        {member.is_active ? (
+                          <button onClick={() => handleSuspendStaff(member)} disabled={staffActionId === member.id} className="text-xs font-semibold text-red-500 border border-red-200 px-3 py-1.5 rounded-full hover:bg-red-50 transition-colors disabled:opacity-50">{staffActionId === member.id ? '...' : 'Suspend'}</button>
+                        ) : (
+                          <button onClick={() => handleReinstateStaff(member)} disabled={staffActionId === member.id} className="text-xs font-semibold text-green-600 border border-green-200 px-3 py-1.5 rounded-full hover:bg-green-50 transition-colors disabled:opacity-50">{staffActionId === member.id ? '...' : 'Reinstate'}</button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -3732,199 +3548,47 @@ export default function StaffWorkspacePage() {
               <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto py-8 px-4">
                 <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl">
                   <div className="flex items-center justify-between px-6 py-4 border-b border-[#EDE7DA]">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xl">{CARD_TYPE_ICONS[editingCard.card_type]}</span>
-                      <h2 className="font-bold text-[#1A1612] text-lg">
-                        Edit {CARD_TYPE_LABELS[editingCard.card_type]}
-                      </h2>
-                    </div>
-                    <button
-                      onClick={() => setShowCardForm(false)}
-                      className="w-8 h-8 rounded-full bg-[#F5F0E8] flex items-center justify-center text-[#8C8278] hover:bg-[#EDE7DA] transition-colors"
-                    >
-                      ✕
+                    <h2 className="font-bold text-[#1A1612] text-lg">
+                      {CARD_TYPE_ICONS[editingCard.card_type]} Edit {CARD_TYPE_LABELS[editingCard.card_type]}
+                    </h2>
+                    <button onClick={() => setShowCardForm(false)} className="text-[#8C8278] hover:text-[#1A1612]">
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                   </div>
-                  <form onSubmit={handleSaveCard} className="p-6 space-y-4">
+                  <form onSubmit={handleSaveCard} className="px-6 py-5 space-y-4">
+                    {cardFormSuccess && <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-700 font-medium">{cardFormSuccess}</div>}
                     <div>
-                      <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">
-                        {editingCard.card_type === 'next_booking' ? 'Event Name *' : 'Title *'}
-                      </label>
-                      <input
-                        type="text"
-                        value={cardForm.title || ''}
-                        onChange={(e) => setCardForm({ ...cardForm, title: e.target.value })}
-                        placeholder={editingCard.card_type === 'next_booking' ? 'e.g. Corporate Lunch' : 'e.g. Pan-Seared Salmon'}
-                        className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
-                        required
-                      />
+                      <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Title *</label>
+                      <input type="text" value={cardForm.title || ''} onChange={(e) => setCardForm({ ...cardForm, title: e.target.value })} className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors" />
                     </div>
-
-                    {editingCard.card_type === 'todays_special' && (
-                      <>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Price</label>
-                            <input
-                              type="number"
-                              value={cardForm.price ?? ''}
-                              onChange={(e) => setCardForm({ ...cardForm, price: e.target.value ? Number(e.target.value) : null })}
-                              placeholder="28"
-                              min="0"
-                              step="0.01"
-                              className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Price Unit</label>
-                            <input
-                              type="text"
-                              value={cardForm.price_unit || ''}
-                              onChange={(e) => setCardForm({ ...cardForm, price_unit: e.target.value })}
-                              placeholder="serving"
-                              className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Badge Label</label>
-                          <input
-                            type="text"
-                            value={cardForm.badge_label || ''}
-                            onChange={(e) => setCardForm({ ...cardForm, badge_label: e.target.value })}
-                            placeholder="e.g. Limited, New, Popular"
-                            className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
-                          />
-                        </div>
-                      </>
-                    )}
-
-                    {editingCard.card_type === 'next_booking' && (
-                      <>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Event Date</label>
-                            <input
-                              type="text"
-                              value={cardForm.event_date || ''}
-                              onChange={(e) => setCardForm({ ...cardForm, event_date: e.target.value })}
-                              placeholder="e.g. Feb 24"
-                              className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Guest Count</label>
-                            <input
-                              type="number"
-                              value={cardForm.guest_count ?? ''}
-                              onChange={(e) => setCardForm({ ...cardForm, guest_count: e.target.value ? Number(e.target.value) : null })}
-                              placeholder="80"
-                              min="1"
-                              className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Prep Completion (%)</label>
-                          <input
-                            type="number"
-                            value={cardForm.prep_percentage ?? ''}
-                            onChange={(e) => setCardForm({ ...cardForm, prep_percentage: e.target.value ? Number(e.target.value) : null })}
-                            placeholder="75"
-                            min="0"
-                            max="100"
-                            className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] transition-colors"
-                          />
-                          {cardForm.prep_percentage !== null && (
-                            <div className="mt-2 h-1.5 bg-[#EDE7DA] rounded-full">
-                              <div
-                                className="h-1.5 bg-[#C4622D] rounded-full transition-all"
-                                style={{ width: `${Math.min(100, Math.max(0, Number(cardForm.prep_percentage)))}%` }}
-                              />
-                            </div>
-                          )}
-                        </div>
-                      </>
-                    )}
-
+                    <div>
+                      <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Description</label>
+                      <textarea value={cardForm.description || ''} onChange={(e) => setCardForm({ ...cardForm, description: e.target.value })} rows={3} className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors resize-none" />
+                    </div>
                     {editingCard.card_type === 'customer_review' && (
                       <>
                         <div>
-                          <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Reviewer Quote</label>
-                          <textarea
-                            value={cardForm.description || ''}
-                            onChange={(e) => setCardForm({ ...cardForm, description: e.target.value })}
-                            placeholder="The food was absolutely stunning..."
-                            rows={3}
-                            className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] transition-colors resize-none"
-                          />
+                          <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Reviewer Name</label>
+                          <input type="text" value={cardForm.reviewer_name || ''} onChange={(e) => setCardForm({ ...cardForm, reviewer_name: e.target.value })} className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors" />
                         </div>
                         <div>
-                          <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Rating (1–5 stars)</label>
-                          <div className="flex gap-2">
-                            {[1, 2, 3, 4, 5].map((star) => (
-                              <button
-                                key={star}
-                                type="button"
-                                onClick={() => setCardForm({ ...cardForm, rating: star })}
-                                className={`text-2xl transition-transform hover:scale-110 ${
-                                  (cardForm.rating || 0) >= star ? 'text-[#D4A853]' : 'text-[#DDD5C8]'
-                                }`}
-                              >
-                                ★
-                              </button>
-                            ))}
-                            <span className="text-sm text-[#8C8278] self-center ml-1">{cardForm.rating || 0}/5</span>
-                          </div>
+                          <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Reviewer Event</label>
+                          <input type="text" value={cardForm.reviewer_event || ''} onChange={(e) => setCardForm({ ...cardForm, reviewer_event: e.target.value })} className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors" />
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Reviewer Name</label>
-                            <input
-                              type="text"
-                              value={cardForm.reviewer_name || ''}
-                              onChange={(e) => setCardForm({ ...cardForm, reviewer_name: e.target.value })}
-                              placeholder="e.g. Sarah M."
-                              className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] transition-colors"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Event Type</label>
-                            <input
-                              type="text"
-                              value={cardForm.reviewer_event || ''}
-                              onChange={(e) => setCardForm({ ...cardForm, reviewer_event: e.target.value })}
-                              placeholder="e.g. Wedding"
-                              className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] transition-colors"
-                            />
-                          </div>
+                        <div>
+                          <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Rating (1-5)</label>
+                          <input type="number" min="1" max="5" value={cardForm.rating || 5} onChange={(e) => setCardForm({ ...cardForm, rating: Number(e.target.value) })} className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors" />
                         </div>
                       </>
                     )}
-
-                    {cardFormError && (
-                      <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">{cardFormError}</div>
-                    )}
-                    {cardFormSuccess && (
-                      <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-xl px-4 py-3">{cardFormSuccess}</div>
-                    )}
-
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={cardForm.is_visible ?? true} onChange={(e) => setCardForm({ ...cardForm, is_visible: e.target.checked })} className="w-4 h-4 accent-[#C4622D]" />
+                      <span className="text-sm font-medium text-[#3D3530]">Visible on homepage</span>
+                    </label>
                     <div className="flex gap-3 pt-2">
-                      <button
-                        type="button"
-                        onClick={() => setShowCardForm(false)}
-                        className="flex-1 py-2.5 rounded-xl border border-[#DDD5C8] text-[#5C5347] text-sm font-semibold hover:bg-[#F5F0E8] transition-colors"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="submit"
-                        disabled={savingCard}
-                        className="flex-1 py-2.5 rounded-xl bg-[#C4622D] text-white text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-                      >
-                        {savingCard ? (
-                          <><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Saving...</>
-                        ) : 'Save Changes'}
+                      <button type="button" onClick={() => setShowCardForm(false)} className="flex-1 px-4 py-2.5 border border-[#DDD5C8] rounded-xl text-sm font-semibold text-[#5C5347] hover:bg-[#F5F0E8] transition-colors">Cancel</button>
+                      <button type="submit" disabled={savingCard} className="flex-1 px-4 py-2.5 bg-[#C4622D] text-white rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-60">
+                        {savingCard ? 'Saving...' : 'Save Changes'}
                       </button>
                     </div>
                   </form>
@@ -3932,64 +3596,210 @@ export default function StaffWorkspacePage() {
               </div>
             )}
 
-            {/* Cards Grid */}
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h2 className="text-xl font-bold text-[#1A1612]">Homepage Cards</h2>
-                <p className="text-sm text-[#8C8278]">Manage the 3 dynamic cards shown on the homepage</p>
+                <h2 className="text-lg font-bold text-[#1A1612]">Homepage Cards</h2>
+                <p className="text-xs text-[#8C8278] mt-0.5">Manage the cards displayed on the homepage hero section</p>
               </div>
+              <button onClick={loadHomepageCards} className="text-sm font-semibold text-[#C4622D] hover:underline">Refresh</button>
             </div>
 
             {cardsLoading ? (
-              <div className="flex justify-center py-16">
-                <svg className="animate-spin h-8 w-8 text-[#C4622D]" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-              </div>
+              <div className="flex justify-center py-16"><svg className="animate-spin h-8 w-8 text-[#C4622D]" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg></div>
+            ) : homepageCards.length === 0 ? (
+              <div className="text-center py-16 text-[#8C8278]"><p className="text-lg font-medium">No homepage cards found</p></div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {homepageCards.map((card) => (
-                  <div key={card.id} className="bg-white rounded-2xl border border-[#DDD5C8] overflow-hidden">
-                    <div className="bg-gradient-to-br from-[#1A1612] to-[#3D342D] p-4 flex items-center justify-between">
+                  <div key={card.id} className={`bg-white rounded-2xl border p-5 ${card.is_visible ? 'border-[#EDE7DA]' : 'border-gray-200 opacity-60'}`}>
+                    <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center gap-2">
                         <span className="text-xl">{CARD_TYPE_ICONS[card.card_type]}</span>
-                        <span className="text-sm font-semibold text-white">{CARD_TYPE_LABELS[card.card_type]}</span>
+                        <span className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider">{CARD_TYPE_LABELS[card.card_type]}</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleToggleCardVisibility(card)}
-                          disabled={togglingCardId === card.id}
-                          className={`text-xs font-semibold px-2.5 py-1 rounded-full transition-colors disabled:opacity-50 ${
-                            card.is_visible ? 'bg-green-500/20 text-green-300 hover:bg-green-500/30' : 'bg-white/10 text-white/50 hover:bg-white/20'
-                          }`}
-                        >
-                          {card.is_visible ? 'Visible' : 'Hidden'}
-                        </button>
-                        <button
-                          onClick={() => openCardEditForm(card)}
-                          className="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors"
-                          title="Edit card"
-                        >
-                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 012.652 2.652L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
-                        </button>
+                      <button
+                        onClick={() => handleToggleCardVisibility(card)}
+                        disabled={togglingCardId === card.id}
+                        className={`text-xs font-semibold px-2.5 py-1 rounded-full border transition-colors disabled:opacity-50 ${card.is_visible ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-50 text-gray-500 border-gray-200'}`}
+                      >{togglingCardId === card.id ? '...' : card.is_visible ? 'Visible' : 'Hidden'}</button>
+                    </div>
+                    <p className="font-semibold text-[#1A1612] text-sm mb-1">{card.title}</p>
+                    {card.description && <p className="text-xs text-[#8C8278] line-clamp-2">{card.description}</p>}
+                    {card.reviewer_name && <p className="text-xs text-[#5C5347] mt-1 font-medium">— {card.reviewer_name}</p>}
+                    <button onClick={() => openCardEditForm(card)} className="mt-3 text-xs font-semibold text-[#C4622D] hover:underline">Edit</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── TESTIMONIALS TAB ── */}
+        {activeTab === 'testimonials' && (
+          <div>
+            {/* Testimonial Form Modal */}
+            {showTestimonialForm && (
+              <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto py-8 px-4">
+                <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl">
+                  <div className="flex items-center justify-between px-6 py-4 border-b border-[#EDE7DA]">
+                    <h2 className="font-bold text-[#1A1612] text-lg">{editingTestimonial ? 'Edit Testimonial' : 'Add Testimonial'}</h2>
+                    <button onClick={() => setShowTestimonialForm(false)} className="text-[#8C8278] hover:text-[#1A1612]">
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                  </div>
+                  <div className="px-6 py-5 space-y-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Quote *</label>
+                      <textarea
+                        value={testimonialForm.quote}
+                        onChange={(e) => setTestimonialForm({ ...testimonialForm, quote: e.target.value })}
+                        rows={4}
+                        placeholder="What the customer said..."
+                        className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors resize-none"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Customer Name *</label>
+                        <input
+                          type="text"
+                          value={testimonialForm.name}
+                          onChange={(e) => setTestimonialForm({ ...testimonialForm, name: e.target.value })}
+                          placeholder="e.g. Jane Smith"
+                          className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Role / Event *</label>
+                        <input
+                          type="text"
+                          value={testimonialForm.role}
+                          onChange={(e) => setTestimonialForm({ ...testimonialForm, role: e.target.value })}
+                          placeholder="e.g. Wedding · 80 guests"
+                          className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
+                        />
                       </div>
                     </div>
-                    <div className="p-4 space-y-2">
-                      <p className="font-semibold text-[#1A1612] text-sm">{card.title}</p>
-                      {card.subtitle && <p className="text-xs text-[#8C8278]">{card.subtitle}</p>}
-                      {card.description && <p className="text-xs text-[#5C5347] leading-relaxed line-clamp-2">{card.description}</p>}
-                      {card.price !== null && (
-                        <p className="text-sm font-bold text-[#C4622D]">R{card.price}/{card.price_unit}</p>
+                    <div>
+                      <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Avatar URL (optional)</label>
+                      <input
+                        type="url"
+                        value={testimonialForm.avatar_url}
+                        onChange={(e) => setTestimonialForm({ ...testimonialForm, avatar_url: e.target.value })}
+                        placeholder="https://..."
+                        className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Rating (1–5)</label>
+                        <select
+                          value={testimonialForm.rating}
+                          onChange={(e) => setTestimonialForm({ ...testimonialForm, rating: Number(e.target.value) })}
+                          className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] bg-white"
+                        >
+                          {[5,4,3,2,1].map((r) => <option key={r} value={r}>{r} Star{r !== 1 ? 's' : ''}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Display Order</label>
+                        <input
+                          type="number"
+                          value={testimonialForm.display_order}
+                          onChange={(e) => setTestimonialForm({ ...testimonialForm, display_order: e.target.value })}
+                          min="0"
+                          className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
+                        />
+                      </div>
+                    </div>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={testimonialForm.is_active}
+                        onChange={(e) => setTestimonialForm({ ...testimonialForm, is_active: e.target.checked })}
+                        className="w-4 h-4 accent-[#C4622D]"
+                      />
+                      <span className="text-sm font-medium text-[#3D3530]">Show on homepage</span>
+                    </label>
+                    <div className="flex gap-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowTestimonialForm(false)}
+                        className="flex-1 px-4 py-2.5 border border-[#DDD5C8] rounded-xl text-sm font-semibold text-[#5C5347] hover:bg-[#F5F0E8] transition-colors"
+                      >Cancel</button>
+                      <button
+                        type="button"
+                        onClick={handleSaveTestimonial}
+                        disabled={savingTestimonial}
+                        className="flex-1 px-4 py-2.5 bg-[#C4622D] text-white rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                      >
+                        {savingTestimonial ? <><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Saving...</> : editingTestimonial ? 'Save Changes' : 'Add Testimonial'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Header */}
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-lg font-bold text-[#1A1612]">Testimonials</h2>
+                <p className="text-xs text-[#8C8278] mt-0.5">{testimonials.length} testimonials · displayed on the homepage</p>
+              </div>
+              <button
+                onClick={openAddTestimonialForm}
+                className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+                Add Testimonial
+              </button>
+            </div>
+
+            {testimonialsLoading ? (
+              <div className="flex justify-center py-16"><svg className="animate-spin h-8 w-8 text-[#C4622D]" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg></div>
+            ) : testimonials.length === 0 ? (
+              <div className="text-center py-16 text-[#8C8278]">
+                <p className="text-lg font-medium mb-2">No testimonials yet</p>
+                <p className="text-sm">Add your first testimonial to display on the homepage.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {testimonials.map((t) => (
+                  <div key={t.id} className={`bg-white rounded-2xl border p-5 ${t.is_active ? 'border-[#EDE7DA]' : 'border-gray-200 opacity-60'}`}>
+                    <div className="flex items-start gap-4">
+                      {t.avatar_url && (
+                        <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 border border-[#EDE7DA]">
+                          <img src={t.avatar_url} alt={t.name} className="w-full h-full object-cover grayscale" />
+                        </div>
                       )}
-                      {card.event_date && (
-                        <p className="text-xs text-[#8C8278]">📅 {card.event_date} · {card.guest_count} guests</p>
-                      )}
-                      {card.rating !== null && (
-                        <p className="text-xs text-[#D4A853]">{'★'.repeat(card.rating)}{'☆'.repeat(5 - card.rating)} {card.reviewer_name}</p>
-                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="font-semibold text-[#1A1612] text-sm">{t.name}</p>
+                            <p className="text-xs text-[#8C8278] font-mono uppercase tracking-wider mt-0.5">{t.role}</p>
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <span className="text-xs text-[#8C8278]">Order: {t.display_order}</span>
+                            <button
+                              onClick={() => handleToggleTestimonialActive(t)}
+                              className={`text-xs font-semibold px-2.5 py-1 rounded-full border transition-colors ${t.is_active ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-50 text-gray-500 border-gray-200'}`}
+                            >{t.is_active ? 'Visible' : 'Hidden'}</button>
+                          </div>
+                        </div>
+                        <p className="text-sm text-[#5C5347] mt-2 italic line-clamp-3">&ldquo;{t.quote}&rdquo;</p>
+                        <div className="flex items-center gap-1 mt-2">
+                          {[...Array(t.rating)].map((_, i) => (
+                            <svg key={i} className="w-3.5 h-3.5 text-[#D4A853]" fill="currentColor" viewBox="0 0 20 20">
+                              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                            </svg>
+                          ))}
+                        </div>
+                        <div className="flex gap-3 mt-3">
+                          <button onClick={() => openEditTestimonialForm(t)} className="text-xs font-semibold text-[#C4622D] hover:underline">Edit</button>
+                          <button onClick={() => handleDeleteTestimonial(t)} className="text-xs font-semibold text-red-500 hover:underline">Delete</button>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -3998,547 +3808,6 @@ export default function StaffWorkspacePage() {
           </div>
         )}
 
-        {/* ── VOUCHERS TAB ── */}
-        {activeTab === 'vouchers' && (
-          <div>
-            {/* Issue Voucher Modal */}
-            {showIssueVoucherForm && (
-              <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto py-8 px-4">
-                <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl">
-                  <div className="flex items-center justify-between px-6 py-4 border-b border-[#EDE7DA]">
-                    <h2 className="font-bold text-[#1A1612] text-lg">Issue Voucher Manually</h2>
-                    <button
-                      onClick={() => setShowIssueVoucherForm(false)}
-                      className="w-8 h-8 rounded-full bg-[#F5F0E8] flex items-center justify-center text-[#8C8278] hover:bg-[#EDE7DA] transition-colors"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                  <form onSubmit={handleIssueVoucher} className="p-6 space-y-4">
-                    <div>
-                      <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">Customer Name *</label>
-                      <input
-                        type="text"
-                        required
-                        value={issueVoucherForm.customer_name}
-                        onChange={(e) => setIssueVoucherForm({ ...issueVoucherForm, customer_name: e.target.value })}
-                        placeholder="Jennifer Martinez"
-                        className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">Email *</label>
-                      <input
-                        type="email"
-                        required
-                        value={issueVoucherForm.customer_email}
-                        onChange={(e) => setIssueVoucherForm({ ...issueVoucherForm, customer_email: e.target.value })}
-                        placeholder="jennifer@email.com"
-                        className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">Phone</label>
-                      <input
-                        type="tel"
-                        value={issueVoucherForm.customer_phone}
-                        onChange={(e) => setIssueVoucherForm({ ...issueVoucherForm, customer_phone: e.target.value })}
-                        placeholder="0821234567"
-                        className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">Number of Meals *</label>
-                      <input
-                        type="number"
-                        required
-                        min="1"
-                        value={issueVoucherForm.total_meals}
-                        onChange={(e) => setIssueVoucherForm({ ...issueVoucherForm, total_meals: e.target.value })}
-                        className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">Notes</label>
-                      <textarea
-                        rows={2}
-                        value={issueVoucherForm.notes}
-                        onChange={(e) => setIssueVoucherForm({ ...issueVoucherForm, notes: e.target.value })}
-                        placeholder="Internal notes..."
-                        className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors resize-none"
-                      />
-                    </div>
-                    {issueVoucherError && (
-                      <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">{issueVoucherError}</div>
-                    )}
-                    {issueVoucherSuccess && (
-                      <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-xl px-4 py-3">{issueVoucherSuccess}</div>
-                    )}
-                    <div className="flex gap-3 pt-2">
-                      <button
-                        type="button"
-                        onClick={() => setShowIssueVoucherForm(false)}
-                        className="flex-1 py-2.5 rounded-xl border border-[#DDD5C8] text-sm font-semibold text-[#5C5347] hover:bg-[#F5F0E8] transition-colors"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="submit"
-                        disabled={issuingVoucher}
-                        className="flex-1 py-2.5 rounded-xl bg-[#C4622D] text-white text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-                      >
-                        {issuingVoucher ? (
-                          <><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Issuing...</>
-                        ) : 'Issue Voucher'}
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              </div>
-            )}
-
-            {/* Voucher Detail Panel */}
-            {selectedVoucher && (
-              <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto py-8 px-4">
-                <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl">
-                  <div className="flex items-center justify-between px-6 py-4 border-b border-[#EDE7DA]">
-                    <div>
-                      <h2 className="font-bold text-[#1A1612] text-lg">Voucher Details</h2>
-                      <p className="text-xs text-[#8C8278] font-mono">{selectedVoucher.voucher_code}</p>
-                    </div>
-                    <button
-                      onClick={() => { setSelectedVoucher(null); setVoucherRedemptions([]); }}
-                      className="w-8 h-8 rounded-full bg-[#F5F0E8] flex items-center justify-center text-[#8C8278] hover:bg-[#EDE7DA] transition-colors"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                  <div className="p-6 space-y-5">
-                    {/* Voucher info */}
-                    <div className="bg-gradient-to-br from-[#1A1612] to-[#3D342D] rounded-2xl p-5 text-white relative overflow-hidden">
-                      <div className="absolute top-0 right-0 w-24 h-24 bg-[#C4622D]/20 rounded-full -translate-y-6 translate-x-6" />
-                      <div className="relative z-10">
-                        <p className="text-xs text-white/40 font-mono uppercase tracking-widest mb-1">Voucher Code</p>
-                        <p className="text-2xl font-mono font-bold text-[#C4622D] tracking-widest mb-3">{selectedVoucher.voucher_code}</p>
-                        <div className="grid grid-cols-3 gap-4 text-center">
-                          <div>
-                            <p className="text-xs text-white/40 mb-0.5">Total Meals</p>
-                            <p className="text-xl font-bold text-white">{selectedVoucher.total_meals}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-white/40 mb-0.5">Used</p>
-                            <p className="text-xl font-bold text-[#C4622D]">{selectedVoucher.total_meals - selectedVoucher.meals_remaining}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-white/40 mb-0.5">Remaining</p>
-                            <p className="text-xl font-bold text-green-400">{selectedVoucher.meals_remaining}</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Customer info */}
-                    <div className="bg-[#F5F0E8] rounded-xl p-4 space-y-2 text-sm">
-                      {[
-                        { label: 'Customer', value: selectedVoucher.customer_name },
-                        { label: 'Email', value: selectedVoucher.customer_email },
-                        { label: 'Phone', value: selectedVoucher.customer_phone || '—' },
-                        { label: 'Status', value: selectedVoucher.status.charAt(0).toUpperCase() + selectedVoucher.status.slice(1) },
-                        { label: 'Purchased', value: new Date(selectedVoucher.purchased_at).toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' }) },
-                        { label: 'Notes', value: selectedVoucher.notes || '—' },
-                      ].map(({ label, value }) => (
-                        <div key={label} className="flex justify-between items-center py-1 border-b border-[#DDD5C8] last:border-0">
-                          <span className="text-[#8C8278] text-xs">{label}</span>
-                          <span className={`font-semibold text-xs ${label === 'Status' && (selectedVoucher.status === 'unpaid') ? 'text-amber-600' : label === 'Status' && selectedVoucher.status === 'paid' ? 'text-green-600' : 'text-[#1A1612]'}`}>{value}</span>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Mark as Paid button — shown only for unpaid vouchers */}
-                    {selectedVoucher.status === 'unpaid' && (
-                      <button
-                        onClick={() => handleMarkVoucherAsPaid(selectedVoucher)}
-                        disabled={markingVoucherPaidId === selectedVoucher.id}
-                        className="w-full bg-green-600 text-white py-3 rounded-xl font-semibold text-sm hover:bg-green-700 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-                      >
-                        {markingVoucherPaidId === selectedVoucher.id ? (
-                          <><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Marking as Paid...</>
-                        ) : (
-                          <>✓ Mark as Paid — EFT Verified</>
-                        )}
-                      </button>
-                    )}
-
-                    {/* Redemption history */}
-                    <div>
-                      <div className="flex items-center justify-between mb-3">
-                        <h3 className="font-semibold text-[#1A1612] text-sm">Redemption Audit Trail</h3>
-                        {voucherRedemptions.length > 0 && (
-                          <span className="text-xs text-[#8C8278] bg-[#F5F0E8] px-2.5 py-0.5 rounded-full font-mono">
-                            {voucherRedemptions.length} event{voucherRedemptions.length !== 1 ? 's' : ''}
-                          </span>
-                        )}
-                      </div>
-                      {redemptionsLoading ? (
-                        <div className="flex justify-center py-6">
-                          <svg className="animate-spin h-6 w-6 text-[#C4622D]" viewBox="0 0 24 24" fill="none">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                          </svg>
-                        </div>
-                      ) : voucherRedemptions.length === 0 ? (
-                        <div className="text-center py-6 text-[#8C8278] text-sm bg-[#F5F0E8] rounded-xl">
-                          No redemptions yet for this voucher.
-                        </div>
-                      ) : (
-                        <div className="space-y-3">
-                          {voucherRedemptions.map((r, idx) => (
-                            <RedemptionAuditRow key={r.id} redemption={r} index={voucherRedemptions.length - idx} />
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Vouchers Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-              <div>
-                <h2 className="text-xl font-bold text-[#1A1612]">Meal Vouchers</h2>
-                <p className="text-sm text-[#8C8278]">{vouchers.length} voucher{vouchers.length !== 1 ? 's' : ''} total</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <input
-                  type="text"
-                  value={voucherSearchQuery}
-                  onChange={(e) => setVoucherSearchQuery(e.target.value)}
-                  placeholder="Search by name, email or code..."
-                  className="bg-white border border-[#DDD5C8] rounded-full px-4 py-2 text-sm text-[#1A1612] placeholder-[#B5ADA5] focus:outline-none focus:border-[#C4622D] transition-colors w-56"
-                />
-                <button
-                  onClick={() => { setIssueVoucherError(''); setIssueVoucherSuccess(''); setShowIssueVoucherForm(true); }}
-                  className="flex items-center gap-2 bg-[#C4622D] text-white px-4 py-2 rounded-full text-sm font-semibold hover:bg-[#A04E22] transition-colors"
-                >
-                  + Issue Voucher
-                </button>
-              </div>
-            </div>
-
-            {/* Vouchers Table */}
-            {vouchersLoading ? (
-              <div className="flex justify-center py-16">
-                <svg className="animate-spin h-8 w-8 text-[#C4622D]" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-              </div>
-            ) : vouchers.length === 0 ? (
-              <div className="text-center py-16 bg-white rounded-2xl border border-[#DDD5C8]">
-                <div className="text-4xl mb-3">🎟️</div>
-                <p className="text-[#8C8278] font-medium">No vouchers yet.</p>
-                <p className="text-sm text-[#B5ADA5] mt-1">Vouchers will appear here once customers purchase them.</p>
-              </div>
-            ) : (
-              <div className="bg-white rounded-2xl border border-[#DDD5C8] overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-[#F5F0E8] border-b border-[#DDD5C8]">
-                        <th className="text-left px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wider">Voucher Code</th>
-                        <th className="text-left px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wider">Customer</th>
-                        <th className="text-left px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wider hidden md:table-cell">Email</th>
-                        <th className="text-center px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wider">Total</th>
-                        <th className="text-center px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wider">Remaining</th>
-                        <th className="text-center px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wider">Status</th>
-                        <th className="text-left px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wider hidden lg:table-cell">Purchased</th>
-                        <th className="px-4 py-3"></th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#F0EBE3]">
-                      {vouchers
-                        .filter((v) => {
-                          if (!voucherSearchQuery.trim()) return true;
-                          const q = voucherSearchQuery.toLowerCase();
-                          return (
-                            v.voucher_code.toLowerCase().includes(q) ||
-                            v.customer_name.toLowerCase().includes(q) ||
-                            v.customer_email.toLowerCase().includes(q)
-                          );
-                        })
-                        .map((voucher) => (
-                          <tr key={voucher.id} className="hover:bg-[#FDFAF7] transition-colors">
-                            <td className="px-4 py-3">
-                              <span className="font-mono font-bold text-[#C4622D] text-xs">{voucher.voucher_code}</span>
-                            </td>
-                            <td className="px-4 py-3">
-                              <p className="font-semibold text-[#1A1612] text-xs">{voucher.customer_name}</p>
-                              <p className="text-[#8C8278] text-xs">{voucher.customer_phone || ''}</p>
-                            </td>
-                            <td className="px-4 py-3 hidden md:table-cell">
-                              <span className="text-[#5C5347] text-xs">{voucher.customer_email}</span>
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              <span className="font-semibold text-[#1A1612]">{voucher.total_meals}</span>
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              <span className={`font-bold ${voucher.meals_remaining > 0 ? 'text-green-600' : 'text-[#B5ADA5]'}`}>
-                                {voucher.meals_remaining}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-voucher.status === 'paid' ? 'bg-green-100 text-green-700'
-: voucher.status === 'unpaid' ? 'bg-amber-100 text-amber-700'
-: voucher.status === 'redeemed' ? 'bg-[#F5F0E8] text-[#8C8278]' : 'bg-red-100 text-red-600'
-                              }`}>
-                                {voucher.status.charAt(0).toUpperCase() + voucher.status.slice(1)}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 hidden lg:table-cell">
-                              <span className="text-[#8C8278] text-xs">
-                                {new Date(voucher.purchased_at).toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' })}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3">
-                              <div className="flex items-center gap-2 justify-end">
-                                {voucher.status === 'unpaid' && (
-                                  <button
-                                    onClick={() => handleMarkVoucherAsPaid(voucher)}
-                                    disabled={markingVoucherPaidId === voucher.id}
-                                    className="text-xs font-semibold text-white bg-green-600 hover:bg-green-700 px-2.5 py-1 rounded-full transition-colors disabled:opacity-60 whitespace-nowrap flex items-center gap-1"
-                                  >
-                                    {markingVoucherPaidId === voucher.id ? (
-                                      <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
-                                    ) : '✓'} Mark Paid
-                                  </button>
-                                )}
-                                <button
-                                  onClick={() => handleSelectVoucher(voucher)}
-                                  className="text-xs font-semibold text-[#C4622D] hover:underline whitespace-nowrap"
-                                >
-                                  View →
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ── DISCOUNT VOUCHERS TAB ── */}
-        {activeTab === 'discount_vouchers' && (
-          <div>
-            {/* DV Form Modal */}
-            {showDvForm && (
-              <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto py-8 px-4">
-                <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl">
-                  <div className="flex items-center justify-between px-6 py-4 border-b border-[#EDE7DA]">
-                    <h2 className="font-bold text-[#1A1612] text-lg">
-                      {editingDv ? 'Edit Discount Voucher' : 'Generate Discount Voucher'}
-                    </h2>
-                    <button
-                      onClick={() => setShowDvForm(false)}
-                      className="w-8 h-8 rounded-full bg-[#F5F0E8] flex items-center justify-center text-[#8C8278] hover:bg-[#EDE7DA] transition-colors"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                  <form onSubmit={handleSaveDv} className="p-6 space-y-4">
-                    {editingDv && (
-                      <div>
-                        <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">DV Code</label>
-                        <div className="bg-[#F5F0E8] border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm font-mono font-bold text-[#C4622D]">
-                          {editingDv.dv_code}
-                        </div>
-                      </div>
-                    )}
-                    <div>
-                      <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">Discount Amount (R) *</label>
-                      <input
-                        type="number"
-                        required
-                        min="0.01"
-                        step="0.01"
-                        value={dvForm.dv_amount}
-                        onChange={(e) => setDvForm({ ...dvForm, dv_amount: e.target.value })}
-                        placeholder="e.g. 25.00"
-                        className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">Expiry Date *</label>
-                      <input
-                        type="date"
-                        required
-                        value={dvForm.expiry_date}
-                        onChange={(e) => setDvForm({ ...dvForm, expiry_date: e.target.value })}
-                        className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
-                      />
-                    </div>
-                    {editingDv && (
-                      <div>
-                        <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">Status *</label>
-                        <select
-                          value={dvForm.status}
-                          onChange={(e) => setDvForm({ ...dvForm, status: e.target.value as 'Active' | 'Inactive' })}
-                          className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors bg-white"
-                        >
-                          <option value="Active">Active</option>
-                          <option value="Inactive">Inactive</option>
-                        </select>
-                      </div>
-                    )}
-                    {dvFormError && (
-                      <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">{dvFormError}</div>
-                    )}
-                    {dvFormSuccess && (
-                      <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-xl px-4 py-3">{dvFormSuccess}</div>
-                    )}
-                    <div className="flex gap-3 pt-2">
-                      <button
-                        type="button"
-                        onClick={() => setShowDvForm(false)}
-                        className="flex-1 py-2.5 rounded-xl border border-[#DDD5C8] text-sm font-semibold text-[#5C5347] hover:bg-[#F5F0E8] transition-colors"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="submit"
-                        disabled={savingDv}
-                        className="flex-1 py-2.5 rounded-xl bg-[#C4622D] text-white text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-                      >
-                        {savingDv ? (
-                          <><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Saving...</>
-                        ) : editingDv ? 'Save Changes' : 'Generate Voucher'}
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              </div>
-            )}
-
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-              <div>
-                <h2 className="text-xl font-bold text-[#1A1612]">Discount Vouchers</h2>
-                <p className="text-sm text-[#8C8278]">{discountVouchers.length} discount voucher{discountVouchers.length !== 1 ? 's' : ''} total</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <input
-                  type="text"
-                  value={dvSearchQuery}
-                  onChange={(e) => setDvSearchQuery(e.target.value)}
-                  placeholder="Search by code..."
-                  className="bg-white border border-[#DDD5C8] rounded-full px-4 py-2 text-sm text-[#1A1612] placeholder-[#B5ADA5] focus:outline-none focus:border-[#C4622D] transition-colors w-48"
-                />
-                <button
-                  onClick={openCreateDvForm}
-                  className="flex items-center gap-2 bg-[#C4622D] text-white px-4 py-2 rounded-full text-sm font-semibold hover:bg-[#A04E22] transition-colors"
-                >
-                  + Generate Voucher
-                </button>
-              </div>
-            </div>
-
-            {/* Table */}
-            {dvLoading ? (
-              <div className="flex justify-center py-16">
-                <svg className="animate-spin h-8 w-8 text-[#C4622D]" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-              </div>
-            ) : discountVouchers.length === 0 ? (
-              <div className="text-center py-16 bg-white rounded-2xl border border-[#DDD5C8]">
-                <div className="text-4xl mb-3">🏷️</div>
-                <p className="text-[#8C8278] font-medium">No discount vouchers yet.</p>
-                <p className="text-sm text-[#B5ADA5] mt-1">Generate your first discount voucher to get started.</p>
-              </div>
-            ) : (
-              <div className="bg-white rounded-2xl border border-[#DDD5C8] overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-[#F5F0E8] border-b border-[#DDD5C8]">
-                        <th className="text-left px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wider">DV Code</th>
-                        <th className="text-right px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wider">Amount</th>
-                        <th className="text-center px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wider">Status</th>
-                        <th className="text-left px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wider hidden md:table-cell">Expiry Date</th>
-                        <th className="text-center px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wider hidden sm:table-cell">Times Used</th>
-                        <th className="px-4 py-3"></th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#F0EBE3]">
-                      {discountVouchers
-                        .filter((dv) => {
-                          if (!dvSearchQuery.trim()) return true;
-                          return dv.dv_code.toLowerCase().includes(dvSearchQuery.toLowerCase());
-                        })
-                        .map((dv) => {
-                          const isExpired = new Date(dv.expiry_date + 'T00:00:00') < new Date(new Date().toDateString());
-                          return (
-                            <tr key={dv.id} className="hover:bg-[#FDFAF7] transition-colors">
-                              <td className="px-4 py-3">
-                                <span className="font-mono font-bold text-[#C4622D] text-xs">{dv.dv_code}</span>
-                              </td>
-                              <td className="px-4 py-3 text-right">
-                                <span className="font-bold text-[#1A1612]">R{Number(dv.dv_amount).toFixed(2)}</span>
-                              </td>
-                              <td className="px-4 py-3 text-center">
-                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                                  isExpired ? 'bg-gray-100 text-gray-500'
-                                  : dv.status === 'Active'? 'bg-green-100 text-green-700' :'bg-red-100 text-red-600'
-                                }`}>
-                                  {isExpired ? 'Expired' : dv.status}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3 hidden md:table-cell">
-                                <span className={`text-xs ${isExpired ? 'text-red-500 font-semibold' : 'text-[#5C5347]'}`}>{dv.expiry_date}</span>
-                              </td>
-                              <td className="px-4 py-3 text-center hidden sm:table-cell">
-                                <span className="text-xs font-semibold text-[#1A1612]">{dv.times_used}</span>
-                              </td>
-                              <td className="px-4 py-3">
-                                <div className="flex items-center gap-2 justify-end">
-                                  <button
-                                    onClick={() => handleGenerateDvQr(dv)}
-                                    disabled={generatingQrId === dv.id}
-                                    className="text-xs font-semibold text-white bg-[#1A1612] hover:bg-[#3D342D] px-2.5 py-1 rounded-full transition-colors disabled:opacity-60 whitespace-nowrap flex items-center gap-1"
-                                    title="Download QR Code"
-                                  >
-                                    {generatingQrId === dv.id ? (
-                                      <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
-                                    ) : (
-                                      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-                                      </svg>
-                                    )} QR
-                                  </button>
-                                  <button
-                                    onClick={() => openEditDvForm(dv)}
-                                    className="text-xs font-semibold text-[#C4622D] hover:underline whitespace-nowrap"
-                                  >
-                                    Edit
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
       </main>
     </div>
     </>

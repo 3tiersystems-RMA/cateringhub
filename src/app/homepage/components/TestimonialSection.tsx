@@ -3,51 +3,83 @@
 import { useEffect, useRef, useState } from "react";
 import AppImage from "@/components/ui/AppImage";
 import Icon from "@/components/ui/AppIcon";
-import { APP_NAME } from "@/lib/constants";
+import { createClient } from "@/lib/supabase/client";
 
-const testimonials = [
+interface Testimonial {
+  id: string;
+  quote: string;
+  name: string;
+  role: string;
+  avatar_url: string | null;
+  rating: number;
+  is_active: boolean;
+  display_order: number;
+}
+
+const FALLBACK_TESTIMONIALS: Testimonial[] = [
 {
-  id: 1,
-  quote:
-  `${APP_NAME} made our daughter\'s wedding absolutely magical. Every dish was a conversation starter — guests are still talking about the lamb three months later.`,
+  id: "1",
+  quote: "Cardamom made our daughter's wedding absolutely magical. Every dish was a conversation starter — guests are still talking about the lamb three months later.",
   name: "Patricia & James Holloway",
   role: "Wedding · 180 guests",
-  avatar: "https://img.rocket.new/generatedImages/rocket_gen_img_1a76b71b8-1766735364749.png",
-  avatarAlt: "Patricia Holloway, smiling woman in elegant dress at a wedding venue",
-  rating: 5
+  avatar_url: "https://img.rocket.new/generatedImages/rocket_gen_img_1e8e20ed5-1772436647889.png",
+  rating: 5,
+  is_active: true,
+  display_order: 1
 },
 {
-  id: 2,
-  quote:
-  `We've used ${APP_NAME} for our quarterly board lunches for two years. Consistent quality, always on time, and the team is a pleasure to work with.`,
+  id: "2",
+  quote: "We've used Cardamom for our quarterly board lunches for two years. Consistent quality, always on time, and the team is a pleasure to work with.",
   name: "Marcus Webb",
   role: "VP Operations · TechNova Inc.",
-  avatar: "https://img.rocket.new/generatedImages/rocket_gen_img_1ddae73d2-1763292681856.png",
-  avatarAlt: "Marcus Webb, professional man in business attire smiling at camera",
-  rating: 5
+  avatar_url: "https://img.rocket.new/generatedImages/rocket_gen_img_194f61f27-1773720518780.png",
+  rating: 5,
+  is_active: true,
+  display_order: 2
 },
 {
-  id: 3,
-  quote:
-  "The weekly meal prep service changed my life. I eat better than I ever have, and I've reclaimed 6 hours a week I used to spend cooking.",
+  id: "3",
+  quote: "The weekly meal prep service changed my life. I eat better than I ever have, and I've reclaimed 6 hours a week I used to spend cooking.",
   name: "Danielle Torres",
   role: "Meal Prep Subscriber · 8 months",
-  avatar: "https://img.rocket.new/generatedImages/rocket_gen_img_1098b3c8f-1763293669401.png",
-  avatarAlt: "Danielle Torres, young professional woman smiling in an office setting",
-  rating: 5
+  avatar_url: "https://img.rocket.new/generatedImages/rocket_gen_img_14d8a3889-1770881542627.png",
+  rating: 5,
+  is_active: true,
+  display_order: 3
 }];
 
 
 export default function TestimonialSection() {
   const [active, setActive] = useState(0);
+  const [testimonials, setTestimonials] = useState<Testimonial[]>(FALLBACK_TESTIMONIALS);
   const sectionRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    const fetchTestimonials = async () => {
+      try {
+        const supabase = createClient();
+        const { data, error } = await supabase.
+        from("testimonials").
+        select("*").
+        eq("is_active", true).
+        order("display_order", { ascending: true });
+        if (!error && data && data.length > 0) {
+          setTestimonials(data as Testimonial[]);
+        }
+      } catch {
+
+        // keep fallback
+      }};
+    fetchTestimonials();
+  }, []);
+
+  useEffect(() => {
+    if (testimonials.length === 0) return;
     const interval = setInterval(() => {
-      setActive((prev) => (prev + 1) % testimonials?.length);
+      setActive((prev) => (prev + 1) % testimonials.length);
     }, 6000);
     return () => clearInterval(interval);
-  }, []);
+  }, [testimonials.length]);
 
   const t = testimonials?.[active];
 
@@ -71,7 +103,7 @@ export default function TestimonialSection() {
             </blockquote>
 
             <div className="flex items-center gap-1">
-              {[...Array(t?.rating)]?.map((_, i) =>
+              {[...Array(t?.rating ?? 5)]?.map((_, i) =>
               <Icon key={i} name="StarIcon" size={16} variant="solid" className="text-[#D4A853]" />
               )}
             </div>
@@ -86,7 +118,6 @@ export default function TestimonialSection() {
                 i === active ? "w-8 bg-white" : "w-3 bg-white/30"}`
                 }
                 aria-label={`Testimonial ${i + 1}`} />
-
               )}
             </div>
           </div>
@@ -96,12 +127,11 @@ export default function TestimonialSection() {
             <div className="flex items-center gap-5">
               <div className="w-20 h-20 rounded-2xl overflow-hidden flex-shrink-0 border-2 border-white/20">
                 <AppImage
-                  src={t?.avatar}
-                  alt={t?.avatarAlt}
+                  src={t?.avatar_url ?? ""}
+                  alt={`${t?.name ?? "Customer"} testimonial photo`}
                   width={80}
                   height={80}
                   className="object-cover w-full h-full grayscale" />
-                
               </div>
               <div>
                 <p className="text-white font-semibold text-lg">{t?.name}</p>
@@ -122,7 +152,6 @@ export default function TestimonialSection() {
               <div
                 key={s?.label}
                 className="bg-white/10 border border-white/15 rounded-2xl p-4">
-                
                   <p className="font-display text-2xl font-semibold text-white">{s?.value}</p>
                   <p className="text-white/50 text-xs uppercase tracking-widest font-mono mt-1">
                     {s?.label}
