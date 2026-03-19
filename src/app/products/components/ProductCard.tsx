@@ -42,11 +42,6 @@ export default function ProductCard({ product, onOpenModal }: ProductCardProps) 
   const handleAdd = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (isSoldOut) return;
-    if (isVoucherRequired) {
-      // Scroll to and expand the voucher banner so customer can enter their code
-      openVoucherBanner();
-      return;
-    }
     addItem(product);
     setAdded(true);
     setTimeout(() => setAdded(false), 1800);
