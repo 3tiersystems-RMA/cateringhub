@@ -11,7 +11,7 @@ import VoucherErrorModal from '@/components/ui/VoucherErrorModal';
 import GoogleDriveDocuments from './components/GoogleDriveDocuments';
 
 type BucketType = 'product-images' | 'event-photos' | 'document-management';
-type WorkspaceTab = 'products' | 'media' | 'orders' | 'staff' | 'homepage_cards' | 'categories' | 'weekly_menu' | 'vouchers' | 'discount_vouchers' | 'testimonials';
+type WorkspaceTab = 'products' | 'media' | 'orders' | 'staff' | 'homepage_cards' | 'categories' | 'weekly_menu' | 'vouchers' | 'discount_vouchers' | 'testimonials' | 'reporting';
 
 type ProductCategory = string;
 type StaffRole = 'admin' | 'staff' | 'super_admin';
@@ -2332,6 +2332,15 @@ export default function StaffWorkspacePage() {
                 <span className="text-base">💬</span>
                 <span>Testimonials</span>
               </button>
+              <button
+                onClick={() => setActiveTab('reporting')}
+                className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
+                  activeTab === 'reporting' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'
+                }`}
+              >
+                <span className="text-base">📊</span>
+                <span>Reporting</span>
+              </button>
             </nav>
           </aside>
 
@@ -3842,6 +3851,43 @@ export default function StaffWorkspacePage() {
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {/* ── REPORTING TAB ── */}
+        {activeTab === 'reporting' && (
+          <div>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-lg font-bold text-[#1A1612]">Reporting</h2>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Card 1: Products Ordered */}
+              <div className="bg-white border border-[#EDE7DA] rounded-2xl shadow-sm p-6 flex flex-col gap-3 cursor-pointer hover:shadow-md hover:border-[#C4622D] transition-all">
+                <div className="w-10 h-10 rounded-xl bg-[#FDF6EE] flex items-center justify-center text-xl">📦</div>
+                <div>
+                  <h3 className="text-base font-bold text-[#1A1612]">Products Ordered</h3>
+                  <p className="text-sm text-[#8C8278] mt-1">Overview of all products ordered</p>
+                </div>
+              </div>
+
+              {/* Card 2: Package Meals Ordered */}
+              <div className="bg-white border border-[#EDE7DA] rounded-2xl shadow-sm p-6 flex flex-col gap-3 cursor-pointer hover:shadow-md hover:border-[#C4622D] transition-all">
+                <div className="w-10 h-10 rounded-xl bg-[#FDF6EE] flex items-center justify-center text-xl">🍱</div>
+                <div>
+                  <h3 className="text-base font-bold text-[#1A1612]">Package Meals Ordered</h3>
+                  <p className="text-sm text-[#8C8278] mt-1">Overview of all package meals ordered</p>
+                </div>
+              </div>
+
+              {/* Card 3: Discount Vouchers */}
+              <div className="bg-white border border-[#EDE7DA] rounded-2xl shadow-sm p-6 flex flex-col gap-3 cursor-pointer hover:shadow-md hover:border-[#C4622D] transition-all">
+                <div className="w-10 h-10 rounded-xl bg-[#FDF6EE] flex items-center justify-center text-xl">🏷️</div>
+                <div>
+                  <h3 className="text-base font-bold text-[#1A1612]">Discount Vouchers</h3>
+                  <p className="text-sm text-[#8C8278] mt-1">Overview of all discount vouchers</p>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
