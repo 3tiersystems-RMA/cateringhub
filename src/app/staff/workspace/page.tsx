@@ -253,6 +253,20 @@ interface ProductsOrderedRow {
   clientEmail: string;
 }
 
+interface PackageMealsOrderedRow {
+  orderId: string;
+  productName: string;
+  productType: string;
+  item: string;
+  packagePurchased: string;
+  mealVoucher: string | null;
+  discountVoucher: string | null;
+  orderedDate: string;
+  deliveredDt: string;
+  clientName: string;
+  clientEmail: string;
+}
+
 const CARD_TYPE_LABELS: Record<HomepageCard['card_type'], string> = {
   todays_special: "Today's Special",
   next_booking: 'Next Booking',
@@ -639,9 +653,11 @@ export default function StaffWorkspacePage() {
   const [wsFilterFulfillment, setWsFilterFulfillment] = useState<string>('all');
 
   // Reporting state
-  const [reportingView, setReportingView] = useState<'cards' | 'products_ordered'>('cards');
+  const [reportingView, setReportingView] = useState<'cards' | 'products_ordered' | 'package_meals_ordered'>('cards');
   const [productsOrderedRows, setProductsOrderedRows] = useState<ProductsOrderedRow[]>([]);
   const [productsOrderedLoading, setProductsOrderedLoading] = useState(false);
+  const [packageMealsRows, setPackageMealsRows] = useState<PackageMealsOrderedRow[]>([]);
+  const [packageMealsLoading, setPackageMealsLoading] = useState(false);
 
   const openDeleteModal = (productName: string, onConfirm: () => void, message?: string) => {
     setDeleteModal({ isOpen: true, productName, onConfirm, message });
@@ -2249,6 +2265,111 @@ export default function StaffWorkspacePage() {
       setProductsOrderedRows([]);
     } finally {
       setProductsOrderedLoading(false);
+    }
+  };
+
+  const loadPackageMealsOrdered = async () => {
+    setPackageMealsLoading(true);
+    try {
+      // Fetch orders that have a meal voucher in notes (package meal orders)
+      const { data: orders, error } = await supabase
+        .from('orders')
+        .select('id, items, customer_name, customer_email, created_at, updated_at, fulfillment_status, notes')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.log('Load package meals ordered error:', error.message);
+        setPackageMealsRows([]);
+        return;
+      }
+
+      // Build a map of voucher_code → package info by fetching vouchers
+      const voucherCodes: string[] = [];
+      for (const order of (orders || [])) {
+        const mealVoucherMatch = (order.notes || '').match(/Voucher:\s*([A-Z0-9-]+)/);
+        if (mealVoucherMatch) voucherCodes.push(mealVoucherMatch[1]);
+      }
+
+      // Fetch voucher details for package name resolution
+      const voucherMap: Record<string, { total_meals: number; package_type: string }> = {};
+      if (voucherCodes.length > 0) {
+        const uniqueCodes = Array.from(new Set(voucherCodes));
+        const { data: voucherData } = await supabase
+          .from('vouchers')
+          .select('voucher_code, total_meals, package_type')
+          .in('voucher_code', uniqueCodes);
+        for (const v of (voucherData || [])) {
+          voucherMap[v.voucher_code] = { total_meals: v.total_meals, package_type: v.package_type };
+        }
+      }
+
+      const packageTypeLabel = (pt: string, totalMeals?: number): string => {
+        if (pt === 'package-6') return '6-Meal Package';
+        if (pt === 'package-10') return '10-Meal Package';
+        if (pt === 'package-12') return '12-Meal Package';
+        if (pt === 'package-24') return '24-Meal Package';
+        const match = pt?.match(/^package-(\d+)$/);
+        if (match) return `${match[1]}-Meal Package`;
+        if (totalMeals && totalMeals > 0) return `${totalMeals}-Meal Package`;
+        return pt || '—';
+      };
+
+      const rows: PackageMealsOrderedRow[] = [];
+
+      for (const order of (orders || [])) {
+        const items: Array<{ id: string; name: string; quantity: number; price: number; unit: string; category?: string; package_type?: string }> = Array.isArray(order.items) ? order.items : [];
+
+        // Parse meal voucher from notes
+        let mealVoucher: string | null = null;
+        const mealVoucherMatch = (order.notes || '').match(/Voucher:\s*([A-Z0-9-]+)/);
+        if (mealVoucherMatch) mealVoucher = mealVoucherMatch[1];
+
+        // Only process orders that have a meal voucher (package meal orders)
+        if (!mealVoucher) continue;
+
+        // Parse discount voucher from notes
+        let discountVoucher: string | null = null;
+        const dvMatch = (order.notes || '').match(/Discount Voucher:\s*([A-Z0-9-]+)/);
+        if (dvMatch) discountVoucher = dvMatch[1];
+
+        // Resolve package purchased name from voucher data
+        const voucherInfo = voucherMap[mealVoucher];
+        const packagePurchased = voucherInfo
+          ? packageTypeLabel(voucherInfo.package_type, voucherInfo.total_meals)
+          : `${mealVoucher} Package`;
+
+        // Ordered date: created_at formatted dd/mm/yyyy
+        const orderedDate = order.created_at
+          ? new Date(order.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
+          : '—';
+
+        // Delivered DT: updated_at if fulfillment_status === 'delivered', else '—'
+        const deliveredDt = order.fulfillment_status === 'delivered'&& order.updated_at ? new Date(order.updated_at).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
+          : '—';
+
+        for (const item of items) {
+          rows.push({
+            orderId: order.id,
+            productName: item.name || '—',
+            productType: item.category || '—',
+            item: `${item.quantity} x ${item.name}`,
+            packagePurchased,
+            mealVoucher,
+            discountVoucher,
+            orderedDate,
+            deliveredDt,
+            clientName: order.customer_name || '—',
+            clientEmail: order.customer_email || '—',
+          });
+        }
+      }
+
+      setPackageMealsRows(rows);
+    } catch (err) {
+      console.log('Unexpected error loading package meals ordered:', err);
+      setPackageMealsRows([]);
+    } finally {
+      setPackageMealsLoading(false);
     }
   };
 
@@ -3958,7 +4079,10 @@ export default function StaffWorkspacePage() {
                   </div>
 
                   {/* Card 2: Package Meals Ordered */}
-                  <div className="bg-white border border-[#EDE7DA] rounded-2xl shadow-sm p-6 flex flex-col gap-3 cursor-pointer hover:shadow-md hover:border-[#C4622D] transition-all">
+                  <div
+                    onClick={() => { setReportingView('package_meals_ordered'); loadPackageMealsOrdered(); }}
+                    className="bg-white border border-[#EDE7DA] rounded-2xl shadow-sm p-6 flex flex-col gap-3 cursor-pointer hover:shadow-md hover:border-[#C4622D] transition-all"
+                  >
                     <div className="w-10 h-10 rounded-xl bg-[#FDF6EE] flex items-center justify-center text-xl">🍱</div>
                     <div>
                       <h3 className="text-base font-bold text-[#1A1612]">Package Meals Ordered</h3>
@@ -4079,6 +4203,117 @@ export default function StaffWorkspacePage() {
                     </div>
                     <div className="px-4 py-3 border-t border-[#F5F0E8] bg-[#FDFAF7]">
                       <p className="text-xs text-[#8C8278]">{productsOrderedRows.length} row{productsOrderedRows.length !== 1 ? 's' : ''}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── PACKAGE MEALS ORDERED DETAIL VIEW ── */}
+            {reportingView === 'package_meals_ordered' && (
+              <div>
+                {/* Header with back button */}
+                <div className="flex items-center gap-3 mb-6">
+                  <button
+                    onClick={() => setReportingView('cards')}
+                    className="flex items-center gap-1.5 text-sm text-[#5C5347] hover:text-[#C4622D] transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                    </svg>
+                    <span>Reporting</span>
+                  </button>
+                  <span className="text-[#DDD5C8]">/</span>
+                  <h2 className="text-lg font-bold text-[#1A1612]">Package Meals Ordered</h2>
+                </div>
+
+                {/* Loading state */}
+                {packageMealsLoading && (
+                  <div className="flex items-center justify-center py-16">
+                    <div className="w-8 h-8 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
+                  </div>
+                )}
+
+                {/* Empty state */}
+                {!packageMealsLoading && packageMealsRows.length === 0 && (
+                  <div className="text-center py-16">
+                    <div className="w-14 h-14 rounded-2xl bg-[#F5F0E8] flex items-center justify-center text-2xl mx-auto mb-4">🍱</div>
+                    <p className="text-[#5C5347] font-medium">No package meals ordered yet</p>
+                    <p className="text-sm text-[#8C8278] mt-1">Package meal orders will appear here once placed</p>
+                  </div>
+                )}
+
+                {/* Table */}
+                {!packageMealsLoading && packageMealsRows.length > 0 && (
+                  <div className="bg-white border border-[#EDE7DA] rounded-2xl shadow-sm overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-[#EDE7DA] bg-[#FDFAF7]">
+                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Product Name</th>
+                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Type</th>
+                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Item</th>
+                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Package Purchased</th>
+                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Meal Voucher</th>
+                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Discount Voucher</th>
+                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Ordered Date</th>
+                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Delivered DT</th>
+                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Client</th>
+                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">eMail</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#F5F0E8]">
+                          {packageMealsRows.map((row, idx) => (
+                            <tr key={`${row.orderId}-${idx}`} className="hover:bg-[#FDFAF7] transition-colors">
+                              <td className="px-4 py-3">
+                                <span className="font-medium text-[#1A1612]">{row.productName}</span>
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className="text-[#5C5347]">{row.productType}</span>
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className="text-[#1A1612]">{row.item}</span>
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className="text-[#1A1612] font-medium whitespace-nowrap">{row.packagePurchased}</span>
+                              </td>
+                              <td className="px-4 py-3">
+                                {row.mealVoucher ? (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-[#F5F0E8] text-[#C4622D] border border-[#DDD5C8]">
+                                    {row.mealVoucher}
+                                  </span>
+                                ) : (
+                                  <span className="text-[#B5ADA5] text-xs">—</span>
+                                )}
+                              </td>
+                              <td className="px-4 py-3">
+                                {row.discountVoucher ? (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-200">
+                                    {row.discountVoucher}
+                                  </span>
+                                ) : (
+                                  <span className="text-[#B5ADA5] text-xs">—</span>
+                                )}
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className="text-[#5C5347] text-xs whitespace-nowrap">{row.orderedDate}</span>
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className={`text-xs whitespace-nowrap ${row.deliveredDt === '—' ? 'text-[#B5ADA5]' : 'text-[#5C5347]'}`}>{row.deliveredDt}</span>
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className="text-[#1A1612] font-medium whitespace-nowrap">{row.clientName}</span>
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className="text-[#5C5347] text-xs break-all">{row.clientEmail}</span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="px-4 py-3 border-t border-[#F5F0E8] bg-[#FDFAF7]">
+                      <p className="text-xs text-[#8C8278]">{packageMealsRows.length} row{packageMealsRows.length !== 1 ? 's' : ''}</p>
                     </div>
                   </div>
                 )}
