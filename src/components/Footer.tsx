@@ -58,7 +58,7 @@ export default function Footer() {
               </a>
             </div>
             <p className="text-xs text-[#B5ADA5]">
-              © 2026 {APP_NAME} · Privacy · Terms | Powered by SERiTi Digital Studio
+              © {new Date()?.getFullYear()} {APP_NAME} · Privacy · Terms | Powered by SERiTi Digital Studio
             </p>
           </div>
         </div>
