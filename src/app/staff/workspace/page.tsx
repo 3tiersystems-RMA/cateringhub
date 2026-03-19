@@ -267,6 +267,19 @@ interface PackageMealsOrderedRow {
   clientEmail: string;
 }
 
+interface DiscountVouchersReportRow {
+  dvCode: string;
+  dvAmount: number;
+  expiryDate: string;
+  productName: string;
+  productType: string;
+  item: string;
+  orderedDate: string;
+  deliveredDt: string;
+  clientName: string;
+  clientEmail: string;
+}
+
 const CARD_TYPE_LABELS: Record<HomepageCard['card_type'], string> = {
   todays_special: "Today's Special",
   next_booking: 'Next Booking',
@@ -653,11 +666,13 @@ export default function StaffWorkspacePage() {
   const [wsFilterFulfillment, setWsFilterFulfillment] = useState<string>('all');
 
   // Reporting state
-  const [reportingView, setReportingView] = useState<'cards' | 'products_ordered' | 'package_meals_ordered'>('cards');
+  const [reportingView, setReportingView] = useState<'cards' | 'products_ordered' | 'package_meals_ordered' | 'discount_vouchers_report'>('cards');
   const [productsOrderedRows, setProductsOrderedRows] = useState<ProductsOrderedRow[]>([]);
   const [productsOrderedLoading, setProductsOrderedLoading] = useState(false);
   const [packageMealsRows, setPackageMealsRows] = useState<PackageMealsOrderedRow[]>([]);
   const [packageMealsLoading, setPackageMealsLoading] = useState(false);
+  const [discountVouchersReportRows, setDiscountVouchersReportRows] = useState<DiscountVouchersReportRow[]>([]);
+  const [discountVouchersReportLoading, setDiscountVouchersReportLoading] = useState(false);
 
   const openDeleteModal = (productName: string, onConfirm: () => void, message?: string) => {
     setDeleteModal({ isOpen: true, productName, onConfirm, message });
@@ -2370,6 +2385,89 @@ export default function StaffWorkspacePage() {
       setPackageMealsRows([]);
     } finally {
       setPackageMealsLoading(false);
+    }
+  };
+
+  const loadDiscountVouchersReport = async () => {
+    setDiscountVouchersReportLoading(true);
+    try {
+      // Fetch all orders
+      const { data: orders, error: ordersError } = await supabase
+        .from('orders')
+        .select('id, items, customer_name, customer_email, created_at, updated_at, fulfillment_status, notes')
+        .order('created_at', { ascending: false });
+
+      if (ordersError) {
+        console.log('Load discount vouchers report error:', ordersError.message);
+        setDiscountVouchersReportRows([]);
+        return;
+      }
+
+      // Collect all DV codes referenced in orders
+      const dvCodesInOrders: string[] = [];
+      for (const order of (orders || [])) {
+        const dvMatch = (order.notes || '').match(/Discount Voucher:\s*([A-Z0-9-]+)/);
+        if (dvMatch) dvCodesInOrders.push(dvMatch[1]);
+      }
+
+      // Fetch discount_vouchers details for those codes
+      const dvMap: Record<string, { dv_amount: number; expiry_date: string }> = {};
+      if (dvCodesInOrders.length > 0) {
+        const uniqueDvCodes = Array.from(new Set(dvCodesInOrders));
+        const { data: dvData } = await supabase
+          .from('discount_vouchers')
+          .select('dv_code, dv_amount, expiry_date')
+          .in('dv_code', uniqueDvCodes);
+        for (const dv of (dvData || [])) {
+          dvMap[dv.dv_code] = { dv_amount: dv.dv_amount, expiry_date: dv.expiry_date };
+        }
+      }
+
+      const rows: DiscountVouchersReportRow[] = [];
+
+      for (const order of (orders || [])) {
+        // Only process orders that used a discount voucher
+        const dvMatch = (order.notes || '').match(/Discount Voucher:\s*([A-Z0-9-]+)/);
+        if (!dvMatch) continue;
+        const dvCode = dvMatch[1];
+
+        const dvInfo = dvMap[dvCode];
+        const dvAmount = dvInfo ? dvInfo.dv_amount : 0;
+        const expiryDate = dvInfo?.expiry_date
+          ? new Date(dvInfo.expiry_date).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
+          : '—';
+
+        const orderedDate = order.created_at
+          ? new Date(order.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
+          : '—';
+
+        const deliveredDt = order.fulfillment_status === 'delivered'&& order.updated_at ? new Date(order.updated_at).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
+          : '—';
+
+        const items: Array<{ id: string; name: string; quantity: number; price: number; unit: string; category?: string }> = Array.isArray(order.items) ? order.items : [];
+
+        for (const item of items) {
+          rows.push({
+            dvCode,
+            dvAmount,
+            expiryDate,
+            productName: item.name || '—',
+            productType: item.category || '—',
+            item: `${item.quantity} x ${item.name}`,
+            orderedDate,
+            deliveredDt,
+            clientName: order.customer_name || '—',
+            clientEmail: order.customer_email || '—',
+          });
+        }
+      }
+
+      setDiscountVouchersReportRows(rows);
+    } catch (err) {
+      console.log('Unexpected error loading discount vouchers report:', err);
+      setDiscountVouchersReportRows([]);
+    } finally {
+      setDiscountVouchersReportLoading(false);
     }
   };
 
@@ -4091,7 +4189,10 @@ export default function StaffWorkspacePage() {
                   </div>
 
                   {/* Card 3: Discount Vouchers */}
-                  <div className="bg-white border border-[#EDE7DA] rounded-2xl shadow-sm p-6 flex flex-col gap-3 cursor-pointer hover:shadow-md hover:border-[#C4622D] transition-all">
+                  <div
+                    onClick={() => { setReportingView('discount_vouchers_report'); loadDiscountVouchersReport(); }}
+                    className="bg-white border border-[#EDE7DA] rounded-2xl shadow-sm p-6 flex flex-col gap-3 cursor-pointer hover:shadow-md hover:border-[#C4622D] transition-all"
+                  >
                     <div className="w-10 h-10 rounded-xl bg-[#FDF6EE] flex items-center justify-center text-xl">🏷️</div>
                     <div>
                       <h3 className="text-base font-bold text-[#1A1612]">Discount Vouchers</h3>
@@ -4314,6 +4415,107 @@ export default function StaffWorkspacePage() {
                     </div>
                     <div className="px-4 py-3 border-t border-[#F5F0E8] bg-[#FDFAF7]">
                       <p className="text-xs text-[#8C8278]">{packageMealsRows.length} row{packageMealsRows.length !== 1 ? 's' : ''}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── DISCOUNT VOUCHERS REPORT DETAIL VIEW ── */}
+            {reportingView === 'discount_vouchers_report' && (
+              <div>
+                {/* Header with back button */}
+                <div className="flex items-center gap-3 mb-6">
+                  <button
+                    onClick={() => setReportingView('cards')}
+                    className="flex items-center gap-1.5 text-sm text-[#5C5347] hover:text-[#C4622D] transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                    </svg>
+                    <span>Reporting</span>
+                  </button>
+                  <span className="text-[#DDD5C8]">/</span>
+                  <h2 className="text-lg font-bold text-[#1A1612]">Discount Vouchers</h2>
+                </div>
+
+                {/* Loading state */}
+                {discountVouchersReportLoading && (
+                  <div className="flex items-center justify-center py-16">
+                    <div className="w-8 h-8 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
+                  </div>
+                )}
+
+                {/* Empty state */}
+                {!discountVouchersReportLoading && discountVouchersReportRows.length === 0 && (
+                  <div className="text-center py-16">
+                    <div className="w-14 h-14 rounded-2xl bg-[#F5F0E8] flex items-center justify-center text-2xl mx-auto mb-4">🏷️</div>
+                    <p className="text-[#5C5347] font-medium">No discount vouchers used yet</p>
+                    <p className="text-sm text-[#8C8278] mt-1">Orders using discount vouchers will appear here</p>
+                  </div>
+                )}
+
+                {/* Table */}
+                {!discountVouchersReportLoading && discountVouchersReportRows.length > 0 && (
+                  <div className="bg-white border border-[#EDE7DA] rounded-2xl shadow-sm overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-[#EDE7DA] bg-[#FDFAF7]">
+                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Discount Voucher</th>
+                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Discount Amount</th>
+                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Expiry Date</th>
+                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Product Name</th>
+                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Type</th>
+                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Item</th>
+                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Ordered Date</th>
+                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Delivered DT</th>
+                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Client</th>
+                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">eMail</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#F5F0E8]">
+                          {discountVouchersReportRows.map((row, idx) => (
+                            <tr key={`${row.dvCode}-${idx}`} className="hover:bg-[#FDFAF7] transition-colors">
+                              <td className="px-4 py-3">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-200">
+                                  {row.dvCode}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className="font-medium text-[#1A1612]">R {Number(row.dvAmount).toFixed(2)}</span>
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className="text-[#5C5347] text-xs whitespace-nowrap">{row.expiryDate}</span>
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className="font-medium text-[#1A1612]">{row.productName}</span>
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className="text-[#5C5347]">{row.productType}</span>
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className="text-[#1A1612]">{row.item}</span>
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className="text-[#5C5347] text-xs whitespace-nowrap">{row.orderedDate}</span>
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className={`text-xs whitespace-nowrap ${row.deliveredDt === '—' ? 'text-[#B5ADA5]' : 'text-[#5C5347]'}`}>{row.deliveredDt}</span>
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className="text-[#1A1612] font-medium whitespace-nowrap">{row.clientName}</span>
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className="text-[#5C5347] text-xs break-all">{row.clientEmail}</span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="px-4 py-3 border-t border-[#F5F0E8] bg-[#FDFAF7]">
+                      <p className="text-xs text-[#8C8278]">{discountVouchersReportRows.length} row{discountVouchersReportRows.length !== 1 ? 's' : ''}</p>
                     </div>
                   </div>
                 )}
