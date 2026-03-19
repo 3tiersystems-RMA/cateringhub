@@ -3886,7 +3886,7 @@ export default function StaffWorkspacePage() {
                                   {generatingQrId === dv.id ? (
                                     <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
                                   ) : (
-                                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" /></svg>
+                                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
                                   )} QR
                                 </button>
                                 <button onClick={() => openEditDvForm(dv)} className="text-xs font-semibold text-[#C4622D] hover:underline whitespace-nowrap">Edit</button>
@@ -4363,25 +4363,25 @@ export default function StaffWorkspacePage() {
                   <>
                     {/* Summary metric cards */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
-                      <div className="bg-white border border-[#EDE7DA] rounded-2xl p-4 flex items-center gap-4 shadow-sm">
-                        <div className="w-10 h-10 rounded-xl bg-[#FDF6EE] flex items-center justify-center text-xl flex-shrink-0">📦</div>
+                      <div className="bg-black rounded-2xl p-4 flex items-center gap-4 shadow-sm">
+                        <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-xl flex-shrink-0">📦</div>
                         <div>
-                          <p className="text-xs text-[#8C8278] font-medium uppercase tracking-wide">Total Items Ordered</p>
-                          <p className="text-2xl font-bold text-[#1A1612]">{filteredProductsOrderedRows.length}</p>
+                          <p className="text-xs text-white/60 font-medium uppercase tracking-wide">Total Items Ordered</p>
+                          <p className="text-2xl font-bold text-white">{filteredProductsOrderedRows.length}</p>
                         </div>
                       </div>
-                      <div className="bg-white border border-[#EDE7DA] rounded-2xl p-4 flex items-center gap-4 shadow-sm">
-                        <div className="w-10 h-10 rounded-xl bg-[#F0FDF4] flex items-center justify-center text-xl flex-shrink-0">🏷️</div>
+                      <div className="bg-black rounded-2xl p-4 flex items-center gap-4 shadow-sm">
+                        <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-xl flex-shrink-0">🏷️</div>
                         <div>
-                          <p className="text-xs text-[#8C8278] font-medium uppercase tracking-wide">Discount Vouchers Used</p>
-                          <p className="text-2xl font-bold text-[#1A1612]">{filteredProductsOrderedRows.filter(r => r.discountVoucher).length}</p>
+                          <p className="text-xs text-white/60 font-medium uppercase tracking-wide">Discount Vouchers Used</p>
+                          <p className="text-2xl font-bold text-white">{filteredProductsOrderedRows.filter(r => r.discountVoucher).length}</p>
                         </div>
                       </div>
-                      <div className="bg-white border border-[#EDE7DA] rounded-2xl p-4 flex items-center gap-4 shadow-sm">
-                        <div className="w-10 h-10 rounded-xl bg-[#FFF7ED] flex items-center justify-center text-xl flex-shrink-0">🎟️</div>
+                      <div className="bg-black rounded-2xl p-4 flex items-center gap-4 shadow-sm">
+                        <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-xl flex-shrink-0">🎟️</div>
                         <div>
-                          <p className="text-xs text-[#8C8278] font-medium uppercase tracking-wide">Meal Vouchers Used</p>
-                          <p className="text-2xl font-bold text-[#1A1612]">{filteredProductsOrderedRows.filter(r => r.mealVoucher).length}</p>
+                          <p className="text-xs text-white/60 font-medium uppercase tracking-wide">Meal Vouchers Used</p>
+                          <p className="text-2xl font-bold text-white">{filteredProductsOrderedRows.filter(r => r.mealVoucher).length}</p>
                         </div>
                       </div>
                     </div>
@@ -4543,27 +4543,27 @@ export default function StaffWorkspacePage() {
                   <>
                     {/* Summary metric cards */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
-                      <div className="bg-white border border-[#EDE7DA] rounded-2xl p-4 flex items-center gap-4 shadow-sm">
-                        <div className="w-10 h-10 rounded-xl bg-[#FDF6EE] flex items-center justify-center text-xl flex-shrink-0">🍱</div>
+                      <div className="bg-black rounded-2xl p-4 flex items-center gap-4 shadow-sm">
+                        <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-xl flex-shrink-0">🍱</div>
                         <div>
-                          <p className="text-xs text-[#8C8278] font-medium uppercase tracking-wide">Total Items Ordered</p>
-                          <p className="text-2xl font-bold text-[#1A1612]">{filteredPackageMealsRows.length}</p>
+                          <p className="text-xs text-white/60 font-medium uppercase tracking-wide">Total Items Ordered</p>
+                          <p className="text-2xl font-bold text-white">{filteredPackageMealsRows.length}</p>
                         </div>
                       </div>
-                      <div className="bg-white border border-[#EDE7DA] rounded-2xl p-4 flex items-center gap-4 shadow-sm">
-                        <div className="w-10 h-10 rounded-xl bg-[#F0FDF4] flex items-center justify-center text-xl flex-shrink-0">📦</div>
+                      <div className="bg-black rounded-2xl p-4 flex items-center gap-4 shadow-sm">
+                        <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-xl flex-shrink-0">📦</div>
                         <div>
-                          <p className="text-xs text-[#8C8278] font-medium uppercase tracking-wide">Total Packages Sold</p>
-                          <p className="text-2xl font-bold text-[#1A1612]">
+                          <p className="text-xs text-white/60 font-medium uppercase tracking-wide">Total Packages Sold</p>
+                          <p className="text-2xl font-bold text-white">
                             {new Set(filteredPackageMealsRows.filter(r => r.mealVoucher).map(r => r.mealVoucher)).size}
                           </p>
                         </div>
                       </div>
-                      <div className="bg-white border border-[#EDE7DA] rounded-2xl p-4 flex items-center gap-4 shadow-sm">
-                        <div className="w-10 h-10 rounded-xl bg-[#FFF7ED] flex items-center justify-center text-xl flex-shrink-0">🎟️</div>
+                      <div className="bg-black rounded-2xl p-4 flex items-center gap-4 shadow-sm">
+                        <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-xl flex-shrink-0">🎟️</div>
                         <div>
-                          <p className="text-xs text-[#8C8278] font-medium uppercase tracking-wide">Unique Vouchers</p>
-                          <p className="text-2xl font-bold text-[#1A1612]">
+                          <p className="text-xs text-white/60 font-medium uppercase tracking-wide">Unique Vouchers</p>
+                          <p className="text-2xl font-bold text-white">
                             {new Set(filteredPackageMealsRows.map(r => r.mealVoucher).filter(Boolean)).size}
                           </p>
                         </div>
@@ -4729,27 +4729,27 @@ export default function StaffWorkspacePage() {
                   <>
                     {/* Summary metric cards */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
-                      <div className="bg-white border border-[#EDE7DA] rounded-2xl p-4 flex items-center gap-4 shadow-sm">
-                        <div className="w-10 h-10 rounded-xl bg-[#F0FDF4] flex items-center justify-center text-xl flex-shrink-0">🏷️</div>
+                      <div className="bg-black rounded-2xl p-4 flex items-center gap-4 shadow-sm">
+                        <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-xl flex-shrink-0">🏷️</div>
                         <div>
-                          <p className="text-xs text-[#8C8278] font-medium uppercase tracking-wide">Total Items Ordered</p>
-                          <p className="text-2xl font-bold text-[#1A1612]">{filteredDiscountVouchersReportRows.length}</p>
+                          <p className="text-xs text-white/60 font-medium uppercase tracking-wide">Total Items Ordered</p>
+                          <p className="text-2xl font-bold text-white">{filteredDiscountVouchersReportRows.length}</p>
                         </div>
                       </div>
-                      <div className="bg-white border border-[#EDE7DA] rounded-2xl p-4 flex items-center gap-4 shadow-sm">
-                        <div className="w-10 h-10 rounded-xl bg-[#FDF6EE] flex items-center justify-center text-xl flex-shrink-0">💰</div>
+                      <div className="bg-black rounded-2xl p-4 flex items-center gap-4 shadow-sm">
+                        <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-xl flex-shrink-0">💰</div>
                         <div>
-                          <p className="text-xs text-[#8C8278] font-medium uppercase tracking-wide">Total Discount Value Used</p>
-                          <p className="text-2xl font-bold text-[#1A1612]">
+                          <p className="text-xs text-white/60 font-medium uppercase tracking-wide">Total Discount Value Used</p>
+                          <p className="text-2xl font-bold text-white">
                             R {filteredDiscountVouchersReportRows.reduce((sum, r) => sum + Number(r.dvAmount), 0).toFixed(2)}
                           </p>
                         </div>
                       </div>
-                      <div className="bg-white border border-[#EDE7DA] rounded-2xl p-4 flex items-center gap-4 shadow-sm">
-                        <div className="w-10 h-10 rounded-xl bg-[#FFF7ED] flex items-center justify-center text-xl flex-shrink-0">🎫</div>
+                      <div className="bg-black rounded-2xl p-4 flex items-center gap-4 shadow-sm">
+                        <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-xl flex-shrink-0">🎫</div>
                         <div>
-                          <p className="text-xs text-[#8C8278] font-medium uppercase tracking-wide">Unique Vouchers Used</p>
-                          <p className="text-2xl font-bold text-[#1A1612]">
+                          <p className="text-xs text-white/60 font-medium uppercase tracking-wide">Unique Vouchers Used</p>
+                          <p className="text-2xl font-bold text-white">
                             {new Set(filteredDiscountVouchersReportRows.map(r => r.dvCode)).size}
                           </p>
                         </div>
