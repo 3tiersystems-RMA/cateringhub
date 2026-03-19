@@ -676,7 +676,7 @@ export default function StaffWorkspacePage() {
 
   // ─── PDF Download helpers ──────────────────────────────────────────────────
   const downloadProductsOrderedPDF = () => {
-    const headers = ['Product Name', 'Type', 'Item', 'Meal Voucher', 'Discount Voucher', 'Ordered', 'Delivered', 'Client', 'eMail'];
+    const headers = ['Product', 'Type', 'Item', 'Meal Voucher', 'Discount Voucher', 'Ordered', 'Delivered', 'Client', 'eMail'];
     const rows = productsOrderedRows.map(r => [
       r.productName,
       r.productType,
@@ -692,7 +692,7 @@ export default function StaffWorkspacePage() {
   };
 
   const downloadPackageMealsPDF = () => {
-    const headers = ['Product Name', 'Type', 'Item', 'Package', 'Meal Voucher', 'Discount Voucher', 'Ordered', 'Delivered', 'Client', 'eMail'];
+    const headers = ['Product', 'Type', 'Item', 'Package', 'Meal Voucher', 'Discount Voucher', 'Ordered', 'Delivered', 'Client', 'eMail'];
     const rows = packageMealsRows.map(r => [
       r.productName,
       r.productType,
@@ -4346,7 +4346,7 @@ export default function StaffWorkspacePage() {
                         <thead>
                           <tr className="border-b border-[#EDE7DA] bg-[#FDFAF7]">
                             <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap sticky left-0 bg-[#FDFAF7] z-10 min-w-[160px]">Client</th>
-                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Product Name</th>
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Product</th>
                             <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Type</th>
                             <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Item</th>
                             <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Meal Voucher</th>
@@ -4461,7 +4461,7 @@ export default function StaffWorkspacePage() {
                         <thead>
                           <tr className="border-b border-[#EDE7DA] bg-[#FDFAF7]">
                             <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap sticky left-0 bg-[#FDFAF7] z-10 min-w-[160px]">Client</th>
-                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Product Name</th>
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Product</th>
                             <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Type</th>
                             <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Item</th>
                             <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Package</th>
@@ -4509,10 +4509,8 @@ export default function StaffWorkspacePage() {
                                 )}
                               </td>
                               <td className="px-3 py-2">
-                                <span className="text-[#5C5347] whitespace-nowrap">{row.orderedDate}</span>
-                              </td>
-                              <td className="px-3 py-2">
-                                <span className={`whitespace-nowrap ${row.deliveredDt === '—' ? 'text-[#B5ADA5]' : 'text-[#5C5347]'}`}>{row.deliveredDt}</span>
+                                <span className="block text-[#5C5347] whitespace-nowrap">{row.orderedDate}</span>
+                                <span className={`block whitespace-nowrap ${row.deliveredDt === '—' ? 'text-[#B5ADA5]' : 'text-[#5C5347]'}`}>{row.deliveredDt}</span>
                               </td>
                             </tr>
                           ))}
