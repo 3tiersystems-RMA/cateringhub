@@ -674,6 +674,14 @@ export default function StaffWorkspacePage() {
   const [discountVouchersReportRows, setDiscountVouchersReportRows] = useState<DiscountVouchersReportRow[]>([]);
   const [discountVouchersReportLoading, setDiscountVouchersReportLoading] = useState(false);
 
+  // Date range filter state for each report
+  const [poDateFrom, setPoDateFrom] = useState('');
+  const [poDateTo, setPoDateTo] = useState('');
+  const [pmDateFrom, setPmDateFrom] = useState('');
+  const [pmDateTo, setPmDateTo] = useState('');
+  const [dvDateFrom, setDvDateFrom] = useState('');
+  const [dvDateTo, setDvDateTo] = useState('');
+
   // ─── PDF Download helpers ──────────────────────────────────────────────────
   const downloadProductsOrderedPDF = () => {
     const headers = ['Product', 'Type', 'Item', 'Meal Voucher', 'Discount Voucher', 'Ordered', 'Delivered', 'Client', 'eMail'];
@@ -2561,6 +2569,28 @@ export default function StaffWorkspacePage() {
     }
   };
 
+  // ─── Filtered rows (derived from date range pickers) ─────────────────────────
+  const filterByDateRange = <T extends { orderedDate: string }>(
+    rows: T[],
+    from: string,
+    to: string
+  ): T[] => {
+    if (!from && !to) return rows;
+    return rows.filter((row) => {
+      // orderedDate is dd/mm/yyyy — parse to Date for comparison
+      const parts = row.orderedDate.split('/');
+      if (parts.length !== 3) return true;
+      const rowDate = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+      if (from && rowDate < new Date(from)) return false;
+      if (to && rowDate > new Date(to)) return false;
+      return true;
+    });
+  };
+
+  const filteredProductsOrderedRows = filterByDateRange(productsOrderedRows, poDateFrom, poDateTo);
+  const filteredPackageMealsRows = filterByDateRange(packageMealsRows, pmDateFrom, pmDateTo);
+  const filteredDiscountVouchersReportRows = filterByDateRange(discountVouchersReportRows, dvDateFrom, dvDateTo);
+
   return (
     <>
       <VoucherErrorModal
@@ -4329,6 +4359,71 @@ export default function StaffWorkspacePage() {
                   </div>
                 )}
 
+                {!productsOrderedLoading && productsOrderedRows.length > 0 && (
+                  <>
+                    {/* Summary metric cards */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
+                      <div className="bg-white border border-[#EDE7DA] rounded-2xl p-4 flex items-center gap-4 shadow-sm">
+                        <div className="w-10 h-10 rounded-xl bg-[#FDF6EE] flex items-center justify-center text-xl flex-shrink-0">📦</div>
+                        <div>
+                          <p className="text-xs text-[#8C8278] font-medium uppercase tracking-wide">Total Items Ordered</p>
+                          <p className="text-2xl font-bold text-[#1A1612]">{filteredProductsOrderedRows.length}</p>
+                        </div>
+                      </div>
+                      <div className="bg-white border border-[#EDE7DA] rounded-2xl p-4 flex items-center gap-4 shadow-sm">
+                        <div className="w-10 h-10 rounded-xl bg-[#F0FDF4] flex items-center justify-center text-xl flex-shrink-0">🏷️</div>
+                        <div>
+                          <p className="text-xs text-[#8C8278] font-medium uppercase tracking-wide">Discount Vouchers Used</p>
+                          <p className="text-2xl font-bold text-[#1A1612]">{filteredProductsOrderedRows.filter(r => r.discountVoucher).length}</p>
+                        </div>
+                      </div>
+                      <div className="bg-white border border-[#EDE7DA] rounded-2xl p-4 flex items-center gap-4 shadow-sm">
+                        <div className="w-10 h-10 rounded-xl bg-[#FFF7ED] flex items-center justify-center text-xl flex-shrink-0">🎟️</div>
+                        <div>
+                          <p className="text-xs text-[#8C8278] font-medium uppercase tracking-wide">Meal Vouchers Used</p>
+                          <p className="text-2xl font-bold text-[#1A1612]">{filteredProductsOrderedRows.filter(r => r.mealVoucher).length}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Date range filter */}
+                    <div className="bg-white border border-[#EDE7DA] rounded-2xl p-4 mb-5 flex flex-wrap items-end gap-4 shadow-sm">
+                      <div className="flex flex-col gap-1">
+                        <label className="text-xs font-semibold text-[#5C5347] uppercase tracking-wide">From Date</label>
+                        <input
+                          type="date"
+                          value={poDateFrom}
+                          onChange={e => setPoDateFrom(e.target.value)}
+                          className="border border-[#DDD5C8] rounded-lg px-3 py-1.5 text-sm text-[#1A1612] bg-[#FDFAF7] focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30 focus:border-[#C4622D]"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-xs font-semibold text-[#5C5347] uppercase tracking-wide">To Date</label>
+                        <input
+                          type="date"
+                          value={poDateTo}
+                          onChange={e => setPoDateTo(e.target.value)}
+                          className="border border-[#DDD5C8] rounded-lg px-3 py-1.5 text-sm text-[#1A1612] bg-[#FDFAF7] focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30 focus:border-[#C4622D]"
+                        />
+                      </div>
+                      {(poDateFrom || poDateTo) && (
+                        <button
+                          onClick={() => { setPoDateFrom(''); setPoDateTo(''); }}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#DDD5C8] text-xs font-semibold text-[#5C5347] hover:bg-[#F5F0E8] transition-colors"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                          Clear Filter
+                        </button>
+                      )}
+                      <p className="text-xs text-[#8C8278] ml-auto self-end">
+                        Showing {filteredProductsOrderedRows.length} of {productsOrderedRows.length} rows
+                      </p>
+                    </div>
+                  </>
+                )}
+
                 {/* Empty state */}
                 {!productsOrderedLoading && productsOrderedRows.length === 0 && (
                   <div className="text-center py-16">
@@ -4356,7 +4451,7 @@ export default function StaffWorkspacePage() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-[#F5F0E8]">
-                          {productsOrderedRows.map((row, idx) => (
+                          {filteredProductsOrderedRows.map((row, idx) => (
                             <tr key={`${row.orderId}-${idx}`} className="hover:bg-[#FDFAF7] transition-colors">
                               <td className="px-3 py-2 sticky left-0 bg-white hover:bg-[#FDFAF7] z-10 min-w-[160px] border-r border-[#F5F0E8]">
                                 <span className="block font-semibold text-[#1A1612] whitespace-nowrap">{row.clientName}</span>
@@ -4401,7 +4496,7 @@ export default function StaffWorkspacePage() {
                       </table>
                     </div>
                     <div className="px-4 py-3 border-t border-[#F5F0E8] bg-[#FDFAF7]">
-                      <p className="text-xs text-[#8C8278]">{productsOrderedRows.length} row{productsOrderedRows.length !== 1 ? 's' : ''}</p>
+                      <p className="text-xs text-[#8C8278]">{filteredProductsOrderedRows.length} row{filteredProductsOrderedRows.length !== 1 ? 's' : ''}</p>
                     </div>
                   </div>
                 )}
@@ -4444,6 +4539,75 @@ export default function StaffWorkspacePage() {
                   </div>
                 )}
 
+                {!packageMealsLoading && packageMealsRows.length > 0 && (
+                  <>
+                    {/* Summary metric cards */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
+                      <div className="bg-white border border-[#EDE7DA] rounded-2xl p-4 flex items-center gap-4 shadow-sm">
+                        <div className="w-10 h-10 rounded-xl bg-[#FDF6EE] flex items-center justify-center text-xl flex-shrink-0">🍱</div>
+                        <div>
+                          <p className="text-xs text-[#8C8278] font-medium uppercase tracking-wide">Total Items Ordered</p>
+                          <p className="text-2xl font-bold text-[#1A1612]">{filteredPackageMealsRows.length}</p>
+                        </div>
+                      </div>
+                      <div className="bg-white border border-[#EDE7DA] rounded-2xl p-4 flex items-center gap-4 shadow-sm">
+                        <div className="w-10 h-10 rounded-xl bg-[#F0FDF4] flex items-center justify-center text-xl flex-shrink-0">📦</div>
+                        <div>
+                          <p className="text-xs text-[#8C8278] font-medium uppercase tracking-wide">Total Packages Sold</p>
+                          <p className="text-2xl font-bold text-[#1A1612]">
+                            {new Set(filteredPackageMealsRows.filter(r => r.mealVoucher).map(r => r.mealVoucher)).size}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="bg-white border border-[#EDE7DA] rounded-2xl p-4 flex items-center gap-4 shadow-sm">
+                        <div className="w-10 h-10 rounded-xl bg-[#FFF7ED] flex items-center justify-center text-xl flex-shrink-0">🎟️</div>
+                        <div>
+                          <p className="text-xs text-[#8C8278] font-medium uppercase tracking-wide">Unique Vouchers</p>
+                          <p className="text-2xl font-bold text-[#1A1612]">
+                            {new Set(filteredPackageMealsRows.map(r => r.mealVoucher).filter(Boolean)).size}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Date range filter */}
+                    <div className="bg-white border border-[#EDE7DA] rounded-2xl p-4 mb-5 flex flex-wrap items-end gap-4 shadow-sm">
+                      <div className="flex flex-col gap-1">
+                        <label className="text-xs font-semibold text-[#5C5347] uppercase tracking-wide">From Date</label>
+                        <input
+                          type="date"
+                          value={pmDateFrom}
+                          onChange={e => setPmDateFrom(e.target.value)}
+                          className="border border-[#DDD5C8] rounded-lg px-3 py-1.5 text-sm text-[#1A1612] bg-[#FDFAF7] focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30 focus:border-[#C4622D]"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-xs font-semibold text-[#5C5347] uppercase tracking-wide">To Date</label>
+                        <input
+                          type="date"
+                          value={pmDateTo}
+                          onChange={e => setPmDateTo(e.target.value)}
+                          className="border border-[#DDD5C8] rounded-lg px-3 py-1.5 text-sm text-[#1A1612] bg-[#FDFAF7] focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30 focus:border-[#C4622D]"
+                        />
+                      </div>
+                      {(pmDateFrom || pmDateTo) && (
+                        <button
+                          onClick={() => { setPmDateFrom(''); setPmDateTo(''); }}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#DDD5C8] text-xs font-semibold text-[#5C5347] hover:bg-[#F5F0E8] transition-colors"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                          Clear Filter
+                        </button>
+                      )}
+                      <p className="text-xs text-[#8C8278] ml-auto self-end">
+                        Showing {filteredPackageMealsRows.length} of {packageMealsRows.length} rows
+                      </p>
+                    </div>
+                  </>
+                )}
+
                 {/* Empty state */}
                 {!packageMealsLoading && packageMealsRows.length === 0 && (
                   <div className="text-center py-16">
@@ -4472,7 +4636,7 @@ export default function StaffWorkspacePage() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-[#F5F0E8]">
-                          {packageMealsRows.map((row, idx) => (
+                          {filteredPackageMealsRows.map((row, idx) => (
                             <tr key={`${row.orderId}-${idx}`} className="hover:bg-[#FDFAF7] transition-colors">
                               <td className="px-3 py-2 sticky left-0 bg-white hover:bg-[#FDFAF7] z-10 min-w-[160px] border-r border-[#F5F0E8]">
                                 <span className="block font-semibold text-[#1A1612] whitespace-nowrap">{row.clientName}</span>
@@ -4518,7 +4682,7 @@ export default function StaffWorkspacePage() {
                       </table>
                     </div>
                     <div className="px-4 py-3 border-t border-[#F5F0E8] bg-[#FDFAF7]">
-                      <p className="text-xs text-[#8C8278]">{packageMealsRows.length} row{packageMealsRows.length !== 1 ? 's' : ''}</p>
+                      <p className="text-xs text-[#8C8278]">{filteredPackageMealsRows.length} row{filteredPackageMealsRows.length !== 1 ? 's' : ''}</p>
                     </div>
                   </div>
                 )}
@@ -4561,6 +4725,75 @@ export default function StaffWorkspacePage() {
                   </div>
                 )}
 
+                {!discountVouchersReportLoading && discountVouchersReportRows.length > 0 && (
+                  <>
+                    {/* Summary metric cards */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
+                      <div className="bg-white border border-[#EDE7DA] rounded-2xl p-4 flex items-center gap-4 shadow-sm">
+                        <div className="w-10 h-10 rounded-xl bg-[#F0FDF4] flex items-center justify-center text-xl flex-shrink-0">🏷️</div>
+                        <div>
+                          <p className="text-xs text-[#8C8278] font-medium uppercase tracking-wide">Total Items Ordered</p>
+                          <p className="text-2xl font-bold text-[#1A1612]">{filteredDiscountVouchersReportRows.length}</p>
+                        </div>
+                      </div>
+                      <div className="bg-white border border-[#EDE7DA] rounded-2xl p-4 flex items-center gap-4 shadow-sm">
+                        <div className="w-10 h-10 rounded-xl bg-[#FDF6EE] flex items-center justify-center text-xl flex-shrink-0">💰</div>
+                        <div>
+                          <p className="text-xs text-[#8C8278] font-medium uppercase tracking-wide">Total Discount Value Used</p>
+                          <p className="text-2xl font-bold text-[#1A1612]">
+                            R {filteredDiscountVouchersReportRows.reduce((sum, r) => sum + Number(r.dvAmount), 0).toFixed(2)}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="bg-white border border-[#EDE7DA] rounded-2xl p-4 flex items-center gap-4 shadow-sm">
+                        <div className="w-10 h-10 rounded-xl bg-[#FFF7ED] flex items-center justify-center text-xl flex-shrink-0">🎫</div>
+                        <div>
+                          <p className="text-xs text-[#8C8278] font-medium uppercase tracking-wide">Unique Vouchers Used</p>
+                          <p className="text-2xl font-bold text-[#1A1612]">
+                            {new Set(filteredDiscountVouchersReportRows.map(r => r.dvCode)).size}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Date range filter */}
+                    <div className="bg-white border border-[#EDE7DA] rounded-2xl p-4 mb-5 flex flex-wrap items-end gap-4 shadow-sm">
+                      <div className="flex flex-col gap-1">
+                        <label className="text-xs font-semibold text-[#5C5347] uppercase tracking-wide">From Date</label>
+                        <input
+                          type="date"
+                          value={dvDateFrom}
+                          onChange={e => setDvDateFrom(e.target.value)}
+                          className="border border-[#DDD5C8] rounded-lg px-3 py-1.5 text-sm text-[#1A1612] bg-[#FDFAF7] focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30 focus:border-[#C4622D]"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-xs font-semibold text-[#5C5347] uppercase tracking-wide">To Date</label>
+                        <input
+                          type="date"
+                          value={dvDateTo}
+                          onChange={e => setDvDateTo(e.target.value)}
+                          className="border border-[#DDD5C8] rounded-lg px-3 py-1.5 text-sm text-[#1A1612] bg-[#FDFAF7] focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30 focus:border-[#C4622D]"
+                        />
+                      </div>
+                      {(dvDateFrom || dvDateTo) && (
+                        <button
+                          onClick={() => { setDvDateFrom(''); setDvDateTo(''); }}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#DDD5C8] text-xs font-semibold text-[#5C5347] hover:bg-[#F5F0E8] transition-colors"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                          Clear Filter
+                        </button>
+                      )}
+                      <p className="text-xs text-[#8C8278] ml-auto self-end">
+                        Showing {filteredDiscountVouchersReportRows.length} of {discountVouchersReportRows.length} rows
+                      </p>
+                    </div>
+                  </>
+                )}
+
                 {/* Empty state */}
                 {!discountVouchersReportLoading && discountVouchersReportRows.length === 0 && (
                   <div className="text-center py-16">
@@ -4589,7 +4822,7 @@ export default function StaffWorkspacePage() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-[#F5F0E8]">
-                          {discountVouchersReportRows.map((row, idx) => (
+                          {filteredDiscountVouchersReportRows.map((row, idx) => (
                             <tr key={`${row.dvCode}-${idx}`} className="hover:bg-[#FDFAF7] transition-colors">
                               <td className="px-3 py-2 sticky left-0 bg-white hover:bg-[#FDFAF7] z-10 min-w-[160px] border-r border-[#F5F0E8]">
                                 <span className="block font-semibold text-[#1A1612] whitespace-nowrap">{row.clientName}</span>
@@ -4627,7 +4860,7 @@ export default function StaffWorkspacePage() {
                       </table>
                     </div>
                     <div className="px-4 py-3 border-t border-[#F5F0E8] bg-[#FDFAF7]">
-                      <p className="text-xs text-[#8C8278]">{discountVouchersReportRows.length} row{discountVouchersReportRows.length !== 1 ? 's' : ''}</p>
+                      <p className="text-xs text-[#8C8278]">{filteredDiscountVouchersReportRows.length} row{filteredDiscountVouchersReportRows.length !== 1 ? 's' : ''}</p>
                     </div>
                   </div>
                 )}
