@@ -674,6 +674,96 @@ export default function StaffWorkspacePage() {
   const [discountVouchersReportRows, setDiscountVouchersReportRows] = useState<DiscountVouchersReportRow[]>([]);
   const [discountVouchersReportLoading, setDiscountVouchersReportLoading] = useState(false);
 
+  // ─── PDF Download helpers ──────────────────────────────────────────────────
+  const downloadProductsOrderedPDF = () => {
+    const headers = ['Product Name', 'Type', 'Item', 'Meal Voucher', 'Discount Voucher', 'Ordered Date', 'Delivered DT', 'Client', 'eMail'];
+    const rows = productsOrderedRows.map(r => [
+      r.productName,
+      r.productType,
+      r.item,
+      r.mealVoucher || '—',
+      r.discountVoucher || '—',
+      r.orderedDate,
+      r.deliveredDt || '—',
+      r.clientName,
+      r.clientEmail,
+    ]);
+    printReportPDF('Products Ordered', headers, rows);
+  };
+
+  const downloadPackageMealsPDF = () => {
+    const headers = ['Product Name', 'Type', 'Item', 'Package Purchased', 'Meal Voucher', 'Discount Voucher', 'Ordered Date', 'Delivered DT', 'Client', 'eMail'];
+    const rows = packageMealsRows.map(r => [
+      r.productName,
+      r.productType,
+      r.item,
+      r.packagePurchased,
+      r.mealVoucher || '—',
+      r.discountVoucher || '—',
+      r.orderedDate,
+      r.deliveredDt || '—',
+      r.clientName,
+      r.clientEmail,
+    ]);
+    printReportPDF('Package Meals Ordered', headers, rows);
+  };
+
+  const downloadDiscountVouchersPDF = () => {
+    const headers = ['Discount Voucher', 'Amount', 'Expiry Date', 'Product Name', 'Type', 'Item', 'Ordered Date', 'Delivered DT', 'Client', 'eMail'];
+    const rows = discountVouchersReportRows.map(r => [
+      r.dvCode,
+      `R${r.dvAmount.toFixed(2)}`,
+      r.expiryDate,
+      r.productName,
+      r.productType,
+      r.item,
+      r.orderedDate,
+      r.deliveredDt || '—',
+      r.clientName,
+      r.clientEmail,
+    ]);
+    printReportPDF('Discount Vouchers', headers, rows);
+  };
+
+  const printReportPDF = (title: string, headers: string[], rows: string[][]) => {
+    const tableRows = rows.map(row =>
+      `<tr>${row.map(cell => `<td>${cell}</td>`).join('')}</tr>`
+    ).join('');
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>${title}</title>
+  <style>
+    body { font-family: Arial, sans-serif; font-size: 11px; color: #1A1612; margin: 20px; }
+    h1 { font-size: 16px; margin-bottom: 4px; color: #C4622D; }
+    p.subtitle { font-size: 10px; color: #8C8278; margin-bottom: 16px; }
+    table { width: 100%; border-collapse: collapse; }
+    th { background: #FDF6EE; color: #5C5347; text-transform: uppercase; font-size: 9px; letter-spacing: 0.05em; padding: 6px 8px; border: 1px solid #EDE7DA; text-align: left; }
+    td { padding: 5px 8px; border: 1px solid #F0EBE3; vertical-align: top; }
+    tr:nth-child(even) td { background: #FDFAF7; }
+    .footer { margin-top: 12px; font-size: 9px; color: #8C8278; }
+    @media print { body { margin: 10px; } }
+  </style>
+</head>
+<body>
+  <h1>${title}</h1>
+  <p class="subtitle">Generated on ${new Date().toLocaleDateString('en-ZA', { day: '2-digit', month: '2-digit', year: 'numeric' })} &nbsp;|&nbsp; ${rows.length} record${rows.length !== 1 ? 's' : ''}</p>
+  <table>
+    <thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>
+    <tbody>${tableRows}</tbody>
+  </table>
+  <p class="footer">Cardamom Catering Hub &mdash; Staff Workspace Report</p>
+</body>
+</html>`;
+    const win = window.open('', '_blank');
+    if (!win) return;
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(() => { win.print(); }, 400);
+  };
+
   const openDeleteModal = (productName: string, onConfirm: () => void, message?: string) => {
     setDeleteModal({ isOpen: true, productName, onConfirm, message });
   };
@@ -1986,12 +2076,10 @@ export default function StaffWorkspacePage() {
       const vouchers = (data || []) as DiscountVoucher[];
 
       // Auto-deactivate expired vouchers: the day after expiry_date, set status to Inactive
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      const today = new Date(); today.setHours(0,0,0,0);
       const expiredActive = vouchers.filter((dv) => {
         if (dv.status !== 'Active') return false;
-        const expiry = new Date(dv.expiry_date);
-        expiry.setHours(0, 0, 0, 0);
+        const expiry = new Date(dv.expiry_date); expiry.setHours(0,0,0,0);
         // expired = expiry date is strictly before today
         return expiry < today;
       });
@@ -4219,6 +4307,17 @@ export default function StaffWorkspacePage() {
                   </button>
                   <span className="text-[#DDD5C8]">/</span>
                   <h2 className="text-lg font-bold text-[#1A1612]">Products Ordered</h2>
+                  {!productsOrderedLoading && productsOrderedRows.length > 0 && (
+                    <button
+                      onClick={downloadProductsOrderedPDF}
+                      className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#C4622D] text-white text-xs font-semibold hover:bg-[#A8522A] transition-colors shadow-sm"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17v3a1 1 0 001 1h16a1 1 0 001-1v-3" />
+                      </svg>
+                      Download PDF
+                    </button>
+                  )}
                 </div>
 
                 {/* Loading state */}
@@ -4326,6 +4425,17 @@ export default function StaffWorkspacePage() {
                   </button>
                   <span className="text-[#DDD5C8]">/</span>
                   <h2 className="text-lg font-bold text-[#1A1612]">Package Meals Ordered</h2>
+                  {!packageMealsLoading && packageMealsRows.length > 0 && (
+                    <button
+                      onClick={downloadPackageMealsPDF}
+                      className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#C4622D] text-white text-xs font-semibold hover:bg-[#A8522A] transition-colors shadow-sm"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17v3a1 1 0 001 1h16a1 1 0 001-1v-3" />
+                      </svg>
+                      Download PDF
+                    </button>
+                  )}
                 </div>
 
                 {/* Loading state */}
@@ -4437,6 +4547,17 @@ export default function StaffWorkspacePage() {
                   </button>
                   <span className="text-[#DDD5C8]">/</span>
                   <h2 className="text-lg font-bold text-[#1A1612]">Discount Vouchers</h2>
+                  {!discountVouchersReportLoading && discountVouchersReportRows.length > 0 && (
+                    <button
+                      onClick={downloadDiscountVouchersPDF}
+                      className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#C4622D] text-white text-xs font-semibold hover:bg-[#A8522A] transition-colors shadow-sm"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17v3a1 1 0 001 1h16a1 1 0 001-1v-3" />
+                      </svg>
+                      Download PDF
+                    </button>
+                  )}
                 </div>
 
                 {/* Loading state */}
