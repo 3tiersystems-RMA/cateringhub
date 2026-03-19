@@ -2437,9 +2437,11 @@ export default function StaffWorkspacePage() {
 
         // Resolve package purchased name from voucher data
         const voucherInfo = voucherMap[mealVoucher];
-        const packagePurchased = voucherInfo
-          ? packageTypeLabel(voucherInfo.package_type, voucherInfo.total_meals)
-          : `${mealVoucher} Package`;
+        const packagePurchased = discountVoucher
+          ? ''
+          : voucherInfo
+            ? packageTypeLabel(voucherInfo.package_type, voucherInfo.total_meals)
+            : `${mealVoucher} Package`;
 
         // Ordered date: created_at formatted dd/mm/yyyy
         const orderedDate = order.created_at
