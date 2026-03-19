@@ -676,7 +676,7 @@ export default function StaffWorkspacePage() {
 
   // ─── PDF Download helpers ──────────────────────────────────────────────────
   const downloadProductsOrderedPDF = () => {
-    const headers = ['Product Name', 'Type', 'Item', 'Meal Voucher', 'Discount Voucher', 'Ordered Date', 'Delivered DT', 'Client', 'eMail'];
+    const headers = ['Product Name', 'Type', 'Item', 'Meal Voucher', 'Discount Voucher', 'Ordered', 'Delivered', 'Client', 'eMail'];
     const rows = productsOrderedRows.map(r => [
       r.productName,
       r.productType,
@@ -692,7 +692,7 @@ export default function StaffWorkspacePage() {
   };
 
   const downloadPackageMealsPDF = () => {
-    const headers = ['Product Name', 'Type', 'Item', 'Package Purchased', 'Meal Voucher', 'Discount Voucher', 'Ordered Date', 'Delivered DT', 'Client', 'eMail'];
+    const headers = ['Product Name', 'Type', 'Item', 'Package', 'Meal Voucher', 'Discount Voucher', 'Ordered', 'Delivered', 'Client', 'eMail'];
     const rows = packageMealsRows.map(r => [
       r.productName,
       r.productType,
@@ -709,7 +709,7 @@ export default function StaffWorkspacePage() {
   };
 
   const downloadDiscountVouchersPDF = () => {
-    const headers = ['Discount Voucher', 'Amount', 'Expiry Date', 'Product Name', 'Type', 'Item', 'Ordered Date', 'Delivered DT', 'Client', 'eMail'];
+    const headers = ['Discount Voucher', 'Amount', 'Expiry Date', 'Product Name', 'Type', 'Item', 'Ordered', 'Delivered', 'Client', 'eMail'];
     const rows = discountVouchersReportRows.map(r => [
       r.dvCode,
       `R${r.dvAmount.toFixed(2)}`,
@@ -4351,8 +4351,8 @@ export default function StaffWorkspacePage() {
                             <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Item</th>
                             <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Meal Voucher</th>
                             <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Discount Voucher</th>
-                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Ordered Date</th>
-                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Delivered DT</th>
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Ordered</th>
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Delivered</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-[#F5F0E8]">
@@ -4464,11 +4464,11 @@ export default function StaffWorkspacePage() {
                             <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Product Name</th>
                             <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Type</th>
                             <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Item</th>
-                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Package Purchased</th>
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Package</th>
                             <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Meal Voucher</th>
                             <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Discount Voucher</th>
-                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Ordered Date</th>
-                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Delivered DT</th>
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Ordered</th>
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Delivered</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-[#F5F0E8]">
@@ -4581,13 +4581,13 @@ export default function StaffWorkspacePage() {
                           <tr className="border-b border-[#EDE7DA] bg-[#FDFAF7]">
                             <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap sticky left-0 bg-[#FDFAF7] z-10 min-w-[160px]">Client</th>
                             <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Discount Voucher</th>
-                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Discount Amount</th>
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Amount</th>
                             <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Expiry Date</th>
                             <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Product Name</th>
                             <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Type</th>
                             <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Item</th>
-                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Ordered Date</th>
-                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Delivered DT</th>
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Ordered</th>
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Delivered</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-[#F5F0E8]">
