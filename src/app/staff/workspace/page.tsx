@@ -4340,61 +4340,61 @@ export default function StaffWorkspacePage() {
                 {!productsOrderedLoading && productsOrderedRows.length > 0 && (
                   <div className="bg-white border border-[#EDE7DA] rounded-2xl shadow-sm overflow-hidden">
                     <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
+                      <table className="w-full text-xs">
                         <thead>
                           <tr className="border-b border-[#EDE7DA] bg-[#FDFAF7]">
-                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Product Name</th>
-                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Type</th>
-                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Item</th>
-                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Meal Voucher</th>
-                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Discount Voucher</th>
-                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Ordered Date</th>
-                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Delivered DT</th>
-                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Client</th>
-                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">eMail</th>
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Product Name</th>
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Type</th>
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Item</th>
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Meal Voucher</th>
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Discount Voucher</th>
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Ordered Date</th>
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Delivered DT</th>
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Client</th>
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">eMail</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-[#F5F0E8]">
                           {productsOrderedRows.map((row, idx) => (
                             <tr key={`${row.orderId}-${idx}`} className="hover:bg-[#FDFAF7] transition-colors">
-                              <td className="px-4 py-3">
+                              <td className="px-3 py-2">
                                 <span className="font-medium text-[#1A1612]">{row.productName}</span>
                               </td>
-                              <td className="px-4 py-3">
+                              <td className="px-3 py-2">
                                 <span className="text-[#5C5347]">{row.productType}</span>
                               </td>
-                              <td className="px-4 py-3">
+                              <td className="px-3 py-2">
                                 <span className="text-[#1A1612]">{row.item}</span>
                               </td>
-                              <td className="px-4 py-3">
+                              <td className="px-3 py-2">
                                 {row.mealVoucher ? (
                                   <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-[#F5F0E8] text-[#C4622D] border border-[#DDD5C8]">
                                     {row.mealVoucher}
                                   </span>
                                 ) : (
-                                  <span className="text-[#B5ADA5] text-xs">—</span>
+                                  <span className="text-[#B5ADA5]">—</span>
                                 )}
                               </td>
-                              <td className="px-4 py-3">
+                              <td className="px-3 py-2">
                                 {row.discountVoucher ? (
                                   <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-200">
                                     {row.discountVoucher}
                                   </span>
                                 ) : (
-                                  <span className="text-[#B5ADA5] text-xs">—</span>
+                                  <span className="text-[#B5ADA5]">—</span>
                                 )}
                               </td>
-                              <td className="px-4 py-3">
-                                <span className="text-[#5C5347] text-xs whitespace-nowrap">{row.orderedDate}</span>
+                              <td className="px-3 py-2">
+                                <span className="text-[#5C5347] whitespace-nowrap">{row.orderedDate}</span>
                               </td>
-                              <td className="px-4 py-3">
-                                <span className={`text-xs whitespace-nowrap ${row.deliveredDt === '—' ? 'text-[#B5ADA5]' : 'text-[#5C5347]'}`}>{row.deliveredDt}</span>
+                              <td className="px-3 py-2">
+                                <span className={`whitespace-nowrap ${row.deliveredDt === '—' ? 'text-[#B5ADA5]' : 'text-[#5C5347]'}`}>{row.deliveredDt}</span>
                               </td>
-                              <td className="px-4 py-3">
+                              <td className="px-3 py-2">
                                 <span className="text-[#1A1612] font-medium whitespace-nowrap">{row.clientName}</span>
                               </td>
-                              <td className="px-4 py-3">
-                                <span className="text-[#5C5347] text-xs break-all">{row.clientEmail}</span>
+                              <td className="px-3 py-2">
+                                <span className="text-[#5C5347] break-all">{row.clientEmail}</span>
                               </td>
                             </tr>
                           ))}
@@ -4458,65 +4458,65 @@ export default function StaffWorkspacePage() {
                 {!packageMealsLoading && packageMealsRows.length > 0 && (
                   <div className="bg-white border border-[#EDE7DA] rounded-2xl shadow-sm overflow-hidden">
                     <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
+                      <table className="w-full text-xs">
                         <thead>
                           <tr className="border-b border-[#EDE7DA] bg-[#FDFAF7]">
-                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Product Name</th>
-                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Type</th>
-                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Item</th>
-                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Package Purchased</th>
-                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Meal Voucher</th>
-                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Discount Voucher</th>
-                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Ordered Date</th>
-                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Delivered DT</th>
-                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Client</th>
-                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">eMail</th>
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Product Name</th>
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Type</th>
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Item</th>
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Package Purchased</th>
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Meal Voucher</th>
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Discount Voucher</th>
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Ordered Date</th>
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Delivered DT</th>
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Client</th>
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">eMail</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-[#F5F0E8]">
                           {packageMealsRows.map((row, idx) => (
                             <tr key={`${row.orderId}-${idx}`} className="hover:bg-[#FDFAF7] transition-colors">
-                              <td className="px-4 py-3">
+                              <td className="px-3 py-2">
                                 <span className="font-medium text-[#1A1612]">{row.productName}</span>
                               </td>
-                              <td className="px-4 py-3">
+                              <td className="px-3 py-2">
                                 <span className="text-[#5C5347]">{row.productType}</span>
                               </td>
-                              <td className="px-4 py-3">
+                              <td className="px-3 py-2">
                                 <span className="text-[#1A1612]">{row.item}</span>
                               </td>
-                              <td className="px-4 py-3">
+                              <td className="px-3 py-2">
                                 <span className="text-[#1A1612] font-medium whitespace-nowrap">{row.packagePurchased}</span>
                               </td>
-                              <td className="px-4 py-3">
+                              <td className="px-3 py-2">
                                 {row.mealVoucher ? (
                                   <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-[#F5F0E8] text-[#C4622D] border border-[#DDD5C8]">
                                     {row.mealVoucher}
                                   </span>
                                 ) : (
-                                  <span className="text-[#B5ADA5] text-xs">—</span>
+                                  <span className="text-[#B5ADA5]">—</span>
                                 )}
                               </td>
-                              <td className="px-4 py-3">
+                              <td className="px-3 py-2">
                                 {row.discountVoucher ? (
                                   <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-200">
                                     {row.discountVoucher}
                                   </span>
                                 ) : (
-                                  <span className="text-[#B5ADA5] text-xs">—</span>
+                                  <span className="text-[#B5ADA5]">—</span>
                                 )}
                               </td>
-                              <td className="px-4 py-3">
-                                <span className="text-[#5C5347] text-xs whitespace-nowrap">{row.orderedDate}</span>
+                              <td className="px-3 py-2">
+                                <span className="text-[#5C5347] whitespace-nowrap">{row.orderedDate}</span>
                               </td>
-                              <td className="px-4 py-3">
-                                <span className={`text-xs whitespace-nowrap ${row.deliveredDt === '—' ? 'text-[#B5ADA5]' : 'text-[#5C5347]'}`}>{row.deliveredDt}</span>
+                              <td className="px-3 py-2">
+                                <span className={`whitespace-nowrap ${row.deliveredDt === '—' ? 'text-[#B5ADA5]' : 'text-[#5C5347]'}`}>{row.deliveredDt}</span>
                               </td>
-                              <td className="px-4 py-3">
+                              <td className="px-3 py-2">
                                 <span className="text-[#1A1612] font-medium whitespace-nowrap">{row.clientName}</span>
                               </td>
-                              <td className="px-4 py-3">
-                                <span className="text-[#5C5347] text-xs break-all">{row.clientEmail}</span>
+                              <td className="px-3 py-2">
+                                <span className="text-[#5C5347] break-all">{row.clientEmail}</span>
                               </td>
                             </tr>
                           ))}
@@ -4580,55 +4580,55 @@ export default function StaffWorkspacePage() {
                 {!discountVouchersReportLoading && discountVouchersReportRows.length > 0 && (
                   <div className="bg-white border border-[#EDE7DA] rounded-2xl shadow-sm overflow-hidden">
                     <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
+                      <table className="w-full text-xs">
                         <thead>
                           <tr className="border-b border-[#EDE7DA] bg-[#FDFAF7]">
-                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Discount Voucher</th>
-                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Discount Amount</th>
-                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Expiry Date</th>
-                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Product Name</th>
-                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Type</th>
-                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Item</th>
-                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Ordered Date</th>
-                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Delivered DT</th>
-                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Client</th>
-                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">eMail</th>
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Discount Voucher</th>
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Discount Amount</th>
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Expiry Date</th>
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Product Name</th>
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Type</th>
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Item</th>
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Ordered Date</th>
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Delivered DT</th>
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Client</th>
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">eMail</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-[#F5F0E8]">
                           {discountVouchersReportRows.map((row, idx) => (
                             <tr key={`${row.dvCode}-${idx}`} className="hover:bg-[#FDFAF7] transition-colors">
-                              <td className="px-4 py-3">
+                              <td className="px-3 py-2">
                                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-200">
                                   {row.dvCode}
                                 </span>
                               </td>
-                              <td className="px-4 py-3">
+                              <td className="px-3 py-2">
                                 <span className="font-medium text-[#1A1612]">R {Number(row.dvAmount).toFixed(2)}</span>
                               </td>
-                              <td className="px-4 py-3">
-                                <span className="text-[#5C5347] text-xs whitespace-nowrap">{row.expiryDate}</span>
+                              <td className="px-3 py-2">
+                                <span className="text-[#5C5347] whitespace-nowrap">{row.expiryDate}</span>
                               </td>
-                              <td className="px-4 py-3">
+                              <td className="px-3 py-2">
                                 <span className="font-medium text-[#1A1612]">{row.productName}</span>
                               </td>
-                              <td className="px-4 py-3">
+                              <td className="px-3 py-2">
                                 <span className="text-[#5C5347]">{row.productType}</span>
                               </td>
-                              <td className="px-4 py-3">
+                              <td className="px-3 py-2">
                                 <span className="text-[#1A1612]">{row.item}</span>
                               </td>
-                              <td className="px-4 py-3">
-                                <span className="text-[#5C5347] text-xs whitespace-nowrap">{row.orderedDate}</span>
+                              <td className="px-3 py-2">
+                                <span className="text-[#5C5347] whitespace-nowrap">{row.orderedDate}</span>
                               </td>
-                              <td className="px-4 py-3">
-                                <span className={`text-xs whitespace-nowrap ${row.deliveredDt === '—' ? 'text-[#B5ADA5]' : 'text-[#5C5347]'}`}>{row.deliveredDt}</span>
+                              <td className="px-3 py-2">
+                                <span className={`whitespace-nowrap ${row.deliveredDt === '—' ? 'text-[#B5ADA5]' : 'text-[#5C5347]'}`}>{row.deliveredDt}</span>
                               </td>
-                              <td className="px-4 py-3">
+                              <td className="px-3 py-2">
                                 <span className="text-[#1A1612] font-medium whitespace-nowrap">{row.clientName}</span>
                               </td>
-                              <td className="px-4 py-3">
-                                <span className="text-[#5C5347] text-xs break-all">{row.clientEmail}</span>
+                              <td className="px-3 py-2">
+                                <span className="text-[#5C5347] break-all">{row.clientEmail}</span>
                               </td>
                             </tr>
                           ))}
