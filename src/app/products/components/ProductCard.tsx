@@ -155,11 +155,11 @@ export default function ProductCard({ product, onOpenModal }: ProductCardProps) 
           {isVoucherRequired ? (
             <button
               onClick={handleAdd}
-              className="flex items-center gap-1.5 px-3 py-2.5 rounded-full text-xs font-semibold transition-all duration-300 bg-amber-50 border border-amber-300 text-amber-700 hover:bg-amber-100"
-              aria-label={`Enter a voucher to order ${product.name}`}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-full text-xs font-semibold transition-all duration-300 bg-[#C4622D] text-white hover:bg-[#A04E22] hover:shadow-terra"
+              aria-label={`Add ${product.name} to cart`}
             >
-              <Icon name="TicketIcon" size={13} />
-              Enter Voucher
+              <Icon name="PlusIcon" size={14} />
+              Add
             </button>
           ) : (
             <button
