@@ -739,7 +739,7 @@ export default function StaffWorkspacePage() {
     h1 { font-size: 16px; margin-bottom: 4px; color: #C4622D; }
     p.subtitle { font-size: 10px; color: #8C8278; margin-bottom: 16px; }
     table { width: 100%; border-collapse: collapse; }
-    th { background: #FDF6EE; color: #5C5347; text-transform: uppercase; font-size: 9px; letter-spacing: 0.05em; padding: 6px 8px; border: 1px solid #EDE7DA; text-align: left; }
+    th { background: #000000; color: #ffffff; text-transform: uppercase; font-size: 9px; letter-spacing: 0.05em; padding: 6px 8px; border: 1px solid #000000; text-align: left; }
     td { padding: 5px 8px; border: 1px solid #F0EBE3; vertical-align: top; }
     tr:nth-child(even) td { background: #FDFAF7; }
     .footer { margin-top: 12px; font-size: 9px; color: #8C8278; }
@@ -753,7 +753,7 @@ export default function StaffWorkspacePage() {
     <thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>
     <tbody>${tableRows}</tbody>
   </table>
-  <p class="footer">Cardamom Catering Hub &mdash; Staff Workspace Report</p>
+  <p class="footer">${APP_NAME} &mdash; Staff Workspace Report</p>
 </body>
 </html>`;
     const win = window.open('', '_blank');
