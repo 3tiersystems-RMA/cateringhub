@@ -4345,6 +4345,7 @@ export default function StaffWorkspacePage() {
                       <table className="w-full text-xs">
                         <thead>
                           <tr className="border-b border-[#EDE7DA] bg-[#FDFAF7]">
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap sticky left-0 bg-[#FDFAF7] z-10 min-w-[160px]">Client</th>
                             <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Product Name</th>
                             <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Type</th>
                             <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Item</th>
@@ -4352,13 +4353,15 @@ export default function StaffWorkspacePage() {
                             <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Discount Voucher</th>
                             <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Ordered Date</th>
                             <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Delivered DT</th>
-                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Client</th>
-                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">eMail</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-[#F5F0E8]">
                           {productsOrderedRows.map((row, idx) => (
                             <tr key={`${row.orderId}-${idx}`} className="hover:bg-[#FDFAF7] transition-colors">
+                              <td className="px-3 py-2 sticky left-0 bg-white hover:bg-[#FDFAF7] z-10 min-w-[160px] border-r border-[#F5F0E8]">
+                                <span className="block font-semibold text-[#1A1612] whitespace-nowrap">{row.clientName}</span>
+                                <span className="block text-[#8C8278] text-xs truncate max-w-[150px]" title={row.clientEmail}>{row.clientEmail}</span>
+                              </td>
                               <td className="px-3 py-2">
                                 <span className="font-medium text-[#1A1612]">{row.productName}</span>
                               </td>
@@ -4391,12 +4394,6 @@ export default function StaffWorkspacePage() {
                               </td>
                               <td className="px-3 py-2">
                                 <span className={`whitespace-nowrap ${row.deliveredDt === '—' ? 'text-[#B5ADA5]' : 'text-[#5C5347]'}`}>{row.deliveredDt}</span>
-                              </td>
-                              <td className="px-3 py-2">
-                                <span className="text-[#1A1612] font-medium whitespace-nowrap">{row.clientName}</span>
-                              </td>
-                              <td className="px-3 py-2">
-                                <span className="text-[#5C5347] break-all">{row.clientEmail}</span>
                               </td>
                             </tr>
                           ))}
@@ -4463,6 +4460,7 @@ export default function StaffWorkspacePage() {
                       <table className="w-full text-xs">
                         <thead>
                           <tr className="border-b border-[#EDE7DA] bg-[#FDFAF7]">
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap sticky left-0 bg-[#FDFAF7] z-10 min-w-[160px]">Client</th>
                             <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Product Name</th>
                             <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Type</th>
                             <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Item</th>
@@ -4471,13 +4469,15 @@ export default function StaffWorkspacePage() {
                             <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Discount Voucher</th>
                             <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Ordered Date</th>
                             <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Delivered DT</th>
-                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Client</th>
-                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">eMail</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-[#F5F0E8]">
                           {packageMealsRows.map((row, idx) => (
                             <tr key={`${row.orderId}-${idx}`} className="hover:bg-[#FDFAF7] transition-colors">
+                              <td className="px-3 py-2 sticky left-0 bg-white hover:bg-[#FDFAF7] z-10 min-w-[160px] border-r border-[#F5F0E8]">
+                                <span className="block font-semibold text-[#1A1612] whitespace-nowrap">{row.clientName}</span>
+                                <span className="block text-[#8C8278] text-xs truncate max-w-[150px]" title={row.clientEmail}>{row.clientEmail}</span>
+                              </td>
                               <td className="px-3 py-2">
                                 <span className="font-medium text-[#1A1612]">{row.productName}</span>
                               </td>
@@ -4513,12 +4513,6 @@ export default function StaffWorkspacePage() {
                               </td>
                               <td className="px-3 py-2">
                                 <span className={`whitespace-nowrap ${row.deliveredDt === '—' ? 'text-[#B5ADA5]' : 'text-[#5C5347]'}`}>{row.deliveredDt}</span>
-                              </td>
-                              <td className="px-3 py-2">
-                                <span className="text-[#1A1612] font-medium whitespace-nowrap">{row.clientName}</span>
-                              </td>
-                              <td className="px-3 py-2">
-                                <span className="text-[#5C5347] break-all">{row.clientEmail}</span>
                               </td>
                             </tr>
                           ))}
@@ -4585,6 +4579,7 @@ export default function StaffWorkspacePage() {
                       <table className="w-full text-xs">
                         <thead>
                           <tr className="border-b border-[#EDE7DA] bg-[#FDFAF7]">
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap sticky left-0 bg-[#FDFAF7] z-10 min-w-[160px]">Client</th>
                             <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Discount Voucher</th>
                             <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Discount Amount</th>
                             <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Expiry Date</th>
@@ -4593,13 +4588,15 @@ export default function StaffWorkspacePage() {
                             <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Item</th>
                             <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Ordered Date</th>
                             <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Delivered DT</th>
-                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">Client</th>
-                            <th className="text-left px-3 py-2 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">eMail</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-[#F5F0E8]">
                           {discountVouchersReportRows.map((row, idx) => (
                             <tr key={`${row.dvCode}-${idx}`} className="hover:bg-[#FDFAF7] transition-colors">
+                              <td className="px-3 py-2 sticky left-0 bg-white hover:bg-[#FDFAF7] z-10 min-w-[160px] border-r border-[#F5F0E8]">
+                                <span className="block font-semibold text-[#1A1612] whitespace-nowrap">{row.clientName}</span>
+                                <span className="block text-[#8C8278] text-xs truncate max-w-[150px]" title={row.clientEmail}>{row.clientEmail}</span>
+                              </td>
                               <td className="px-3 py-2">
                                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-200">
                                   {row.dvCode}
@@ -4625,12 +4622,6 @@ export default function StaffWorkspacePage() {
                               </td>
                               <td className="px-3 py-2">
                                 <span className={`whitespace-nowrap ${row.deliveredDt === '—' ? 'text-[#B5ADA5]' : 'text-[#5C5347]'}`}>{row.deliveredDt}</span>
-                              </td>
-                              <td className="px-3 py-2">
-                                <span className="text-[#1A1612] font-medium whitespace-nowrap">{row.clientName}</span>
-                              </td>
-                              <td className="px-3 py-2">
-                                <span className="text-[#5C5347] break-all">{row.clientEmail}</span>
                               </td>
                             </tr>
                           ))}
