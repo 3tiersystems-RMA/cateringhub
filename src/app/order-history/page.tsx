@@ -8,7 +8,7 @@ import Footer from "@/components/Footer";
 import AppIcon from "@/components/ui/AppIcon";
 import { createClient } from "@/lib/supabase/client";
 
-type PaymentStatus = "pending" | "paid" | "failed" | "awaiting_payment" | "refunded";
+type PaymentStatus = "pending" | "paid" | "failed" | "awaiting_payment" | "refunded" | "discounted";
 type FulfillmentStatus = "new" | "confirmed" | "preparing" | "ready" | "delivered" | "cancelled";
 
 interface OrderItem {
@@ -62,6 +62,7 @@ const PAYMENT_LABELS: Record<PaymentStatus, string> = {
   failed: "Failed",
   awaiting_payment: "Awaiting Payment",
   refunded: "Refunded",
+  discounted: "Discounted",
 };
 
 const PAYMENT_COLORS: Record<PaymentStatus, string> = {
@@ -70,6 +71,7 @@ const PAYMENT_COLORS: Record<PaymentStatus, string> = {
   failed: "bg-red-500/15 text-red-300 border border-red-500/30",
   awaiting_payment: "bg-blue-500/15 text-blue-300 border border-blue-500/30",
   refunded: "bg-gray-500/15 text-gray-400 border border-gray-500/30",
+  discounted: "bg-purple-500/15 text-purple-300 border border-purple-500/30",
 };
 
 function formatDate(dateStr: string) {

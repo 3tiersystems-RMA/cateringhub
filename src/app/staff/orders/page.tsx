@@ -7,7 +7,7 @@ import AppLogo from '@/components/ui/AppLogo';
 import AppIcon from '@/components/ui/AppIcon';
 import Link from 'next/link';
 
-type PaymentStatus = 'pending' | 'paid' | 'failed' | 'awaiting_payment' | 'refunded';
+type PaymentStatus = 'pending' | 'paid' | 'failed' | 'awaiting_payment' | 'refunded' | 'discounted';
 type FulfillmentStatus = 'new' | 'confirmed' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
 
 interface OrderItem {
@@ -54,6 +54,7 @@ const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
   failed: 'Failed',
   awaiting_payment: 'Awaiting Payment',
   refunded: 'Refunded',
+  discounted: 'Discounted',
 };
 
 const PAYMENT_STATUS_COLORS: Record<PaymentStatus, string> = {
@@ -62,6 +63,7 @@ const PAYMENT_STATUS_COLORS: Record<PaymentStatus, string> = {
   failed: 'bg-red-100 text-red-700 border-red-200',
   awaiting_payment: 'bg-blue-100 text-blue-700 border-blue-200',
   refunded: 'bg-gray-100 text-gray-600 border-gray-200',
+  discounted: 'bg-purple-100 text-purple-700 border-purple-200',
 };
 
 const FULFILLMENT_STATUS_LABELS: Record<FulfillmentStatus, string> = {
@@ -83,7 +85,7 @@ const FULFILLMENT_STATUS_COLORS: Record<FulfillmentStatus, string> = {
 };
 
 const FULFILLMENT_OPTIONS: FulfillmentStatus[] = ['new', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled'];
-const PAYMENT_OPTIONS: PaymentStatus[] = ['awaiting_payment', 'paid', 'refunded', 'pending', 'failed'];
+const PAYMENT_OPTIONS: PaymentStatus[] = ['awaiting_payment', 'paid', 'refunded', 'pending', 'failed', 'discounted'];
 
 export default function StaffOrdersPage() {
   const router = useRouter();
@@ -101,6 +103,7 @@ export default function StaffOrdersPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPayment, setFilterPayment] = useState<string>('all');
   const [filterFulfillment, setFilterFulfillment] = useState<string>('all');
+  const [paymentFilterOptions, setPaymentFilterOptions] = useState<PaymentStatus[]>([]);
   const [voucherPriceMap, setVoucherPriceMap] = useState<Record<string, number>>({});
 
   const VOUCHER_PACKAGE_PRICES: Record<string, number> = {
@@ -117,10 +120,33 @@ export default function StaffOrdersPage() {
         router.replace('/staff/login');
         return;
       }
+      await loadPaymentTypes();
       await loadOrders();
     };
     init();
   }, []);
+
+  const loadPaymentTypes = async () => {
+    try {
+      // Fetch all distinct payment statuses from the orders table
+      const { data: ordersData } = await supabase
+        .from('orders')
+        .select('payment_status');
+      // Start with the full known list (including 'discounted')
+      const allStatuses: PaymentStatus[] = ['awaiting_payment', 'paid', 'refunded', 'pending', 'failed', 'discounted'];
+      if (ordersData) {
+        // Append any future enum values found in DB that aren't in our list
+        ordersData.forEach((o) => {
+          if (o.payment_status && !allStatuses.includes(o.payment_status as PaymentStatus)) {
+            allStatuses.push(o.payment_status as PaymentStatus);
+          }
+        });
+      }
+      setPaymentFilterOptions(allStatuses);
+    } catch {
+      setPaymentFilterOptions(['awaiting_payment', 'paid', 'refunded', 'pending', 'failed', 'discounted']);
+    }
+  };
 
   const loadOrders = useCallback(async () => {
     setLoading(true);
@@ -328,11 +354,11 @@ export default function StaffOrdersPage() {
               className="px-3 py-2.5 border border-[#DDD5C8] rounded-xl text-sm text-[#1A1612] bg-white focus:outline-none focus:border-[#C4622D] transition-colors"
             >
               <option value="all">All Payments</option>
-              <option value="awaiting_payment">Awaiting Payment</option>
-              <option value="paid">Paid</option>
-              <option value="refunded">Refunded</option>
-              <option value="pending">Pending</option>
-              <option value="failed">Failed</option>
+              {paymentFilterOptions.map((status) => (
+                <option key={status} value={status}>
+                  {PAYMENT_STATUS_LABELS[status] ?? status}
+                </option>
+              ))}
             </select>
             {/* Fulfillment Filter */}
             <select
