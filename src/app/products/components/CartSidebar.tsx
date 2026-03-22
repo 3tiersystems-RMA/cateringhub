@@ -428,6 +428,11 @@ export default function CartSidebar() {
             onEFTConfirm={handleEFTConfirm}
             onVoucherOrder={() => handleVoucherOrder()}
             onPayFastCheckout={handlePayFastCheckout}
+            buyerFirstName={form.name.trim().split(" ")[0] || form.name}
+            buyerLastName={form.name.trim().split(" ").slice(1).join(" ") || "-"}
+            buyerEmail={form.email}
+            buyerCell={form.phone}
+            cartItems={items.map((i) => ({ name: i.product.name, quantity: i.quantity, price: i.product.price }))}
           />
         )}
 

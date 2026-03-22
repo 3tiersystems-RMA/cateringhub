@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { buildPaymentPayload } from "@/lib/payfast";
+import { buildPaymentPayload, IS_TEST, pfConfig } from "@/lib/payfast";
 
 export async function POST(req: NextRequest) {
   try {
@@ -21,8 +21,13 @@ export async function POST(req: NextRequest) {
 
     const payload = buildPaymentPayload(order, buyer, baseUrl);
 
+    console.log(
+      `[PayFast initiate] env=${IS_TEST ? "TEST/SANDBOX" : "LIVE"} gateway=${pfConfig.gatewayHost} paymentId=${order.paymentId}`
+    );
+
     return NextResponse.json({
       success:    true,
+      env:        IS_TEST ? "test" : "live",
       gatewayUrl: payload.gatewayUrl,
       params:     payload.params,
     });

@@ -1,19 +1,32 @@
 import crypto from "crypto";
 
 // ─── Environment Switch ────────────────────────────────────────────────────
-const IS_SANDBOX = process.env.PAYFAST_SANDBOX !== "false";
+// Set PAYFAST_ENV=live in .env to go LIVE. Default is 'test' (sandbox).
+const PAYFAST_ENV = (process.env.PAYFAST_ENV || "test").toLowerCase();
+export const IS_TEST = PAYFAST_ENV !== "live";
 
-export const PAYFAST_CONFIG = {
-  merchantId:  process.env.PAYFAST_MERCHANT_ID  || "10000100",
-  merchantKey: process.env.PAYFAST_MERCHANT_KEY || "46f0cd694581a",
-  passphrase:  process.env.PAYFAST_PASSPHRASE   || "",
-  gatewayHost: IS_SANDBOX ? "sandbox.payfast.co.za" : "www.payfast.co.za",
-  gatewayPath: "/eng/process",
-  validateHost: IS_SANDBOX ? "sandbox.payfast.co.za" : "www.payfast.co.za",
-  isSandbox: IS_SANDBOX,
+const CONFIG = {
+  test: {
+    merchantId:   process.env.PF_TEST_MERCHANT_ID  || process.env.PAYFAST_MERCHANT_ID  || "10000100",
+    merchantKey:  process.env.PF_TEST_MERCHANT_KEY || process.env.PAYFAST_MERCHANT_KEY || "46f0cd694581a",
+    passphrase:   process.env.PF_TEST_PASSPHRASE   || process.env.PAYFAST_PASSPHRASE   || "jt7NOE43FZPn",
+    gatewayHost:  "sandbox.payfast.co.za",
+    gatewayPath:  "/eng/process",
+    validateHost: "sandbox.payfast.co.za",
+  },
+  live: {
+    merchantId:   process.env.PF_LIVE_MERCHANT_ID  || process.env.PAYFAST_MERCHANT_ID  || "",
+    merchantKey:  process.env.PF_LIVE_MERCHANT_KEY || process.env.PAYFAST_MERCHANT_KEY || "",
+    passphrase:   process.env.PF_LIVE_PASSPHRASE   || process.env.PAYFAST_PASSPHRASE   || "",
+    gatewayHost:  "www.payfast.co.za",
+    gatewayPath:  "/eng/process",
+    validateHost: "www.payfast.co.za",
+  },
 };
 
-export const PAYFAST_GATEWAY_URL = `https://${PAYFAST_CONFIG.gatewayHost}${PAYFAST_CONFIG.gatewayPath}`;
+export const pfConfig = CONFIG[IS_TEST ? "test" : "live"];
+
+export const PAYFAST_GATEWAY_URL = `https://${pfConfig.gatewayHost}${pfConfig.gatewayPath}`;
 
 // ─── Parameter Order (as required by PayFast docs) ─────────────────────────
 const PARAM_ORDER = [
@@ -30,6 +43,7 @@ const PARAM_ORDER = [
   "amount",
   "item_name",
   "item_description",
+  // Add custom_str1–5, payment_method etc. here if needed
 ];
 
 export interface PayFastParams {
@@ -53,7 +67,7 @@ export interface PayFastParams {
 
 /**
  * Build the ordered parameter string for MD5 signature.
- * Follows PayFast's required encoding: encodeURIComponent with spaces as +
+ * PayFast requires parameters in a specific order, URL-encoded with spaces as +.
  */
 export function buildSignatureString(
   params: Record<string, string | undefined>,
@@ -63,9 +77,9 @@ export function buildSignatureString(
     .filter((k) => params[k] !== undefined && params[k] !== "")
     .map((k) => `${k}=${encodeURIComponent(String(params[k])).replace(/%20/g, "+")}`);
 
-  if (withPassphrase && PAYFAST_CONFIG.passphrase) {
+  if (withPassphrase && pfConfig.passphrase) {
     parts.push(
-      `passphrase=${encodeURIComponent(PAYFAST_CONFIG.passphrase).replace(/%20/g, "+")}`
+      `passphrase=${encodeURIComponent(pfConfig.passphrase).replace(/%20/g, "+")}`
     );
   }
 
@@ -97,19 +111,21 @@ export function buildPaymentPayload(
   },
   baseUrl: string
 ): { params: PayFastParams; gatewayUrl: string } {
-  if (!PAYFAST_CONFIG.merchantId || !PAYFAST_CONFIG.merchantKey) {
-    throw new Error("Missing PayFast credentials. Check environment variables.");
+  if (!pfConfig.merchantId || !pfConfig.merchantKey) {
+    throw new Error(
+      `Missing PayFast ${PAYFAST_ENV} credentials. Check .env (PF_${PAYFAST_ENV.toUpperCase()}_MERCHANT_ID / PF_${PAYFAST_ENV.toUpperCase()}_MERCHANT_KEY)`
+    );
   }
 
-  // For ITN (notify_url): use NGROK_URL in sandbox mode so PayFast can POST
+  // For ITN (notify_url): use NGROK_URL in sandbox/test mode so PayFast can POST
   // callbacks to a locally-running server exposed via ngrok.
-  // In production (IS_SANDBOX=false) or when NGROK_URL is not set, fall back to baseUrl.
-  const ngrokUrl = process.env.NGROK_URL?.replace(/\/$/, ""); // strip trailing slash
-  const itnBase = PAYFAST_CONFIG.isSandbox && ngrokUrl ? ngrokUrl : baseUrl;
+  // In production (IS_TEST=false) or when NGROK_URL is not set, fall back to baseUrl.
+  const ngrokUrl = process.env.NGROK_URL?.replace(/\/$/, "");
+  const itnBase = IS_TEST && ngrokUrl ? ngrokUrl : baseUrl;
 
   const params: Record<string, string> = {
-    merchant_id:      PAYFAST_CONFIG.merchantId,
-    merchant_key:     PAYFAST_CONFIG.merchantKey,
+    merchant_id:      pfConfig.merchantId,
+    merchant_key:     pfConfig.merchantKey,
     return_url:       `${baseUrl}/checkout/success`,
     cancel_url:       `${baseUrl}/checkout/cancel`,
     notify_url:       `${itnBase}/api/payfast/itn`,
@@ -134,6 +150,7 @@ export function buildPaymentPayload(
 
 /**
  * Validate ITN signature from PayFast POST data.
+ * The signature field must already be removed from pfData before calling this.
  */
 export function validateITNSignature(
   pfData: Record<string, string>,
@@ -144,9 +161,9 @@ export function validateITNSignature(
     .filter((k) => pfData[k] !== "")
     .map((k) => `${k}=${encodeURIComponent(pfData[k]).replace(/%20/g, "+")}`);
 
-  if (PAYFAST_CONFIG.passphrase) {
+  if (pfConfig.passphrase) {
     parts.push(
-      `passphrase=${encodeURIComponent(PAYFAST_CONFIG.passphrase).replace(/%20/g, "+")}`
+      `passphrase=${encodeURIComponent(pfConfig.passphrase).replace(/%20/g, "+")}`
     );
   }
 
@@ -161,13 +178,14 @@ export function validateITNSignature(
  */
 export function validateWithPayFast(pfData: Record<string, string>): Promise<boolean> {
   return new Promise((resolve) => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const https = require("https");
     const body = Object.keys(pfData)
       .map((k) => `${k}=${encodeURIComponent(pfData[k]).replace(/%20/g, "+")}`)
       .join("&");
 
     const options = {
-      host:   PAYFAST_CONFIG.validateHost,
+      host:   pfConfig.validateHost,
       port:   443,
       path:   "/eng/query/validate",
       method: "POST",
@@ -177,11 +195,14 @@ export function validateWithPayFast(pfData: Record<string, string>): Promise<boo
       },
     };
 
-    const req = https.request(options, (res: any) => {
-      let data = "";
-      res.on("data", (chunk: string) => (data += chunk));
-      res.on("end", () => resolve(data.trim() === "VALID"));
-    });
+    const req = https.request(
+      options,
+      (res: { on: (event: string, cb: (chunk?: string) => void) => void }) => {
+        let data = "";
+        res.on("data", (chunk: string) => (data += chunk));
+        res.on("end", () => resolve(data.trim() === "VALID"));
+      }
+    );
 
     req.on("error", (e: Error) => {
       console.error("[validateWithPayFast] Request error:", e);
