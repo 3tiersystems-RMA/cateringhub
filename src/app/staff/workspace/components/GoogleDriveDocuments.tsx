@@ -354,7 +354,7 @@ function DocRow({
               className="w-7 h-7 flex items-center justify-center rounded-lg text-[#8C8278] hover:text-[#C4622D] hover:bg-[#FDF6F0] transition-colors"
             >
               <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828a2 2 0 01-1.414.586H8v-2.414a2 2 0 01.586-1.414z" />
               </svg>
             </button>
           )}
@@ -446,6 +446,7 @@ export default function GoogleDriveDocuments({ isSuperAdmin }: GoogleDriveDocume
   const [documents, setDocuments] = useState<DriveDoc[]>([]);
   const [urlInput, setUrlInput] = useState('');
   const [folderInput, setFolderInput] = useState('');
+  const [fileNameInput, setFileNameInput] = useState('');
   const [typeSelect, setTypeSelect] = useState<DocType>('auto');
   const [formError, setFormError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -519,12 +520,12 @@ export default function GoogleDriveDocuments({ isSuperAdmin }: GoogleDriveDocume
 
     if (meta) {
       resolvedType = typeSelect === 'auto' ? detectTypeFromMime(meta.mimeType) : typeSelect;
-      title = meta.name;
+      title = fileNameInput.trim() || meta.name;
       createdTime = meta.createdTime;
       modifiedTime = meta.modifiedTime;
     } else {
       resolvedType = typeSelect === 'auto' ? detectTypeFromUrl(rawUrl) : typeSelect;
-      title = `Document ${documents.length + 1}`;
+      title = fileNameInput.trim() || `Document ${documents.length + 1}`;
     }
 
     const embedUrl = buildEmbedUrl(fileId, resolvedType);
@@ -547,6 +548,7 @@ export default function GoogleDriveDocuments({ isSuperAdmin }: GoogleDriveDocume
       await loadDocuments();
       setUrlInput('');
       setFolderInput('');
+      setFileNameInput('');
       setTypeSelect('auto');
     }
 
@@ -636,6 +638,18 @@ export default function GoogleDriveDocuments({ isSuperAdmin }: GoogleDriveDocume
                 className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm text-[#1A1612] placeholder-[#B5ADA5] focus:outline-none focus:border-[#C4622D] transition-colors"
               />
             </div>
+          </div>
+
+          <div className="mb-3">
+            <label className="block text-xs font-semibold text-[#5C5347] mb-1.5">File Name <span className="text-[#B5ADA5] font-normal">(optional — overrides Google Drive name)</span></label>
+            <input
+              type="text"
+              value={fileNameInput}
+              onChange={(e) => setFileNameInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+              placeholder="e.g. House Rules 2026"
+              className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm text-[#1A1612] placeholder-[#B5ADA5] focus:outline-none focus:border-[#C4622D] transition-colors"
+            />
           </div>
 
           <div className="flex items-end gap-3">
