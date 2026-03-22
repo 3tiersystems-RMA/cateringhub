@@ -8,6 +8,7 @@ import { useInactivityTimer } from '@/hooks/useInactivityTimer';
 import { APP_NAME } from "@/lib/constants";
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal';
 import VoucherErrorModal from '@/components/ui/VoucherErrorModal';
+import GoogleDriveDocuments from './components/GoogleDriveDocuments';
 
 
 
@@ -3247,6 +3248,11 @@ export default function StaffWorkspacePage() {
               ))}
             </div>
 
+            {/* Document Management — Google Drive iframe embed (no API key) */}
+            {activeBucket === 'document-management' ? (
+              <GoogleDriveDocuments />
+            ) : (
+            <>
             {/* Media Files */}
             {mediaLoading ? (
               <div className="flex justify-center py-16">
@@ -3283,6 +3289,8 @@ export default function StaffWorkspacePage() {
                   </div>
                 ))}
               </div>
+            )}
+            </>
             )}
           </div>
         )}

@@ -1,278 +1,326 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 
-interface DriveFile {
-  id: string;
-  name: string;
-  mimeType: string;
-  size?: string;
-  modifiedTime: string;
-  webViewLink?: string;
-  iconLink?: string;
+// ─── Types ────────────────────────────────────────────────────────────────────
+type DocType = 'auto' | 'doc' | 'sheet' | 'slide' | 'pdf' | 'video';
+
+interface DriveDoc {
+  fileId: string;
+  type: Exclude<DocType, 'auto'>;
+  embedUrl: string;
+  originalUrl: string;
+  title: string;
 }
 
-function formatFileSize(bytes?: string): string {
-  if (!bytes) return '—';
-  const n = parseInt(bytes, 10);
-  if (isNaN(n)) return '—';
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+// ─── Constants ────────────────────────────────────────────────────────────────
+const TYPE_LABELS: Record<Exclude<DocType, 'auto'>, string> = {
+  doc: 'Google Doc',
+  sheet: 'Google Sheet',
+  slide: 'Google Slides',
+  pdf: 'PDF',
+  video: 'Video',
+};
+
+const TYPE_COLORS: Record<Exclude<DocType, 'auto'>, { bg: string; text: string; border: string }> = {
+  doc:   { bg: '#EBF3FF', text: '#2B579A', border: '#BDD3F5' },
+  sheet: { bg: '#E8F5EE', text: '#217346', border: '#B2DFC4' },
+  slide: { bg: '#FFF0EB', text: '#D24726', border: '#F5C4B2' },
+  pdf:   { bg: '#FDF6F0', text: '#C4622D', border: '#EDD5C0' },
+  video: { bg: '#F3F0FF', text: '#6B46C1', border: '#D4C8F5' },
+};
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function extractFileId(url: string): string | null {
+  const patterns = [
+    /\/file\/d\/([a-zA-Z0-9_-]{25,})/,
+    /\/d\/([a-zA-Z0-9_-]{25,})/,
+    /[?&]id=([a-zA-Z0-9_-]{25,})/,
+  ];
+  for (const p of patterns) {
+    const m = url.match(p);
+    if (m) return m[1];
+  }
+  return null;
 }
 
-function formatDate(iso: string): string {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleDateString('en-ZA', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
+function detectType(url: string): Exclude<DocType, 'auto'> {
+  if (url.includes('/document/'))     return 'doc';
+  if (url.includes('/spreadsheets/')) return 'sheet';
+  if (url.includes('/presentation/')) return 'slide';
+  if (/\.(pdf)(\?|$)/i.test(url))     return 'pdf';
+  if (/\.(mp4|webm|mov|avi)(\?|$)/i.test(url)) return 'video';
+  return 'doc';
 }
 
-function getFileTypeLabel(mimeType: string): { label: string; color: string; bg: string } {
-  if (mimeType === 'application/pdf') return { label: 'PDF', color: '#fff', bg: '#C4622D' };
-  if (mimeType.includes('spreadsheet') || mimeType.includes('excel')) return { label: 'XLS', color: '#fff', bg: '#217346' };
-  if (mimeType.includes('document') || mimeType.includes('word')) return { label: 'DOC', color: '#fff', bg: '#2B579A' };
-  if (mimeType.includes('presentation') || mimeType.includes('powerpoint')) return { label: 'PPT', color: '#fff', bg: '#D24726' };
-  if (mimeType.includes('folder')) return { label: 'DIR', color: '#fff', bg: '#8C8278' };
-  if (mimeType.includes('image')) return { label: 'IMG', color: '#fff', bg: '#6B7280' };
-  if (mimeType.includes('text')) return { label: 'TXT', color: '#fff', bg: '#5C5347' };
-  return { label: 'FILE', color: '#fff', bg: '#8C8278' };
+function buildEmbedUrl(fileId: string, type: Exclude<DocType, 'auto'>): string {
+  switch (type) {
+    case 'doc':   return `https://docs.google.com/document/d/${fileId}/preview`;
+    case 'sheet': return `https://docs.google.com/spreadsheets/d/${fileId}/preview`;
+    case 'slide': return `https://docs.google.com/presentation/d/${fileId}/embed?start=false&loop=false&delayms=3000`;
+    case 'pdf': case'video':
+    default:      return `https://drive.google.com/file/d/${fileId}/preview`;
+  }
 }
 
-function FileTypeIcon({ mimeType }: { mimeType: string }) {
-  const { label, color, bg } = getFileTypeLabel(mimeType);
+// ─── Sub-components ───────────────────────────────────────────────────────────
+function TypeBadge({ type }: { type: Exclude<DocType, 'auto'> }) {
+  const c = TYPE_COLORS[type];
   return (
-    <div
-      className="w-10 h-12 rounded-sm flex flex-col items-center justify-end pb-1 flex-shrink-0 relative"
-      style={{ backgroundColor: bg }}
+    <span
+      className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide border"
+      style={{ backgroundColor: c.bg, color: c.text, borderColor: c.border }}
     >
-      {/* Folded corner */}
-      <div
-        className="absolute top-0 right-0 w-0 h-0"
-        style={{
-          borderStyle: 'solid',
-          borderWidth: '0 8px 8px 0',
-          borderColor: `transparent rgba(255,255,255,0.35) transparent transparent`,
-        }}
-      />
-      <span className="text-[9px] font-bold tracking-wide" style={{ color }}>{label}</span>
+      {TYPE_LABELS[type]}
+    </span>
+  );
+}
+
+function DocCard({
+  doc,
+  index,
+  onRemove,
+}: {
+  doc: DriveDoc;
+  index: number;
+  onRemove: (i: number) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="bg-white rounded-2xl border border-[#DDD5C8] overflow-hidden shadow-sm">
+      {/* Card header */}
+      <div className="flex items-center justify-between px-4 py-3 bg-[#FDFAF6] border-b border-[#EDE7DA]">
+        <div className="flex items-center gap-2.5 min-w-0">
+          {/* Drive icon */}
+          <svg className="h-4 w-4 flex-shrink-0 text-[#C4622D]" viewBox="0 0 87.3 78" fill="currentColor">
+            <path d="M6.6 66.85l3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8H0c0 1.55.4 3.1 1.2 4.5z" fill="#0066DA"/>
+            <path d="M43.65 25L29.9 1.2C28.55 2 27.4 3.1 26.6 4.5L1.2 49.5c-.8 1.4-1.2 2.95-1.2 4.5h27.5z" fill="#00AC47"/>
+            <path d="M73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5H59.8l5.85 11.5z" fill="#EA4335"/>
+            <path d="M43.65 25L57.4 1.2C56.05.4 54.5 0 52.9 0H34.4c-1.6 0-3.15.45-4.5 1.2z" fill="#00832D"/>
+            <path d="M59.8 54H27.5L13.75 77.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z" fill="#2684FC"/>
+            <path d="M73.4 26.5l-12.6-21.8c-.8-1.4-1.95-2.5-3.3-3.3L43.65 25 59.8 54h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#FFBA00"/>
+          </svg>
+          <span className="text-sm font-semibold text-[#1A1612] truncate">{doc.title}</span>
+          <TypeBadge type={doc.type} />
+        </div>
+        <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
+          {/* Expand/collapse */}
+          <button
+            onClick={() => setExpanded((v) => !v)}
+            title={expanded ? 'Collapse' : 'Expand'}
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-[#8C8278] hover:text-[#C4622D] hover:bg-[#FDF6F0] transition-colors"
+          >
+            <svg className={`h-4 w-4 transition-transform ${expanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          {/* Open in Drive */}
+          <a
+            href={doc.originalUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Open in Google Drive"
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-[#8C8278] hover:text-[#C4622D] hover:bg-[#FDF6F0] transition-colors"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+          </a>
+          {/* Remove */}
+          <button
+            onClick={() => onRemove(index)}
+            title="Remove document"
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-[#8C8278] hover:text-red-500 hover:bg-red-50 transition-colors"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      {/* Iframe embed */}
+      {expanded && (
+        <div className="relative bg-[#F5F0E8]" style={{ paddingBottom: '62.5%' }}>
+          <iframe
+            src={doc.embedUrl}
+            title={doc.title}
+            loading="lazy"
+            sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+            allow="autoplay"
+            className="absolute inset-0 w-full h-full border-0"
+          />
+        </div>
+      )}
+
+      {/* Collapsed hint */}
+      {!expanded && (
+        <div className="px-4 py-2.5 flex items-center gap-2">
+          <span className="text-xs text-[#B5ADA5]">Publicly shared via Google Drive</span>
+          <button
+            onClick={() => setExpanded(true)}
+            className="text-xs font-semibold text-[#C4622D] hover:underline"
+          >
+            Preview ↓
+          </button>
+        </div>
+      )}
     </div>
   );
 }
 
+// ─── Main Component ───────────────────────────────────────────────────────────
 export default function GoogleDriveDocuments() {
-  const [files, setFiles] = useState<DriveFile[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [documents, setDocuments] = useState<DriveDoc[]>([]);
+  const [urlInput, setUrlInput] = useState('');
+  const [titleInput, setTitleInput] = useState('');
+  const [typeSelect, setTypeSelect] = useState<DocType>('auto');
+  const [formError, setFormError] = useState<string | null>(null);
 
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_DRIVE_API_KEY;
-  const folderId = process.env.NEXT_PUBLIC_GOOGLE_DRIVE_FOLDER_ID;
+  const handleAdd = () => {
+    setFormError(null);
+    const rawUrl = urlInput.trim();
 
-  const fetchFiles = useCallback(async () => {
-    if (!apiKey || !folderId) {
-      setError('Google Drive is not configured. Please set NEXT_PUBLIC_GOOGLE_DRIVE_API_KEY and NEXT_PUBLIC_GOOGLE_DRIVE_FOLDER_ID in your environment variables.');
-      setLoading(false);
+    if (!rawUrl) {
+      setFormError('Please paste a Google Drive share link.');
       return;
     }
 
-    setLoading(true);
-    setError(null);
-
-    try {
-      const params = new URLSearchParams({
-        q: `'${folderId}' in parents and trashed=false`,
-        key: apiKey,
-        fields: 'files(id,name,mimeType,size,modifiedTime,webViewLink)',
-        orderBy: 'name',
-        pageSize: '100',
-        supportsAllDrives: 'true',
-        includeItemsFromAllDrives: 'true',
-      });
-
-      const res = await fetch(`https://www.googleapis.com/drive/v3/files?${params.toString()}`);
-      const data = await res.json();
-
-      if (!res.ok) {
-        const msg = data?.error?.message || `API error ${res.status}`;
-        setError(`Google Drive API error: ${msg}`);
-        setLoading(false);
-        return;
-      }
-
-      setFiles(data.files || []);
-    } catch (err: any) {
-      setError(`Failed to fetch documents: ${err?.message || 'Unknown error'}`);
-    } finally {
-      setLoading(false);
+    const fileId = extractFileId(rawUrl);
+    if (!fileId) {
+      setFormError("Could not find a file ID in that URL. Make sure it's a valid Google Drive share link.");
+      return;
     }
-  }, [apiKey, folderId]);
 
-  useEffect(() => {
-    fetchFiles();
-  }, [fetchFiles]);
+    const resolvedType = typeSelect === 'auto' ? detectType(rawUrl) : typeSelect;
+    const embedUrl = buildEmbedUrl(fileId, resolvedType);
+    const title = titleInput.trim() || `Document ${documents.length + 1}`;
 
-  const handleCopyLink = async (file: DriveFile) => {
-    const link = file.webViewLink || `https://drive.google.com/file/d/${file.id}/view`;
-    try {
-      await navigator.clipboard.writeText(link);
-      setCopiedId(file.id);
-      setTimeout(() => setCopiedId(null), 2000);
-    } catch {
-      // fallback
-    }
+    setDocuments((prev) => [
+      ...prev,
+      { fileId, type: resolvedType, embedUrl, originalUrl: rawUrl, title },
+    ]);
+
+    setUrlInput('');
+    setTitleInput('');
+    setTypeSelect('auto');
   };
 
-  const handleOpen = (file: DriveFile) => {
-    const link = file.webViewLink || `https://drive.google.com/file/d/${file.id}/view`;
-    window.open(link, '_blank', 'noopener,noreferrer');
+  const handleRemove = (index: number) => {
+    setDocuments((prev) => prev.filter((_, i) => i !== index));
   };
-
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 gap-3">
-        <svg className="animate-spin h-8 w-8 text-[#C4622D]" viewBox="0 0 24 24" fill="none">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-        </svg>
-        <p className="text-sm text-[#8C8278]">Loading documents from Google Drive…</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="bg-red-50 border border-red-200 rounded-2xl p-6">
-        <div className="flex items-start gap-3">
-          <svg className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-          </svg>
-          <div className="flex-1">
-            <p className="text-sm font-semibold text-red-700 mb-1">Unable to load documents</p>
-            <p className="text-sm text-red-600">{error}</p>
-          </div>
-          <button
-            onClick={fetchFiles}
-            className="text-xs font-semibold text-red-600 border border-red-300 px-3 py-1.5 rounded-lg hover:bg-red-100 transition-colors flex-shrink-0"
-          >
-            Retry
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (files.length === 0) {
-    return (
-      <div className="text-center py-16 bg-white rounded-2xl border border-[#DDD5C8]">
-        <div className="text-4xl mb-3">📄</div>
-        <p className="text-[#8C8278] font-medium">No documents found</p>
-        <p className="text-sm text-[#B5ADA5] mt-1">No files were found in the configured Google Drive folder</p>
-        <button
-          onClick={fetchFiles}
-          className="mt-4 text-sm font-semibold text-[#C4622D] border border-[#C4622D] px-4 py-2 rounded-xl hover:bg-[#FDF6F0] transition-colors"
-        >
-          Refresh
-        </button>
-      </div>
-    );
-  }
 
   return (
-    <div className="bg-white rounded-2xl border border-[#DDD5C8] overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between px-5 py-4 border-b border-[#EDE7DA] bg-[#FDFAF6]">
-        <div className="flex items-center gap-2">
-          <svg className="h-4 w-4 text-[#C4622D]" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M6.5 20Q4.22 20 2.61 18.43 1 16.85 1 14.58q0-1.95 1.17-3.48 1.18-1.53 3.08-1.95.51-2.26 2.3-3.70Q9.34 4 11.5 4q2.69 0 4.6 1.88Q18 7.75 18 10.5v.5q1.73-.02 2.86 1.06Q22 13.14 22 14.9q0 1.65-1.18 2.87Q19.65 19 18 19H13v-6.15l1.6 1.55L16 13l-4-4-4 4 1.4 1.4 1.6-1.55V19H6.5Z"/>
+    <div className="space-y-6">
+      {/* ── Add Document Form ── */}
+      <div className="bg-white rounded-2xl border border-[#DDD5C8] p-5">
+        <div className="flex items-center gap-2 mb-4">
+          {/* Google Drive colour icon */}
+          <svg className="h-5 w-5 flex-shrink-0" viewBox="0 0 87.3 78" fill="none">
+            <path d="M6.6 66.85l3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8H0c0 1.55.4 3.1 1.2 4.5z" fill="#0066DA"/>
+            <path d="M43.65 25L29.9 1.2C28.55 2 27.4 3.1 26.6 4.5L1.2 49.5c-.8 1.4-1.2 2.95-1.2 4.5h27.5z" fill="#00AC47"/>
+            <path d="M73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5H59.8l5.85 11.5z" fill="#EA4335"/>
+            <path d="M43.65 25L57.4 1.2C56.05.4 54.5 0 52.9 0H34.4c-1.6 0-3.15.45-4.5 1.2z" fill="#00832D"/>
+            <path d="M59.8 54H27.5L13.75 77.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z" fill="#2684FC"/>
+            <path d="M73.4 26.5l-12.6-21.8c-.8-1.4-1.95-2.5-3.3-3.3L43.65 25 59.8 54h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#FFBA00"/>
           </svg>
-          <span className="text-sm font-semibold text-[#3D3530]">Google Drive — Operational Documents</span>
-          <span className="text-xs text-[#8C8278] bg-[#F5F0E8] px-2 py-0.5 rounded-full">{files.length} files</span>
+          <h3 className="text-sm font-bold text-[#1A1612]">Add a Google Drive Document</h3>
         </div>
-        <button
-          onClick={fetchFiles}
-          className="flex items-center gap-1.5 text-xs font-medium text-[#5C5347] border border-[#DDD5C8] px-3 py-1.5 rounded-lg hover:bg-[#EDE7DA] transition-colors"
-        >
-          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-          Refresh
-        </button>
-      </div>
 
-      {/* Column headers */}
-      <div className="grid grid-cols-[auto_1fr_140px_140px_100px] gap-4 px-5 py-2.5 border-b border-[#EDE7DA] bg-[#FAF7F2]">
-        <div className="w-10" />
-        <span className="text-xs font-semibold text-[#8C8278] uppercase tracking-wide">File name</span>
-        <span className="text-xs font-semibold text-[#8C8278] uppercase tracking-wide">Size</span>
-        <span className="text-xs font-semibold text-[#8C8278] uppercase tracking-wide">Last modified</span>
-        <span className="text-xs font-semibold text-[#8C8278] uppercase tracking-wide text-right">Actions</span>
-      </div>
-
-      {/* File rows */}
-      <div className="divide-y divide-[#F0EBE3]">
-        {files.map((file) => (
-          <div
-            key={file.id}
-            className="grid grid-cols-[auto_1fr_140px_140px_100px] gap-4 px-5 py-3.5 items-center hover:bg-[#FDFAF6] transition-colors group"
-          >
-            {/* Icon */}
-            <FileTypeIcon mimeType={file.mimeType} />
-
-            {/* Name */}
-            <div className="min-w-0">
-              <button
-                onClick={() => handleOpen(file)}
-                className="text-sm font-medium text-[#1A1612] hover:text-[#C4622D] transition-colors text-left truncate block w-full"
-                title={file.name}
-              >
-                {file.name}
-              </button>
-            </div>
-
-            {/* Size */}
-            <span className="text-sm text-[#8C8278]">{formatFileSize(file.size)}</span>
-
-            {/* Modified */}
-            <span className="text-sm text-[#8C8278]">{formatDate(file.modifiedTime)}</span>
-
-            {/* Actions */}
-            <div className="flex items-center justify-end gap-1.5">
-              {/* Open */}
-              <button
-                onClick={() => handleOpen(file)}
-                title="Open in Google Drive"
-                className="w-8 h-8 flex items-center justify-center rounded-lg text-[#8C8278] hover:text-[#C4622D] hover:bg-[#FDF6F0] transition-colors"
-              >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                </svg>
-              </button>
-              {/* Copy link */}
-              <button
-                onClick={() => handleCopyLink(file)}
-                title={copiedId === file.id ? 'Copied!' : 'Copy link'}
-                className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${
-                  copiedId === file.id
-                    ? 'text-green-600 bg-green-50' :'text-[#8C8278] hover:text-[#C4622D] hover:bg-[#FDF6F0]'
-                }`}
-              >
-                {copiedId === file.id ? (
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                ) : (
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                  </svg>
-                )}
-              </button>
-            </div>
+        <div className="grid grid-cols-1 sm:grid-cols-[1fr_180px_140px_auto] gap-3 items-end">
+          {/* URL */}
+          <div>
+            <label className="block text-xs font-semibold text-[#5C5347] mb-1.5">Share Link <span className="text-[#C4622D]">*</span></label>
+            <input
+              type="url"
+              value={urlInput}
+              onChange={(e) => setUrlInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+              placeholder="https://docs.google.com/…"
+              className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm text-[#1A1612] placeholder-[#B5ADA5] focus:outline-none focus:border-[#C4622D] transition-colors"
+            />
           </div>
-        ))}
+
+          {/* Title */}
+          <div>
+            <label className="block text-xs font-semibold text-[#5C5347] mb-1.5">Label (optional)</label>
+            <input
+              type="text"
+              value={titleInput}
+              onChange={(e) => setTitleInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+              placeholder="e.g. Q1 Menu"
+              className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm text-[#1A1612] placeholder-[#B5ADA5] focus:outline-none focus:border-[#C4622D] transition-colors"
+            />
+          </div>
+
+          {/* Type */}
+          <div>
+            <label className="block text-xs font-semibold text-[#5C5347] mb-1.5">Type</label>
+            <select
+              value={typeSelect}
+              onChange={(e) => setTypeSelect(e.target.value as DocType)}
+              className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors bg-white"
+            >
+              <option value="auto">Auto-detect</option>
+              <option value="doc">Google Doc</option>
+              <option value="sheet">Google Sheet</option>
+              <option value="slide">Google Slides</option>
+              <option value="pdf">PDF</option>
+              <option value="video">Video</option>
+            </select>
+          </div>
+
+          {/* Add button */}
+          <button
+            onClick={handleAdd}
+            className="flex items-center gap-1.5 bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors whitespace-nowrap"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            Add
+          </button>
+        </div>
+
+        {/* Error */}
+        {formError && (
+          <p className="mt-2.5 text-xs text-red-600 flex items-center gap-1.5">
+            <svg className="h-3.5 w-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            {formError}
+          </p>
+        )}
+
+        {/* Hint */}
+        <p className="mt-3 text-xs text-[#B5ADA5]">
+          In Google Drive: right-click a file → <strong>Share</strong> → <em>Anyone with the link</em> → <strong>Viewer</strong> → copy the link and paste it above. No API key required.
+        </p>
       </div>
+
+      {/* ── Document Cards ── */}
+      {documents.length === 0 ? (
+        <div className="text-center py-14 bg-white rounded-2xl border border-dashed border-[#DDD5C8]">
+          <div className="flex justify-center mb-3">
+            <svg className="h-10 w-10 text-[#DDD5C8]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+          </div>
+          <p className="text-sm font-semibold text-[#8C8278]">No documents added yet</p>
+          <p className="text-xs text-[#B5ADA5] mt-1">Paste a public Google Drive link above to embed a document here.</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-[#8C8278] uppercase tracking-wide">{documents.length} document{documents.length !== 1 ? 's' : ''}</span>
+          </div>
+          {documents.map((doc, i) => (
+            <DocCard key={`${doc.fileId}-${i}`} doc={doc} index={i} onRemove={handleRemove} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
