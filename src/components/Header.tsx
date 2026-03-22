@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import AppLogo from "@/components/ui/AppLogo";
@@ -10,6 +10,10 @@ const navLinks = [
   { label: "Home", href: "/homepage" },
   { label: "Menu & Order", href: "/products" },
   { label: "Meal Vouchers", href: "/vouchers" },
+];
+
+const customerProfileSubLinks = [
+  { label: "View Profile", href: "/customer-profile" },
   { label: "Order History", href: "/order-history" },
 ];
 
@@ -17,12 +21,28 @@ export default function Header() {
   const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+  const [mobileProfileOpen, setMobileProfileOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setProfileDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const isCustomerProfileActive =
+    pathname === "/customer-profile" || pathname === "/order-history";
 
   return (
     <header
@@ -35,9 +55,7 @@ export default function Header() {
       <div className="max-w-7xl mx-auto px-4 md:px-8 h-18 flex items-center justify-between py-4">
         {/* Logo */}
         <Link href="/homepage" className="flex items-center gap-2 group">
-          <AppLogo
-            size={80}
-          />
+          <AppLogo size={80} />
         </Link>
 
         {/* Desktop Nav */}
@@ -63,6 +81,56 @@ export default function Header() {
               </Link>
             );
           })}
+
+          {/* Customer Profile Dropdown */}
+          <div className="relative" ref={dropdownRef}>
+            <button
+              onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+              className={`flex items-center gap-1.5 text-sm font-medium tracking-wide transition-colors duration-200 relative group ${
+                isCustomerProfileActive
+                  ? "text-[#C4622D]"
+                  : "text-[#D4CFC9] hover:text-white"
+              }`}
+            >
+              Customer Profile
+              <Icon
+                name={profileDropdownOpen ? "ChevronUpIcon" : "ChevronDownIcon"}
+                size={14}
+              />
+              <span
+                className={`absolute -bottom-0.5 left-0 h-0.5 bg-[#C4622D] transition-all duration-300 ${
+                  isCustomerProfileActive ? "w-full" : "w-0 group-hover:w-full"
+                }`}
+              />
+            </button>
+
+            {/* Dropdown Menu */}
+            {profileDropdownOpen && (
+              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-3 w-44 bg-[#141414] border border-[#2A2A2A] rounded-xl shadow-xl overflow-hidden z-50">
+                {customerProfileSubLinks.map((sub) => {
+                  const isSubActive = pathname === sub.href;
+                  return (
+                    <Link
+                      key={sub.href}
+                      href={sub.href}
+                      onClick={() => setProfileDropdownOpen(false)}
+                      className={`flex items-center gap-2.5 px-4 py-3 text-sm transition-colors ${
+                        isSubActive
+                          ? "bg-[#C4622D]/10 text-[#C4622D]"
+                          : "text-[#D4CFC9] hover:bg-[#1E1E1E] hover:text-white"
+                      }`}
+                    >
+                      <Icon
+                        name={sub.label === "View Profile" ? "UserCircleIcon" : "ClipboardDocumentListIcon"}
+                        size={15}
+                      />
+                      {sub.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </nav>
 
         {/* CTA */}
@@ -88,6 +156,7 @@ export default function Header() {
           <Icon name={mobileOpen ? "XMarkIcon" : "Bars3Icon"} size={22} />
         </button>
       </div>
+
       {/* Mobile Menu */}
       {mobileOpen && (
         <div className="md:hidden bg-black/98 backdrop-blur-xl border-t border-[#333] px-4 py-6 space-y-4">
@@ -106,6 +175,46 @@ export default function Header() {
               </Link>
             );
           })}
+
+          {/* Mobile Customer Profile */}
+          <div>
+            <button
+              onClick={() => setMobileProfileOpen(!mobileProfileOpen)}
+              className={`flex items-center justify-between w-full py-2 text-base font-medium transition-colors ${
+                isCustomerProfileActive ? "text-[#C4622D]" : "text-[#D4CFC9]"
+              }`}
+            >
+              Customer Profile
+              <Icon
+                name={mobileProfileOpen ? "ChevronUpIcon" : "ChevronDownIcon"}
+                size={16}
+              />
+            </button>
+            {mobileProfileOpen && (
+              <div className="pl-4 mt-1 space-y-1 border-l border-[#2A2A2A]">
+                {customerProfileSubLinks.map((sub) => {
+                  const isSubActive = pathname === sub.href;
+                  return (
+                    <Link
+                      key={sub.href}
+                      href={sub.href}
+                      onClick={() => { setMobileOpen(false); setMobileProfileOpen(false); }}
+                      className={`flex items-center gap-2 py-2 text-sm transition-colors ${
+                        isSubActive ? "text-[#C4622D]" : "text-[#A09890] hover:text-white"
+                      }`}
+                    >
+                      <Icon
+                        name={sub.label === "View Profile" ? "UserCircleIcon" : "ClipboardDocumentListIcon"}
+                        size={14}
+                      />
+                      {sub.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
           <Link
             href="/products"
             onClick={() => setMobileOpen(false)}
