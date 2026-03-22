@@ -1,12 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import AppIcon from "@/components/ui/AppIcon";
-import { createClient } from "@/lib/supabase/client";
 
 type PaymentStatus = "pending" | "paid" | "failed" | "awaiting_payment" | "refunded" | "discounted";
 type FulfillmentStatus = "new" | "confirmed" | "preparing" | "ready" | "delivered" | "cancelled";
@@ -38,11 +37,11 @@ interface Order {
   created_at: string;
 }
 
-interface UserProfile {
-  id: string;
-  email: string;
-  full_name: string;
-  created_at: string;
+interface CustomerProfile {
+  customer_name: string;
+  customer_email: string;
+  customer_phone: string;
+  first_order_date: string;
 }
 
 const FULFILLMENT_LABELS: Record<FulfillmentStatus, string> = {
@@ -100,29 +99,74 @@ function formatCurrency(amount: number) {
   return `R ${amount.toFixed(2)}`;
 }
 
+function extractUniqueAddresses(orders: Order[]): string[] {
+  const seen = new Set<string>();
+  const addresses: string[] = [];
+  for (const order of orders) {
+    const addr = order.delivery_address?.trim();
+    if (addr && !seen.has(addr.toLowerCase())) {
+      seen.add(addr.toLowerCase());
+      addresses.push(addr);
+    }
+  }
+  return addresses;
+}
+
 type ActiveTab = "profile" | "addresses" | "orders";
+type ViewState = "lookup" | "profile";
 
 export default function CustomerProfilePage() {
   const router = useRouter();
-  const supabase = createClient();
 
+  // Lookup state
+  const [viewState, setViewState] = useState<ViewState>("lookup");
+  const [identifier, setIdentifier] = useState("");
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const [lookupError, setLookupError] = useState<string | null>(null);
+
+  // Profile state
   const [activeTab, setActiveTab] = useState<ActiveTab>("profile");
-  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [profile, setProfile] = useState<CustomerProfile | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [ordersLoading, setOrdersLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
   const [voucherAmounts, setVoucherAmounts] = useState<Record<string, number>>({});
-  const [savedAddresses, setSavedAddresses] = useState<string[]>([]);
 
-  // Profile edit state
-  const [editingProfile, setEditingProfile] = useState(false);
-  const [editName, setEditName] = useState("");
-  const [savingProfile, setSavingProfile] = useState(false);
-  const [saveSuccess, setSaveSuccess] = useState(false);
+  const handleLookup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!identifier.trim()) return;
 
-  const fetchVoucherAmounts = async (fetchedOrders: Order[]) => {
+    setLookupLoading(true);
+    setLookupError(null);
+
+    try {
+      const res = await fetch("/api/customer-lookup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identifier: identifier.trim() }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setLookupError(data.error || "Lookup failed. Please try again.");
+        return;
+      }
+
+      setProfile(data.profile);
+      setOrders(data.orders || []);
+
+      // Compute voucher amounts from order notes
+      await computeVoucherAmounts(data.orders || []);
+
+      setViewState("profile");
+    } catch {
+      setLookupError("An unexpected error occurred. Please try again.");
+    } finally {
+      setLookupLoading(false);
+    }
+  };
+
+  const computeVoucherAmounts = async (fetchedOrders: Order[]) => {
     const voucherCodes: string[] = [];
     const codeToOrderId: Record<string, string> = {};
     for (const order of fetchedOrders) {
@@ -135,98 +179,24 @@ export default function CustomerProfilePage() {
       }
     }
     if (voucherCodes.length === 0) return;
-    const { data } = await supabase
-      .from("vouchers")
-      .select("voucher_code, total_meals")
-      .in("voucher_code", voucherCodes);
-    if (data) {
-      const amounts: Record<string, number> = {};
-      for (const v of data) {
-        const orderId = codeToOrderId[v.voucher_code];
-        if (orderId) amounts[orderId] = VOUCHER_MEAL_PRICES[v.total_meals] ?? 0;
-      }
-      setVoucherAmounts(amounts);
-    }
-  };
 
-  const extractUniqueAddresses = (fetchedOrders: Order[]) => {
-    const seen = new Set<string>();
-    const addresses: string[] = [];
-    for (const order of fetchedOrders) {
-      const addr = order.delivery_address?.trim();
-      if (addr && !seen.has(addr.toLowerCase())) {
-        seen.add(addr.toLowerCase());
-        addresses.push(addr);
-      }
-    }
-    setSavedAddresses(addresses);
-  };
-
-  useEffect(() => {
-    const init = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.user) {
-          router.push("/homepage");
-          return;
-        }
-
-        // Fetch user profile
-        const { data: profileData } = await supabase
-          .from("user_profiles")
-          .select("id, email, full_name, created_at")
-          .eq("id", session.user.id)
-          .single();
-
-        const userProfile: UserProfile = {
-          id: session.user.id,
-          email: session.user.email || "",
-          full_name: profileData?.full_name || session.user.user_metadata?.full_name || "",
-          created_at: profileData?.created_at || session.user.created_at || "",
-        };
-        setProfile(userProfile);
-        setEditName(userProfile.full_name);
-
-        // Fetch orders
-        setOrdersLoading(true);
-        const { data: ordersData, error: ordersError } = await supabase
-          .from("orders")
-          .select("*")
-          .eq("customer_email", session.user.email!.toLowerCase().trim())
-          .order("created_at", { ascending: false });
-
-        if (ordersError) throw ordersError;
-        const fetchedOrders = (ordersData as Order[]) || [];
-        setOrders(fetchedOrders);
-        extractUniqueAddresses(fetchedOrders);
-        await fetchVoucherAmounts(fetchedOrders);
-      } catch (err) {
-        console.error("Profile load error:", err);
-        setError("Unable to load your profile. Please try again.");
-      } finally {
-        setLoading(false);
-        setOrdersLoading(false);
-      }
-    };
-    init();
-  }, []);
-
-  const handleSaveProfile = async () => {
-    if (!profile) return;
-    setSavingProfile(true);
     try {
-      await supabase
-        .from("user_profiles")
-        .update({ full_name: editName, updated_at: new Date().toISOString() })
-        .eq("id", profile.id);
-      setProfile({ ...profile, full_name: editName });
-      setEditingProfile(false);
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
-    } catch (err) {
-      console.error("Save profile error:", err);
-    } finally {
-      setSavingProfile(false);
+      const res = await fetch("/api/customer-lookup/vouchers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ codes: voucherCodes }),
+      });
+      if (res.ok) {
+        const vData = await res.json();
+        const amounts: Record<string, number> = {};
+        for (const v of vData.vouchers || []) {
+          const orderId = codeToOrderId[v.voucher_code];
+          if (orderId) amounts[orderId] = VOUCHER_MEAL_PRICES[v.total_meals] ?? 0;
+        }
+        setVoucherAmounts(amounts);
+      }
+    } catch {
+      // Non-critical — voucher amounts just won't show
     }
   };
 
@@ -239,20 +209,112 @@ export default function CustomerProfilePage() {
     setExpandedOrder(expandedOrder === orderId ? null : orderId);
   };
 
+  const handleSignOut = () => {
+    setViewState("lookup");
+    setProfile(null);
+    setOrders([]);
+    setIdentifier("");
+    setActiveTab("profile");
+  };
+
   const tabs: { id: ActiveTab; label: string; icon: string }[] = [
     { id: "profile", label: "My Profile", icon: "UserCircleIcon" },
     { id: "addresses", label: "Saved Addresses", icon: "MapPinIcon" },
     { id: "orders", label: "Order History", icon: "ClipboardDocumentListIcon" },
   ];
 
-  if (loading) {
+  const savedAddresses = profile ? extractUniqueAddresses(orders) : [];
+
+  // ── LOOKUP SCREEN ──────────────────────────────────────────────────────────
+  if (viewState === "lookup") {
     return (
       <div className="min-h-screen bg-[#0A0A0A] text-white">
         <Header />
-        <main className="pt-24 pb-20 flex items-center justify-center">
-          <div className="flex flex-col items-center gap-4">
-            <div className="w-8 h-8 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
-            <p className="text-[#A09890] text-sm">Loading your profile…</p>
+        <main className="pt-24 pb-20 flex items-center justify-center px-4">
+          <div className="w-full max-w-md">
+            {/* Back link */}
+            <div className="mb-6">
+              <Link
+                href="/homepage"
+                className="text-[#A09890] hover:text-white transition-colors text-sm flex items-center gap-1"
+              >
+                <AppIcon name="ArrowLeftIcon" size={14} />
+                Back to Home
+              </Link>
+            </div>
+
+            {/* Card */}
+            <div className="bg-[#141414] border border-[#2A2A2A] rounded-2xl p-8">
+              {/* Icon */}
+              <div className="w-14 h-14 rounded-2xl bg-[#C4622D]/15 border border-[#C4622D]/25 flex items-center justify-center mx-auto mb-5">
+                <AppIcon name="UserCircleIcon" size={28} className="text-[#C4622D]" />
+              </div>
+
+              <h1 className="text-2xl font-bold text-white text-center mb-1">
+                View Your Profile
+              </h1>
+              <p className="text-[#A09890] text-sm text-center mb-7 leading-relaxed">
+                Enter the email address or mobile number you used when placing your order(s) to access your profile and order history.
+              </p>
+
+              <form onSubmit={handleLookup} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-[#666] uppercase tracking-wider mb-2">
+                    Email Address or Mobile Number
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-3.5 flex items-center pointer-events-none">
+                      <AppIcon
+                        name={identifier.includes("@") ? "EnvelopeIcon" : "PhoneIcon"}
+                        size={16}
+                        className="text-[#555]"
+                      />
+                    </div>
+                    <input
+                      type="text"
+                      value={identifier}
+                      onChange={(e) => {
+                        setIdentifier(e.target.value);
+                        setLookupError(null);
+                      }}
+                      placeholder="e.g. jane@example.com or 082 123 4567"
+                      className="w-full bg-[#1A1A1A] border border-[#333] rounded-xl pl-10 pr-4 py-3.5 text-sm text-white placeholder-[#555] focus:outline-none focus:border-[#C4622D] transition-colors"
+                      autoComplete="off"
+                      autoFocus
+                    />
+                  </div>
+                </div>
+
+                {lookupError && (
+                  <div className="flex items-start gap-2.5 bg-red-500/10 border border-red-500/25 text-red-400 text-sm px-4 py-3 rounded-xl">
+                    <AppIcon name="ExclamationCircleIcon" size={16} className="shrink-0 mt-0.5" />
+                    <span>{lookupError}</span>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={lookupLoading || !identifier.trim()}
+                  className="w-full flex items-center justify-center gap-2 bg-[#C4622D] hover:bg-[#A04E22] disabled:opacity-50 disabled:cursor-not-allowed text-white py-3.5 rounded-xl text-sm font-semibold transition-colors"
+                >
+                  {lookupLoading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Looking up…
+                    </>
+                  ) : (
+                    <>
+                      <AppIcon name="MagnifyingGlassIcon" size={16} />
+                      Find My Profile
+                    </>
+                  )}
+                </button>
+              </form>
+
+              <p className="text-xs text-[#555] text-center mt-5 leading-relaxed">
+                Your information is used only to retrieve your order history and is never stored in a new account.
+              </p>
+            </div>
           </div>
         </main>
         <Footer />
@@ -260,26 +322,12 @@ export default function CustomerProfilePage() {
     );
   }
 
-  if (!profile) {
-    return (
-      <div className="min-h-screen bg-[#0A0A0A] text-white">
-        <Header />
-        <main className="pt-24 pb-20 flex items-center justify-center">
-          <div className="text-center">
-            <p className="text-[#A09890] mb-4">Please sign in to view your profile.</p>
-            <Link href="/homepage" className="bg-[#C4622D] text-white px-6 py-3 rounded-full text-sm font-semibold">
-              Go to Home
-            </Link>
-          </div>
-        </main>
-        <Footer />
-      </div>
-    );
-  }
+  // ── PROFILE SCREEN ─────────────────────────────────────────────────────────
+  if (!profile) return null;
 
-  const initials = profile.full_name
-    ? profile.full_name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
-    : profile.email[0].toUpperCase();
+  const initials = profile.customer_name
+    ? profile.customer_name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
+    : (profile.customer_email[0] || "?").toUpperCase();
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-white">
@@ -288,14 +336,14 @@ export default function CustomerProfilePage() {
       <main className="pt-24 pb-20">
         {/* Page Header */}
         <div className="max-w-5xl mx-auto px-4 md:px-8 mb-8">
-          <div className="flex items-center gap-3 mb-4">
-            <Link
-              href="/homepage"
+          <div className="flex items-center justify-between mb-4">
+            <button
+              onClick={handleSignOut}
               className="text-[#A09890] hover:text-white transition-colors text-sm flex items-center gap-1"
             >
               <AppIcon name="ArrowLeftIcon" size={14} />
-              Back to Home
-            </Link>
+              Look up a different account
+            </button>
           </div>
 
           {/* Profile Hero */}
@@ -306,11 +354,16 @@ export default function CustomerProfilePage() {
             </div>
             <div className="flex-1 min-w-0">
               <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
-                {profile.full_name || "Customer"}
+                {profile.customer_name || "Customer"}
               </h1>
-              <p className="text-[#A09890] text-sm mt-1">{profile.email}</p>
+              {profile.customer_email && (
+                <p className="text-[#A09890] text-sm mt-1">{profile.customer_email}</p>
+              )}
+              {profile.customer_phone && (
+                <p className="text-[#666] text-xs mt-0.5">{profile.customer_phone}</p>
+              )}
               <p className="text-[#666] text-xs mt-1">
-                Member since {formatDate(profile.created_at)}
+                First order: {formatDate(profile.first_order_date)}
               </p>
             </div>
             <div className="flex items-center gap-3 shrink-0">
@@ -345,97 +398,57 @@ export default function CustomerProfilePage() {
             ))}
           </div>
 
-          {/* Success Banner */}
-          {saveSuccess && (
-            <div className="mb-4 flex items-center gap-2 bg-green-500/10 border border-green-500/30 text-green-400 text-sm px-4 py-3 rounded-xl">
-              <AppIcon name="CheckCircleIcon" size={16} />
-              Profile updated successfully.
-            </div>
-          )}
-
           {/* Tab: Profile */}
           {activeTab === "profile" && (
             <div className="bg-[#141414] border border-[#2A2A2A] rounded-2xl p-6 md:p-8">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-lg font-semibold text-white">Profile Details</h2>
-                {!editingProfile && (
-                  <button
-                    onClick={() => { setEditingProfile(true); setEditName(profile.full_name); }}
-                    className="flex items-center gap-1.5 text-sm text-[#C4622D] hover:text-[#A04E22] transition-colors"
-                  >
-                    <AppIcon name="PencilSquareIcon" size={15} />
-                    Edit
-                  </button>
-                )}
-              </div>
-
+              <h2 className="text-lg font-semibold text-white mb-6">Profile Details</h2>
               <div className="space-y-5">
                 {/* Full Name */}
                 <div>
                   <label className="block text-xs font-semibold text-[#666] uppercase tracking-wider mb-2">
                     Full Name
                   </label>
-                  {editingProfile ? (
-                    <input
-                      type="text"
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                      className="w-full bg-[#1A1A1A] border border-[#333] rounded-xl px-4 py-3 text-sm text-white placeholder-[#555] focus:outline-none focus:border-[#C4622D] transition-colors"
-                      placeholder="Your full name"
-                    />
-                  ) : (
-                    <p className="text-white text-sm bg-[#1A1A1A] border border-[#222] rounded-xl px-4 py-3">
-                      {profile.full_name || <span className="text-[#555]">Not set</span>}
-                    </p>
-                  )}
+                  <p className="text-white text-sm bg-[#1A1A1A] border border-[#222] rounded-xl px-4 py-3">
+                    {profile.customer_name || <span className="text-[#555]">Not set</span>}
+                  </p>
                 </div>
 
                 {/* Email */}
-                <div>
-                  <label className="block text-xs font-semibold text-[#666] uppercase tracking-wider mb-2">
-                    Email Address
-                  </label>
-                  <p className="text-[#A09890] text-sm bg-[#1A1A1A] border border-[#222] rounded-xl px-4 py-3 flex items-center gap-2">
-                    <AppIcon name="EnvelopeIcon" size={14} className="text-[#555]" />
-                    {profile.email}
-                    <span className="ml-auto text-xs text-[#555]">Cannot be changed</span>
-                  </p>
-                </div>
+                {profile.customer_email && (
+                  <div>
+                    <label className="block text-xs font-semibold text-[#666] uppercase tracking-wider mb-2">
+                      Email Address
+                    </label>
+                    <p className="text-[#A09890] text-sm bg-[#1A1A1A] border border-[#222] rounded-xl px-4 py-3 flex items-center gap-2">
+                      <AppIcon name="EnvelopeIcon" size={14} className="text-[#555]" />
+                      {profile.customer_email}
+                    </p>
+                  </div>
+                )}
 
-                {/* Member Since */}
+                {/* Phone */}
+                {profile.customer_phone && (
+                  <div>
+                    <label className="block text-xs font-semibold text-[#666] uppercase tracking-wider mb-2">
+                      Mobile / Cell Number
+                    </label>
+                    <p className="text-[#A09890] text-sm bg-[#1A1A1A] border border-[#222] rounded-xl px-4 py-3 flex items-center gap-2">
+                      <AppIcon name="PhoneIcon" size={14} className="text-[#555]" />
+                      {profile.customer_phone}
+                    </p>
+                  </div>
+                )}
+
+                {/* First Order */}
                 <div>
                   <label className="block text-xs font-semibold text-[#666] uppercase tracking-wider mb-2">
-                    Member Since
+                    Customer Since
                   </label>
                   <p className="text-[#A09890] text-sm bg-[#1A1A1A] border border-[#222] rounded-xl px-4 py-3 flex items-center gap-2">
                     <AppIcon name="CalendarDaysIcon" size={14} className="text-[#555]" />
-                    {formatDate(profile.created_at)}
+                    {formatDate(profile.first_order_date)}
                   </p>
                 </div>
-
-                {/* Edit Actions */}
-                {editingProfile && (
-                  <div className="flex gap-3 pt-2">
-                    <button
-                      onClick={handleSaveProfile}
-                      disabled={savingProfile}
-                      className="flex items-center gap-2 bg-[#C4622D] hover:bg-[#A04E22] disabled:opacity-50 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors"
-                    >
-                      {savingProfile ? (
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      ) : (
-                        <AppIcon name="CheckIcon" size={15} />
-                      )}
-                      Save Changes
-                    </button>
-                    <button
-                      onClick={() => { setEditingProfile(false); setEditName(profile.full_name); }}
-                      className="flex items-center gap-2 bg-[#1E1E1E] hover:bg-[#252525] text-[#A09890] hover:text-white px-5 py-2.5 rounded-xl text-sm font-medium transition-colors"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                )}
               </div>
             </div>
           )}
@@ -491,12 +504,7 @@ export default function CustomerProfilePage() {
           {/* Tab: Order History */}
           {activeTab === "orders" && (
             <div>
-              {ordersLoading ? (
-                <div className="flex flex-col items-center justify-center py-20 gap-4">
-                  <div className="w-8 h-8 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
-                  <p className="text-[#A09890] text-sm">Loading your orders…</p>
-                </div>
-              ) : orders.length === 0 ? (
+              {orders.length === 0 ? (
                 <div className="bg-[#141414] border border-[#2A2A2A] rounded-2xl p-12 text-center">
                   <div className="w-14 h-14 rounded-2xl bg-[#1E1E1E] flex items-center justify-center mx-auto mb-4">
                     <AppIcon name="ShoppingBagIcon" size={28} className="text-[#555]" />
