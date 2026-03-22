@@ -9,8 +9,15 @@ export default function Footer() {
       <div className="max-w-7xl mx-auto px-4 md:px-8 py-16">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-8">
           {/* Brand */}
-          <div className="flex items-center gap-3">
-            <AppLogo size={64} iconName="FireIcon" text={APP_NAME} textClassName="text-[#8C8278]" className="[&>img]:bg-black [&>img]:rounded-md" />
+          <div className="flex flex-col items-start gap-3">
+            <div className="flex items-center gap-3">
+              <AppLogo size={64} iconName="FireIcon" text={APP_NAME} textClassName="text-[#8C8278]" className="[&>img]:bg-black [&>img]:rounded-md" />
+            </div>
+            <img
+              src="/assets/images/SANHA__CK__Transparent-1774211701949.png"
+              alt="SANHA Halaal certified logo"
+              className="h-16 w-auto object-contain"
+            />
           </div>
 
           {/* Links */}
