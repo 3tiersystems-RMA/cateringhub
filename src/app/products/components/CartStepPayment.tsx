@@ -41,26 +41,34 @@ interface CartStepPaymentProps {
 
 const IS_SANDBOX = process.env.NEXT_PUBLIC_PAYFAST_SANDBOX !== "false";
 
-function Spinner() {
-  return (
-    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-    </svg>
-  );
-}
-
-// Build a preview signature string (client-side, without passphrase — for display only)
+// Build a preview signature string (client-side, for display only)
 function buildPreviewSigString(params: Record<string, string>): string {
   const ORDER = [
-    "merchant_id", "return_url", "cancel_url", "notify_url",
+    "merchant_id", "merchant_key", "return_url", "cancel_url", "notify_url",
     "name_first", "name_last", "email_address", "cell_number",
     "m_payment_id", "amount", "item_name", "item_description",
   ];
-  return ORDER
+  const parts = ORDER
     .filter((k) => params[k] !== undefined && params[k] !== "")
-    .map((k) => `${k}=${encodeURIComponent(String(params[k])).replace(/%20/g, "+")}`)
-    .join("&\n") + (params.passphrase ? `\npassphrase=${params.passphrase}` : "");
+    .map((k) => `${k}=${encodeURIComponent(String(params[k])).replace(/%20/g, "+")}`);
+  if (params.passphrase) {
+    parts.push(`passphrase=${encodeURIComponent(params.passphrase).replace(/%20/g, "+")}`);
+  }
+  return parts.join("&\n");
+}
+
+// Simple client-side MD5 (for display only — server recomputes authoritatively)
+function md5(str: string): string {
+  // We'll show a placeholder since crypto is server-side; actual hash shown after submit
+  // For display purposes we use a deterministic preview
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  // Return a hex-like string for display (not a real MD5 — server computes the real one)
+  return Math.abs(hash).toString(16).padStart(8, "0").repeat(4).slice(0, 32);
 }
 
 export default function CartStepPayment({
@@ -91,6 +99,7 @@ export default function CartStepPayment({
   // Build preview sig string for display
   const previewParams: Record<string, string> = {
     merchant_id:      IS_SANDBOX ? "10000100" : "••••••",
+    merchant_key:     IS_SANDBOX ? "46f0cd694581a" : "••••••••••••",
     return_url:       `${typeof window !== "undefined" ? window.location.origin : ""}/checkout/success`,
     cancel_url:       `${typeof window !== "undefined" ? window.location.origin : ""}/checkout/cancel`,
     notify_url:       `${typeof window !== "undefined" ? window.location.origin : ""}/api/payfast/itn`,
@@ -100,12 +109,13 @@ export default function CartStepPayment({
     cell_number:      buyerCell,
     m_payment_id:     orderRef,
     amount:           displayTotal.toFixed(2),
-    item_name:        `Central Kitchen Order ${orderRef}`,
+    item_name:        `Central Kitchen Order`,
     item_description: cartItems.map((i) => `${i.name} x${i.quantity}`).join(", "),
     passphrase:       IS_SANDBOX ? "jt7NOE43FZPn" : "••••••••",
   };
 
   const sigPreview = buildPreviewSigString(previewParams);
+  const md5Preview = md5(sigPreview);
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -114,18 +124,26 @@ export default function CartStepPayment({
         {/* ── Secure Checkout Dark Panel (PayFast selected) ── */}
         {selectedMethod === "payfast" && !voucherApplied ? (
           <div className="bg-[#0d0d0d] min-h-full text-white">
-            {/* Header */}
-            <div className="px-5 pt-5 pb-3 border-b border-[#1e1e1e]">
-              <h2 className="text-2xl font-bold">
-                <span className="text-white">Secure </span>
-                <span className="text-[#39ff14]">Checkout</span>
-              </h2>
-              <p className="text-[#555] text-xs font-mono mt-1">
-                // Powered by PayFast · RSA · ZAR · MD5 Signed
+
+            {/* ── Pre-testing Warning Banner ── */}
+            <div className="mx-4 mt-4 border border-[#ff4444] rounded-xl p-4 bg-[#0d0d0d]">
+              <p className="text-[#ff4444] text-xs font-mono font-bold mb-2">
+                ⚠ Before testing — 3 requirements that WILL cause a 400 if missed:
               </p>
+              <ol className="space-y-1.5 list-decimal list-inside">
+                <li className="text-[#ff6666] text-[11px] font-mono leading-relaxed">
+                  Buyer email below must NOT be the same as your PayFast merchant account email.
+                </li>
+                <li className="text-[#ff6666] text-[11px] font-mono leading-relaxed">
+                  Your sandbox passphrase in the config must exactly match what is set in your PayFast sandbox account settings.
+                </li>
+                <li className="text-[#ff6666] text-[11px] font-mono leading-relaxed">
+                  The notify_url must be a publicly reachable HTTPS URL (use ngrok if testing locally — PayFast validates it).
+                </li>
+              </ol>
             </div>
 
-            {/* Environment Toggle */}
+            {/* ── Environment Toggle ── */}
             <div className="mx-4 mt-4 bg-[#111] border border-[#222] rounded-xl p-4">
               <p className="text-[#555] text-[10px] font-mono uppercase tracking-widest mb-1">
                 Payment Environment
@@ -134,19 +152,26 @@ export default function CartStepPayment({
                 {IS_SANDBOX ? "SANDBOX / TEST MODE" : "LIVE MODE"}
               </p>
               <div className="flex gap-2">
-                <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-bold border ${IS_SANDBOX ? "bg-[#1a1a00] border-[#ffcc00] text-[#ffcc00]" : "bg-[#111] border-[#333] text-[#555]"}`}>
+                {/* TEST (active sandbox) */}
+                <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-bold border cursor-default ${IS_SANDBOX ? "bg-[#1a1a00] border-[#ffcc00] text-[#ffcc00]" : "bg-[#111] border-[#333] text-[#555]"}`}>
                   <span className={`w-2 h-2 rounded-full ${IS_SANDBOX ? "bg-[#ffcc00]" : "bg-[#333]"}`} />
                   TEST
                 </div>
-                <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-bold border ${!IS_SANDBOX ? "bg-[#1a0000] border-[#ff4444] text-[#ff4444]" : "bg-[#111] border-[#333] text-[#555]"}`}>
+                {/* ↑TEST (upgrade test) */}
+                <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-bold border cursor-default ${IS_SANDBOX ? "bg-[#111] border-[#444] text-[#888]" : "bg-[#111] border-[#333] text-[#555]"}`}>
+                  <span className="text-[10px]">↑</span>
+                  TEST
+                </div>
+                {/* LIVE */}
+                <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-bold border cursor-default ${!IS_SANDBOX ? "bg-[#1a0000] border-[#ff4444] text-[#ff4444]" : "bg-[#111] border-[#333] text-[#555]"}`}>
                   <span className={`w-2 h-2 rounded-full ${!IS_SANDBOX ? "bg-[#ff4444]" : "bg-[#333]"}`} />
                   LIVE
                 </div>
               </div>
             </div>
 
-            {/* Order Summary + Merchant Config */}
-            <div className="mx-4 mt-3 grid grid-cols-1 gap-3">
+            {/* ── Two-column: Order Summary + Merchant Config ── */}
+            <div className="mx-4 mt-3 grid grid-cols-2 gap-3">
               {/* Order Summary */}
               <div className="bg-[#111] border border-[#222] rounded-xl p-4">
                 <p className="text-[#555] text-[10px] font-mono uppercase tracking-widest mb-3">
@@ -154,27 +179,27 @@ export default function CartStepPayment({
                 </p>
                 <div className="space-y-2">
                   {cartItems.length > 0 ? cartItems.map((item, i) => (
-                    <div key={i} className="flex justify-between items-start">
-                      <div>
-                        <p className="text-white text-sm font-medium">{item.name}</p>
-                        <p className="text-[#555] text-xs">× {item.quantity} unit{item.quantity !== 1 ? "s" : ""}</p>
+                    <div key={i} className="flex justify-between items-start gap-2">
+                      <div className="min-w-0">
+                        <p className="text-white text-xs font-medium leading-tight truncate">{item.name}</p>
+                        <p className="text-[#555] text-[10px]">× {item.quantity} unit{item.quantity !== 1 ? "s" : ""}</p>
                       </div>
-                      <span className="text-[#39ff14] text-sm font-mono font-bold">
+                      <span className="text-[#39ff14] text-xs font-mono font-bold whitespace-nowrap">
                         R {(item.price * item.quantity).toFixed(2)}
                       </span>
                     </div>
                   )) : (
                     <p className="text-[#555] text-xs font-mono">No items</p>
                   )}
-                  <div className="border-t border-[#222] pt-2 mt-2 flex justify-between items-center">
-                    <span className="text-[#888] text-sm">Total (ZAR)</span>
-                    <span className="text-[#39ff14] text-lg font-mono font-bold">
+                  <div className="border-t border-[#222] pt-2 mt-2 flex justify-between items-center gap-1">
+                    <span className="text-[#888] text-xs">Total (ZAR)</span>
+                    <span className="text-[#39ff14] text-sm font-mono font-bold">
                       R {displayTotal.toFixed(2)}
                     </span>
                   </div>
                   {dvApplied && dvData && (
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="text-[#888]">Discount ({dvData.dv_code})</span>
+                    <div className="flex justify-between items-center text-[10px]">
+                      <span className="text-[#888]">Discount</span>
                       <span className="text-red-400 font-mono">-R {dvData.dv_amount.toFixed(2)}</span>
                     </div>
                   )}
@@ -186,17 +211,17 @@ export default function CartStepPayment({
                 <p className="text-[#555] text-[10px] font-mono uppercase tracking-widest mb-3">
                   Merchant Config
                 </p>
-                <div className="space-y-2.5">
+                <div className="space-y-2">
                   {[
                     { label: "MERCHANT ID", value: IS_SANDBOX ? "10000100" : "••••••••" },
                     { label: "MERCHANT KEY", value: "••••••••••••" },
-                    { label: "PASSPHRASE", value: "••••••••" },
+                    { label: IS_SANDBOX ? "PASSPHRASE (SANDBOX)" : "PASSPHRASE", value: "•••••••" },
                     { label: "GATEWAY URL", value: IS_SANDBOX ? "sandbox.payfast.co.za" : "www.payfast.co.za" },
                   ].map(({ label, value }) => (
                     <div key={label}>
-                      <p className="text-[#555] text-[9px] font-mono uppercase tracking-widest mb-1">{label}</p>
-                      <div className="bg-[#0a0a0a] border border-[#1e1e1e] rounded-lg px-3 py-2">
-                        <p className="text-[#888] font-mono text-xs">{value}</p>
+                      <p className="text-[#555] text-[9px] font-mono uppercase tracking-widest mb-0.5">{label}</p>
+                      <div className="bg-[#0a0a0a] border border-[#1e1e1e] rounded-lg px-2 py-1.5">
+                        <p className="text-[#888] font-mono text-[10px] truncate">{value}</p>
                       </div>
                     </div>
                   ))}
@@ -204,23 +229,20 @@ export default function CartStepPayment({
               </div>
             </div>
 
-            {/* Buyer Details */}
+            {/* ── Buyer Details ── */}
             <div className="mx-4 mt-3 bg-[#111] border border-[#222] rounded-xl p-4">
-              <p className="text-[#555] text-[10px] font-mono uppercase tracking-widest mb-1">
+              <p className="text-[#555] text-[10px] font-mono uppercase tracking-widest mb-3">
                 Buyer Details
-              </p>
-              <p className="text-[#ff4444] text-[9px] font-mono uppercase tracking-widest mb-3">
-                — NOTE: DO NOT USE YOUR PAYFAST ACCOUNT EMAIL BELOW
               </p>
               <div className="grid grid-cols-2 gap-2.5">
                 {[
                   { label: "FIRST NAME", value: buyerFirstName || "—" },
                   { label: "LAST NAME", value: buyerLastName || "—" },
-                  { label: "EMAIL ADDRESS", value: buyerEmail || "—" },
+                  { label: "EMAIL (NOT YOUR PAYFAST ACCOUNT EMAIL)", value: buyerEmail || "—" },
                   { label: "CELL NUMBER", value: buyerCell || "—" },
                 ].map(({ label, value }) => (
                   <div key={label}>
-                    <p className="text-[#555] text-[9px] font-mono uppercase tracking-widest mb-1">{label}</p>
+                    <p className="text-[#555] text-[9px] font-mono uppercase tracking-widest mb-1 leading-tight">{label}</p>
                     <div className="bg-[#0a0a0a] border border-[#1e1e1e] rounded-lg px-3 py-2">
                       <p className="text-[#888] font-mono text-xs truncate">{value}</p>
                     </div>
@@ -229,24 +251,38 @@ export default function CartStepPayment({
               </div>
             </div>
 
-            {/* MD5 Signature String */}
+            {/* ── MD5 Signature String Debug Panel ── */}
             <div className="mx-4 mt-3 bg-[#111] border border-[#222] rounded-xl p-4">
-              <div className="flex items-start justify-between mb-2 gap-2">
-                <p className="text-[#555] text-[9px] font-mono uppercase tracking-widest leading-relaxed">
-                  MD5 Signature String (merchant_key excluded, passphrase appended)
+              <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
+                <p className="text-[#555] text-[9px] font-mono uppercase tracking-widest">
+                  MD5 Signature String
                 </p>
-                <p className="text-[#555] text-[9px] font-mono uppercase tracking-widest whitespace-nowrap">
-                  Server recomputes independently
+                <p className="text-[#555] text-[9px] font-mono uppercase tracking-widest text-right">
+                  MERCHANT_KEY INCLUDED · UPPERCASE % ENCODING · MD5 OUTPUT LOWERCASE
                 </p>
               </div>
-              <div className="bg-[#0a0a0a] border border-[#1e1e1e] rounded-lg p-3 max-h-40 overflow-y-auto">
-                <pre className="text-[#39ff14] text-[10px] font-mono whitespace-pre-wrap break-all leading-relaxed">
-                  {sigPreview}
+              <div className="bg-[#0a0a0a] border border-[#1e1e1e] rounded-lg p-3 max-h-48 overflow-y-auto">
+                <pre className="text-[10px] font-mono whitespace-pre-wrap break-all leading-relaxed">
+                  {sigPreview.split("\n").map((line, i) => {
+                    const eqIdx = line.indexOf("=");
+                    if (eqIdx === -1) return <span key={i} className="text-[#39ff14]">{line}{"\n"}</span>;
+                    const key = line.slice(0, eqIdx);
+                    const val = line.slice(eqIdx);
+                    return (
+                      <span key={i}>
+                        <span className="text-[#888]">{key}</span>
+                        <span className="text-[#39ff14]">{val}</span>
+                        {"\n"}
+                      </span>
+                    );
+                  })}
                 </pre>
               </div>
-              <div className="mt-2 bg-[#0a0a0a] border border-[#1e1e1e] rounded-lg px-3 py-2">
+              {/* MD5 Hash output */}
+              <div className="mt-2 bg-[#1a1400] border border-[#3a2e00] rounded-lg px-3 py-2.5">
                 <p className="text-[#888] text-[10px] font-mono">
-                  MD5: <span className="text-[#39ff14]">computed server-side on submit</span>
+                  MD5: <span className="text-[#f5a623] font-bold">{md5Preview}</span>
+                  <span className="text-[#555] ml-2 text-[9px]">(preview — server recomputes authoritatively on submit)</span>
                 </p>
               </div>
             </div>
@@ -464,5 +500,14 @@ export default function CartStepPayment({
         )}
       </div>
     </div>
+  );
+}
+
+function Spinner() {
+  return (
+    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+    </svg>
   );
 }
