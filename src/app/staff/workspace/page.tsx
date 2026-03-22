@@ -9,9 +9,10 @@ import { APP_NAME } from "@/lib/constants";
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal';
 import VoucherErrorModal from '@/components/ui/VoucherErrorModal';
 import GoogleDriveDocuments from './components/GoogleDriveDocuments';
+import Link from 'next/link';
 
 type BucketType = 'product-images' | 'event-photos' | 'document-management';
-type WorkspaceTab = 'products' | 'media' | 'orders' | 'staff' | 'homepage_cards' | 'categories' | 'weekly_menu' | 'vouchers' | 'discount_vouchers' | 'testimonials' | 'reporting';
+type WorkspaceTab = 'products' | 'media' | 'orders' | 'staff' | 'homepage_cards' | 'categories' | 'weekly_menu' | 'vouchers' | 'discount_vouchers' | 'testimonials' | 'reporting' | 'analytics';
 
 type ProductCategory = string;
 type StaffRole = 'admin' | 'staff' | 'super_admin';
@@ -2761,6 +2762,13 @@ export default function StaffWorkspacePage() {
                 <span className="text-base">📊</span>
                 <span>Reporting</span>
               </button>
+              <Link
+                href="/staff/analytics"
+                className="flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]"
+              >
+                <span className="text-base">📈</span>
+                <span>Analytics</span>
+              </Link>
             </nav>
           </aside>
 
