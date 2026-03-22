@@ -13,7 +13,7 @@ import GoogleDriveDocuments from './components/GoogleDriveDocuments';
 
 
 type BucketType = 'product-images' | 'event-photos' | 'document-management';
-type WorkspaceTab = 'products' | 'media' | 'orders' | 'staff' | 'homepage_cards' | 'categories' | 'weekly_menu' | 'vouchers' | 'discount_vouchers' | 'testimonials' | 'reporting' | 'analytics';
+type WorkspaceTab = 'products' | 'media' | 'orders' | 'staff' | 'homepage_cards' | 'categories' | 'weekly_menu' | 'vouchers' | 'discount_vouchers' | 'testimonials' | 'reporting' | 'analytics' | 'audit_trail';
 
 type ProductCategory = string;
 type StaffRole = 'admin' | 'staff' | 'super_admin';
@@ -490,6 +490,19 @@ function RedemptionAuditRow({ redemption, index }: { redemption: VoucherRedempti
   );
 }
 
+// ─── Audit Trail types ────────────────────────────────────────────────────────
+interface AuditEntry {
+  id: string;
+  order_id: string;
+  event_type: string;
+  field_changed: string;
+  old_value: string | null;
+  new_value: string;
+  changed_by: string;
+  notes: string | null;
+  created_at: string;
+}
+
 export default function StaffWorkspacePage() {
   const router = useRouter();
   const supabase = createClient();
@@ -690,6 +703,15 @@ export default function StaffWorkspacePage() {
   const [homepageCardSearchQuery, setHomepageCardSearchQuery] = useState('');
   const [testimonialSearchQuery, setTestimonialSearchQuery] = useState('');
   const [reportingSearchQuery, setReportingSearchQuery] = useState('');
+
+  // ─── Audit Trail state ────────────────────────────────────────────────────────
+  const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([]);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditError, setAuditError] = useState('');
+  const [auditOrderFilter, setAuditOrderFilter] = useState('');
+  const [auditEventFilter, setAuditEventFilter] = useState('all');
+  const [auditSearchQuery, setAuditSearchQuery] = useState('');
+  const [auditRealtimeConnected, setAuditRealtimeConnected] = useState(false);
 
   // ─── PDF Download helpers ──────────────────────────────────────────────────
   const downloadProductsOrderedPDF = () => {
@@ -2575,6 +2597,25 @@ export default function StaffWorkspacePage() {
     await loadDiscountVouchersReport();
   };
 
+  // ─── Load Audit Trail ─────────────────────────────────────────────────────────
+  const loadAuditTrail = async () => {
+    setAuditLoading(true);
+    setAuditError('');
+    try {
+      const { data, error } = await supabase
+        .from('order_audit_trail')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(500);
+      if (error) throw error;
+      setAuditEntries(data || []);
+    } catch (err: any) {
+      setAuditError(err.message || 'Failed to load audit trail');
+    } finally {
+      setAuditLoading(false);
+    }
+  };
+
   return (
     <>
       <VoucherErrorModal
@@ -2769,6 +2810,15 @@ export default function StaffWorkspacePage() {
               >
                 <span className="text-base">📈</span>
                 <span>Analytics</span>
+              </button>
+              <button
+                onClick={() => { setActiveTab('audit_trail'); loadAuditTrail(); }}
+                className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
+                  activeTab === 'audit_trail' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'
+                }`}
+              >
+                <span className="text-base">🔍</span>
+                <span>Order Audit Trail</span>
               </button>
             </nav>
           </aside>
@@ -4402,6 +4452,223 @@ export default function StaffWorkspacePage() {
             )}
           </div>
         )}
+
+        {/* ── AUDIT TRAIL TAB ── */}
+        {activeTab === 'audit_trail' && (() => {
+          const EVENT_TYPE_LABELS: Record<string, string> = {
+            order_created: 'Order Created',
+            payment_update: 'Payment Update',
+            fulfillment_update: 'Fulfilment Update',
+            fulfillment_event: 'Fulfilment Event',
+          };
+          const EVENT_TYPE_COLORS: Record<string, string> = {
+            order_created: 'bg-blue-100 text-blue-700 border-blue-200',
+            payment_update: 'bg-green-100 text-green-700 border-green-200',
+            fulfillment_update: 'bg-orange-100 text-orange-700 border-orange-200',
+            fulfillment_event: 'bg-teal-100 text-teal-700 border-teal-200',
+          };
+          const FIELD_ICONS: Record<string, string> = {
+            payment_status: '💳',
+            fulfillment_status: '📦',
+            delivered_date: '✅',
+          };
+
+          const filteredAudit = auditEntries.filter(e => {
+            const matchesEvent = auditEventFilter === 'all' || e.event_type === auditEventFilter;
+            const matchesSearch = !auditSearchQuery ||
+              e.order_id.toLowerCase().includes(auditSearchQuery.toLowerCase()) ||
+              e.new_value.toLowerCase().includes(auditSearchQuery.toLowerCase()) ||
+              (e.old_value || '').toLowerCase().includes(auditSearchQuery.toLowerCase()) ||
+              e.changed_by.toLowerCase().includes(auditSearchQuery.toLowerCase());
+            const matchesOrder = !auditOrderFilter ||
+              e.order_id.toLowerCase().includes(auditOrderFilter.toLowerCase());
+            return matchesEvent && matchesSearch && matchesOrder;
+          });
+
+          // Group by order_id for the timeline view
+          const grouped: Record<string, AuditEntry[]> = {};
+          filteredAudit.forEach(e => {
+            if (!grouped[e.order_id]) grouped[e.order_id] = [];
+            grouped[e.order_id].push(e);
+          });
+          const groupedEntries = Object.entries(grouped);
+
+          return (
+            <div className="p-6 space-y-6">
+              {/* Header */}
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div>
+                  <h2 className="text-xl font-bold text-[#1A1612]">Order Audit Trail</h2>
+                  <p className="text-sm text-[#8C8278] mt-0.5">
+                    Real-time log of every status change, payment update, and fulfilment event per order.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border ${auditRealtimeConnected ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-50 text-gray-500 border-gray-200'}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${auditRealtimeConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
+                    {auditRealtimeConnected ? 'Live' : 'Static'}
+                  </span>
+                  <button
+                    onClick={loadAuditTrail}
+                    disabled={auditLoading}
+                    className="flex items-center gap-1.5 text-xs font-semibold text-[#C4622D] border border-[#C4622D] rounded-lg px-3 py-1.5 hover:bg-[#FDF6EE] transition-colors disabled:opacity-50"
+                  >
+                    <svg className={`w-3.5 h-3.5 ${auditLoading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Refresh
+                  </button>
+                </div>
+              </div>
+
+              {/* Filters */}
+              <div className="bg-white rounded-2xl border border-[#EDE7DA] p-4 flex flex-wrap gap-3">
+                <input
+                  type="text"
+                  placeholder="Search by order ID, value, actor…"
+                  value={auditSearchQuery}
+                  onChange={e => setAuditSearchQuery(e.target.value)}
+                  className="flex-1 min-w-[180px] border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
+                />
+                <input
+                  type="text"
+                  placeholder="Filter by Order ID…"
+                  value={auditOrderFilter}
+                  onChange={e => setAuditOrderFilter(e.target.value)}
+                  className="w-48 border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
+                />
+                <select
+                  value={auditEventFilter}
+                  onChange={e => setAuditEventFilter(e.target.value)}
+                  className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] bg-white transition-colors"
+                >
+                  <option value="all">All Event Types</option>
+                  <option value="order_created">Order Created</option>
+                  <option value="payment_update">Payment Update</option>
+                  <option value="fulfillment_update">Fulfilment Update</option>
+                  <option value="fulfillment_event">Fulfilment Event</option>
+                </select>
+                <div className="flex items-center gap-2 text-xs text-[#8C8278] ml-auto">
+                  <span className="font-semibold text-[#1A1612]">{filteredAudit.length}</span> events
+                  <span>·</span>
+                  <span className="font-semibold text-[#1A1612]">{groupedEntries.length}</span> orders
+                </div>
+              </div>
+
+              {/* Error */}
+              {auditError && (
+                <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">{auditError}</div>
+              )}
+
+              {/* Loading */}
+              {auditLoading && (
+                <div className="flex items-center justify-center py-16">
+                  <div className="w-8 h-8 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
+                </div>
+              )}
+
+              {/* Empty */}
+              {!auditLoading && filteredAudit.length === 0 && !auditError && (
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <span className="text-5xl mb-4">🔍</span>
+                  <p className="text-[#5C5347] font-semibold">No audit events found</p>
+                  <p className="text-sm text-[#8C8278] mt-1">Events are recorded automatically when orders are updated.</p>
+                </div>
+              )}
+
+              {/* Timeline grouped by order */}
+              {!auditLoading && groupedEntries.length > 0 && (
+                <div className="space-y-4">
+                  {groupedEntries.map(([orderId, entries]) => (
+                    <div key={orderId} className="bg-white rounded-2xl border border-[#EDE7DA] overflow-hidden">
+                      {/* Order header */}
+                      <div className="flex items-center justify-between px-5 py-3 bg-[#F5F0E8] border-b border-[#EDE7DA]">
+                        <div className="flex items-center gap-2">
+                          <span className="text-base">📋</span>
+                          <div>
+                            <p className="text-xs font-semibold text-[#5C5347] uppercase tracking-wider">Order</p>
+                            <p className="text-sm font-mono font-bold text-[#C4622D] break-all">{orderId}</p>
+                          </div>
+                        </div>
+                        <span className="text-xs text-[#8C8278] font-medium">{entries.length} event{entries.length !== 1 ? 's' : ''}</span>
+                      </div>
+
+                      {/* Events timeline */}
+                      <div className="divide-y divide-[#F0EBE3]">
+                        {entries.map((entry, idx) => {
+                          const eventColor = EVENT_TYPE_COLORS[entry.event_type] || 'bg-gray-100 text-gray-600 border-gray-200';
+                          const eventLabel = EVENT_TYPE_LABELS[entry.event_type] || entry.event_type;
+                          const fieldIcon = FIELD_ICONS[entry.field_changed] || '🔄';
+                          const isLast = idx === entries.length - 1;
+
+                          return (
+                            <div key={entry.id} className="flex items-start gap-4 px-5 py-4">
+                              {/* Timeline dot */}
+                              <div className="flex flex-col items-center flex-shrink-0 mt-1">
+                                <div className="w-7 h-7 rounded-full bg-[#FDF6EE] border-2 border-[#C4622D] flex items-center justify-center text-sm">
+                                  {fieldIcon}
+                                </div>
+                                {!isLast && <div className="w-0.5 h-full min-h-[20px] bg-[#EDE7DA] mt-1" />}
+                              </div>
+
+                              {/* Event content */}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center flex-wrap gap-2 mb-1.5">
+                                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${eventColor}`}>
+                                    {eventLabel}
+                                  </span>
+                                  <span className="text-xs text-[#8C8278] font-mono">
+                                    {entry.field_changed.replace(/_/g, ' ')}
+                                  </span>
+                                </div>
+
+                                {/* Value change */}
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  {entry.old_value ? (
+                                    <>
+                                      <span className="inline-flex items-center gap-1 text-xs bg-red-50 text-red-600 border border-red-100 rounded-lg px-2 py-0.5 font-medium">
+                                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M20 12H4" /></svg>
+                                        {entry.old_value.replace(/_/g, ' ')}
+                                      </span>
+                                      <svg className="w-3.5 h-3.5 text-[#8C8278] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                                      </svg>
+                                    </>
+                                  ) : (
+                                    <span className="text-xs text-[#B5ADA5]">Initial →</span>
+                                  )}
+                                  <span className="inline-flex items-center gap-1 text-xs bg-green-50 text-green-700 border border-green-100 rounded-lg px-2 py-0.5 font-medium">
+                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+                                    {entry.new_value.replace(/_/g, ' ')}
+                                  </span>
+                                </div>
+
+                                {entry.notes && (
+                                  <p className="text-xs text-[#8C8278] italic mt-1">{entry.notes}</p>
+                                )}
+                              </div>
+
+                              {/* Timestamp + actor */}
+                              <div className="text-right flex-shrink-0">
+                                <p className="text-xs font-medium text-[#1A1612]">
+                                  {new Date(entry.created_at).toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                </p>
+                                <p className="text-xs text-[#8C8278]">
+                                  {new Date(entry.created_at).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                                </p>
+                                <p className="text-xs text-[#B5ADA5] mt-0.5 capitalize">{entry.changed_by}</p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
       </div>
     </div>
