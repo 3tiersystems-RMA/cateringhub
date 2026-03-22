@@ -3126,11 +3126,6 @@ export default function StaffWorkspacePage() {
                         onClick={() => openEditForm(product)}
                         className="text-xs font-semibold text-[#C4622D] hover:underline"
                       >Edit</button>
-                      <button
-                        onClick={() => handleDeleteProduct(product)}
-                        disabled={deletingProductId === product.id}
-                        className="text-xs font-semibold text-red-500 hover:underline disabled:opacity-50"
-                      >{deletingProductId === product.id ? '...' : 'Delete'}</button>
                     </div>
                   </div>
                 ))}
@@ -3386,88 +3381,166 @@ export default function StaffWorkspacePage() {
         {/* ── WEEKLY MENU TAB ── */}
         {activeTab === 'weekly_menu' && (
           <div>
-            {/* Weekly Menu Header */}
+            {/* Add/Edit Item Modal */}
+            {showWeeklyMenuForm && (
+              <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto py-8 px-4">
+                <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
+                  <div className="flex items-center justify-between px-6 py-4 border-b border-[#EDE7DA]">
+                    <h2 className="font-bold text-[#1A1612] text-lg">{editingWeeklyEntry ? 'Edit Menu Item' : 'Add Menu Item'}</h2>
+                    <button onClick={() => setShowWeeklyMenuForm(false)} className="text-[#8C8278] hover:text-[#1A1612]">
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                  </div>
+                  <form onSubmit={handleSaveWeeklyEntry} className="px-6 py-5 space-y-4">
+                    {weeklyMenuFormSuccess && <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-700 font-medium">{weeklyMenuFormSuccess}</div>}
+                    <div>
+                      <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Date *</label>
+                      <input type="date" value={weeklyMenuForm.meal_date} onChange={(e) => setWeeklyMenuForm({ ...weeklyMenuForm, meal_date: e.target.value })} className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors" />
+                    </div>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={weeklyMenuForm.is_closed} onChange={(e) => setWeeklyMenuForm({ ...weeklyMenuForm, is_closed: e.target.checked })} className="w-4 h-4 accent-[#C4622D]" />
+                      <span className="text-sm font-medium text-[#3D3530]">Mark day as closed</span>
+                    </label>
+                    {weeklyMenuForm.is_closed ? (
+                      <div>
+                        <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Closed Reason</label>
+                        <input type="text" value={weeklyMenuForm.closed_reason} onChange={(e) => setWeeklyMenuForm({ ...weeklyMenuForm, closed_reason: e.target.value })} placeholder="e.g. Public Holiday" className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors" />
+                      </div>
+                    ) : (
+                      <>
+                        <div>
+                          <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Meal Name *</label>
+                          <input type="text" value={weeklyMenuForm.meal_name} onChange={(e) => setWeeklyMenuForm({ ...weeklyMenuForm, meal_name: e.target.value })} placeholder="e.g. Grilled Chicken" className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors" />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Description</label>
+                          <textarea value={weeklyMenuForm.description} onChange={(e) => setWeeklyMenuForm({ ...weeklyMenuForm, description: e.target.value })} rows={2} placeholder="Brief description..." className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors resize-none" />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-semibold text-[#3D3530] mb-1.5">Price (R) *</label>
+                          <input type="number" value={weeklyMenuForm.price} onChange={(e) => setWeeklyMenuForm({ ...weeklyMenuForm, price: e.target.value })} placeholder="0.00" min="0" step="0.01" className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors" />
+                        </div>
+                      </>
+                    )}
+                    <div className="flex gap-3 pt-2">
+                      <button type="button" onClick={() => setShowWeeklyMenuForm(false)} className="flex-1 py-2.5 rounded-xl border border-[#DDD5C8] text-sm font-semibold text-[#5C5347] hover:bg-[#F5F0E8] transition-colors">Cancel</button>
+                      <button type="submit" disabled={savingWeeklyEntry} className="flex-1 py-2.5 rounded-xl bg-[#C4622D] text-white text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+                        {savingWeeklyEntry ? <><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Saving...</> : editingWeeklyEntry ? 'Update Item' : 'Add Item'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {/* Close Day Modal */}
+            {closingDayDate && (
+              <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4">
+                <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6">
+                  <h3 className="font-bold text-[#1A1612] mb-3">Close Day</h3>
+                  <p className="text-sm text-[#5C5347] mb-4">Mark <strong>{closingDayDate}</strong> as closed. Optionally add a reason.</p>
+                  <input type="text" value={closingDayReason} onChange={(e) => setClosingDayReason(e.target.value)} placeholder="e.g. Public Holiday (optional)" className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors mb-4" />
+                  <div className="flex gap-3">
+                    <button onClick={() => { setClosingDayDate(null); setClosingDayReason(''); }} className="flex-1 py-2.5 rounded-xl border border-[#DDD5C8] text-sm font-semibold text-[#5C5347] hover:bg-[#F5F0E8] transition-colors">Cancel</button>
+                    <button onClick={() => handleMarkDayClosed(closingDayDate, closingDayReason)} disabled={savingClosedDay} className="flex-1 py-2.5 rounded-xl bg-red-500 text-white text-sm font-semibold hover:bg-red-600 transition-colors disabled:opacity-60">
+                      {savingClosedDay ? 'Saving...' : 'Close Day'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Week navigator */}
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h2 className="text-lg font-bold text-[#1A1612]">Weekly Menu</h2>
-                <p className="text-xs text-[#8C8278] mt-0.5">{weeklyMenuEntries.length} menu entries</p>
+                <p className="text-xs text-[#8C8278] mt-0.5">
+                  {(() => {
+                    const { mondayStr, fridayStr } = getWeekBoundsForOffset(weekOffset);
+                    return `${mondayStr} — ${fridayStr}`;
+                  })()}
+                  {weekOffset === 0 ? ' (Current Week)' : weekOffset > 0 ? ` (+${weekOffset} week${weekOffset > 1 ? 's' : ''})` : ` (${weekOffset} week${weekOffset < -1 ? 's' : ''})`}
+                </p>
               </div>
               <div className="flex items-center gap-2">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={weeklyMenuForm.meal_date}
-                    onChange={(e) => setWeeklyMenuForm({ ...weeklyMenuForm, meal_date: e.target.value })}
-                    placeholder="Date"
-                    className="border border-[#DDD5C8] rounded-xl px-4 py-2 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors w-56"
-                  />
-                  <input
-                    type="text"
-                    value={weeklyMenuForm.day_name}
-                    onChange={(e) => setWeeklyMenuForm({ ...weeklyMenuForm, day_name: e.target.value })}
-                    placeholder="Day"
-                    className="border border-[#DDD5C8] rounded-xl px-4 py-2 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors w-56"
-                  />
-                  <button
-                    onClick={() => {}}
-                    className="border border-[#DDD5C8] text-[#5C5347] px-4 py-2 rounded-xl text-sm font-semibold hover:border-[#C4622D] hover:text-[#C4622D] transition-colors"
-                  >
-                    Search
-                  </button>
-                </div>
-                <button
-                  onClick={loadWeeklyMenu}
-                  className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors flex items-center gap-2"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                  </svg>
-                  Refresh
+                <button onClick={() => { const newOffset = weekOffset - 1; setWeekOffset(newOffset); loadWeeklyMenu(newOffset); }} className="p-2 rounded-xl border border-[#DDD5C8] hover:bg-[#F5F0E8] transition-colors">
+                  <svg className="w-4 h-4 text-[#5C5347]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
                 </button>
+                <button onClick={() => { setWeekOffset(0); loadWeeklyMenu(0); }} className="px-3 py-1.5 text-xs font-semibold text-[#C4622D] border border-[#C4622D]/30 rounded-xl hover:bg-[#FFF5EF] transition-colors">Today</button>
+                <button onClick={() => { const newOffset = weekOffset + 1; setWeekOffset(newOffset); loadWeeklyMenu(newOffset); }} className="p-2 rounded-xl border border-[#DDD5C8] hover:bg-[#F5F0E8] transition-colors">
+                  <svg className="w-4 h-4 text-[#5C5347]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                </button>
+                {weekOffset >= 0 && (
+                  <button onClick={() => { const { mondayStr } = getWeekBoundsForOffset(weekOffset); openAddWeeklyMenuForm(mondayStr); }} className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+                    Add Item
+                  </button>
+                )}
               </div>
             </div>
 
-            {/* Weekly Menu List */}
             {weeklyMenuLoading ? (
-              <div className="flex justify-center py-16">
-                <svg className="animate-spin h-8 w-8 text-[#C4622D]" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth={4} />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-              </div>
-            ) : weeklyMenuEntries.length === 0 ? (
-              <div className="text-center py-16 text-[#8C8278]">
-                <p className="text-lg font-medium mb-2">No menu entries found</p>
-                <p className="text-sm">Add your first menu entry to get started.</p>
-              </div>
+              <div className="flex justify-center py-16"><svg className="animate-spin h-8 w-8 text-[#C4622D]" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg></div>
             ) : (
-              <div className="space-y-3">
-                {weeklyMenuEntries.map((entry) => (
-                  <div key={entry.id} className="bg-white rounded-2xl border border-[#EDE7DA] p-4 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <span className="w-6 h-6 rounded-full bg-[#C4622D] text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
-                        {entry.id.slice(0, 2)}
-                      </span>
-                      <div>
-                        <p className="font-semibold text-[#1A1612] text-sm">{entry.meal_name}</p>
-                        <p className="text-xs text-[#8C8278] mt-0.5">{entry.description}</p>
-                        <p className="text-xs text-[#8C8278] mt-0.5">{entry.price !== null ? `R${Number(entry.price).toFixed(2)}` : '—'}</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                {(() => {
+                  const { monday } = getWeekBoundsForOffset(weekOffset);
+                  const days = ['MON', 'TUE', 'WED', 'THU', 'FRI'];
+                  return days.map((dayName, i) => {
+                    const d = new Date(monday);
+                    d.setDate(monday.getDate() + i);
+                    const pad = (n: number) => String(n).padStart(2, '0');
+                    const dateStr = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+                    const dayEntries = weeklyMenuEntries.filter((e) => e.meal_date === dateStr);
+                    const closedEntry = dayEntries.find((e) => e.is_closed);
+                    const openEntries = dayEntries.filter((e) => !e.is_closed);
+                    return (
+                      <div key={dayName} className="bg-white rounded-2xl border border-[#EDE7DA] overflow-hidden">
+                        <div className="bg-[#F5F0E8] px-3 py-2 flex items-center justify-between">
+                          <div>
+                            <p className="text-xs font-bold text-[#C4622D] uppercase tracking-wider">{dayName}</p>
+                            <p className="text-xs text-[#8C8278]">{d.getDate()} {d.toLocaleString('en', { month: 'short' })}</p>
+                          </div>
+                          {!closedEntry && weekOffset >= 0 && (
+                            <button onClick={() => setClosingDayDate(dateStr)} className="text-xs text-[#8C8278] hover:text-red-500 transition-colors font-medium">Close Day</button>
+                          )}
+                        </div>
+                        <div className="p-3 space-y-2 min-h-[80px]">
+                          {closedEntry ? (
+                            <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-center">
+                              <p className="text-xs font-semibold text-red-600">🚫 Closed</p>
+                              {closedEntry.closed_reason && <p className="text-xs text-red-500 mt-0.5">{closedEntry.closed_reason}</p>}
+                              {weekOffset >= 0 && (
+                                <button onClick={() => handleReopenDay(dateStr)} className="mt-2 text-xs text-red-600 underline hover:no-underline">Reopen day</button>
+                              )}
+                            </div>
+                          ) : openEntries.length > 0 ? (
+                            openEntries.map((entry) => (
+                              <div key={entry.id} className="bg-[#F5F0E8] rounded-xl p-2.5">
+                                <p className="text-sm font-semibold text-[#1A1612] leading-tight">{entry.meal_name}</p>
+                                {entry.description && <p className="text-xs text-[#8C8278] mt-0.5 line-clamp-2">{entry.description}</p>}
+                                {entry.price !== null && <p className="text-sm font-bold text-[#C4622D] mt-1">R{Number(entry.price).toFixed(2)}</p>}
+                                {weekOffset >= 0 && (
+                                  <div className="flex gap-2 mt-2">
+                                    <button onClick={() => openEditWeeklyMenuForm(entry)} className="text-xs text-[#C4622D] font-semibold hover:underline">Edit</button>
+                                  </div>
+                                )}
+                              </div>
+                            ))
+                          ) : (
+                            <p className="text-xs text-[#B5ADA5] text-center py-4">No items</p>
+                          )}
+                        </div>
+                        {/* Day actions */}
+                        {!closedEntry && weekOffset >= 0 && (
+                          <div className="px-3 pb-3 flex gap-2">
+                            <button onClick={() => openAddWeeklyMenuForm(dateStr)} className="flex-1 text-xs font-semibold text-[#C4622D] border border-[#C4622D]/30 rounded-lg py-1.5 hover:bg-[#FFF5EF] transition-colors">+ Add</button>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="text-right">
-                        <p className="text-sm font-bold text-[#C4622D]">{entry.meal_date}</p>
-                        <p className="text-xs text-[#8C8278]">{entry.day_name}</p>
-                      </div>
-                      <svg
-                        className={`w-4 h-4 text-[#8C8278] transition-transform ${wsExpandedOrderId === entry.id ? 'rotate-180' : ''}`}
-                        fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </div>
-                  </div>
-                ))}
+                    );
+                  });
+                })()}
               </div>
             )}
           </div>
