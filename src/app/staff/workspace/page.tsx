@@ -3245,7 +3245,7 @@ export default function StaffWorkspacePage() {
 
             {/* Document Management — Google Drive iframe embed (no API key) */}
             {activeBucket === 'document-management' ? (
-              <GoogleDriveDocuments />
+              <GoogleDriveDocuments isSuperAdmin={isSuperAdmin} />
             ) : (
             <>
             {/* Media Files */}
