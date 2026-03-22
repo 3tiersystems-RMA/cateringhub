@@ -541,7 +541,8 @@ export default function CustomerProfilePage() {
                     return (
                       <div
                         key={order.id}
-                        className="bg-[#141414] border border-[#2A2A2A] rounded-2xl overflow-hidden transition-all duration-200 hover:border-[#3A3A3A]"
+                        onClick={() => toggleExpand(order.id)}
+                        className="bg-[#141414] border border-[#2A2A2A] rounded-2xl overflow-hidden transition-all duration-200 hover:border-[#3A3A3A] cursor-pointer"
                       >
                         {/* Order Header Row */}
                         <div className="p-5 md:p-6">

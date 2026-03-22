@@ -275,7 +275,7 @@ export default function StaffAnalyticsPage() {
           <div className="flex items-center gap-4">
             <AppLogo className="h-8 w-auto" />
             <div className="h-5 w-px bg-[#DDD5C8]" />
-            <span className="text-sm font-semibold text-[#5C5347]">Staff Analytics</span>
+            <span className="text-sm font-semibold text-[#5C5347]">Analytics Dashboard</span>
           </div>
           <Link
             href="/staff/workspace"
