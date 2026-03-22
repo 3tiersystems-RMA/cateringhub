@@ -481,6 +481,22 @@ export default function GoogleDriveDocuments({ isSuperAdmin }: GoogleDriveDocume
 
   useEffect(() => {
     loadDocuments();
+
+    // Real-time subscription — re-fetch whenever any row changes
+    const channel = supabase
+      .channel('drive_documents_changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'drive_documents' },
+        () => {
+          loadDocuments();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [loadDocuments]);
 
   // ── Add document ──
