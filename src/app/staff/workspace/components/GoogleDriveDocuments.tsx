@@ -1,11 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { createClient } from '@/lib/supabase/client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type DocType = 'auto' | 'doc' | 'sheet' | 'slide' | 'pdf' | 'video' | 'other';
 
 interface DriveDoc {
+  id: string;
   fileId: string;
   type: Exclude<DocType, 'auto'>;
   embedUrl: string;
@@ -112,7 +114,6 @@ function FolderIcon({ size = 18 }: { size?: number }) {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function extractFileId(url: string): string | null {
-  // Only match individual file patterns — NOT folder URLs
   const patterns = [
     /\/file\/d\/([a-zA-Z0-9_-]{25,})/,
     /\/d\/([a-zA-Z0-9_-]{25,})/,
@@ -185,30 +186,121 @@ async function fetchDriveFileMeta(fileId: string): Promise<{
   }
 }
 
-// ─── DocRow (compact list item) ───────────────────────────────────────────────
-function DocRow({
+// ─── Edit Modal ───────────────────────────────────────────────────────────────
+function EditModal({
   doc,
-  index,
-  isSuperAdmin,
-  onRemove,
+  onSave,
+  onClose,
 }: {
   doc: DriveDoc;
-  index: number;
+  onSave: (id: string, title: string, folderName: string) => Promise<void>;
+  onClose: () => void;
+}) {
+  const [title, setTitle] = useState(doc.title);
+  const [folderName, setFolderName] = useState(doc.folderName);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSave = async () => {
+    if (!title.trim()) { setError('File name cannot be empty.'); return; }
+    if (!folderName.trim()) { setError('Folder name cannot be empty.'); return; }
+    setSaving(true);
+    setError(null);
+    try {
+      await onSave(doc.id, title.trim(), folderName.trim());
+      onClose();
+    } catch {
+      setError('Failed to save changes. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="text-base font-bold text-[#1A1612]">Edit Document</h3>
+          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg text-[#8C8278] hover:text-[#C4622D] hover:bg-[#FDF6F0] transition-colors">
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-[#5C5347] mb-1.5">File Name</label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
+              placeholder="Enter file name"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-[#5C5347] mb-1.5">Folder / Group Name</label>
+            <input
+              type="text"
+              value={folderName}
+              onChange={(e) => setFolderName(e.target.value)}
+              className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
+              placeholder="e.g. Contracts"
+            />
+          </div>
+        </div>
+
+        {error && (
+          <p className="mt-3 text-xs text-red-600 flex items-center gap-1.5">
+            <svg className="h-3.5 w-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            {error}
+          </p>
+        )}
+
+        <div className="flex gap-3 mt-6">
+          <button
+            onClick={onClose}
+            className="flex-1 border border-[#DDD5C8] text-[#5C5347] px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#F5F0E8] transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="flex-1 bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {saving ? 'Saving…' : 'Save Changes'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── DocRow ───────────────────────────────────────────────────────────────────
+function DocRow({
+  doc,
+  isSuperAdmin,
+  onRemove,
+  onEdit,
+}: {
+  doc: DriveDoc;
   isSuperAdmin: boolean;
-  onRemove: (i: number) => void;
+  onRemove: (id: string) => void;
+  onEdit: (doc: DriveDoc) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
 
   return (
     <div className="bg-white rounded-xl border border-[#EDE7DA] overflow-hidden">
-      {/* Row header */}
       <div className="flex items-start gap-3 px-4 py-3">
-        {/* File type icon */}
         <div className="flex-shrink-0 mt-0.5">
           <FileTypeIcon type={doc.type} size={22} />
         </div>
 
-        {/* Title + dates */}
         <div className="flex-1 min-w-0">
           <span className="block text-sm font-medium text-[#1A1612] truncate">{doc.title}</span>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
@@ -225,12 +317,10 @@ function DocRow({
           </div>
         </div>
 
-        {/* Type label */}
         <span className="hidden sm:inline-flex text-xs text-[#8C8278] bg-[#F5F0E8] px-2 py-0.5 rounded-full border border-[#EDE7DA] flex-shrink-0 self-center">
           {TYPE_LABELS[doc.type]}
         </span>
 
-        {/* Actions */}
         <div className="flex items-center gap-1 flex-shrink-0 self-center">
           {/* Expand/collapse */}
           <button
@@ -256,10 +346,23 @@ function DocRow({
             </svg>
           </a>
 
+          {/* Edit — Super Admin only */}
+          {isSuperAdmin && (
+            <button
+              onClick={() => onEdit(doc)}
+              title="Edit file name or folder"
+              className="w-7 h-7 flex items-center justify-center rounded-lg text-[#8C8278] hover:text-[#C4622D] hover:bg-[#FDF6F0] transition-colors"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+            </button>
+          )}
+
           {/* Remove — Super Admin only */}
           {isSuperAdmin && (
             <button
-              onClick={() => onRemove(index)}
+              onClick={() => onRemove(doc.id)}
               title="Remove document"
               className="w-7 h-7 flex items-center justify-center rounded-lg text-[#8C8278] hover:text-red-500 hover:bg-red-50 transition-colors"
             >
@@ -271,7 +374,6 @@ function DocRow({
         </div>
       </div>
 
-      {/* Iframe preview */}
       {expanded && (
         <div className="relative bg-[#F5F0E8]" style={{ paddingBottom: '56.25%' }}>
           <iframe
@@ -288,15 +390,99 @@ function DocRow({
   );
 }
 
+// ─── Folder Group ─────────────────────────────────────────────────────────────
+function FolderGroup({
+  folderName,
+  items,
+  isSuperAdmin,
+  onRemove,
+  onEdit,
+}: {
+  folderName: string;
+  items: DriveDoc[];
+  isSuperAdmin: boolean;
+  onRemove: (id: string) => void;
+  onEdit: (doc: DriveDoc) => void;
+}) {
+  const [collapsed, setCollapsed] = useState(false);
+
+  return (
+    <div className="bg-[#FDFAF6] rounded-2xl border border-[#DDD5C8] overflow-hidden">
+      <button
+        onClick={() => setCollapsed((v) => !v)}
+        className="w-full flex items-center gap-2.5 px-4 py-3 bg-[#F5F0E8] border-b border-[#EDE7DA] hover:bg-[#EDE7DA] transition-colors"
+      >
+        <FolderIcon size={18} />
+        <span className="flex-1 text-left text-sm font-bold text-[#3D3530]">{folderName}</span>
+        <span className="text-xs text-[#8C8278] mr-1">{items.length} file{items.length !== 1 ? 's' : ''}</span>
+        <svg
+          className={`h-4 w-4 text-[#8C8278] transition-transform ${collapsed ? '-rotate-90' : ''}`}
+          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {!collapsed && (
+        <div className="divide-y divide-[#EDE7DA]">
+          {items.map((doc) => (
+            <DocRow
+              key={doc.id}
+              doc={doc}
+              isSuperAdmin={isSuperAdmin}
+              onRemove={onRemove}
+              onEdit={onEdit}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function GoogleDriveDocuments({ isSuperAdmin }: GoogleDriveDocumentsProps) {
+  const supabase = createClient();
   const [documents, setDocuments] = useState<DriveDoc[]>([]);
   const [urlInput, setUrlInput] = useState('');
   const [folderInput, setFolderInput] = useState('');
   const [typeSelect, setTypeSelect] = useState<DocType>('auto');
   const [formError, setFormError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isFetching, setIsFetching] = useState(true);
+  const [editingDoc, setEditingDoc] = useState<DriveDoc | null>(null);
 
+  // ── Load documents from Supabase ──
+  const loadDocuments = useCallback(async () => {
+    setIsFetching(true);
+    const { data, error } = await supabase
+      .from('drive_documents')
+      .select('*')
+      .order('added_at', { ascending: true });
+
+    if (!error && data) {
+      setDocuments(
+        data.map((row) => ({
+          id: row.id,
+          fileId: row.file_id,
+          type: row.file_type as Exclude<DocType, 'auto'>,
+          embedUrl: row.embed_url,
+          originalUrl: row.original_url,
+          title: row.title,
+          folderName: row.folder_name,
+          createdTime: row.created_time ?? undefined,
+          modifiedTime: row.modified_time ?? undefined,
+        }))
+      );
+    }
+    setIsFetching(false);
+  }, [supabase]);
+
+  useEffect(() => {
+    loadDocuments();
+  }, [loadDocuments]);
+
+  // ── Add document ──
   const handleAdd = async () => {
     setFormError(null);
     const rawUrl = urlInput.trim();
@@ -306,7 +492,6 @@ export default function GoogleDriveDocuments({ isSuperAdmin }: GoogleDriveDocume
       return;
     }
 
-    // Block folder URLs — only individual files allowed
     if (isFolderUrl(rawUrl)) {
       setFormError('Folder links are not supported. Please share an individual file link (right-click a file → Share → copy link).');
       return;
@@ -318,7 +503,6 @@ export default function GoogleDriveDocuments({ isSuperAdmin }: GoogleDriveDocume
       return;
     }
 
-    // Check for duplicate
     if (documents.some((d) => d.fileId === fileId)) {
       setFormError('This file has already been added.');
       return;
@@ -326,7 +510,6 @@ export default function GoogleDriveDocuments({ isSuperAdmin }: GoogleDriveDocume
 
     setIsLoading(true);
 
-    // Fetch metadata from Google Drive API
     const meta = await fetchDriveFileMeta(fileId);
 
     let resolvedType: Exclude<DocType, 'auto'>;
@@ -340,7 +523,6 @@ export default function GoogleDriveDocuments({ isSuperAdmin }: GoogleDriveDocume
       createdTime = meta.createdTime;
       modifiedTime = meta.modifiedTime;
     } else {
-      // Fallback if API key not available or request failed
       resolvedType = typeSelect === 'auto' ? detectTypeFromUrl(rawUrl) : typeSelect;
       title = `Document ${documents.length + 1}`;
     }
@@ -348,31 +530,56 @@ export default function GoogleDriveDocuments({ isSuperAdmin }: GoogleDriveDocume
     const embedUrl = buildEmbedUrl(fileId, resolvedType);
     const folderName = folderInput.trim() || DEFAULT_FOLDER;
 
-    setDocuments((prev) => [
-      ...prev,
-      { fileId, type: resolvedType, embedUrl, originalUrl: rawUrl, title, folderName, createdTime, modifiedTime },
-    ]);
+    const { error } = await supabase.from('drive_documents').insert({
+      file_id: fileId,
+      file_type: resolvedType,
+      embed_url: embedUrl,
+      original_url: rawUrl,
+      title,
+      folder_name: folderName,
+      created_time: createdTime ?? null,
+      modified_time: modifiedTime ?? null,
+    });
 
-    setUrlInput('');
-    setFolderInput('');
-    setTypeSelect('auto');
+    if (error) {
+      setFormError('Failed to save document. Please try again.');
+    } else {
+      await loadDocuments();
+      setUrlInput('');
+      setFolderInput('');
+      setTypeSelect('auto');
+    }
+
     setIsLoading(false);
   };
 
-  const handleRemove = (index: number) => {
-    setDocuments((prev) => prev.filter((_, i) => i !== index));
+  // ── Remove document ──
+  const handleRemove = async (id: string) => {
+    await supabase.from('drive_documents').delete().eq('id', id);
+    setDocuments((prev) => prev.filter((d) => d.id !== id));
+  };
+
+  // ── Edit document (save) ──
+  const handleEditSave = async (id: string, title: string, folderName: string) => {
+    const { error } = await supabase
+      .from('drive_documents')
+      .update({ title, folder_name: folderName, updated_at: new Date().toISOString() })
+      .eq('id', id);
+
+    if (error) throw new Error(error.message);
+
+    setDocuments((prev) =>
+      prev.map((d) => (d.id === id ? { ...d, title, folderName } : d))
+    );
   };
 
   // Group documents by folder name
-  const grouped = documents.reduce<Record<string, { doc: DriveDoc; originalIndex: number }[]>>(
-    (acc, doc, i) => {
-      const folder = doc.folderName || DEFAULT_FOLDER;
-      if (!acc[folder]) acc[folder] = [];
-      acc[folder].push({ doc, originalIndex: i });
-      return acc;
-    },
-    {}
-  );
+  const grouped = documents.reduce<Record<string, DriveDoc[]>>((acc, doc) => {
+    const folder = doc.folderName || DEFAULT_FOLDER;
+    if (!acc[folder]) acc[folder] = [];
+    acc[folder].push(doc);
+    return acc;
+  }, {});
 
   const folderNames = Object.keys(grouped).sort((a, b) =>
     a === DEFAULT_FOLDER ? 1 : b === DEFAULT_FOLDER ? -1 : a.localeCompare(b)
@@ -380,6 +587,15 @@ export default function GoogleDriveDocuments({ isSuperAdmin }: GoogleDriveDocume
 
   return (
     <div className="space-y-6">
+      {/* Edit Modal */}
+      {editingDoc && (
+        <EditModal
+          doc={editingDoc}
+          onSave={handleEditSave}
+          onClose={() => setEditingDoc(null)}
+        />
+      )}
+
       {/* ── Add Document Form — Super Admin only ── */}
       {isSuperAdmin && (
         <div className="bg-white rounded-2xl border border-[#DDD5C8] p-5">
@@ -395,9 +611,7 @@ export default function GoogleDriveDocuments({ isSuperAdmin }: GoogleDriveDocume
             <h3 className="text-sm font-bold text-[#1A1612]">Add a Google Drive File</h3>
           </div>
 
-          {/* Row 1: URL + Folder */}
           <div className="grid grid-cols-1 sm:grid-cols-[1fr_200px] gap-3 mb-3">
-            {/* URL */}
             <div>
               <label className="block text-xs font-semibold text-[#5C5347] mb-1.5">
                 File Share Link <span className="text-[#C4622D]">*</span>
@@ -411,7 +625,6 @@ export default function GoogleDriveDocuments({ isSuperAdmin }: GoogleDriveDocume
                 className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm text-[#1A1612] placeholder-[#B5ADA5] focus:outline-none focus:border-[#C4622D] transition-colors"
               />
             </div>
-            {/* Folder grouping label */}
             <div>
               <label className="block text-xs font-semibold text-[#5C5347] mb-1.5">Group / Folder Label <span className="text-[#B5ADA5] font-normal">(optional)</span></label>
               <input
@@ -425,7 +638,6 @@ export default function GoogleDriveDocuments({ isSuperAdmin }: GoogleDriveDocume
             </div>
           </div>
 
-          {/* Row 2: Type + Add button */}
           <div className="flex items-end gap-3">
             <div className="w-44">
               <label className="block text-xs font-semibold text-[#5C5347] mb-1.5">File Type</label>
@@ -467,7 +679,6 @@ export default function GoogleDriveDocuments({ isSuperAdmin }: GoogleDriveDocume
             </button>
           </div>
 
-          {/* Error */}
           {formError && (
             <p className="mt-2.5 text-xs text-red-600 flex items-center gap-1.5">
               <svg className="h-3.5 w-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -477,7 +688,6 @@ export default function GoogleDriveDocuments({ isSuperAdmin }: GoogleDriveDocume
             </p>
           )}
 
-          {/* Hint */}
           <p className="mt-3 text-xs text-[#B5ADA5]">
             In Google Drive: right-click an <strong>individual file</strong> → <strong>Share</strong> → <em>Anyone with the link</em> → <strong>Viewer</strong> → copy the link and paste it above. Folder links are not supported.
           </p>
@@ -485,7 +695,15 @@ export default function GoogleDriveDocuments({ isSuperAdmin }: GoogleDriveDocume
       )}
 
       {/* ── Documents grouped by folder ── */}
-      {documents.length === 0 ? (
+      {isFetching ? (
+        <div className="text-center py-14 bg-white rounded-2xl border border-dashed border-[#DDD5C8]">
+          <svg className="h-8 w-8 animate-spin text-[#C4622D] mx-auto mb-3" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+          </svg>
+          <p className="text-sm text-[#8C8278]">Loading documents…</p>
+        </div>
+      ) : documents.length === 0 ? (
         <div className="text-center py-14 bg-white rounded-2xl border border-dashed border-[#DDD5C8]">
           <div className="flex justify-center mb-3">
             <svg className="h-10 w-10 text-[#DDD5C8]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -508,56 +726,7 @@ export default function GoogleDriveDocuments({ isSuperAdmin }: GoogleDriveDocume
               items={grouped[folder]}
               isSuperAdmin={isSuperAdmin}
               onRemove={handleRemove}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Folder Group ─────────────────────────────────────────────────────────────
-function FolderGroup({
-  folderName,
-  items,
-  isSuperAdmin,
-  onRemove,
-}: {
-  folderName: string;
-  items: { doc: DriveDoc; originalIndex: number }[];
-  isSuperAdmin: boolean;
-  onRemove: (i: number) => void;
-}) {
-  const [collapsed, setCollapsed] = useState(false);
-
-  return (
-    <div className="bg-[#FDFAF6] rounded-2xl border border-[#DDD5C8] overflow-hidden">
-      {/* Folder header */}
-      <button
-        onClick={() => setCollapsed((v) => !v)}
-        className="w-full flex items-center gap-2.5 px-4 py-3 bg-[#F5F0E8] border-b border-[#EDE7DA] hover:bg-[#EDE7DA] transition-colors"
-      >
-        <FolderIcon size={18} />
-        <span className="flex-1 text-left text-sm font-bold text-[#3D3530]">{folderName}</span>
-        <span className="text-xs text-[#8C8278] mr-1">{items.length} file{items.length !== 1 ? 's' : ''}</span>
-        <svg
-          className={`h-4 w-4 text-[#8C8278] transition-transform ${collapsed ? '-rotate-90' : ''}`}
-          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
-
-      {/* File list */}
-      {!collapsed && (
-        <div className="divide-y divide-[#EDE7DA]">
-          {items.map(({ doc, originalIndex }) => (
-            <DocRow
-              key={`${doc.fileId}-${originalIndex}`}
-              doc={doc}
-              index={originalIndex}
-              isSuperAdmin={isSuperAdmin}
-              onRemove={onRemove}
+              onEdit={setEditingDoc}
             />
           ))}
         </div>
