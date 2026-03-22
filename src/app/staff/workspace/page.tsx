@@ -2761,7 +2761,7 @@ export default function StaffWorkspacePage() {
                 }`}
               >
                 <span className="text-base">📊</span>
-                <span>Reporting</span>
+                <span>Reports Dashboard</span>
               </button>
               <button
                 onClick={() => router.push('/staff/analytics')}
@@ -4244,7 +4244,7 @@ export default function StaffWorkspacePage() {
             {/* Reporting Header */}
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h2 className="text-lg font-bold text-[#1A1612]">Reporting</h2>
+                <h2 className="text-lg font-bold text-[#1A1612]">Reports Dashboard</h2>
                 <p className="text-xs text-[#8C8278] mt-0.5">{reportingView} reporting</p>
               </div>
               <div className="flex items-center gap-2">
@@ -4285,6 +4285,13 @@ export default function StaffWorkspacePage() {
               </div>
             ) : reportingView === 'products_ordered' ? (
               <div className="space-y-3">
+                <button
+                  onClick={() => setReportingView('cards')}
+                  className="flex items-center gap-1.5 text-sm text-[#C4622D] font-medium hover:underline mb-4"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                  Return to Dashboard
+                </button>
                 {filteredProductsOrderedRows.map((row, i) => (
                   <div key={i} className="bg-white rounded-2xl border border-[#EDE7DA] p-4 flex items-center justify-between">
                     <div>
@@ -4302,6 +4309,13 @@ export default function StaffWorkspacePage() {
               </div>
             ) : reportingView === 'package_meals_ordered' ? (
               <div className="space-y-3">
+                <button
+                  onClick={() => setReportingView('cards')}
+                  className="flex items-center gap-1.5 text-sm text-[#C4622D] font-medium hover:underline mb-4"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                  Return to Dashboard
+                </button>
                 {filteredPackageMealsRows.map((row, i) => (
                   <div key={i} className="bg-white rounded-2xl border border-[#EDE7DA] p-4 flex items-center justify-between">
                     <div>
@@ -4319,6 +4333,13 @@ export default function StaffWorkspacePage() {
               </div>
             ) : reportingView === 'discount_vouchers_report' ? (
               <div className="space-y-3">
+                <button
+                  onClick={() => setReportingView('cards')}
+                  className="flex items-center gap-1.5 text-sm text-[#C4622D] font-medium hover:underline mb-4"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                  Return to Dashboard
+                </button>
                 {filteredDiscountVouchersReportRows.map((row, i) => (
                   <div key={i} className="bg-white rounded-2xl border border-[#EDE7DA] p-4 flex items-center justify-between">
                     <div>
