@@ -3348,7 +3348,11 @@ export default function StaffWorkspacePage() {
             ) : (
               <div className="space-y-3">
                 {wsFilteredOrders.map((order) => (
-                  <div key={order.id} className="bg-white rounded-2xl border border-[#EDE7DA] p-4 flex items-center justify-between">
+                  <div key={order.id} className="bg-white rounded-2xl border border-[#EDE7DA] overflow-hidden">
+                    <div
+                      className="p-4 flex items-center justify-between cursor-pointer hover:bg-[#FDFAF6] transition-colors"
+                      onClick={() => setWsExpandedOrderId(wsExpandedOrderId === order.id ? null : order.id)}
+                    >
                     <div className="flex items-center gap-3">
                       <span className="w-6 h-6 rounded-full bg-[#C4622D] text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
                         {order.id.slice(0, 2)}
@@ -3371,6 +3375,114 @@ export default function StaffWorkspacePage() {
                         <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                       </svg>
                     </div>
+                    </div>
+
+                    {/* Expanded Order Detail */}
+                    {wsExpandedOrderId === order.id && (
+                      <div className="px-4 pb-4 bg-[#FDFAF6] border-t border-[#EDE7DA]">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
+                          {/* Customer Details */}
+                          <div className="bg-white rounded-xl border border-[#DDD5C8] p-4">
+                            <h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3">Customer Details</h4>
+                            <div className="space-y-2">
+                              <div>
+                                <p className="text-xs text-[#B5ADA5]">Name</p>
+                                <p className="text-sm font-medium text-[#1A1612]">{order.customer_name || '—'}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs text-[#B5ADA5]">Email</p>
+                                <p className="text-sm text-[#1A1612] break-all">{order.customer_email || '—'}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs text-[#B5ADA5]">Phone</p>
+                                <p className="text-sm text-[#1A1612]">{order.customer_phone || '—'}</p>
+                              </div>
+                              {order.event_date && (
+                                <div>
+                                  <p className="text-xs text-[#B5ADA5]">Event Date</p>
+                                  <p className="text-sm text-[#1A1612]">{formatDate(order.event_date)}</p>
+                                </div>
+                              )}
+                              {order.delivery_address && (
+                                <div>
+                                  <p className="text-xs text-[#B5ADA5]">Delivery Address</p>
+                                  <p className="text-sm text-[#1A1612]">{order.delivery_address}</p>
+                                </div>
+                              )}
+                              {order.notes && (
+                                <div>
+                                  <p className="text-xs text-[#B5ADA5]">Notes</p>
+                                  <p className="text-sm text-[#1A1612]">{order.notes}</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Order Items */}
+                          <div className="bg-white rounded-xl border border-[#DDD5C8] p-4">
+                            <h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3">Order Items</h4>
+                            {Array.isArray(order.items) && order.items.length > 0 ? (
+                              <div className="space-y-2">
+                                {order.items.map((item, idx) => (
+                                  <div key={idx} className="flex items-center justify-between py-1.5 border-b border-[#F0EBE3] last:border-0">
+                                    <div className="flex items-center gap-2">
+                                      <span className="w-5 h-5 rounded-full bg-[#EDE7DA] text-[#5C5347] text-xs font-bold flex items-center justify-center flex-shrink-0">{item.quantity}</span>
+                                      <span className="text-sm text-[#1A1612]">{item.name}</span>
+                                    </div>
+                                    <span className="text-sm font-semibold text-[#1A1612]">R{(item.price * item.quantity).toFixed(2)}</span>
+                                  </div>
+                                ))}
+                                <div className="pt-2 flex justify-between text-sm font-bold text-[#1A1612]">
+                                  <span>Total</span>
+                                  <span className="text-[#C4622D]">R{(order.total || 0).toFixed(2)}</span>
+                                </div>
+                              </div>
+                            ) : (
+                              <p className="text-xs text-[#B5ADA5]">No items</p>
+                            )}
+                          </div>
+
+                          {/* Status Controls */}
+                          <div className="bg-white rounded-xl border border-[#DDD5C8] p-4 md:col-span-2">
+                            <h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3">Update Status</h4>
+                            <div className="flex flex-wrap gap-4" onClick={(e) => e.stopPropagation()}>
+                              <div>
+                                <p className="text-xs text-[#B5ADA5] mb-1">Payment Status</p>
+                                <select
+                                  value={order.payment_status}
+                                  onChange={(e) => handleWsPaymentUpdate(order.id, e.target.value as PaymentStatus)}
+                                  disabled={getWsOrderUpdateState(order.id).paymentSaving}
+                                  className={`text-xs font-semibold border rounded-full px-3 py-1.5 focus:outline-none cursor-pointer disabled:opacity-50 ${PAYMENT_STATUS_COLORS[order.payment_status]}`}
+                                >
+                                  {PAYMENT_OPTIONS.map((s) => (
+                                    <option key={s} value={s}>{PAYMENT_STATUS_LABELS[s]}</option>
+                                  ))}
+                                </select>
+                                {getWsOrderUpdateState(order.id).paymentSuccess && (
+                                  <span className="text-xs text-green-600 ml-2">✓ Saved</span>
+                                )}
+                              </div>
+                              <div>
+                                <p className="text-xs text-[#B5ADA5] mb-1">Fulfillment Status</p>
+                                <select
+                                  value={order.fulfillment_status}
+                                  onChange={(e) => handleWsFulfillmentUpdate(order.id, e.target.value as FulfillmentStatus)}
+                                  disabled={getWsOrderUpdateState(order.id).fulfillmentSaving}
+                                  className={`text-xs font-semibold border rounded-full px-3 py-1.5 focus:outline-none cursor-pointer disabled:opacity-50 ${FULFILLMENT_STATUS_COLORS[order.fulfillment_status]}`}
+                                >
+                                  {FULFILLMENT_OPTIONS.map((s) => (
+                                    <option key={s} value={s}>{FULFILLMENT_STATUS_LABELS[s]}</option>
+                                  ))}
+                                </select>
+                                {getWsOrderUpdateState(order.id).fulfillmentSuccess && (
+                                  <span className="text-xs text-green-600 ml-2">✓ Saved</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
