@@ -3711,29 +3711,119 @@ export default function StaffWorkspacePage() {
             ) : (
               <div className="space-y-3">
                 {vouchers.map((voucher) => (
-                  <div key={voucher.id} className="bg-white rounded-2xl border border-[#EDE7DA] p-4 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <span className="w-6 h-6 rounded-full bg-[#C4622D] text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
-                        {voucher.id.slice(0, 2)}
-                      </span>
-                      <div>
-                        <p className="font-semibold text-[#1A1612] text-sm">{voucher.voucher_code}</p>
-                        <p className="text-xs text-[#8C8278] mt-0.5">{formatCurrency(voucher.total_meals)}</p>
-                        <p className="text-xs text-[#8C8278] mt-0.5">{formatCurrency(voucher.meals_remaining)}</p>
+                  <div key={voucher.id} className="bg-white rounded-2xl border border-[#EDE7DA] overflow-hidden">
+                    <div
+                      className="p-4 flex items-center justify-between cursor-pointer hover:bg-[#FDFAF6] transition-colors"
+                      onClick={() => setWsExpandedOrderId(wsExpandedOrderId === voucher.id ? null : voucher.id)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="w-6 h-6 rounded-full bg-[#C4622D] text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
+                          {voucher.id.slice(0, 2)}
+                        </span>
+                        <div>
+                          <p className="font-semibold text-[#1A1612] text-sm">{voucher.voucher_code}</p>
+                          <p className="text-xs text-[#8C8278] mt-0.5">{voucher.customer_name}</p>
+                          <p className="text-xs text-[#8C8278] mt-0.5">{voucher.total_meals} meals · {voucher.meals_remaining} remaining</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="text-right">
+                          <span className={`inline-block text-xs px-2 py-0.5 rounded-full font-semibold ${
+                            voucher.status === 'paid' ? 'bg-green-100 text-green-700' :
+                            voucher.status === 'unpaid' ? 'bg-amber-100 text-amber-700' :
+                            voucher.status === 'redeemed'? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
+                          }`}>{voucher.status}</span>
+                        </div>
+                        <svg
+                          className={`w-4 h-4 text-[#8C8278] transition-transform ${wsExpandedOrderId === voucher.id ? 'rotate-180' : ''}`}
+                          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                        </svg>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <div className="text-right">
-                        <p className="text-sm font-bold text-[#C4622D]">R{(voucher.total_meals || 0).toFixed(2)}</p>
-                        <p className="text-xs text-[#8C8278]">{formatCurrency(voucher.meals_remaining)}</p>
+
+                    {/* Expanded Meal Voucher Detail */}
+                    {wsExpandedOrderId === voucher.id && (
+                      <div className="px-4 pb-4 bg-[#FDFAF6] border-t border-[#EDE7DA]">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
+                          {/* Customer Info */}
+                          <div className="bg-white rounded-xl border border-[#DDD5C8] p-4">
+                            <h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3">Customer Details</h4>
+                            <div className="space-y-2">
+                              <div className="flex justify-between text-sm">
+                                <span className="text-[#8C8278]">Name</span>
+                                <span className="font-medium text-[#1A1612]">{voucher.customer_name || '—'}</span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span className="text-[#8C8278]">Email</span>
+                                <span className="font-medium text-[#1A1612] truncate max-w-[160px]">{voucher.customer_email || '—'}</span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span className="text-[#8C8278]">Phone</span>
+                                <span className="font-medium text-[#1A1612]">{voucher.customer_phone || '—'}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Voucher Info */}
+                          <div className="bg-white rounded-xl border border-[#DDD5C8] p-4">
+                            <h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3">Voucher Details</h4>
+                            <div className="space-y-2">
+                              <div className="flex justify-between text-sm">
+                                <span className="text-[#8C8278]">Code</span>
+                                <span className="font-mono font-bold text-[#C4622D]">{voucher.voucher_code}</span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span className="text-[#8C8278]">Total Meals</span>
+                                <span className="font-medium text-[#1A1612]">{voucher.total_meals}</span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span className="text-[#8C8278]">Meals Remaining</span>
+                                <span className="font-medium text-[#1A1612]">{voucher.meals_remaining}</span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span className="text-[#8C8278]">Status</span>
+                                <span className={`font-semibold ${
+                                  voucher.status === 'paid' ? 'text-green-600' :
+                                  voucher.status === 'unpaid' ? 'text-amber-600' :
+                                  voucher.status === 'redeemed'? 'text-blue-600' : 'text-gray-500'
+                                }`}>{voucher.status}</span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span className="text-[#8C8278]">Purchased</span>
+                                <span className="font-medium text-[#1A1612]">{voucher.purchased_at ? formatDate(voucher.purchased_at) : '—'}</span>
+                              </div>
+                              {voucher.notes && (
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-[#8C8278]">Notes</span>
+                                  <span className="font-medium text-[#1A1612] text-right max-w-[160px]">{voucher.notes}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Mark as Paid action */}
+                        {voucher.status === 'unpaid' && (
+                          <div className="mt-3 flex justify-end">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleMarkVoucherPaid(voucher); }}
+                              disabled={loadingMarkingPaid && markingVoucherPaidId === voucher.id}
+                              className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-colors flex items-center gap-2"
+                            >
+                              {loadingMarkingPaid && markingVoucherPaidId === voucher.id ? (
+                                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth={4} />
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                </svg>
+                              ) : null}
+                              Mark as Paid
+                            </button>
+                          </div>
+                        )}
                       </div>
-                      <svg
-                        className={`w-4 h-4 text-[#8C8278] transition-transform ${wsExpandedOrderId === voucher.id ? 'rotate-180' : ''}`}
-                        fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -3794,29 +3884,104 @@ export default function StaffWorkspacePage() {
             ) : (
               <div className="space-y-3">
                 {discountVouchers.map((dv) => (
-                  <div key={dv.id} className="bg-white rounded-2xl border border-[#EDE7DA] p-4 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <span className="w-6 h-6 rounded-full bg-[#C4622D] text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
-                        {dv.id.slice(0, 2)}
-                      </span>
-                      <div>
-                        <p className="font-semibold text-[#1A1612] text-sm">{dv.dv_code}</p>
-                        <p className="text-xs text-[#8C8278] mt-0.5">{formatCurrency(dv.dv_amount)}</p>
-                        <p className="text-xs text-[#8C8278] mt-0.5">{formatDate(dv.expiry_date)}</p>
+                  <div key={dv.id} className="bg-white rounded-2xl border border-[#EDE7DA] overflow-hidden">
+                    <div
+                      className="p-4 flex items-center justify-between cursor-pointer hover:bg-[#FDFAF6] transition-colors"
+                      onClick={() => setWsExpandedOrderId(wsExpandedOrderId === dv.id ? null : dv.id)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="w-6 h-6 rounded-full bg-[#C4622D] text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
+                          {dv.id.slice(0, 2)}
+                        </span>
+                        <div>
+                          <p className="font-semibold text-[#1A1612] text-sm">{dv.dv_code}</p>
+                          <p className="text-xs text-[#8C8278] mt-0.5">R{(dv.dv_amount || 0).toFixed(2)} discount</p>
+                          <p className="text-xs text-[#8C8278] mt-0.5">Expires: {formatDate(dv.expiry_date)}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="text-right">
+                          <span className={`inline-block text-xs px-2 py-0.5 rounded-full font-semibold ${
+                            dv.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                          }`}>{dv.status}</span>
+                        </div>
+                        <svg
+                          className={`w-4 h-4 text-[#8C8278] transition-transform ${wsExpandedOrderId === dv.id ? 'rotate-180' : ''}`}
+                          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                        </svg>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <div className="text-right">
-                        <p className="text-sm font-bold text-[#C4622D]">R{(dv.dv_amount || 0).toFixed(2)}</p>
-                        <p className="text-xs text-[#8C8278]">{formatDate(dv.expiry_date)}</p>
+
+                    {/* Expanded Discount Voucher Detail */}
+                    {wsExpandedOrderId === dv.id && (
+                      <div className="px-4 pb-4 bg-[#FDFAF6] border-t border-[#EDE7DA]">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
+                          {/* Voucher Info */}
+                          <div className="bg-white rounded-xl border border-[#DDD5C8] p-4">
+                            <h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3">Voucher Details</h4>
+                            <div className="space-y-2">
+                              <div className="flex justify-between text-sm">
+                                <span className="text-[#8C8278]">Code</span>
+                                <span className="font-mono font-bold text-[#C4622D]">{dv.dv_code}</span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span className="text-[#8C8278]">Discount Amount</span>
+                                <span className="font-medium text-[#1A1612]">R{(dv.dv_amount || 0).toFixed(2)}</span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span className="text-[#8C8278]">Status</span>
+                                <span className={`font-semibold ${dv.status === 'Active' ? 'text-green-600' : 'text-gray-500'}`}>{dv.status}</span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span className="text-[#8C8278]">Expiry Date</span>
+                                <span className="font-medium text-[#1A1612]">{formatDate(dv.expiry_date)}</span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span className="text-[#8C8278]">Times Used</span>
+                                <span className="font-medium text-[#1A1612]">{dv.times_used ?? 0}</span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span className="text-[#8C8278]">Created</span>
+                                <span className="font-medium text-[#1A1612]">{formatDate(dv.created_at)}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Actions */}
+                          <div className="bg-white rounded-xl border border-[#DDD5C8] p-4 flex flex-col gap-3">
+                            <h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider">Actions</h4>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); openEditDvForm(dv); }}
+                              className="w-full flex items-center justify-center gap-2 bg-[#C4622D] hover:bg-[#A04E22] text-white px-4 py-2 rounded-xl text-sm font-semibold transition-colors"
+                            >
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
+                              </svg>
+                              Edit Voucher
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleGenerateDvQr(dv); }}
+                              disabled={generatingQrId === dv.id}
+                              className="w-full flex items-center justify-center gap-2 border border-[#DDD5C8] hover:border-[#C4622D] text-[#5C5347] hover:text-[#C4622D] px-4 py-2 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50"
+                            >
+                              {generatingQrId === dv.id ? (
+                                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth={4} />
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                </svg>
+                              ) : (
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5z" />
+                                </svg>
+                              )}
+                              Download QR Code
+                            </button>
+                          </div>
+                        </div>
                       </div>
-                      <svg
-                        className={`w-4 h-4 text-[#8C8278] transition-transform ${wsExpandedOrderId === dv.id ? 'rotate-180' : ''}`}
-                        fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </div>
+                    )}
                   </div>
                 ))}
               </div>
