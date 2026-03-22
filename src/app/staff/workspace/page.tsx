@@ -501,6 +501,12 @@ interface AuditEntry {
   changed_by: string;
   notes: string | null;
   created_at: string;
+  // Joined order metadata
+  order_customer_name?: string;
+  order_customer_email?: string;
+  order_total?: number;
+  order_created_at?: string;
+  order_m_payment_id?: string | null;
 }
 
 export default function StaffWorkspacePage() {
@@ -2608,7 +2614,43 @@ export default function StaffWorkspacePage() {
         .order('created_at', { ascending: false })
         .limit(500);
       if (error) throw error;
-      setAuditEntries(data || []);
+
+      const entries: AuditEntry[] = data || [];
+
+      // Collect unique order IDs to fetch order metadata
+      const orderIds = Array.from(new Set(entries.map((e) => e.order_id)));
+      const orderMap: Record<string, { customer_name: string; customer_email: string; total: number; created_at: string; m_payment_id: string | null }> = {};
+
+      if (orderIds.length > 0) {
+        const { data: ordersData } = await supabase
+          .from('orders')
+          .select('id, customer_name, customer_email, total, created_at, m_payment_id')
+          .in('id', orderIds);
+        for (const o of (ordersData || [])) {
+          orderMap[o.id] = {
+            customer_name: o.customer_name,
+            customer_email: o.customer_email,
+            total: o.total,
+            created_at: o.created_at,
+            m_payment_id: o.m_payment_id,
+          };
+        }
+      }
+
+      // Merge order metadata into each audit entry
+      const enriched: AuditEntry[] = entries.map((e) => {
+        const om = orderMap[e.order_id];
+        return {
+          ...e,
+          order_customer_name: om?.customer_name,
+          order_customer_email: om?.customer_email,
+          order_total: om?.total,
+          order_created_at: om?.created_at,
+          order_m_payment_id: om?.m_payment_id,
+        };
+      });
+
+      setAuditEntries(enriched);
     } catch (err: any) {
       setAuditError(err.message || 'Failed to load audit trail');
     } finally {
@@ -4475,13 +4517,19 @@ export default function StaffWorkspacePage() {
 
           const filteredAudit = auditEntries.filter(e => {
             const matchesEvent = auditEventFilter === 'all' || e.event_type === auditEventFilter;
+            const customerName = e.order_customer_name || '';
+            const paymentRef = e.order_m_payment_id || '';
             const matchesSearch = !auditSearchQuery ||
               e.order_id.toLowerCase().includes(auditSearchQuery.toLowerCase()) ||
+              customerName.toLowerCase().includes(auditSearchQuery.toLowerCase()) ||
+              paymentRef.toLowerCase().includes(auditSearchQuery.toLowerCase()) ||
               e.new_value.toLowerCase().includes(auditSearchQuery.toLowerCase()) ||
               (e.old_value || '').toLowerCase().includes(auditSearchQuery.toLowerCase()) ||
               e.changed_by.toLowerCase().includes(auditSearchQuery.toLowerCase());
             const matchesOrder = !auditOrderFilter ||
-              e.order_id.toLowerCase().includes(auditOrderFilter.toLowerCase());
+              e.order_id.toLowerCase().includes(auditOrderFilter.toLowerCase()) ||
+              customerName.toLowerCase().includes(auditOrderFilter.toLowerCase()) ||
+              paymentRef.toLowerCase().includes(auditOrderFilter.toLowerCase());
             return matchesEvent && matchesSearch && matchesOrder;
           });
 
@@ -4525,14 +4573,14 @@ export default function StaffWorkspacePage() {
               <div className="bg-white rounded-2xl border border-[#EDE7DA] p-4 flex flex-wrap gap-3">
                 <input
                   type="text"
-                  placeholder="Search by order ID, value, actor…"
+                  placeholder="Search by customer, ref, value, actor…"
                   value={auditSearchQuery}
                   onChange={e => setAuditSearchQuery(e.target.value)}
                   className="flex-1 min-w-[180px] border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
                 />
                 <input
                   type="text"
-                  placeholder="Filter by Order ID…"
+                  placeholder="Filter by customer or ref…"
                   value={auditOrderFilter}
                   onChange={e => setAuditOrderFilter(e.target.value)}
                   className="w-48 border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors"
@@ -4579,91 +4627,119 @@ export default function StaffWorkspacePage() {
               {/* Timeline grouped by order */}
               {!auditLoading && groupedEntries.length > 0 && (
                 <div className="space-y-4">
-                  {groupedEntries.map(([orderId, entries]) => (
-                    <div key={orderId} className="bg-white rounded-2xl border border-[#EDE7DA] overflow-hidden">
-                      {/* Order header */}
-                      <div className="flex items-center justify-between px-5 py-3 bg-[#F5F0E8] border-b border-[#EDE7DA]">
-                        <div className="flex items-center gap-2">
-                          <span className="text-base">📋</span>
-                          <div>
-                            <p className="text-xs font-semibold text-[#5C5347] uppercase tracking-wider">Order</p>
-                            <p className="text-sm font-mono font-bold text-[#C4622D] break-all">{orderId}</p>
-                          </div>
-                        </div>
-                        <span className="text-xs text-[#8C8278] font-medium">{entries.length} event{entries.length !== 1 ? 's' : ''}</span>
-                      </div>
+                  {groupedEntries.map(([orderId, entries]) => {
+                    const first = entries[0];
+                    const customerName = first.order_customer_name || '—';
+                    const customerEmail = first.order_customer_email || '';
+                    const orderTotal = first.order_total != null ? `R${Number(first.order_total).toFixed(2)}` : null;
+                    const orderDate = first.order_created_at
+                      ? new Date(first.order_created_at).toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' })
+                      : null;
+                    const paymentRef = first.order_m_payment_id;
 
-                      {/* Events timeline */}
-                      <div className="divide-y divide-[#F0EBE3]">
-                        {entries.map((entry, idx) => {
-                          const eventColor = EVENT_TYPE_COLORS[entry.event_type] || 'bg-gray-100 text-gray-600 border-gray-200';
-                          const eventLabel = EVENT_TYPE_LABELS[entry.event_type] || entry.event_type;
-                          const fieldIcon = FIELD_ICONS[entry.field_changed] || '🔄';
-                          const isLast = idx === entries.length - 1;
-
-                          return (
-                            <div key={entry.id} className="flex items-start gap-4 px-5 py-4">
-                              {/* Timeline dot */}
-                              <div className="flex flex-col items-center flex-shrink-0 mt-1">
-                                <div className="w-7 h-7 rounded-full bg-[#FDF6EE] border-2 border-[#C4622D] flex items-center justify-center text-sm">
-                                  {fieldIcon}
-                                </div>
-                                {!isLast && <div className="w-0.5 h-full min-h-[20px] bg-[#EDE7DA] mt-1" />}
-                              </div>
-
-                              {/* Event content */}
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center flex-wrap gap-2 mb-1.5">
-                                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${eventColor}`}>
-                                    {eventLabel}
+                    return (
+                      <div key={orderId} className="bg-white rounded-2xl border border-[#EDE7DA] overflow-hidden">
+                        {/* Order header — human-readable */}
+                        <div className="flex items-center justify-between px-5 py-3 bg-[#F5F0E8] border-b border-[#EDE7DA]">
+                          <div className="flex items-center gap-3">
+                            <span className="text-base">📋</span>
+                            <div>
+                              {/* Customer name — primary identifier */}
+                              <p className="text-sm font-bold text-[#1A1612]">{customerName}</p>
+                              {customerEmail && (
+                                <p className="text-xs text-[#8C8278]">{customerEmail}</p>
+                              )}
+                              {/* Order meta row: ref · date · total */}
+                              <div className="flex items-center flex-wrap gap-2 mt-0.5">
+                                {paymentRef && (
+                                  <span className="inline-flex items-center gap-1 text-xs font-mono font-semibold text-[#C4622D] bg-[#FDF6EE] border border-[#EDE7DA] rounded px-1.5 py-0.5">
+                                    Ref: {paymentRef}
                                   </span>
-                                  <span className="text-xs text-[#8C8278] font-mono">
-                                    {entry.field_changed.replace(/_/g, ' ')}
-                                  </span>
-                                </div>
-
-                                {/* Value change */}
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  {entry.old_value ? (
-                                    <>
-                                      <span className="inline-flex items-center gap-1 text-xs bg-red-50 text-red-600 border border-red-100 rounded-lg px-2 py-0.5 font-medium">
-                                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M20 12H4" /></svg>
-                                        {entry.old_value.replace(/_/g, ' ')}
-                                      </span>
-                                      <svg className="w-3.5 h-3.5 text-[#8C8278] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                                      </svg>
-                                    </>
-                                  ) : (
-                                    <span className="text-xs text-[#B5ADA5]">Initial →</span>
-                                  )}
-                                  <span className="inline-flex items-center gap-1 text-xs bg-green-50 text-green-700 border border-green-100 rounded-lg px-2 py-0.5 font-medium">
-                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
-                                    {entry.new_value.replace(/_/g, ' ')}
-                                  </span>
-                                </div>
-
-                                {entry.notes && (
-                                  <p className="text-xs text-[#8C8278] italic mt-1">{entry.notes}</p>
+                                )}
+                                {orderDate && (
+                                  <span className="text-xs text-[#5C5347]">📅 {orderDate}</span>
+                                )}
+                                {orderTotal && (
+                                  <span className="text-xs font-semibold text-[#1A1612]">💰 {orderTotal}</span>
                                 )}
                               </div>
-
-                              {/* Timestamp + actor */}
-                              <div className="text-right flex-shrink-0">
-                                <p className="text-xs font-medium text-[#1A1612]">
-                                  {new Date(entry.created_at).toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                </p>
-                                <p className="text-xs text-[#8C8278]">
-                                  {new Date(entry.created_at).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                                </p>
-                                <p className="text-xs text-[#B5ADA5] mt-0.5 capitalize">{entry.changed_by}</p>
-                              </div>
                             </div>
-                          );
-                        })}
+                          </div>
+                          <span className="text-xs text-[#8C8278] font-medium">{entries.length} event{entries.length !== 1 ? 's' : ''}</span>
+                        </div>
+
+                        {/* Events timeline */}
+                        <div className="divide-y divide-[#F0EBE3]">
+                          {entries.map((entry, idx) => {
+                            const eventColor = EVENT_TYPE_COLORS[entry.event_type] || 'bg-gray-100 text-gray-600 border-gray-200';
+                            const eventLabel = EVENT_TYPE_LABELS[entry.event_type] || entry.event_type;
+                            const fieldIcon = FIELD_ICONS[entry.field_changed] || '🔄';
+                            const isLast = idx === entries.length - 1;
+
+                            return (
+                              <div key={entry.id} className="flex items-start gap-4 px-5 py-4">
+                                {/* Timeline dot */}
+                                <div className="flex flex-col items-center flex-shrink-0 mt-1">
+                                  <div className="w-7 h-7 rounded-full bg-[#FDF6EE] border-2 border-[#C4622D] flex items-center justify-center text-sm">
+                                    {fieldIcon}
+                                  </div>
+                                  {!isLast && <div className="w-0.5 h-full min-h-[20px] bg-[#EDE7DA] mt-1" />}
+                                </div>
+
+                                {/* Event content */}
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center flex-wrap gap-2 mb-1.5">
+                                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${eventColor}`}>
+                                      {eventLabel}
+                                    </span>
+                                    <span className="text-xs text-[#8C8278] font-mono">
+                                      {entry.field_changed.replace(/_/g, ' ')}
+                                    </span>
+                                  </div>
+
+                                  {/* Value change */}
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    {entry.old_value ? (
+                                      <>
+                                        <span className="inline-flex items-center gap-1 text-xs bg-red-50 text-red-600 border border-red-100 rounded-lg px-2 py-0.5 font-medium">
+                                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M20 12H4" /></svg>
+                                          {entry.old_value.replace(/_/g, ' ')}
+                                        </span>
+                                        <svg className="w-3.5 h-3.5 text-[#8C8278] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                          <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                                        </svg>
+                                      </>
+                                    ) : (
+                                      <span className="text-xs text-[#B5ADA5]">Initial →</span>
+                                    )}
+                                    <span className="inline-flex items-center gap-1 text-xs bg-green-50 text-green-700 border border-green-100 rounded-lg px-2 py-0.5 font-medium">
+                                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+                                      {entry.new_value.replace(/_/g, ' ')}
+                                    </span>
+                                  </div>
+
+                                  {entry.notes && (
+                                    <p className="text-xs text-[#8C8278] italic mt-1">{entry.notes}</p>
+                                  )}
+                                </div>
+
+                                {/* Timestamp + actor */}
+                                <div className="text-right flex-shrink-0">
+                                  <p className="text-xs font-medium text-[#1A1612]">
+                                    {new Date(entry.created_at).toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                  </p>
+                                  <p className="text-xs text-[#8C8278]">
+                                    {new Date(entry.created_at).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                                  </p>
+                                  <p className="text-xs text-[#B5ADA5] mt-0.5 capitalize">{entry.changed_by}</p>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
