@@ -37,6 +37,7 @@ interface Order {
   notes: string;
   created_at: string;
   updated_at: string;
+  delivered_date: string | null;
 }
 
 interface OrderUpdateState {
@@ -97,6 +98,7 @@ export default function StaffOrdersPage() {
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [realtimeConnected, setRealtimeConnected] = useState(false);
   const [newOrderAlert, setNewOrderAlert] = useState<string | null>(null);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
   // Per-order update state
   const [orderUpdateStates, setOrderUpdateStates] = useState<Record<string, OrderUpdateState>>({});
@@ -127,6 +129,15 @@ export default function StaffOrdersPage() {
       if (!user) {
         router.replace('/staff/login');
         return;
+      }
+      // Fetch user role to determine super_admin status
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+      if (profile?.role === 'super_admin') {
+        setIsSuperAdmin(true);
       }
       await loadPaymentTypes();
       await loadOrders();
@@ -263,9 +274,14 @@ export default function StaffOrdersPage() {
   const handleFulfillmentUpdate = async (orderId: string, newStatus: FulfillmentStatus) => {
     setOrderUpdateField(orderId, { fulfillmentSaving: true, fulfillmentSuccess: false, fulfillmentError: '' });
     try {
+      const updatePayload: Record<string, unknown> = { fulfillment_status: newStatus };
+      // When marking as delivered, record the delivered date
+      if (newStatus === 'delivered') {
+        updatePayload.delivered_date = new Date().toISOString();
+      }
       const { error: updateError } = await supabase
         .from('orders')
-        .update({ fulfillment_status: newStatus })
+        .update(updatePayload)
         .eq('id', orderId);
 
       if (updateError) {
@@ -273,7 +289,11 @@ export default function StaffOrdersPage() {
         return;
       }
       setOrders((prev) =>
-        prev.map((o) => (o.id === orderId ? { ...o, fulfillment_status: newStatus } : o))
+        prev.map((o) =>
+          o.id === orderId
+            ? { ...o, fulfillment_status: newStatus, delivered_date: newStatus === 'delivered' ? new Date().toISOString() : o.delivered_date }
+            : o
+        )
       );
       setOrderUpdateField(orderId, { fulfillmentSaving: false, fulfillmentSuccess: true });
       setTimeout(() => setOrderUpdateField(orderId, { fulfillmentSuccess: false }), 2500);
@@ -623,16 +643,27 @@ export default function StaffOrdersPage() {
                       {/* Fulfillment Status — editable dropdown */}
                       <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                         <div className="flex flex-col items-start gap-0.5">
-                          <select
-                            value={order.fulfillment_status}
-                            onChange={(e) => handleFulfillmentUpdate(order.id, e.target.value as FulfillmentStatus)}
-                            disabled={updateState.fulfillmentSaving}
-                            className={`text-xs font-semibold border rounded-full px-2.5 py-1 focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30 transition-colors cursor-pointer disabled:opacity-50 ${FULFILLMENT_STATUS_COLORS[order.fulfillment_status]}`}
-                          >
-                            {FULFILLMENT_OPTIONS.map((s) => (
-                              <option key={s} value={s}>{FULFILLMENT_STATUS_LABELS[s]}</option>
-                            ))}
-                          </select>
+                          {order.fulfillment_status === 'delivered' && !isSuperAdmin ? (
+                            <div className="flex items-center gap-1.5">
+                              <span className={`text-xs font-semibold border rounded-full px-2.5 py-1 ${FULFILLMENT_STATUS_COLORS['delivered']}`}>
+                                Delivered
+                              </span>
+                              <span title="Only Super Admin can change a Delivered order's fulfillment status">
+                                <AppIcon name="LockClosedIcon" size={12} className="text-[#B5ADA5]" />
+                              </span>
+                            </div>
+                          ) : (
+                            <select
+                              value={order.fulfillment_status}
+                              onChange={(e) => handleFulfillmentUpdate(order.id, e.target.value as FulfillmentStatus)}
+                              disabled={updateState.fulfillmentSaving}
+                              className={`text-xs font-semibold border rounded-full px-2.5 py-1 focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30 transition-colors cursor-pointer disabled:opacity-50 ${FULFILLMENT_STATUS_COLORS[order.fulfillment_status]}`}
+                            >
+                              {FULFILLMENT_OPTIONS.map((s) => (
+                                <option key={s} value={s}>{FULFILLMENT_STATUS_LABELS[s]}</option>
+                              ))}
+                            </select>
+                          )}
                           {updateState.fulfillmentSaving && (
                             <span className="text-xs text-[#8C8278] flex items-center gap-1">
                               <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
@@ -684,6 +715,12 @@ export default function StaffOrdersPage() {
                                 <p className="text-xs text-[#B5ADA5]">Event Date</p>
                                 <p className="text-sm text-[#1A1612]">{order.event_date ? formatDate(order.event_date) : '—'}</p>
                               </div>
+                              {order.delivered_date && (
+                                <div>
+                                  <p className="text-xs text-[#B5ADA5]">Delivered Date</p>
+                                  <p className="text-sm font-medium text-green-700">{formatDate(order.delivered_date)}</p>
+                                </div>
+                              )}
                               <div>
                                 <p className="text-xs text-[#B5ADA5]">Delivery Address</p>
                                 <p className="text-sm text-[#1A1612]">{order.delivery_address || '—'}</p>
