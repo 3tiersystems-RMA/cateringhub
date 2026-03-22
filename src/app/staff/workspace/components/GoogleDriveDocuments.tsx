@@ -12,6 +12,8 @@ interface DriveDoc {
   originalUrl: string;
   title: string;
   folderName: string;
+  createdTime?: string;
+  modifiedTime?: string;
 }
 
 interface GoogleDriveDocumentsProps {
@@ -110,8 +112,8 @@ function FolderIcon({ size = 18 }: { size?: number }) {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function extractFileId(url: string): string | null {
+  // Only match individual file patterns — NOT folder URLs
   const patterns = [
-    /\/folders\/([a-zA-Z0-9_-]{25,})/,
     /\/file\/d\/([a-zA-Z0-9_-]{25,})/,
     /\/d\/([a-zA-Z0-9_-]{25,})/,
     /[?&]id=([a-zA-Z0-9_-]{25,})/,
@@ -123,7 +125,20 @@ function extractFileId(url: string): string | null {
   return null;
 }
 
-function detectType(url: string): Exclude<DocType, 'auto'> {
+function isFolderUrl(url: string): boolean {
+  return /\/folders\/[a-zA-Z0-9_-]/.test(url);
+}
+
+function detectTypeFromMime(mimeType: string): Exclude<DocType, 'auto'> {
+  if (mimeType === 'application/vnd.google-apps.document') return 'doc';
+  if (mimeType === 'application/vnd.google-apps.spreadsheet') return 'sheet';
+  if (mimeType === 'application/vnd.google-apps.presentation') return 'slide';
+  if (mimeType === 'application/pdf') return 'pdf';
+  if (mimeType.startsWith('video/')) return 'video';
+  return 'other';
+}
+
+function detectTypeFromUrl(url: string): Exclude<DocType, 'auto'> {
   if (url.includes('/document/'))     return 'doc';
   if (url.includes('/spreadsheets/')) return 'sheet';
   if (url.includes('/presentation/')) return 'slide';
@@ -138,6 +153,35 @@ function buildEmbedUrl(fileId: string, type: Exclude<DocType, 'auto'>): string {
     case 'sheet': return `https://docs.google.com/spreadsheets/d/${fileId}/preview`;
     case 'slide': return `https://docs.google.com/presentation/d/${fileId}/embed?start=false&loop=false&delayms=3000`;
     default:      return `https://drive.google.com/file/d/${fileId}/preview`;
+  }
+}
+
+function formatDate(iso?: string): string {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('en-ZA', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
+// ─── Fetch file metadata from Google Drive API ────────────────────────────────
+async function fetchDriveFileMeta(fileId: string): Promise<{
+  name: string;
+  mimeType: string;
+  createdTime: string;
+  modifiedTime: string;
+} | null> {
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_DRIVE_API_KEY;
+  if (!apiKey) return null;
+  try {
+    const res = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${fileId}?fields=name,mimeType,createdTime,modifiedTime&key=${apiKey}`
+    );
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
   }
 }
 
@@ -158,22 +202,36 @@ function DocRow({
   return (
     <div className="bg-white rounded-xl border border-[#EDE7DA] overflow-hidden">
       {/* Row header */}
-      <div className="flex items-center gap-3 px-4 py-3">
+      <div className="flex items-start gap-3 px-4 py-3">
         {/* File type icon */}
-        <div className="flex-shrink-0">
+        <div className="flex-shrink-0 mt-0.5">
           <FileTypeIcon type={doc.type} size={22} />
         </div>
 
-        {/* Title */}
-        <span className="flex-1 text-sm font-medium text-[#1A1612] truncate">{doc.title}</span>
+        {/* Title + dates */}
+        <div className="flex-1 min-w-0">
+          <span className="block text-sm font-medium text-[#1A1612] truncate">{doc.title}</span>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
+            {doc.createdTime && (
+              <span className="text-xs text-[#B5ADA5]">
+                <span className="text-[#8C8278] font-medium">Created:</span> {formatDate(doc.createdTime)}
+              </span>
+            )}
+            {doc.modifiedTime && (
+              <span className="text-xs text-[#B5ADA5]">
+                <span className="text-[#8C8278] font-medium">Updated:</span> {formatDate(doc.modifiedTime)}
+              </span>
+            )}
+          </div>
+        </div>
 
         {/* Type label */}
-        <span className="hidden sm:inline-flex text-xs text-[#8C8278] bg-[#F5F0E8] px-2 py-0.5 rounded-full border border-[#EDE7DA] flex-shrink-0">
+        <span className="hidden sm:inline-flex text-xs text-[#8C8278] bg-[#F5F0E8] px-2 py-0.5 rounded-full border border-[#EDE7DA] flex-shrink-0 self-center">
           {TYPE_LABELS[doc.type]}
         </span>
 
         {/* Actions */}
-        <div className="flex items-center gap-1 flex-shrink-0">
+        <div className="flex items-center gap-1 flex-shrink-0 self-center">
           {/* Expand/collapse */}
           <button
             onClick={() => setExpanded((v) => !v)}
@@ -234,40 +292,71 @@ function DocRow({
 export default function GoogleDriveDocuments({ isSuperAdmin }: GoogleDriveDocumentsProps) {
   const [documents, setDocuments] = useState<DriveDoc[]>([]);
   const [urlInput, setUrlInput] = useState('');
-  const [titleInput, setTitleInput] = useState('');
   const [folderInput, setFolderInput] = useState('');
   const [typeSelect, setTypeSelect] = useState<DocType>('auto');
   const [formError, setFormError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     setFormError(null);
     const rawUrl = urlInput.trim();
 
     if (!rawUrl) {
-      setFormError('Please paste a Google Drive share link.');
+      setFormError('Please paste a Google Drive file share link.');
+      return;
+    }
+
+    // Block folder URLs — only individual files allowed
+    if (isFolderUrl(rawUrl)) {
+      setFormError('Folder links are not supported. Please share an individual file link (right-click a file → Share → copy link).');
       return;
     }
 
     const fileId = extractFileId(rawUrl);
     if (!fileId) {
-      setFormError("Could not find a file ID in that URL. Make sure it's a valid Google Drive share link.");
+      setFormError("Could not find a file ID in that URL. Make sure it's a valid Google Drive file share link.");
       return;
     }
 
-    const resolvedType = typeSelect === 'auto' ? detectType(rawUrl) : typeSelect;
+    // Check for duplicate
+    if (documents.some((d) => d.fileId === fileId)) {
+      setFormError('This file has already been added.');
+      return;
+    }
+
+    setIsLoading(true);
+
+    // Fetch metadata from Google Drive API
+    const meta = await fetchDriveFileMeta(fileId);
+
+    let resolvedType: Exclude<DocType, 'auto'>;
+    let title: string;
+    let createdTime: string | undefined;
+    let modifiedTime: string | undefined;
+
+    if (meta) {
+      resolvedType = typeSelect === 'auto' ? detectTypeFromMime(meta.mimeType) : typeSelect;
+      title = meta.name;
+      createdTime = meta.createdTime;
+      modifiedTime = meta.modifiedTime;
+    } else {
+      // Fallback if API key not available or request failed
+      resolvedType = typeSelect === 'auto' ? detectTypeFromUrl(rawUrl) : typeSelect;
+      title = `Document ${documents.length + 1}`;
+    }
+
     const embedUrl = buildEmbedUrl(fileId, resolvedType);
-    const title = titleInput.trim() || `Document ${documents.length + 1}`;
     const folderName = folderInput.trim() || DEFAULT_FOLDER;
 
     setDocuments((prev) => [
       ...prev,
-      { fileId, type: resolvedType, embedUrl, originalUrl: rawUrl, title, folderName },
+      { fileId, type: resolvedType, embedUrl, originalUrl: rawUrl, title, folderName, createdTime, modifiedTime },
     ]);
 
     setUrlInput('');
-    setTitleInput('');
     setFolderInput('');
     setTypeSelect('auto');
+    setIsLoading(false);
   };
 
   const handleRemove = (index: number) => {
@@ -303,14 +392,16 @@ export default function GoogleDriveDocuments({ isSuperAdmin }: GoogleDriveDocume
               <path d="M59.8 54H27.5L13.75 77.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z" fill="#2684FC"/>
               <path d="M73.4 26.5l-12.6-21.8c-.8-1.4-1.95-2.5-3.3-3.3L43.65 25 59.8 54h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#FFBA00"/>
             </svg>
-            <h3 className="text-sm font-bold text-[#1A1612]">Add a Google Drive Document</h3>
+            <h3 className="text-sm font-bold text-[#1A1612]">Add a Google Drive File</h3>
           </div>
 
-          {/* Row 1: URL + Label + Folder */}
-          <div className="grid grid-cols-1 sm:grid-cols-[1fr_160px_160px] gap-3 mb-3">
+          {/* Row 1: URL + Folder */}
+          <div className="grid grid-cols-1 sm:grid-cols-[1fr_200px] gap-3 mb-3">
             {/* URL */}
             <div>
-              <label className="block text-xs font-semibold text-[#5C5347] mb-1.5">Share Link <span className="text-[#C4622D]">*</span></label>
+              <label className="block text-xs font-semibold text-[#5C5347] mb-1.5">
+                File Share Link <span className="text-[#C4622D]">*</span>
+              </label>
               <input
                 type="url"
                 value={urlInput}
@@ -320,21 +411,9 @@ export default function GoogleDriveDocuments({ isSuperAdmin }: GoogleDriveDocume
                 className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm text-[#1A1612] placeholder-[#B5ADA5] focus:outline-none focus:border-[#C4622D] transition-colors"
               />
             </div>
-            {/* Label */}
+            {/* Folder grouping label */}
             <div>
-              <label className="block text-xs font-semibold text-[#5C5347] mb-1.5">File Label (optional)</label>
-              <input
-                type="text"
-                value={titleInput}
-                onChange={(e) => setTitleInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-                placeholder="e.g. Q1 Menu"
-                className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm text-[#1A1612] placeholder-[#B5ADA5] focus:outline-none focus:border-[#C4622D] transition-colors"
-              />
-            </div>
-            {/* Folder */}
-            <div>
-              <label className="block text-xs font-semibold text-[#5C5347] mb-1.5">Folder Name (optional)</label>
+              <label className="block text-xs font-semibold text-[#5C5347] mb-1.5">Group / Folder Label <span className="text-[#B5ADA5] font-normal">(optional)</span></label>
               <input
                 type="text"
                 value={folderInput}
@@ -366,12 +445,25 @@ export default function GoogleDriveDocuments({ isSuperAdmin }: GoogleDriveDocume
             </div>
             <button
               onClick={handleAdd}
-              className="flex items-center gap-1.5 bg-[#C4622D] text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors whitespace-nowrap"
+              disabled={isLoading}
+              className="flex items-center gap-1.5 bg-[#C4622D] text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors whitespace-nowrap disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-              </svg>
-              Add
+              {isLoading ? (
+                <>
+                  <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+                  </svg>
+                  Fetching…
+                </>
+              ) : (
+                <>
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                  </svg>
+                  Add File
+                </>
+              )}
             </button>
           </div>
 
@@ -387,7 +479,7 @@ export default function GoogleDriveDocuments({ isSuperAdmin }: GoogleDriveDocume
 
           {/* Hint */}
           <p className="mt-3 text-xs text-[#B5ADA5]">
-            In Google Drive: right-click a file → <strong>Share</strong> → <em>Anyone with the link</em> → <strong>Viewer</strong> → copy the link and paste it above. No API key required.
+            In Google Drive: right-click an <strong>individual file</strong> → <strong>Share</strong> → <em>Anyone with the link</em> → <strong>Viewer</strong> → copy the link and paste it above. Folder links are not supported.
           </p>
         </div>
       )}
@@ -403,7 +495,7 @@ export default function GoogleDriveDocuments({ isSuperAdmin }: GoogleDriveDocume
           <p className="text-sm font-semibold text-[#8C8278]">No documents added yet</p>
           <p className="text-xs text-[#B5ADA5] mt-1">
             {isSuperAdmin
-              ? 'Paste a public Google Drive link above to add a document.'
+              ? 'Paste a public Google Drive file link above to add a document.'
               : 'No documents have been shared yet.'}
           </p>
         </div>
