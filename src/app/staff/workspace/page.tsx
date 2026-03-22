@@ -3671,8 +3671,8 @@ export default function StaffWorkspacePage() {
                 <div className="flex items-center gap-2">
                   <input
                     type="text"
-                    value={voucherSearchQuery}
-                    onChange={(e) => setVoucherSearchQuery(e.target.value)}
+                    value={vouchersSearchQuery}
+                    onChange={(e) => setVouchersSearchQuery(e.target.value)}
                     placeholder="Search by voucher..."
                     className="border border-[#DDD5C8] rounded-xl px-4 py-2 text-sm text-[#1A1612] focus:outline-none focus:border-[#C4622D] transition-colors w-56"
                   />
