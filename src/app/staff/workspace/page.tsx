@@ -4169,9 +4169,49 @@ export default function StaffWorkspacePage() {
                 ))}
               </div>
             ) : (
-              <div className="text-center py-16 text-[#8C8278]">
-                <p className="text-lg font-medium mb-2">No reporting data found</p>
-                <p className="text-sm">Select a reporting view to get started.</p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
+                <button
+                  onClick={() => setReportingView('products_ordered')}
+                  className="bg-white rounded-2xl border border-[#EDE7DA] p-6 text-left hover:border-[#C4622D] hover:shadow-md transition-all group"
+                >
+                  <div className="flex items-center gap-3 mb-3">
+                    <span className="text-3xl">🛒</span>
+                    <h3 className="text-base font-bold text-[#1A1612] group-hover:text-[#C4622D] transition-colors">Products Ordered</h3>
+                  </div>
+                  <p className="text-sm text-[#8C8278]">View all individual products ordered by customers, including meal and discount voucher usage.</p>
+                  <div className="mt-4 flex items-center gap-1 text-xs font-semibold text-[#C4622D]">
+                    <span>View report</span>
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                  </div>
+                </button>
+                <button
+                  onClick={() => setReportingView('package_meals_ordered')}
+                  className="bg-white rounded-2xl border border-[#EDE7DA] p-6 text-left hover:border-[#C4622D] hover:shadow-md transition-all group"
+                >
+                  <div className="flex items-center gap-3 mb-3">
+                    <span className="text-3xl">🍱</span>
+                    <h3 className="text-base font-bold text-[#1A1612] group-hover:text-[#C4622D] transition-colors">Package Meals Ordered</h3>
+                  </div>
+                  <p className="text-sm text-[#8C8278]">View all package meal orders, including package type purchased and meal voucher details.</p>
+                  <div className="mt-4 flex items-center gap-1 text-xs font-semibold text-[#C4622D]">
+                    <span>View report</span>
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                  </div>
+                </button>
+                <button
+                  onClick={() => setReportingView('discount_vouchers_report')}
+                  className="bg-white rounded-2xl border border-[#EDE7DA] p-6 text-left hover:border-[#C4622D] hover:shadow-md transition-all group"
+                >
+                  <div className="flex items-center gap-3 mb-3">
+                    <span className="text-3xl">🏷️</span>
+                    <h3 className="text-base font-bold text-[#1A1612] group-hover:text-[#C4622D] transition-colors">Discount Vouchers</h3>
+                  </div>
+                  <p className="text-sm text-[#8C8278]">View all orders where discount vouchers were applied, including voucher codes and amounts.</p>
+                  <div className="mt-4 flex items-center gap-1 text-xs font-semibold text-[#C4622D]">
+                    <span>View report</span>
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                  </div>
+                </button>
               </div>
             )}
           </div>
