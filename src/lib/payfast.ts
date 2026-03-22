@@ -101,12 +101,18 @@ export function buildPaymentPayload(
     throw new Error("Missing PayFast credentials. Check environment variables.");
   }
 
+  // For ITN (notify_url): use NGROK_URL in sandbox mode so PayFast can POST
+  // callbacks to a locally-running server exposed via ngrok.
+  // In production (IS_SANDBOX=false) or when NGROK_URL is not set, fall back to baseUrl.
+  const ngrokUrl = process.env.NGROK_URL?.replace(/\/$/, ""); // strip trailing slash
+  const itnBase = PAYFAST_CONFIG.isSandbox && ngrokUrl ? ngrokUrl : baseUrl;
+
   const params: Record<string, string> = {
     merchant_id:      PAYFAST_CONFIG.merchantId,
     merchant_key:     PAYFAST_CONFIG.merchantKey,
     return_url:       `${baseUrl}/checkout/success`,
     cancel_url:       `${baseUrl}/checkout/cancel`,
-    notify_url:       `${baseUrl}/api/payfast/itn`,
+    notify_url:       `${itnBase}/api/payfast/itn`,
     name_first:       buyer.firstName,
     name_last:        buyer.lastName,
     email_address:    buyer.email,
