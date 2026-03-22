@@ -857,7 +857,7 @@ export default function StaffWorkspacePage() {
 
   const loadVouchers = async () => {
     setVouchersLoading(true);
-    const { data } = await supabase.from('meal_vouchers').select('*').order('purchased_at', { ascending: false });
+    const { data } = await supabase.from('vouchers').select('*').order('purchased_at', { ascending: false });
     if (data) setVouchers(data);
     setVouchersLoading(false);
   };
@@ -968,6 +968,13 @@ export default function StaffWorkspacePage() {
     return monday;
   };
 
+  const toLocalDateStr = (date: Date): string => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+
   useEffect(() => {
     if (activeTab === 'weekly_menu') loadWeeklyMenu();
   }, [weekOffset, activeTab]);
@@ -978,7 +985,7 @@ export default function StaffWorkspacePage() {
       const d = new Date(monday);
       d.setDate(monday.getDate() + i);
       return {
-        date: d.toISOString().split('T')[0],
+        date: toLocalDateStr(d),
         dayName: d.toLocaleDateString('en-ZA', { weekday: 'long' }),
         shortDate: d.toLocaleDateString('en-ZA', { day: '2-digit', month: 'short' }),
       };
@@ -1256,7 +1263,7 @@ export default function StaffWorkspacePage() {
       day_name: entry.day_name,
       meal_name: entry.meal_name || '',
       description: entry.description || '',
-      price: entry.price != null ? String(entry.price) : '',
+      price: entry.price ? String(entry.price) : '',
       is_closed: entry.is_closed,
       closed_reason: entry.closed_reason || '',
     });
@@ -1318,7 +1325,7 @@ export default function StaffWorkspacePage() {
     }
     setIssuingVoucher(true);
     const code = 'MV-' + Math.random().toString(36).substring(2, 8).toUpperCase();
-    const { error } = await supabase.from('meal_vouchers').insert({
+    const { error } = await supabase.from('vouchers').insert({
       voucher_code: code,
       customer_name: issueVoucherForm.customer_name.trim(),
       customer_email: issueVoucherForm.customer_email.trim(),
@@ -1340,7 +1347,7 @@ export default function StaffWorkspacePage() {
   const handleMarkVoucherPaid = async (voucher: Voucher) => {
     setMarkingVoucherPaidId(voucher.id);
     setLoadingMarkingPaid(true);
-    const { error } = await supabase.from('meal_vouchers').update({ status: 'paid' }).eq('id', voucher.id);
+    const { error } = await supabase.from('vouchers').update({ status: 'paid' }).eq('id', voucher.id);
     if (!error) await loadVouchers();
     setLoadingMarkingPaid(false);
     setMarkingVoucherPaidId(null);
