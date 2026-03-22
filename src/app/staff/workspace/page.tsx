@@ -9,7 +9,7 @@ import { APP_NAME } from "@/lib/constants";
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal';
 import VoucherErrorModal from '@/components/ui/VoucherErrorModal';
 
-import Link from 'next/link';
+
 
 type BucketType = 'product-images' | 'event-photos' | 'document-management';
 type WorkspaceTab = 'products' | 'media' | 'orders' | 'staff' | 'homepage_cards' | 'categories' | 'weekly_menu' | 'vouchers' | 'discount_vouchers' | 'testimonials' | 'reporting' | 'analytics';
@@ -2643,6 +2643,53 @@ export default function StaffWorkspacePage() {
           {/* ── LEFT SIDEBAR ── */}
           <aside className="w-56 flex-shrink-0 bg-white border border-[#EDE7DA] rounded-2xl shadow-sm overflow-hidden sticky top-6">
             <nav className="flex flex-col py-2">
+              {/* ── Site Content collapsible group ── */}
+              <div>
+                <button
+                  onClick={() => setSiteContentOpen((prev) => !prev)}
+                  className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
+                    (activeTab === 'staff' || activeTab === 'homepage_cards' || activeTab === 'testimonials')
+                      ? 'bg-[#FDF6EE] text-[#C4622D]' :'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'
+                  }`}
+                >
+                  <span className="text-base">📝</span>
+                  <span className="flex-1">Site Content</span>
+                  <span className="text-xs">{siteContentOpen ? '▲' : '▼'}</span>
+                </button>
+                {siteContentOpen && (
+                  <div className="bg-[#FAF5EE]/60">
+                    {isSuperAdmin && (
+                      <button
+                        onClick={() => { setActiveTab('staff'); if (staffMembers.length === 0) loadStaffMembers(); }}
+                        className={`flex items-center gap-3 pl-8 pr-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${
+                          activeTab === 'staff' ? 'bg-purple-50 text-purple-600 border-r-2 border-purple-600' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'
+                        }`}
+                      >
+                        <span className="text-sm">👥</span>
+                        <span>Staff Management</span>
+                      </button>
+                    )}
+                    <button
+                      onClick={() => { setActiveTab('homepage_cards'); if (homepageCards.length === 0) loadHomepageCards(); }}
+                      className={`flex items-center gap-3 pl-8 pr-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${
+                        activeTab === 'homepage_cards' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'
+                      }`}
+                    >
+                      <span className="text-sm">🏠</span>
+                      <span>Home Page Cards</span>
+                    </button>
+                    <button
+                      onClick={() => { setActiveTab('testimonials'); if (testimonials.length === 0) loadTestimonials(); }}
+                      className={`flex items-center gap-3 pl-8 pr-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${
+                        activeTab === 'testimonials' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'
+                      }`}
+                    >
+                      <span className="text-sm">💬</span>
+                      <span>Testimonials</span>
+                    </button>
+                  </div>
+                )}
+              </div>
               <button
                 onClick={() => { setActiveTab('products'); if (products.length === 0) loadProducts(); }}
                 className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
@@ -2706,69 +2753,6 @@ export default function StaffWorkspacePage() {
                 <span className="text-base">🏷️</span>
                 <span>Discount Vouchers</span>
               </button>
-              {/* ── Site Content collapsible group ── */}
-              <div>
-                <button
-                  onClick={() => setSiteContentOpen((prev) => !prev)}
-                  className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
-                    (activeTab === 'staff' || activeTab === 'homepage_cards' || activeTab === 'testimonials')
-                      ? 'bg-[#FDF6EE] text-[#C4622D]' :'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'
-                  }`}
-                >
-                  <span className="text-base">📝</span>
-                  <span className="flex-1">Site Content</span>
-                  <span className="text-xs">{siteContentOpen ? '▲' : '▼'}</span>
-                </button>
-                {siteContentOpen && (
-                  <div className="bg-[#FAF5EE]/60">
-                    {isSuperAdmin && (
-                      <button
-                        onClick={() => { setActiveTab('staff'); if (staffMembers.length === 0) loadStaffMembers(); }}
-                        className={`flex items-center gap-3 pl-8 pr-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${
-                          activeTab === 'staff' ? 'bg-purple-50 text-purple-600 border-r-2 border-purple-600' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'
-                        }`}
-                      >
-                        <span className="text-sm">👥</span>
-                        <span>Staff Management</span>
-                      </button>
-                    )}
-                    <button
-                      onClick={() => { setActiveTab('homepage_cards'); if (homepageCards.length === 0) loadHomepageCards(); }}
-                      className={`flex items-center gap-3 pl-8 pr-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${
-                        activeTab === 'homepage_cards' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'
-                      }`}
-                    >
-                      <span className="text-sm">🏠</span>
-                      <span>Home Page Cards</span>
-                    </button>
-                    <button
-                      onClick={() => { setActiveTab('testimonials'); if (testimonials.length === 0) loadTestimonials(); }}
-                      className={`flex items-center gap-3 pl-8 pr-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${
-                        activeTab === 'testimonials' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'
-                      }`}
-                    >
-                      <span className="text-sm">💬</span>
-                      <span>Testimonials</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-              <button
-                onClick={() => { setActiveTab('reporting'); loadProductsOrdered(); loadPackageMealsOrdered(); loadDiscountVouchersReport(); }}
-                className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
-                  activeTab === 'reporting' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'
-                }`}
-              >
-                <span className="text-base">📊</span>
-                <span>Reporting</span>
-              </button>
-              <Link
-                href="/staff/analytics"
-                className="flex items-center gap-3 px-4 py-3 text-sm font-semibold transition-colors text-left w-full text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]"
-              >
-                <span className="text-base">📈</span>
-                <span>Analytics</span>
-              </Link>
             </nav>
           </aside>
 
