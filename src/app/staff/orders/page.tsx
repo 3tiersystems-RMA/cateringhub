@@ -115,6 +115,12 @@ export default function StaffOrdersPage() {
     'package-24': 2520,
   };
 
+  // Payment reminder state
+  const [reminderSending, setReminderSending] = useState<Record<string, boolean>>({});
+  const [reminderResult, setReminderResult] = useState<Record<string, 'sent' | 'error'>>({});
+  const [sendingAllReminders, setSendingAllReminders] = useState(false);
+  const [allReminderResult, setAllReminderResult] = useState<{ sent: number; total: number } | null>(null);
+
   useEffect(() => {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -298,6 +304,49 @@ export default function StaffOrdersPage() {
     }
   };
 
+  const handleSendReminder = async (orderId: string) => {
+    setReminderSending((prev) => ({ ...prev, [orderId]: true }));
+    setReminderResult((prev) => { const n = { ...prev }; delete n[orderId]; return n; });
+    try {
+      const res = await fetch('/api/send-payment-reminder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        setReminderResult((prev) => ({ ...prev, [orderId]: 'error' }));
+      } else {
+        setReminderResult((prev) => ({ ...prev, [orderId]: 'sent' }));
+        setTimeout(() => setReminderResult((prev) => { const n = { ...prev }; delete n[orderId]; return n; }), 4000);
+      }
+    } catch {
+      setReminderResult((prev) => ({ ...prev, [orderId]: 'error' }));
+    } finally {
+      setReminderSending((prev) => ({ ...prev, [orderId]: false }));
+    }
+  };
+
+  const handleSendAllReminders = async () => {
+    setSendingAllReminders(true);
+    setAllReminderResult(null);
+    try {
+      const res = await fetch('/api/send-payment-reminder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      const outstandingCount = orders.filter((o) => o.payment_status === 'awaiting_payment').length;
+      setAllReminderResult({ sent: data.sent ?? 0, total: outstandingCount });
+      setTimeout(() => setAllReminderResult(null), 5000);
+    } catch {
+      setAllReminderResult({ sent: 0, total: 0 });
+    } finally {
+      setSendingAllReminders(false);
+    }
+  };
+
   const filteredOrders = orders.filter((order) => {
     const matchesSearch =
       !searchQuery ||
@@ -375,14 +424,36 @@ export default function StaffOrdersPage() {
             <h1 className="text-2xl font-bold text-[#1A1612]">Orders</h1>
             <p className="text-sm text-[#8C8278] mt-0.5">{filteredOrders.length} of {orders.length} orders</p>
           </div>
-          <button
-            onClick={loadOrders}
-            disabled={loading}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-[#DDD5C8] rounded-xl text-sm font-medium text-[#5C5347] hover:bg-[#EDE7DA] transition-colors disabled:opacity-50"
-          >
-            <AppIcon name="ArrowPathIcon" size={15} className={loading ? 'animate-spin' : ''} />
-            Refresh
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Send All Reminders */}
+            {orders.some((o) => o.payment_status === 'awaiting_payment') && (
+              <button
+                onClick={handleSendAllReminders}
+                disabled={sendingAllReminders}
+                className="flex items-center gap-2 px-4 py-2 bg-amber-50 border border-amber-300 rounded-xl text-sm font-medium text-amber-700 hover:bg-amber-100 transition-colors disabled:opacity-50"
+              >
+                {sendingAllReminders ? (
+                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                ) : (
+                  <AppIcon name="EnvelopeIcon" size={15} />
+                )}
+                Send All Reminders
+              </button>
+            )}
+            {allReminderResult && (
+              <span className="text-xs font-medium text-green-700 bg-green-50 border border-green-200 px-3 py-1.5 rounded-xl">
+                ✓ {allReminderResult.sent} reminder{allReminderResult.sent !== 1 ? 's' : ''} sent
+              </span>
+            )}
+            <button
+              onClick={loadOrders}
+              disabled={loading}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-[#DDD5C8] rounded-xl text-sm font-medium text-[#5C5347] hover:bg-[#EDE7DA] transition-colors disabled:opacity-50"
+            >
+              <AppIcon name="ArrowPathIcon" size={15} className={loading ? 'animate-spin' : ''} />
+              Refresh
+            </button>
+          </div>
         </div>
 
         {/* Filters */}
@@ -716,6 +787,34 @@ export default function StaffOrdersPage() {
                                   </div>
                                 )}
                               </div>
+                              {/* Send Payment Reminder — only for awaiting_payment orders */}
+                              {order.payment_status === 'awaiting_payment' && (
+                                <div className="pt-3 border-t border-[#EDE7DA]">
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); handleSendReminder(order.id); }}
+                                    disabled={reminderSending[order.id]}
+                                    className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-amber-50 border border-amber-300 rounded-lg text-xs font-semibold text-amber-700 hover:bg-amber-100 transition-colors disabled:opacity-50"
+                                  >
+                                    {reminderSending[order.id] ? (
+                                      <>
+                                        <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                                        Sending Reminder…
+                                      </>
+                                    ) : (
+                                      <>
+                                        <AppIcon name="EnvelopeIcon" size={13} />
+                                        Send Payment Reminder
+                                      </>
+                                    )}
+                                  </button>
+                                  {reminderResult[order.id] === 'sent' && (
+                                    <p className="mt-1.5 text-xs text-green-600 font-medium text-center">✓ Reminder sent successfully</p>
+                                  )}
+                                  {reminderResult[order.id] === 'error' && (
+                                    <p className="mt-1.5 text-xs text-red-500 text-center">Failed to send reminder. Please try again.</p>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>
