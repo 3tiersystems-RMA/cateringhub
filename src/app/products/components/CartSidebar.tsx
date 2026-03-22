@@ -13,7 +13,7 @@ import CartStepSuccess from "./CartStepSuccess";
 import VoucherErrorModal from "@/components/ui/VoucherErrorModal";
 
 type CheckoutStep = "cart" | "details" | "payment" | "eft-success" | "confirmation";
-type PaymentMethod = "eft" | "voucher";
+type PaymentMethod = "eft" | "voucher" | "payfast";
 
 export default function CartSidebar() {
   const { items, subtotal, totalItems, isOpen, setIsOpen, clearCart } = useCart();
@@ -21,7 +21,7 @@ export default function CartSidebar() {
 
   const [step, setStep] = useState<CheckoutStep>("cart");
   const [form, setForm] = useState({ name: "", email: "", phone: "", date: "", address: "", notes: "" });
-  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>("eft");
+  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>("payfast");
   const [processing, setProcessing] = useState(false);
   const [payError, setPayErrorState] = useState("");
   const [phoneError, setPhoneErrorState] = useState("");
@@ -193,6 +193,100 @@ export default function CartSidebar() {
     }
   };
 
+  const handlePayFastCheckout = async () => {
+    setProcessing(true);
+    try {
+      // Step 1: Create the order in DB with awaiting_payment status
+      const orderNotes = dvApplied && dvData
+        ? `Discount Voucher: ${dvData.dv_code} (R${dvData.dv_amount.toFixed(2)} credit). ${form.notes}`.trim()
+        : form.notes;
+
+      const createRes = await fetch("/api/orders/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          m_payment_id: orderRef,
+          customer_name: form.name,
+          customer_email: form.email,
+          customer_phone: form.phone,
+          items: items.map((i) => ({
+            id: i.product.id, name: i.product.name, quantity: i.quantity,
+            price: i.product.price, unit: i.product.unit, category: i.product.category,
+          })),
+          subtotal,
+          delivery_fee: delivery,
+          total: discountedTotal,
+          payment_status: "awaiting_payment",
+          payment_method: "payfast",
+          event_date: form.date || null,
+          delivery_address: form.address,
+          notes: orderNotes,
+        }),
+      });
+
+      const createResult = await createRes.json();
+      if (!createRes.ok) throw new Error(createResult.error || "Failed to create order.");
+
+      const finalRef = createResult.reference ?? orderRef;
+
+      // Step 2: Get signed PayFast payload from server
+      const nameParts = form.name.trim().split(" ");
+      const firstName = nameParts[0] || form.name;
+      const lastName = nameParts.slice(1).join(" ") || "-";
+
+      const initiateRes = await fetch("/api/payfast/initiate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          order: {
+            paymentId: finalRef,
+            amount: discountedTotal,
+            itemName: `Central Kitchen Order ${finalRef}`,
+            itemDescription: items.map((i) => `${i.product.name} x${i.quantity}`).join(", "),
+          },
+          buyer: {
+            firstName,
+            lastName,
+            email: form.email,
+            cell: form.phone,
+          },
+        }),
+      });
+
+      const initiateResult = await initiateRes.json();
+      if (!initiateRes.ok) throw new Error(initiateResult.error || "Failed to initiate PayFast payment.");
+
+      // Step 3: Apply discount voucher usage if applicable
+      if (dvApplied && dvData) {
+        await supabase
+          .from("discount_vouchers")
+          .update({ times_used: dvData.times_used + 1 })
+          .eq("dv_code", dvData.dv_code);
+      }
+
+      // Step 4: Build and auto-submit form to PayFast gateway
+      clearCart();
+
+      const form_el = document.createElement("form");
+      form_el.method = "POST";
+      form_el.action = initiateResult.gatewayUrl;
+
+      Object.entries(initiateResult.params as Record<string, string>).forEach(([key, value]) => {
+        const input = document.createElement("input");
+        input.type = "hidden";
+        input.name = key;
+        input.value = value;
+        form_el.appendChild(input);
+      });
+
+      document.body.appendChild(form_el);
+      form_el.submit();
+    } catch (err) {
+      setPayError(err instanceof Error ? err.message : "Failed to initiate PayFast payment.");
+      setProcessing(false);
+    }
+  };
+
   const handleClose = () => { setIsOpen(false); setStep("cart"); };
 
   if (!isOpen) return null;
@@ -333,6 +427,7 @@ export default function CartSidebar() {
             processing={processing}
             onEFTConfirm={handleEFTConfirm}
             onVoucherOrder={() => handleVoucherOrder()}
+            onPayFastCheckout={handlePayFastCheckout}
           />
         )}
 

@@ -9,7 +9,15 @@ import Icon from "@/components/ui/AppIcon";
 
 function SuccessContent() {
   const searchParams = useSearchParams();
-  const orderId = searchParams?.get("order_id") || "";
+  // PayFast returns m_payment_id; fallback to order_id for EFT
+  const orderId =
+    searchParams?.get("m_payment_id") ||
+    searchParams?.get("order_id") ||
+    "";
+
+  // PayFast passes payment_status in the return URL query string
+  const paymentStatus = searchParams?.get("payment_status") || "";
+  const isPayFast = !!searchParams?.get("m_payment_id");
 
   return (
     <main className="pt-20 min-h-screen bg-[#F5F0E8] flex items-center justify-center px-4">
@@ -45,14 +53,26 @@ function SuccessContent() {
               <span className="text-sm text-[#8C8278]">Payment Status</span>
               <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-green-600">
                 <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
-                Confirmed
+                {paymentStatus === "COMPLETE" ? "Complete" : "Confirmed"}
               </span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-[#8C8278]">Payment Method</span>
-              <span className="text-sm font-semibold text-[#1A1612]">EFT</span>
+              <span className="text-sm font-semibold text-[#1A1612]">
+                {isPayFast ? "PayFast" : "EFT"}
+              </span>
             </div>
           </div>
+
+          {/* PayFast note */}
+          {isPayFast && (
+            <div className="flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-xl p-4 text-left">
+              <Icon name="InformationCircleIcon" size={16} className="text-blue-500 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-blue-700 leading-relaxed">
+                Your payment is being processed by PayFast. You will receive a confirmation email once the payment is verified.
+              </p>
+            </div>
+          )}
 
           {/* Security Badge */}
           <div className="flex items-center justify-center gap-2 text-xs text-[#B5ADA5]">

@@ -11,7 +11,7 @@ const BANK_DETAILS = {
   branchCode: "450105",
 };
 
-type PaymentMethod = "eft" | "voucher";
+type PaymentMethod = "eft" | "voucher" | "payfast";
 
 interface CartStepPaymentProps {
   voucherApplied: boolean;
@@ -28,6 +28,7 @@ interface CartStepPaymentProps {
   processing: boolean;
   onEFTConfirm: () => void;
   onVoucherOrder: () => void;
+  onPayFastCheckout: () => void;
 }
 
 export default function CartStepPayment({
@@ -45,6 +46,7 @@ export default function CartStepPayment({
   processing,
   onEFTConfirm,
   onVoucherOrder,
+  onPayFastCheckout,
 }: CartStepPaymentProps) {
   const Spinner = () => (
     <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
@@ -76,9 +78,9 @@ export default function CartStepPayment({
               <p className="text-xs text-red-400 font-mono">Discount applied: R {dvData.dv_amount.toFixed(2)}-</p>
             )}
             <div className="mt-4 flex items-center gap-2">
-              <Icon name="BuildingLibraryIcon" size={18} className="text-[#D4A853]" />
+              <Icon name="ShieldCheckIcon" size={18} className="text-[#D4A853]" />
               <p className="text-sm text-white/60 font-mono tracking-widest">
-                {voucherApplied ? "Meal Voucher" : "Manual EFT"}
+                {voucherApplied ? "Meal Voucher" : selectedMethod === "payfast" ? "PayFast · Secure" : "Manual EFT"}
               </p>
             </div>
           </div>
@@ -110,6 +112,33 @@ export default function CartStepPayment({
           <div>
             <p className="text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-3">Select Payment Method</p>
             <div className="space-y-2">
+              {/* PayFast — preferred */}
+              <button
+                type="button"
+                onClick={() => setSelectedMethod("payfast")}
+                className={`w-full flex items-center gap-3 p-3.5 rounded-xl border-2 transition-all text-left ${
+                  selectedMethod === "payfast" ?"border-[#00A0E3] bg-[#00A0E3]/5" :"border-[#DDD5C8] bg-white hover:border-[#00A0E3]/40"
+                }`}
+              >
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${selectedMethod === "payfast" ? "bg-[#00A0E3] text-white" : "bg-[#EDE7DA] text-[#8C8278]"}`}>
+                  <Icon name="CreditCardIcon" size={16} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className={`text-sm font-semibold ${selectedMethod === "payfast" ? "text-[#00A0E3]" : "text-[#1A1612]"}`}>
+                      PayFast
+                    </p>
+                    <span className="text-[10px] font-bold bg-[#00A0E3] text-white px-1.5 py-0.5 rounded-full uppercase tracking-wide">
+                      Preferred
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#8C8278]">Card, EFT, Instant payment · Secure checkout</p>
+                </div>
+                <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 ${selectedMethod === "payfast" ? "border-[#00A0E3] bg-[#00A0E3]" : "border-[#DDD5C8]"}`}>
+                  {selectedMethod === "payfast" && <div className="w-full h-full rounded-full bg-white scale-50" />}
+                </div>
+              </button>
+
               {/* Manual EFT */}
               <button
                 type="button"
@@ -160,6 +189,34 @@ export default function CartStepPayment({
           </div>
         )}
 
+        {/* PayFast info panel */}
+        {selectedMethod === "payfast" && !voucherApplied && (
+          <div className="bg-white border border-[#00A0E3]/30 rounded-2xl p-4 space-y-3">
+            <div className="flex items-center gap-2 mb-1">
+              <Icon name="ShieldCheckIcon" size={15} className="text-[#00A0E3]" />
+              <p className="text-xs font-semibold text-[#5C5347] uppercase tracking-wider">PayFast Secure Checkout</p>
+            </div>
+            <p className="text-xs text-[#8C8278] leading-relaxed">
+              You will be redirected to PayFast&apos;s secure payment page to complete your payment. Accepted: Credit/Debit Card, Instant EFT, and more.
+            </p>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {["Visa", "Mastercard", "Instant EFT", "Ozow"].map((method) => (
+                <span key={method} className="text-[10px] font-semibold bg-[#F5F0E8] text-[#5C5347] px-2 py-1 rounded-lg border border-[#DDD5C8]">
+                  {method}
+                </span>
+              ))}
+            </div>
+            {process.env.NEXT_PUBLIC_PAYFAST_SANDBOX !== "false" && (
+              <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                <span className="w-2 h-2 rounded-full bg-amber-400 inline-block flex-shrink-0" />
+                <p className="text-[10px] text-amber-700 font-mono font-semibold uppercase tracking-wide">
+                  Sandbox / Test Mode
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Order total recap */}
         <div className="bg-[#EDE7DA] rounded-2xl p-4 space-y-1.5 text-sm">
           {dvApplied && dvData && !voucherApplied && (
@@ -193,6 +250,22 @@ export default function CartStepPayment({
               {processing ? <><Spinner /> Placing Order...</> : <><Icon name="TicketIcon" size={14} /> Confirm Voucher Order</>}
             </button>
             <p className="text-xs text-center text-[#B5ADA5] mt-3">{totalItems} meal(s) will be deducted from your voucher balance</p>
+          </>
+        ) : selectedMethod === "payfast" ? (
+          <>
+            <button
+              type="button"
+              onClick={onPayFastCheckout}
+              disabled={processing}
+              className="w-full bg-[#00A0E3] text-white py-3.5 rounded-full font-semibold text-sm hover:bg-[#0088C4] transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {processing ? (
+                <><Spinner /> Preparing Payment...</>
+              ) : (
+                <><Icon name="CreditCardIcon" size={14} /> Pay R{displayTotal.toFixed(2)} via PayFast</>
+              )}
+            </button>
+            <p className="text-xs text-center text-[#B5ADA5] mt-3">You will be redirected to PayFast&apos;s secure checkout</p>
           </>
         ) : (
           <>

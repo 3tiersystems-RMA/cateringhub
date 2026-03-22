@@ -9,7 +9,12 @@ import Icon from "@/components/ui/AppIcon";
 
 function CancelContent() {
   const searchParams = useSearchParams();
-  const orderId = searchParams?.get("order_id") || "";
+  // PayFast returns m_payment_id on cancel; fallback to order_id
+  const orderId =
+    searchParams?.get("m_payment_id") ||
+    searchParams?.get("order_id") ||
+    "";
+  const isPayFast = !!searchParams?.get("m_payment_id");
 
   return (
     <main className="pt-20 min-h-screen bg-[#F5F0E8] flex items-center justify-center px-4">
@@ -47,8 +52,9 @@ function CancelContent() {
           <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl p-4 text-left">
             <Icon name="InformationCircleIcon" size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
             <p className="text-xs text-amber-700">
-              Your cart items are still saved. You can go back and try the
-              payment again at any time.
+              {isPayFast
+                ? "Your PayFast payment was cancelled. No charges have been made. You can return to the cart and try again."
+                : "Your cart items are still saved. You can go back and try the payment again at any time."}
             </p>
           </div>
 
