@@ -95,6 +95,8 @@ export default function StaffOrdersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
+  const [realtimeConnected, setRealtimeConnected] = useState(false);
+  const [newOrderAlert, setNewOrderAlert] = useState<string | null>(null);
 
   // Per-order update state
   const [orderUpdateStates, setOrderUpdateStates] = useState<Record<string, OrderUpdateState>>({});
@@ -125,6 +127,43 @@ export default function StaffOrdersPage() {
     };
     init();
   }, []);
+
+  // Real-time subscription for orders table
+  useEffect(() => {
+    const channel = supabase
+      .channel('staff-orders-realtime')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'orders' },
+        (payload) => {
+          const newOrder = payload.new as Order;
+          setOrders((prev) => {
+            // Avoid duplicates
+            if (prev.some((o) => o.id === newOrder.id)) return prev;
+            return [newOrder, ...prev];
+          });
+          setNewOrderAlert(`New order from ${newOrder.customer_name || 'a customer'}!`);
+          setTimeout(() => setNewOrderAlert(null), 5000);
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'orders' },
+        (payload) => {
+          const updatedOrder = payload.new as Order;
+          setOrders((prev) =>
+            prev.map((o) => (o.id === updatedOrder.id ? { ...o, ...updatedOrder } : o))
+          );
+        }
+      )
+      .subscribe((status) => {
+        setRealtimeConnected(status === 'SUBSCRIBED');
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [supabase]);
 
   const loadPaymentTypes = async () => {
     try {
@@ -293,6 +332,11 @@ export default function StaffOrdersPage() {
             <AppLogo className="h-8 w-auto" />
             <div className="h-5 w-px bg-[#3D342D]" />
             <span className="text-[#D4A853] text-sm font-semibold tracking-wide uppercase">Order Management</span>
+            {/* Real-time indicator */}
+            <div className="flex items-center gap-1.5">
+              <span className={`w-2 h-2 rounded-full ${realtimeConnected ? 'bg-green-400 animate-pulse' : 'bg-gray-500'}`} />
+              <span className="text-xs text-[#B5ADA5]">{realtimeConnected ? 'Live' : 'Connecting…'}</span>
+            </div>
           </div>
           <nav className="flex items-center gap-2">
             <Link
@@ -317,6 +361,14 @@ export default function StaffOrdersPage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+        {/* New order alert banner */}
+        {newOrderAlert && (
+          <div className="mb-4 flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-green-800 text-sm font-medium animate-pulse">
+            <AppIcon name="BellAlertIcon" size={16} className="text-green-600 flex-shrink-0" />
+            {newOrderAlert}
+          </div>
+        )}
+
         {/* Page Title + Refresh */}
         <div className="flex items-center justify-between mb-6">
           <div>

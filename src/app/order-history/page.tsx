@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Header from "@/components/Header";
@@ -103,6 +103,8 @@ export default function OrderHistoryPage() {
   const [emailSubmitted, setEmailSubmitted] = useState(false);
   const [lookupLoading, setLookupLoading] = useState(false);
   const [voucherAmounts, setVoucherAmounts] = useState<Record<string, number>>({});
+  const [realtimeConnected, setRealtimeConnected] = useState(false);
+  const activeEmailRef = useRef<string | null>(null);
 
   const supabase = createClient();
 
@@ -158,6 +160,7 @@ export default function OrderHistoryPage() {
           const data = await fetchOrdersByEmail(session.user.email);
           setOrders(data || []);
           setEmailSubmitted(true);
+          activeEmailRef.current = session.user.email.toLowerCase().trim();
           await fetchVoucherAmounts(data || []);
         }
       } catch (err) {
@@ -170,6 +173,40 @@ export default function OrderHistoryPage() {
     init();
   }, []);
 
+  // Real-time subscription — updates order statuses live for this customer
+  useEffect(() => {
+    if (!emailSubmitted) return;
+
+    const channel = supabase
+      .channel('customer-order-status-realtime')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'orders' },
+        (payload) => {
+          const updatedOrder = payload.new as Order;
+          // Only update if this order belongs to the currently viewed customer
+          const currentEmail = activeEmailRef.current;
+          if (
+            currentEmail &&
+            updatedOrder.customer_email?.toLowerCase().trim() === currentEmail
+          ) {
+            setOrders((prev) =>
+              prev.map((o) =>
+                o.id === updatedOrder.id ? { ...o, ...updatedOrder } : o
+              )
+            );
+          }
+        }
+      )
+      .subscribe((status) => {
+        setRealtimeConnected(status === 'SUBSCRIBED');
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [emailSubmitted, supabase]);
+
   const handleEmailLookup = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!emailInput.trim()) return;
@@ -179,6 +216,7 @@ export default function OrderHistoryPage() {
       const data = await fetchOrdersByEmail(emailInput);
       setOrders(data || []);
       setEmailSubmitted(true);
+      activeEmailRef.current = emailInput.toLowerCase().trim();
       await fetchVoucherAmounts(data || []);
     } catch (err) {
       setError("Unable to find orders. Please check your email and try again.");
@@ -213,12 +251,23 @@ export default function OrderHistoryPage() {
               Back to Menu
             </Link>
           </div>
-          <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight">
-            Order History
-          </h1>
-          <p className="text-[#A09890] mt-2 text-sm">
-            View your past orders, track status, and reorder your favourites.
-          </p>
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight">
+                Order History
+              </h1>
+              <p className="text-[#A09890] mt-2 text-sm">
+                View your past orders, track status, and reorder your favourites.
+              </p>
+            </div>
+            {/* Real-time indicator — only shown once orders are loaded */}
+            {emailSubmitted && (
+              <div className="flex items-center gap-1.5 bg-[#141414] border border-[#2A2A2A] rounded-full px-3 py-1.5">
+                <span className={`w-2 h-2 rounded-full ${realtimeConnected ? 'bg-green-400 animate-pulse' : 'bg-gray-500'}`} />
+                <span className="text-xs text-[#A09890]">{realtimeConnected ? 'Live updates on' : 'Connecting…'}</span>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="max-w-4xl mx-auto px-4 md:px-8">
@@ -483,6 +532,8 @@ export default function OrderHistoryPage() {
                       setOrders([]);
                       setEmailInput("");
                       setError(null);
+                      activeEmailRef.current = null;
+                      setRealtimeConnected(false);
                     }}
                     className="text-sm text-[#A09890] hover:text-white transition-colors underline underline-offset-2"
                   >
