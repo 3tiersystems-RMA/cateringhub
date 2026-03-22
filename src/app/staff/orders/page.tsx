@@ -484,7 +484,7 @@ export default function StaffOrdersPage() {
               <AppIcon name="MagnifyingGlassIcon" size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#B5ADA5]" />
               <input
                 type="text"
-                placeholder="Search by name, email, or order ID..."
+                placeholder="Search by customer name, email, or order ID..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-9 pr-4 py-2.5 border border-[#DDD5C8] rounded-xl text-sm text-[#1A1612] placeholder-[#B5ADA5] focus:outline-none focus:border-[#C4622D] transition-colors"
