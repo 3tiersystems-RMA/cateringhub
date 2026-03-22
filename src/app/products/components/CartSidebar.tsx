@@ -4,7 +4,7 @@ import { useState, useRef } from "react";
 import Icon from "@/components/ui/AppIcon";
 import { useCart } from "./CartContext";
 import type { VoucherData, DiscountVoucherData } from "./CartContext";
-import { APP_NAME } from "@/lib/constants";
+
 import { createClient } from "@/lib/supabase/client";
 import CartStepCart from "./CartStepCart";
 import CartStepDetails from "./CartStepDetails";
@@ -13,7 +13,7 @@ import CartStepSuccess from "./CartStepSuccess";
 import VoucherErrorModal from "@/components/ui/VoucherErrorModal";
 
 type CheckoutStep = "cart" | "details" | "payment" | "eft-success" | "confirmation";
-type PaymentMethod = "eft" | "payfast" | "voucher";
+type PaymentMethod = "eft" | "voucher";
 
 export default function CartSidebar() {
   const { items, subtotal, totalItems, isOpen, setIsOpen, clearCart } = useCart();
@@ -193,51 +193,6 @@ export default function CartSidebar() {
     }
   };
 
-  const handlePayFastCheckout = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setProcessing(true);
-    try {
-      const orderNotes = dvApplied && dvData
-        ? `Discount Voucher: ${dvData.dv_code} (R${dvData.dv_amount.toFixed(2)} credit). ${form.notes}`.trim()
-        : form.notes;
-
-      const response = await fetch("/api/payfast/initiate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: form.name, email: form.email, phone: form.phone,
-          amount: discountedTotal.toFixed(2), itemName: `${APP_NAME} Order`,
-          itemDescription: `Event: ${form.date || "TBD"} | ${form.address || ""}`.trim(),
-          items: items.map((i) => ({
-            id: i.product.id, name: i.product.name, quantity: i.quantity,
-            price: i.product.price, unit: i.product.unit, category: i.product.category,
-          })),
-          subtotal, deliveryFee: delivery, total: discountedTotal,
-          eventDate: form.date || "", deliveryAddress: form.address || "", notes: orderNotes || "",
-        }),
-      });
-
-      if (dvApplied && dvData) {
-        await supabase
-          .from("discount_vouchers")
-          .update({ times_used: dvData.times_used + 1 })
-          .eq("dv_code", dvData.dv_code);
-      }
-
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({}));
-        throw new Error(err.error || "Failed to initiate payment");
-      }
-      const html = await response.text();
-      document.open();
-      document.write(html);
-      document.close();
-    } catch (err) {
-      setPayError(err instanceof Error ? err.message : "Failed to initiate payment. Please try again.");
-      setProcessing(false);
-    }
-  };
-
   const handleClose = () => { setIsOpen(false); setStep("cart"); };
 
   if (!isOpen) return null;
@@ -377,7 +332,6 @@ export default function CartSidebar() {
             payError=""
             processing={processing}
             onEFTConfirm={handleEFTConfirm}
-            onPayFastCheckout={handlePayFastCheckout}
             onVoucherOrder={() => handleVoucherOrder()}
           />
         )}

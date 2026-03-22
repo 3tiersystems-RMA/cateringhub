@@ -34,7 +34,6 @@ interface OrderItem {
 interface Order {
   id: string;
   m_payment_id: string | null;
-  payfast_transaction_id: string | null;
   customer_name: string;
   customer_email: string;
   customer_phone: string;

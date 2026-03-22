@@ -22,7 +22,6 @@ interface OrderItem {
 interface Order {
   id: string;
   m_payment_id: string | null;
-  payfast_transaction_id: string | null;
   customer_name: string;
   customer_email: string;
   customer_phone: string;
@@ -811,12 +810,6 @@ export default function StaffOrdersPage() {
                                     {PAYMENT_STATUS_LABELS[order.payment_status]}
                                   </span>
                                 </div>
-                                {order.payfast_transaction_id && (
-                                  <div>
-                                    <p className="text-xs text-[#B5ADA5]">PayFast Transaction ID</p>
-                                    <p className="text-xs font-mono text-[#5C5347]">{order.payfast_transaction_id}</p>
-                                  </div>
-                                )}
                                 {order.m_payment_id && (
                                   <div>
                                     <p className="text-xs text-[#B5ADA5]">Order Reference</p>

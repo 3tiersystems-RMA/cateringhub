@@ -11,7 +11,7 @@ const BANK_DETAILS = {
   branchCode: "450105",
 };
 
-type PaymentMethod = "eft" | "payfast" | "voucher";
+type PaymentMethod = "eft" | "voucher";
 
 interface CartStepPaymentProps {
   voucherApplied: boolean;
@@ -27,7 +27,6 @@ interface CartStepPaymentProps {
   payError: string;
   processing: boolean;
   onEFTConfirm: () => void;
-  onPayFastCheckout: (e: React.FormEvent) => void;
   onVoucherOrder: () => void;
 }
 
@@ -45,7 +44,6 @@ export default function CartStepPayment({
   payError,
   processing,
   onEFTConfirm,
-  onPayFastCheckout,
   onVoucherOrder,
 }: CartStepPaymentProps) {
   const Spinner = () => (
@@ -131,26 +129,6 @@ export default function CartStepPayment({
                   {selectedMethod === "eft" && <div className="w-full h-full rounded-full bg-white scale-50" />}
                 </div>
               </button>
-
-              {/* PayFast */}
-              <button
-                type="button"
-                onClick={() => setSelectedMethod("payfast")}
-                className={`w-full flex items-center gap-3 p-3.5 rounded-xl border-2 transition-all text-left ${
-                  selectedMethod === "payfast" ? "border-[#C4622D] bg-[#C4622D]/5" : "border-[#DDD5C8] bg-white hover:border-[#C4622D]/40"
-                }`}
-              >
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${selectedMethod === "payfast" ? "bg-[#C4622D] text-white" : "bg-[#EDE7DA] text-[#8C8278]"}`}>
-                  <Icon name="CreditCardIcon" size={16} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-semibold ${selectedMethod === "payfast" ? "text-[#C4622D]" : "text-[#1A1612]"}`}>PayFast</p>
-                  <p className="text-xs text-[#8C8278]">Card, EFT, Instant EFT &amp; more</p>
-                </div>
-                <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 ${selectedMethod === "payfast" ? "border-[#C4622D] bg-[#C4622D]" : "border-[#DDD5C8]"}`}>
-                  {selectedMethod === "payfast" && <div className="w-full h-full rounded-full bg-white scale-50" />}
-                </div>
-              </button>
             </div>
           </div>
         )}
@@ -216,7 +194,7 @@ export default function CartStepPayment({
             </button>
             <p className="text-xs text-center text-[#B5ADA5] mt-3">{totalItems} meal(s) will be deducted from your voucher balance</p>
           </>
-        ) : selectedMethod === "eft" ? (
+        ) : (
           <>
             <button
               type="button"
@@ -227,18 +205,6 @@ export default function CartStepPayment({
               {processing ? <><Spinner /> Placing Order...</> : <><Icon name="BuildingLibraryIcon" size={14} /> Confirm EFT Order</>}
             </button>
             <p className="text-xs text-center text-[#B5ADA5] mt-3">Your order will be reserved while we await your EFT payment</p>
-          </>
-        ) : (
-          <>
-            <button
-              type="button"
-              onClick={onPayFastCheckout}
-              disabled={processing}
-              className="w-full bg-[#C4622D] text-white py-3.5 rounded-full font-semibold text-sm hover:bg-[#A04E22] transition-all shadow-terra disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              {processing ? <><Spinner /> Redirecting to PayFast...</> : <><Icon name="CreditCardIcon" size={14} /> Pay via PayFast</>}
-            </button>
-            <p className="text-xs text-center text-[#B5ADA5] mt-3">You will be redirected to PayFast&apos;s secure payment page</p>
           </>
         )}
       </div>

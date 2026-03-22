@@ -50,14 +50,14 @@ function SuccessContent() {
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-[#8C8278]">Payment Method</span>
-              <span className="text-sm font-semibold text-[#1A1612]">PayFast</span>
+              <span className="text-sm font-semibold text-[#1A1612]">EFT</span>
             </div>
           </div>
 
-          {/* PayFast Badge */}
+          {/* Security Badge */}
           <div className="flex items-center justify-center gap-2 text-xs text-[#B5ADA5]">
             <Icon name="ShieldCheckIcon" size={14} className="text-green-500" />
-            <span>Secured by PayFast · PCI DSS Compliant</span>
+            <span>Secure Payment · PCI DSS Compliant</span>
           </div>
 
           {/* Actions */}
