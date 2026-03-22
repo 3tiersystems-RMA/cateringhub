@@ -111,6 +111,7 @@ function FolderIcon({ size = 18 }: { size?: number }) {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function extractFileId(url: string): string | null {
   const patterns = [
+    /\/folders\/([a-zA-Z0-9_-]{25,})/,
     /\/file\/d\/([a-zA-Z0-9_-]{25,})/,
     /\/d\/([a-zA-Z0-9_-]{25,})/,
     /[?&]id=([a-zA-Z0-9_-]{25,})/,
