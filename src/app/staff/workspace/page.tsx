@@ -509,6 +509,9 @@ export default function StaffWorkspacePage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
 
+  // Site Content group open/closed state
+  const [siteContentOpen, setSiteContentOpen] = useState(false);
+
   // Products state
   const [products, setProducts] = useState<Product[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
@@ -625,7 +628,7 @@ export default function StaffWorkspacePage() {
   const [dvLoading, setDvLoading] = useState(false);
   const [showDvForm, setShowDvForm] = useState(false);
   const [editingDv, setEditingDv] = useState<DiscountVoucher | null>(null);
-  const [dvForm, setDvForm] = useState({ dv_amount: '', expiry_date: '', status: 'Active' as 'Active' | 'Inactive' });
+  const [dvForm, setDvForm] = useState({ dv_amount: '', expiry_date: '', status: 'Active\' as \'Active\' | \'Inactive' });
   const [dvFormError, setDvFormError] = useState('');
   const [dvFormSuccess, setDvFormSuccess] = useState('');
   const [savingDv, setSavingDv] = useState(false);
@@ -2703,35 +2706,53 @@ export default function StaffWorkspacePage() {
                 <span className="text-base">🏷️</span>
                 <span>Discount Vouchers</span>
               </button>
-              {isSuperAdmin && (
+              {/* ── Site Content collapsible group ── */}
+              <div>
                 <button
-                  onClick={() => { setActiveTab('staff'); if (staffMembers.length === 0) loadStaffMembers(); }}
+                  onClick={() => setSiteContentOpen((prev) => !prev)}
                   className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
-                    activeTab === 'staff' ? 'bg-purple-50 text-purple-600 border-r-2 border-purple-600' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'
+                    (activeTab === 'staff' || activeTab === 'homepage_cards' || activeTab === 'testimonials')
+                      ? 'bg-[#FDF6EE] text-[#C4622D]' :'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'
                   }`}
                 >
-                  <span className="text-base">👥</span>
-                  <span>Staff Management</span>
+                  <span className="text-base">📝</span>
+                  <span className="flex-1">Site Content</span>
+                  <span className="text-xs">{siteContentOpen ? '▲' : '▼'}</span>
                 </button>
-              )}
-              <button
-                onClick={() => { setActiveTab('homepage_cards'); if (homepageCards.length === 0) loadHomepageCards(); }}
-                className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
-                  activeTab === 'homepage_cards' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'
-                }`}
-              >
-                <span className="text-base">🏠</span>
-                <span>Homepage Cards</span>
-              </button>
-              <button
-                onClick={() => { setActiveTab('testimonials'); if (testimonials.length === 0) loadTestimonials(); }}
-                className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
-                  activeTab === 'testimonials' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'
-                }`}
-              >
-                <span className="text-base">💬</span>
-                <span>Testimonials</span>
-              </button>
+                {siteContentOpen && (
+                  <div className="bg-[#FAF5EE]/60">
+                    {isSuperAdmin && (
+                      <button
+                        onClick={() => { setActiveTab('staff'); if (staffMembers.length === 0) loadStaffMembers(); }}
+                        className={`flex items-center gap-3 pl-8 pr-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${
+                          activeTab === 'staff' ? 'bg-purple-50 text-purple-600 border-r-2 border-purple-600' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'
+                        }`}
+                      >
+                        <span className="text-sm">👥</span>
+                        <span>Staff Management</span>
+                      </button>
+                    )}
+                    <button
+                      onClick={() => { setActiveTab('homepage_cards'); if (homepageCards.length === 0) loadHomepageCards(); }}
+                      className={`flex items-center gap-3 pl-8 pr-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${
+                        activeTab === 'homepage_cards' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'
+                      }`}
+                    >
+                      <span className="text-sm">🏠</span>
+                      <span>Home Page Cards</span>
+                    </button>
+                    <button
+                      onClick={() => { setActiveTab('testimonials'); if (testimonials.length === 0) loadTestimonials(); }}
+                      className={`flex items-center gap-3 pl-8 pr-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${
+                        activeTab === 'testimonials' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'
+                      }`}
+                    >
+                      <span className="text-sm">💬</span>
+                      <span>Testimonials</span>
+                    </button>
+                  </div>
+                )}
+              </div>
               <button
                 onClick={() => { setActiveTab('reporting'); loadProductsOrdered(); loadPackageMealsOrdered(); loadDiscountVouchersReport(); }}
                 className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
