@@ -798,7 +798,7 @@ export default function StaffWorkspacePage() {
 
   // ─── Load functions ───────────────────────────────────────────────────────────
   const loadCategoryNames = async () => {
-    const { data } = await supabase.from('product_categories').select('name').eq('active', true).order('sort_order');
+    const { data } = await supabase.from('categories').select('name').eq('active', true).order('sort_order');
     if (data) setCategoryNames(data.map((c: any) => c.name));
   };
 
@@ -1892,7 +1892,7 @@ export default function StaffWorkspacePage() {
                     <div className="w-8 h-8 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
                   </div>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {filteredProducts.map(product => (
                       <div key={product.id} className="bg-white rounded-2xl border border-[#EDE7DA] p-4 flex items-center justify-between">
                         <div className="flex items-center gap-4">
