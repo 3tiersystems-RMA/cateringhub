@@ -907,13 +907,24 @@ export default function StaffWorkspacePage() {
         .select('id, customer_name, customer_email, items, created_at, delivered_date, m_payment_id, payment_status')
         .order('created_at', { ascending: false });
 
-      const { data: dvData } = await supabase.from('discount_vouchers').select('dv_code, dv_amount, expiry_date');
+      const { data: dvData } = await supabase.from('discount_vouchers').select('dv_code, dv_amount, expiry_date, status, times_used, created_at');
       const dvMap: Record<string, { amount: number; expiry: string }> = {};
-      (dvData || []).forEach((dv: any) => { dvMap[dv.dv_code] = { amount: dv.dv_amount, expiry: dv.dv_expiry_date }; });
+      (dvData || []).forEach((dv: any) => { dvMap[dv.dv_code] = { amount: dv.dv_amount, expiry: dv.expiry_date }; });
 
       const productsRows: ProductsOrderedRow[] = [];
       const packageRows: PackageMealsOrderedRow[] = [];
-      const dvReportRows: DiscountVouchersReportRow[] = [];
+      const dvReportRows: DiscountVouchersReportRow[] = (dvData || []).map((dv: any) => ({
+        dvCode: dv.dv_code,
+        dvAmount: Number(dv.dv_amount),
+        expiryDate: formatDate(dv.expiry_date),
+        productName: '',
+        productType: dv.status || '',
+        item: `Used ${dv.times_used ?? 0} time(s)`,
+        orderedDate: formatDate(dv.created_at),
+        deliveredDt: '',
+        clientName: dv.status || '',
+        clientEmail: '',
+      }));
 
       for (const order of (ordersData || [])) {
         const items: OrderItem[] = Array.isArray(order.items) ? order.items : [];
@@ -2920,7 +2931,7 @@ export default function StaffWorkspacePage() {
                           <div>
                             <p className="font-semibold text-[#1A1612] text-sm">{row.dvCode}</p>
                             <p className="text-xs text-[#8C8278] mt-0.5">R{row.dvAmount.toFixed(2)} · Expires {row.expiryDate}</p>
-                            <p className="text-xs text-[#B5ADA5] mt-0.5">{row.clientName} · {row.orderedDate}</p>
+                            <p className="text-xs text-[#B5ADA5] mt-0.5">Status: {row.productType} · {row.item} · Created {row.orderedDate}</p>
                           </div>
                         </div>
                       ))
