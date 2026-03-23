@@ -2438,7 +2438,7 @@ export default function StaffWorkspacePage() {
                         {wsExpandedOrderId === order.id && (
                           <div className="px-4 pb-4 bg-[#FDFAF6] border-t border-[#EDE7DA]">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
-                              <div className="bg-white rounded-xl border border-[#DDD5C8] p-4">
+                              <div className="bg-white rounded-2xl border border-[#DDD5C8] p-4">
                                 <h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3">Customer Details</h4>
                                 <div className="space-y-2">
                                   <div><p className="text-sm text-[#1A1612]"><span className="font-medium text-[#8C8278]">Name:</span> {order.customer_name || '—'}</p></div>
@@ -2451,7 +2451,7 @@ export default function StaffWorkspacePage() {
                                 </div>
                               </div>
 
-                              <div className="bg-white rounded-xl border border-[#DDD5C8] p-4">
+                              <div className="bg-white rounded-2xl border border-[#DDD5C8] p-4">
                                 <h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3">Order Items</h4>
                                 {Array.isArray(order.items) && order.items.length > 0 ? (
                                   <div className="space-y-2">
@@ -2474,7 +2474,7 @@ export default function StaffWorkspacePage() {
                                 )}
                               </div>
 
-                              <div className="bg-white rounded-xl border border-[#DDD5C8] p-4 md:col-span-2">
+                              <div className="bg-white rounded-2xl border border-[#DDD5C8] p-4 md:col-span-2">
                                 <h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3">Update Status</h4>
                                 <div className="flex flex-wrap gap-4" onClick={(e) => e.stopPropagation()}>
                                   <div>
@@ -2746,7 +2746,7 @@ export default function StaffWorkspacePage() {
                             <div>
                               <p className="font-semibold text-[#1A1612] text-sm">{dv.dv_code}</p>
                               <p className="text-xs text-[#8C8278] mt-0.5">R{(dv.dv_amount || 0).toFixed(2)} discount</p>
-                              <p className="text-xs text-[#8C8278] mt-0.5">Expires: {formatDate(dv.expiry_date)}</p>
+                              <p className="text-xs text-[#8C8278] mt-0.5">{dv.expiry_date && new Date(dv.expiry_date) < new Date() ? 'Expired:' : 'Expires:'} {formatDate(dv.expiry_date)}</p>
                             </div>
                           </div>
                           <div className="flex items-center gap-3">
@@ -2947,7 +2947,7 @@ export default function StaffWorkspacePage() {
                         <div key={i} className="bg-white rounded-2xl border border-[#EDE7DA] p-4 flex items-center justify-between">
                           <div>
                             <p className="font-semibold text-[#1A1612] text-sm">{row.dvCode}</p>
-                            <p className="text-xs text-[#8C8278] mt-0.5">R{row.dvAmount.toFixed(2)} · Expires {row.expiryDate}</p>
+                            <p className="text-xs text-[#8C8278] mt-0.5">R{row.dvAmount.toFixed(2)} · {row.expiryDate && new Date(row.expiryDate) < new Date() ? 'Expired' : 'Expires'} {row.expiryDate}</p>
                             <p className="text-xs text-[#B5ADA5] mt-0.5">Status: {row.productType} · {row.item} · Created {row.orderedDate}</p>
                           </div>
                         </div>
