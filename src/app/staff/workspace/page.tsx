@@ -2599,11 +2599,22 @@ export default function StaffWorkspacePage() {
                           <div className="px-4 pb-4 bg-[#FDFAF6] border-t border-[#EDE7DA]">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
                               <div className="bg-white rounded-xl border border-[#DDD5C8] p-4">
-<h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3">Customer Details</h4>
+                                <h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3">Customer Details</h4>
                                 <div className="space-y-2">
                                   <div><p className="text-sm text-[#1A1612]"><span className="font-medium text-[#8C8278]">Name:</span> {voucher.customer_name || '—'}</p></div>
                                   <div><p className="text-sm text-[#1A1612] break-all"><span className="font-medium text-[#8C8278]">Email:</span> {voucher.customer_email || '—'}</p></div>
                                   <div><p className="text-sm text-[#1A1612]"><span className="font-medium text-[#8C8278]">Phone:</span> {voucher.customer_phone || '—'}</p></div>
+                                </div>
+                              </div>
+                              <div className="bg-white rounded-xl border border-[#DDD5C8] p-4">
+                                <h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3">Voucher Details</h4>
+                                <div className="space-y-2">
+                                  <div className="flex justify-between text-sm"><span className="text-[#8C8278]">Code</span><span className="font-mono font-bold text-[#C4622D]">{voucher.voucher_code}</span></div>
+                                  <div className="flex justify-between text-sm"><span className="text-[#8C8278]">Total Meals</span><span className="font-medium text-[#1A1612]">{voucher.total_meals}</span></div>
+                                  <div className="flex justify-between text-sm"><span className="text-[#8C8278]">Remaining</span><span className="font-medium text-[#1A1612]">{voucher.meals_remaining}</span></div>
+                                  <div className="flex justify-between text-sm"><span className="text-[#8C8278]">Status</span><span className={`font-semibold ${voucher.status === 'paid' ? 'text-green-600' : voucher.status === 'unpaid' ? 'text-amber-600' : 'text-blue-600'}`}>{voucher.status}</span></div>
+                                  <div className="flex justify-between text-sm"><span className="text-[#8C8278]">Purchased</span><span className="font-medium text-[#1A1612]">{formatDate(voucher.purchased_at)}</span></div>
+                                  {voucher.notes && <div className="flex justify-between text-sm"><span className="text-[#8C8278]">Notes</span><span className="font-medium text-[#1A1612] text-right max-w-[160px]">{voucher.notes}</span></div>}
                                 </div>
                               </div>
                             </div>
@@ -2725,7 +2736,7 @@ export default function StaffWorkspacePage() {
                           <div className="px-4 pb-4 bg-[#FDFAF6] border-t border-[#EDE7DA]">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
                               <div className="bg-white rounded-xl border border-[#DDD5C8] p-4">
-<h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3">Voucher Details</h4>
+                                <h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3">Voucher Details</h4>
                                 <div className="space-y-2">
                                   <div className="flex justify-between text-sm"><span className="text-[#8C8278]">Code</span><span className="font-mono font-bold text-[#C4622D]">{dv.dv_code}</span></div>
                                   <div className="flex justify-between text-sm"><span className="text-[#8C8278]">Discount Amount</span><span className="font-medium text-[#1A1612]">R{(dv.dv_amount || 0).toFixed(2)}</span></div>
