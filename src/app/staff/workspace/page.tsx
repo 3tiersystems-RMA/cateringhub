@@ -1601,7 +1601,7 @@ export default function StaffWorkspacePage() {
               <button
                 onClick={() => setSiteContentOpen(prev => !prev)}
                 className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
-                  ['staff', 'homepage_cards', 'testimonials'].includes(activeTab) ? 'text-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'
+                  ['staff', 'homepage_cards', 'testimonials'].includes(activeTab) ? 'text-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
                 }`}
               >
                 <span className="text-base">📁</span>
@@ -1644,7 +1644,7 @@ export default function StaffWorkspacePage() {
               <button
                 onClick={() => { handleTabChange('products'); }}
                 className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
-                  activeTab === 'products' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'
+                  activeTab === 'products' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
                 }`}
               >
                 <span className="text-base">🛒</span>
@@ -1655,7 +1655,7 @@ export default function StaffWorkspacePage() {
               <button
                 onClick={() => { handleTabChange('weekly_menu'); }}
                 className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
-                  activeTab === 'weekly_menu' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'
+                  activeTab === 'weekly_menu' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
                 }`}
               >
                 <span className="text-base">📅</span>
@@ -1666,7 +1666,7 @@ export default function StaffWorkspacePage() {
               <button
                 onClick={() => { handleTabChange('orders'); }}
                 className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
-                  activeTab === 'orders' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'
+                  activeTab === 'orders' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
                 }`}
               >
                 <span className="text-base">📦</span>
@@ -1677,7 +1677,7 @@ export default function StaffWorkspacePage() {
               <button
                 onClick={() => setVouchersMenuOpen(prev => !prev)}
                 className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
-                  ['vouchers', 'discount_vouchers'].includes(activeTab) ? 'text-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'
+                  ['vouchers', 'discount_vouchers'].includes(activeTab) ? 'text-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
                 }`}
               >
                 <span className="text-base">🎟️</span>
@@ -1689,7 +1689,7 @@ export default function StaffWorkspacePage() {
                   <button
                     onClick={() => { handleTabChange('vouchers'); }}
                     className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${
-                      activeTab === 'vouchers' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'
+                      activeTab === 'vouchers' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
                     }`}
                   >
                     <span className="text-base">🍽️</span>
@@ -1698,7 +1698,7 @@ export default function StaffWorkspacePage() {
                   <button
                     onClick={() => { handleTabChange('discount_vouchers'); }}
                     className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${
-                      activeTab === 'discount_vouchers' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'
+                      activeTab === 'discount_vouchers' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
                     }`}
                   >
                     <span className="text-base">🏷️</span>
@@ -1711,7 +1711,7 @@ export default function StaffWorkspacePage() {
               <button
                 onClick={() => setReportsMenuOpen(prev => !prev)}
                 className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
-                  (activeTab === 'reporting' || activeTab === 'analytics') ? 'text-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'
+                  (activeTab === 'reporting' || activeTab === 'analytics') ? 'text-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
                 }`}
               >
                 <span className="text-base">📂</span>
@@ -1723,7 +1723,7 @@ export default function StaffWorkspacePage() {
                   <button
                     onClick={() => { handleTabChange('reporting'); }}
                     className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${
-                      activeTab === 'reporting' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'
+                      activeTab === 'reporting' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
                     }`}
                   >
                     <span className="text-base">📊</span>
@@ -1731,7 +1731,7 @@ export default function StaffWorkspacePage() {
                   </button>
                   <button
                     onClick={() => router.push('/staff/analytics')}
-                    className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]"
+                    className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]"
                   >
                     <span className="text-base">📈</span>
                     <span>Analytics</span>
@@ -2413,13 +2413,13 @@ export default function StaffWorkspacePage() {
                               <div className="bg-white rounded-xl border border-[#DDD5C8] p-4">
                                 <h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3">Customer Details</h4>
                                 <div className="space-y-2">
-                                  <div><p className="text-xs text-[#B5ADA5]">Name</p><p className="text-sm font-medium text-[#1A1612]">{order.customer_name || '—'}</p></div>
-                                  <div><p className="text-xs text-[#B5ADA5]">Email</p><p className="text-sm text-[#1A1612] break-all">{order.customer_email || '—'}</p></div>
-                                  <div><p className="text-xs text-[#B5ADA5]">Phone</p><p className="text-sm text-[#1A1612]">{order.customer_phone || '—'}</p></div>
-                                  {order.event_date && <div><p className="text-xs text-[#B5ADA5]">Event Date</p><p className="text-sm text-[#1A1612]">{formatDate(order.event_date)}</p></div>}
-                                  {order.delivered_date && <div><p className="text-xs text-[#B5ADA5]">Delivered Date</p><p className="text-sm text-[#1A1612]">{formatDate(order.delivered_date)}</p></div>}
-                                  {order.delivery_address && <div><p className="text-xs text-[#B5ADA5]">Delivery Address</p><p className="text-sm text-[#1A1612]">{order.delivery_address}</p></div>}
-                                  {order.notes && <div><p className="text-xs text-[#B5ADA5]">Notes</p><p className="text-sm text-[#1A1612]">{order.notes}</p></div>}
+                                  <div><p className="text-sm text-[#1A1612]"><span className="font-medium text-[#8C8278]">Name:</span> {order.customer_name || '—'}</p></div>
+                                  <div><p className="text-sm text-[#1A1612] break-all"><span className="font-medium text-[#8C8278]">Email:</span> {order.customer_email || '—'}</p></div>
+                                  <div><p className="text-sm text-[#1A1612]"><span className="font-medium text-[#8C8278]">Phone:</span> {order.customer_phone || '—'}</p></div>
+                                  {order.event_date && <div><p className="text-sm text-[#1A1612]"><span className="font-medium text-[#8C8278]">Event Date:</span> {formatDate(order.event_date)}</p></div>}
+                                  {order.delivered_date && <div><p className="text-sm text-[#1A1612]"><span className="font-medium text-[#8C8278]">Delivered Date:</span> {formatDate(order.delivered_date)}</p></div>}
+                                  {order.delivery_address && <div><p className="text-sm text-[#1A1612]"><span className="font-medium text-[#8C8278]">Delivery Address:</span> {order.delivery_address}</p></div>}
+                                  {order.notes && <div><p className="text-sm text-[#1A1612]"><span className="font-medium text-[#8C8278]">Notes:</span> {order.notes}</p></div>}
                                 </div>
                               </div>
 
@@ -2599,22 +2599,11 @@ export default function StaffWorkspacePage() {
                           <div className="px-4 pb-4 bg-[#FDFAF6] border-t border-[#EDE7DA]">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
                               <div className="bg-white rounded-xl border border-[#DDD5C8] p-4">
-                                <h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3">Customer Details</h4>
+<h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3">Customer Details</h4>
                                 <div className="space-y-2">
-                                  <div className="flex justify-between text-sm"><span className="text-[#8C8278]">Name</span><span className="font-medium text-[#1A1612]">{voucher.customer_name || '—'}</span></div>
-                                  <div className="flex justify-between text-sm"><span className="text-[#8C8278]">Email</span><span className="font-medium text-[#1A1612] truncate max-w-[160px]">{voucher.customer_email || '—'}</span></div>
-                                  <div className="flex justify-between text-sm"><span className="text-[#8C8278]">Phone</span><span className="font-medium text-[#1A1612]">{voucher.customer_phone || '—'}</span></div>
-                                </div>
-                              </div>
-                              <div className="bg-white rounded-xl border border-[#DDD5C8] p-4">
-                                <h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3">Voucher Details</h4>
-                                <div className="space-y-2">
-                                  <div className="flex justify-between text-sm"><span className="text-[#8C8278]">Code</span><span className="font-mono font-bold text-[#C4622D]">{voucher.voucher_code}</span></div>
-                                  <div className="flex justify-between text-sm"><span className="text-[#8C8278]">Total Meals</span><span className="font-medium text-[#1A1612]">{voucher.total_meals}</span></div>
-                                  <div className="flex justify-between text-sm"><span className="text-[#8C8278]">Remaining</span><span className="font-medium text-[#1A1612]">{voucher.meals_remaining}</span></div>
-                                  <div className="flex justify-between text-sm"><span className="text-[#8C8278]">Status</span><span className={`font-semibold ${voucher.status === 'paid' ? 'text-green-600' : voucher.status === 'unpaid' ? 'text-amber-600' : 'text-blue-600'}`}>{voucher.status}</span></div>
-                                  <div className="flex justify-between text-sm"><span className="text-[#8C8278]">Purchased</span><span className="font-medium text-[#1A1612]">{formatDate(voucher.purchased_at)}</span></div>
-                                  {voucher.notes && <div className="flex justify-between text-sm"><span className="text-[#8C8278]">Notes</span><span className="font-medium text-[#1A1612] text-right max-w-[160px]">{voucher.notes}</span></div>}
+                                  <div><p className="text-sm text-[#1A1612]"><span className="font-medium text-[#8C8278]">Name:</span> {voucher.customer_name || '—'}</p></div>
+                                  <div><p className="text-sm text-[#1A1612] break-all"><span className="font-medium text-[#8C8278]">Email:</span> {voucher.customer_email || '—'}</p></div>
+                                  <div><p className="text-sm text-[#1A1612]"><span className="font-medium text-[#8C8278]">Phone:</span> {voucher.customer_phone || '—'}</p></div>
                                 </div>
                               </div>
                             </div>
@@ -2722,7 +2711,7 @@ export default function StaffWorkspacePage() {
                             </div>
                           </div>
                           <div className="flex items-center gap-3">
-                            <span className={`inline-block text-xs px-2 py-0.5 rounded-full font-semibold ${dv.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{dv.status}</span>
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${dv.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{dv.status}</span>
                             <svg
                               className={`w-4 h-4 text-[#8C8278] transition-transform ${wsExpandedOrderId === dv.id ? 'rotate-180' : ''}`}
                               fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
@@ -2736,7 +2725,7 @@ export default function StaffWorkspacePage() {
                           <div className="px-4 pb-4 bg-[#FDFAF6] border-t border-[#EDE7DA]">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
                               <div className="bg-white rounded-xl border border-[#DDD5C8] p-4">
-                                <h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3">Voucher Details</h4>
+<h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3">Voucher Details</h4>
                                 <div className="space-y-2">
                                   <div className="flex justify-between text-sm"><span className="text-[#8C8278]">Code</span><span className="font-mono font-bold text-[#C4622D]">{dv.dv_code}</span></div>
                                   <div className="flex justify-between text-sm"><span className="text-[#8C8278]">Discount Amount</span><span className="font-medium text-[#1A1612]">R{(dv.dv_amount || 0).toFixed(2)}</span></div>
@@ -2778,7 +2767,6 @@ export default function StaffWorkspacePage() {
                 <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
                   <div>
                     <h2 className="text-lg font-bold text-[#1A1612]">Reports Dashboard</h2>
-                    <p className="text-xs text-[#8C8278] mt-0.5">{reportingView} reporting</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <input
