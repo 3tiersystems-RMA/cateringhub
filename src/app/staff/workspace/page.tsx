@@ -1074,6 +1074,7 @@ export default function StaffWorkspacePage() {
     setPendingImagePreview(null);
     setFormError('');
     setFormSuccess('');
+    loadCategoryNames();
     setShowForm(true);
   };
 
@@ -1097,6 +1098,7 @@ export default function StaffWorkspacePage() {
     setPendingImagePreview(product.imageUrl || null);
     setFormError('');
     setFormSuccess('');
+    loadCategoryNames();
     setShowForm(true);
   };
 
@@ -1792,6 +1794,7 @@ export default function StaffWorkspacePage() {
                       <div>
                         <label className="block text-xs font-semibold text-[#5C5347] mb-1">Category</label>
                         <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white">
+                          <option value="">-- Select Category --</option>
                           {categoryNames.map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
                       </div>
