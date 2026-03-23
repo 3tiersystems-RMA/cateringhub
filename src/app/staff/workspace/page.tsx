@@ -1581,7 +1581,7 @@ export default function StaffWorkspacePage() {
             <div>
               <h1 className="text-lg font-bold text-[#1A1612]">Staff Workspace</h1>
               {userProfile && (
-                <p className="text-xs text-[#8C8278]">
+                <p className="text-xs text-[#8C8278] mt-0.5">
                   {userProfile.full_name} · <RoleBadge role={userProfile.role} />
                 </p>
               )}
@@ -2095,6 +2095,10 @@ export default function StaffWorkspacePage() {
                 {cardsLoading ? (
                   <div className="flex items-center justify-center py-16">
                     <div className="w-8 h-8 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
+                  </div>
+                ) : filteredCards.length === 0 ? (
+                  <div className="text-center py-16 text-[#8C8278]">
+                    <p className="text-lg font-medium">No cards found</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
