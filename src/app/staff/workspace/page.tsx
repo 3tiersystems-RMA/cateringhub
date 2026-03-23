@@ -776,11 +776,20 @@ export default function StaffWorkspacePage() {
       await loadPackageTypes();
       await loadProducts();
     };
-    checkAuth();
-    resetInactivityTimer();
-    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
-    events.forEach(e => window.addEventListener(e, resetInactivityTimer));
+    checkAuth().then(() => {
+      // Only start inactivity timer for non-super_admin roles
+      supabase.auth.getUser().then(({ data: { user: u } }) => {
+        if (!u) return;
+        supabase.from('user_profiles').select('role').eq('id', u.id).single().then(({ data: p }) => {
+          if (p?.role === 'super_admin') return;
+          resetInactivityTimer();
+          const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
+          events.forEach(e => window.addEventListener(e, resetInactivityTimer));
+        });
+      });
+    });
     return () => {
+      const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
       events.forEach(e => window.removeEventListener(e, resetInactivityTimer));
       if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
       if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
