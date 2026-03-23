@@ -1078,7 +1078,7 @@ export default function StaffWorkspacePage() {
     setShowForm(true);
   };
 
-  const openEditForm = (product: Product) => {
+  const openEditForm = async (product: Product) => {
     setEditingProduct(product);
     setForm({
       name: product.name,
@@ -1098,7 +1098,7 @@ export default function StaffWorkspacePage() {
     setPendingImagePreview(product.imageUrl || null);
     setFormError('');
     setFormSuccess('');
-    loadCategoryNames();
+    await loadCategoryNames();
     setShowForm(true);
   };
 
@@ -2010,6 +2010,11 @@ export default function StaffWorkspacePage() {
                         )}
                       </div>
                     ))}
+                    {filteredStaff.length === 0 && (
+                      <div className="text-center py-16 text-[#8C8278]">
+                        <p className="text-lg font-medium">No staff members found</p>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -2129,6 +2134,11 @@ export default function StaffWorkspacePage() {
                         </div>
                       </div>
                     ))}
+                    {filteredCards.length === 0 && (
+                      <div className="text-center py-16 text-[#8C8278]">
+                        <p className="text-lg font-medium">No cards found</p>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
