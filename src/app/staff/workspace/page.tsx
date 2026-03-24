@@ -7,6 +7,7 @@ import AppLogo from '@/components/ui/AppLogo';
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal';
 import VoucherErrorModal from '@/components/ui/VoucherErrorModal';
 import GoogleDriveDocuments from './components/GoogleDriveDocuments';
+import EventManagement from './components/EventManagement';
 
 
 
@@ -1828,7 +1829,7 @@ export default function StaffWorkspacePage() {
                     }`}
                   >
                     <span className="text-base">🗓️</span>
-                    <span>Add Events</span>
+                    <span>Event Management</span>
                   </button>
                   <button
                     onClick={() => { handleTabChange('media'); }}
@@ -2701,16 +2702,7 @@ export default function StaffWorkspacePage() {
 
             {/* ── ADD EVENTS TAB ── */}
             {activeTab === 'media_events' && (
-              <div className="p-6">
-                <div className="mb-6">
-                  <h2 className="text-xl font-bold text-[#1A1612]">Add Events</h2>
-                  <p className="text-sm text-[#8C8278] mt-0.5">Manage and publish upcoming events</p>
-                </div>
-                <div className="bg-white rounded-2xl border border-[#EDE7DA] p-8 text-center">
-                  <span className="text-4xl">🗓️</span>
-                  <p className="text-[#8C8278] mt-3 text-sm">Events management will appear here.</p>
-                </div>
-              </div>
+              <EventManagement />
             )}
 
             {/* ── ORDERS TAB ── */}

@@ -12,6 +12,11 @@ const navLinks = [
   { label: "Meal Vouchers", href: "/vouchers" },
 ];
 
+const eventsSubLinks = [
+  { label: "Current Events", href: "/events#current" },
+  { label: "Past Events", href: "/events#past" },
+];
+
 const customerProfileSubLinks = [
   { label: "View Profile", href: "/customer-profile" },
   { label: "Order History", href: "/order-history" },
@@ -22,8 +27,11 @@ export default function Header() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+  const [eventsDropdownOpen, setEventsDropdownOpen] = useState(false);
   const [mobileProfileOpen, setMobileProfileOpen] = useState(false);
+  const [mobileEventsOpen, setMobileEventsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const eventsDropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -36,6 +44,9 @@ export default function Header() {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setProfileDropdownOpen(false);
       }
+      if (eventsDropdownRef.current && !eventsDropdownRef.current.contains(e.target as Node)) {
+        setEventsDropdownOpen(false);
+      }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -43,6 +54,7 @@ export default function Header() {
 
   const isCustomerProfileActive =
     pathname === "/customer-profile" || pathname === "/order-history";
+  const isEventsActive = pathname === "/events";
 
   return (
     <header
@@ -81,6 +93,54 @@ export default function Header() {
               </Link>
             );
           })}
+
+          {/* Events Dropdown */}
+          <div className="relative" ref={eventsDropdownRef}>
+            <button
+              onClick={() => setEventsDropdownOpen(!eventsDropdownOpen)}
+              className={`flex items-center gap-1.5 text-sm font-medium tracking-wide transition-colors duration-200 relative group ${
+                isEventsActive
+                  ? "text-[#C4622D]"
+                  : "text-[#D4CFC9] hover:text-white"
+              }`}
+            >
+              Events
+              <Icon
+                name={eventsDropdownOpen ? "ChevronUpIcon" : "ChevronDownIcon"}
+                size={14}
+              />
+              <span
+                className={`absolute -bottom-0.5 left-0 h-0.5 bg-[#C4622D] transition-all duration-300 ${
+                  isEventsActive ? "w-full" : "w-0 group-hover:w-full"
+                }`}
+              />
+            </button>
+
+            {eventsDropdownOpen && (
+              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-3 w-44 bg-[#141414] border border-[#2A2A2A] rounded-xl shadow-xl overflow-hidden z-50">
+                <Link
+                  href="/events"
+                  onClick={() => { setEventsDropdownOpen(false); }}
+                  className={`flex items-center gap-2.5 px-4 py-3 text-sm transition-colors ${
+                    isEventsActive
+                      ? "bg-[#C4622D]/10 text-[#C4622D]"
+                      : "text-[#D4CFC9] hover:bg-[#1E1E1E] hover:text-white"
+                  }`}
+                >
+                  <Icon name="CalendarDaysIcon" size={15} />
+                  Current Events
+                </Link>
+                <Link
+                  href="/events?tab=past"
+                  onClick={() => { setEventsDropdownOpen(false); }}
+                  className="flex items-center gap-2.5 px-4 py-3 text-sm transition-colors text-[#D4CFC9] hover:bg-[#1E1E1E] hover:text-white"
+                >
+                  <Icon name="ClockIcon" size={15} />
+                  Past Events
+                </Link>
+              </div>
+            )}
+          </div>
 
           {/* Customer Profile Dropdown */}
           <div className="relative" ref={dropdownRef}>
@@ -175,6 +235,42 @@ export default function Header() {
               </Link>
             );
           })}
+
+          {/* Mobile Events */}
+          <div>
+            <button
+              onClick={() => setMobileEventsOpen(!mobileEventsOpen)}
+              className={`flex items-center justify-between w-full py-2 text-base font-medium transition-colors ${
+                isEventsActive ? "text-[#C4622D]" : "text-[#D4CFC9]"
+              }`}
+            >
+              Events
+              <Icon
+                name={mobileEventsOpen ? "ChevronUpIcon" : "ChevronDownIcon"}
+                size={16}
+              />
+            </button>
+            {mobileEventsOpen && (
+              <div className="pl-4 mt-1 space-y-1 border-l border-[#2A2A2A]">
+                <Link
+                  href="/events"
+                  onClick={() => { setMobileOpen(false); setMobileEventsOpen(false); }}
+                  className="flex items-center gap-2 py-2 text-sm transition-colors text-[#A09890] hover:text-white"
+                >
+                  <Icon name="CalendarDaysIcon" size={14} />
+                  Current Events
+                </Link>
+                <Link
+                  href="/events?tab=past"
+                  onClick={() => { setMobileOpen(false); setMobileEventsOpen(false); }}
+                  className="flex items-center gap-2 py-2 text-sm transition-colors text-[#A09890] hover:text-white"
+                >
+                  <Icon name="ClockIcon" size={14} />
+                  Past Events
+                </Link>
+              </div>
+            )}
+          </div>
 
           {/* Mobile Customer Profile */}
           <div>
