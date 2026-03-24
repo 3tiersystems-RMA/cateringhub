@@ -2,8 +2,12 @@ import { createClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 import { type NextRequest } from 'next/server';
 
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  'https://cateringhub-rk3rj04.public.builtwithrocket.new';
+
 export async function GET(request: NextRequest) {
-  const { searchParams, origin } = new URL(request.url);
+  const { searchParams } = new URL(request.url);
   const code = searchParams.get('code');
   const token_hash = searchParams.get('token_hash');
   const type = searchParams.get('type');
@@ -11,8 +15,7 @@ export async function GET(request: NextRequest) {
 
   const supabase = await createClient();
 
-  // Handle email-based flows (password recovery, magic link, email confirmation)
-  // Supabase sends token_hash + type for these flows
+  // Handle email-based flows (password recovery, magic link, email confirmation, invite)
   if (token_hash && type) {
     const { error } = await supabase.auth.verifyOtp({
       token_hash,
@@ -20,10 +23,11 @@ export async function GET(request: NextRequest) {
     });
 
     if (!error) {
-      if (type === 'recovery') {
-        return NextResponse.redirect(`${origin}/staff/reset-password`);
+      // Invite and recovery both go to set-password page
+      if (type === 'recovery' || type === 'invite') {
+        return NextResponse.redirect(`${SITE_URL}/staff/reset-password`);
       }
-      return NextResponse.redirect(`${origin}${next}`);
+      return NextResponse.redirect(`${SITE_URL}${next}`);
     }
   }
 
@@ -31,13 +35,13 @@ export async function GET(request: NextRequest) {
   if (code) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
-      if (type === 'recovery') {
-        return NextResponse.redirect(`${origin}/staff/reset-password`);
+      if (type === 'recovery' || type === 'invite') {
+        return NextResponse.redirect(`${SITE_URL}/staff/reset-password`);
       }
-      return NextResponse.redirect(`${origin}${next}`);
+      return NextResponse.redirect(`${SITE_URL}${next}`);
     }
   }
 
   // Both flows failed — redirect to login with error indicator
-  return NextResponse.redirect(`${origin}/staff/login?error=link_expired`);
+  return NextResponse.redirect(`${SITE_URL}/staff/login?error=link_expired`);
 }
