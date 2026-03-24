@@ -850,7 +850,7 @@ export default function StaffWorkspacePage() {
   const loadStaff = async () => {
     setStaffLoading(true);
     const { data } = await supabase.from('user_profiles').select('*').order('created_at', { ascending: false });
-    if (data) setStaffMembers(data);
+    if (data) setStaffMembers(data.filter(m => m.role !== 'super_admin'));
     setStaffLoading(false);
   };
 
@@ -2240,18 +2240,25 @@ export default function StaffWorkspacePage() {
                             </span>
                           </div>
                         </div>
-                        {member.role !== 'super_admin' && (
-                          <button
-                            onClick={() => handleToggleStaffActive(member)}
-                            disabled={togglingStaffId === member.id}
-                            className={`text-xs px-3 py-1.5 rounded-xl border font-semibold transition-colors disabled:opacity-50 ${
-                              member.is_active
-                                ? 'border-red-200 text-red-600 hover:bg-red-50' :'border-green-200 text-green-600 hover:bg-green-50'
-                            }`}
-                          >
-                            {member.is_active ? 'Deactivate' : 'Activate'}
-                          </button>
-                        )}
+                        {member.role !== 'super_admin' && (() => {
+                          const isSelf = userProfile?.id === member.id;
+                          const canDeactivate = userProfile?.role === 'super_admin' || !isSelf;
+                          return (
+                            <button
+                              onClick={() => canDeactivate && handleToggleStaffActive(member)}
+                              disabled={togglingStaffId === member.id || !canDeactivate}
+                              title={!canDeactivate ? 'Only Super Admin can deactivate this account' : undefined}
+                              className={`text-xs px-3 py-1.5 rounded-xl border font-semibold transition-colors disabled:opacity-50 ${
+                                !canDeactivate
+                                  ? 'border-gray-200 text-gray-400 bg-gray-50 cursor-not-allowed'
+                                  : member.is_active
+                                    ? 'border-red-200 text-red-600 hover:bg-red-50' :'border-green-200 text-green-600 hover:bg-green-50'
+                              }`}
+                            >
+                              {member.is_active ? 'Deactivate' : 'Activate'}
+                            </button>
+                          );
+                        })()}
                         {userProfile?.role === 'super_admin' && (
                           <div className="flex flex-col items-end gap-1">
                             <button
