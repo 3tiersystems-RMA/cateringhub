@@ -911,7 +911,7 @@ export default function StaffWorkspacePage() {
     setSocialLinksSaving(true);
     setSocialLinksError('');
     setSocialLinksSuccess('');
-    const updates = socialLinks.map(s => ({
+    const updates = socialLinks.filter(s => s.platform !== 'pinterest').map(s => ({
       id: s.id,
       platform: s.platform,
       url: socialLinksForm[s.platform] || '#',
@@ -2564,10 +2564,10 @@ export default function StaffWorkspacePage() {
                 ) : (
                   <div className="bg-white rounded-2xl border border-[#EDE7DA] p-6 max-w-xl">
                     <div className="space-y-4">
-                      {socialLinks.map(s => (
+                      {socialLinks.filter(s => s.platform !== 'pinterest').map(s => (
                         <div key={s.platform}>
                           <label className="block text-xs font-semibold text-[#5C5347] mb-1 capitalize">
-                            {s.platform === 'twitter' ? 'X / Twitter' : s.platform === 'custom' ? 'Custom Icon' : s.platform} URL
+                            {s.platform === 'twitter' ? 'X / Twitter' : s.platform === 'custom' ? 'Site Favicon Link' : s.platform} URL
                           </label>
                           <div className="flex items-center gap-2">
                             <img
@@ -2580,7 +2580,6 @@ export default function StaffWorkspacePage() {
                                     facebook: '0% 50%',
                                     twitter: '25% 50%',
                                     instagram: '50% 50%',
-                                    pinterest: '75% 50%',
                                     custom: '100% 50%',
                                   };
                                   return positions[s.platform] || '0% 50%';
