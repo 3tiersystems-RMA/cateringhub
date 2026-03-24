@@ -109,7 +109,7 @@ export default function Footer() {
                   rel="noopener noreferrer"
                   className="hover:opacity-80 transition-opacity"
                 >
-                  <div className="w-9 h-9 rounded-full bg-black flex items-center justify-center">
+                  <div className={`w-9 h-9 rounded-full flex items-center justify-center${platform !== 'favicon' ? ' bg-black' : ''}`}>
                     <Icon />
                   </div>
                 </a>
