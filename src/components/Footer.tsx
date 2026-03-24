@@ -39,7 +39,7 @@ const SOCIAL_ICONS: { platform: string; label: string; Icon: React.FC }[] = [
   { platform: 'facebook',  label: 'Facebook',  Icon: FacebookIcon },
   { platform: 'twitter',   label: 'X / Twitter', Icon: XIcon },
   { platform: 'instagram', label: 'Instagram', Icon: InstagramIcon },
-  { platform: 'favicon',   label: APP_NAME,    Icon: () => (
+  { platform: 'custom',    label: APP_NAME,    Icon: () => (
     <img src="/favicon.ico" alt={APP_NAME} className="w-4 h-4 object-contain" />
   )},
 ];

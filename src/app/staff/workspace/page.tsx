@@ -11,7 +11,7 @@ import GoogleDriveDocuments from './components/GoogleDriveDocuments';
 
 
 type BucketType = 'product-images' | 'event-photos' | 'document-management';
-type WorkspaceTab = 'products' | 'media' | 'orders' | 'staff' | 'homepage_cards' | 'categories' | 'weekly_menu' | 'vouchers' | 'discount_vouchers' | 'testimonials' | 'reporting' | 'analytics' | 'social_links';
+type WorkspaceTab = 'products' | 'media' | 'orders' | 'staff' | 'homepage_cards' | 'categories' | 'weekly_menu' | 'vouchers' | 'discount_vouchers' | 'testimonials' | 'reporting' | 'analytics' | 'social_media';
 
 type ProductCategory = string;
 type StaffRole = 'admin' | 'staff' | 'super_admin';
@@ -1587,7 +1587,7 @@ export default function StaffWorkspacePage() {
     if (tab === 'vouchers') loadVouchers();
     if (tab === 'discount_vouchers') loadDiscountVouchers();
     if (tab === 'testimonials') loadTestimonials();
-    if (tab === 'social_links') loadSocialLinks();
+    if (tab === 'social_media') loadSocialLinks();
     if (tab === 'orders') loadWsOrders();
     if (tab === 'reporting') loadReporting();
   };
@@ -1654,7 +1654,7 @@ export default function StaffWorkspacePage() {
               <button
                 onClick={() => setSiteContentOpen(prev => !prev)}
                 className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
-                  ['staff', 'homepage_cards', 'testimonials', 'social_links'].includes(activeTab) ? 'text-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
+                  ['staff', 'homepage_cards', 'testimonials', 'social_media'].includes(activeTab) ? 'text-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
                 }`}
               >
                 <span className="text-base">📁</span>
@@ -1694,13 +1694,13 @@ export default function StaffWorkspacePage() {
                   )}
                   {userProfile?.role === 'super_admin' && (
                     <button
-                      onClick={() => { handleTabChange('social_links'); }}
+                      onClick={() => { handleTabChange('social_media'); }}
                       className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${
-                        activeTab === 'social_links' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'
+                        activeTab === 'social_media' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'
                       }`}
                     >
                       <span className="text-base">🔗</span>
-                      <span>Social Links</span>
+                      <span>Social Media</span>
                     </button>
                   )}
                 </div>
@@ -2550,7 +2550,7 @@ export default function StaffWorkspacePage() {
             )}
 
             {/* ── SOCIAL LINKS TAB ── */}
-            {activeTab === 'social_links' && userProfile?.role === 'super_admin' && (
+            {activeTab === 'social_media' && userProfile?.role === 'super_admin' && (
               <div className="p-6">
                 <div className="mb-6">
                   <h2 className="text-xl font-bold text-[#1A1612]">Social Media Links</h2>
@@ -2570,22 +2570,28 @@ export default function StaffWorkspacePage() {
                             {s.platform === 'twitter' ? 'X / Twitter' : s.platform === 'custom' ? 'Site Favicon Link' : s.platform} URL
                           </label>
                           <div className="flex items-center gap-2">
-                            <img
-                              src="/assets/images/Screenshot_2026-03-24_at_08.52.59-1774335297294.png"
-                              alt={s.platform}
-                              className="h-8 w-8 rounded-full border border-[#DDD5C8] object-cover flex-shrink-0"
-                              style={{
-                                objectPosition: (() => {
-                                  const positions: Record<string, string> = {
-                                    facebook: '0% 50%',
-                                    twitter: '25% 50%',
-                                    instagram: '50% 50%',
-                                    custom: '100% 50%',
-                                  };
-                                  return positions[s.platform] || '0% 50%';
-                                })(),
-                              }}
-                            />
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 border border-[#DDD5C8]${s.platform !== 'custom' ? ' bg-black' : ''}`}>
+                              {s.platform === 'facebook' && (
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" width="16" height="16">
+                                  <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/>
+                                </svg>
+                              )}
+                              {s.platform === 'twitter' && (
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" width="16" height="16">
+                                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                                </svg>
+                              )}
+                              {s.platform === 'instagram' && (
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="16" height="16">
+                                  <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
+                                  <circle cx="12" cy="12" r="4"/>
+                                  <circle cx="17.5" cy="6.5" r="1" fill="white" stroke="none"/>
+                                </svg>
+                              )}
+                              {s.platform === 'custom' && (
+                                <img src="/favicon.ico" alt="Site favicon" className="w-4 h-4 object-contain" />
+                              )}
+                            </div>
                             <input
                               type="url"
                               value={socialLinksForm[s.platform] || ''}
