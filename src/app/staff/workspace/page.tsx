@@ -1689,6 +1689,7 @@ export default function StaffWorkspacePage() {
               </button>
               {siteContentOpen && (
                 <div className="pl-4 border-l-2 border-[#E8DDD0] ml-4">
+                  {(userProfile?.role === 'super_admin' || userProfile?.role === 'admin') && (
                   <button
                     onClick={() => { handleTabChange('staff'); }}
                     className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${
@@ -1698,6 +1699,7 @@ export default function StaffWorkspacePage() {
                     <span className="text-base">👥</span>
                     <span>Staff Management</span>
                   </button>
+                  )}
                   <button
                     onClick={() => { handleTabChange('homepage_cards'); }}
                     className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${
@@ -2172,7 +2174,7 @@ export default function StaffWorkspacePage() {
             )}
 
             {/* ── STAFF TAB ── */}
-            {activeTab === 'staff' && (
+            {activeTab === 'staff' && (userProfile?.role === 'super_admin' || userProfile?.role === 'admin') && (
               <div className="p-6">
                 <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
                   <div>
