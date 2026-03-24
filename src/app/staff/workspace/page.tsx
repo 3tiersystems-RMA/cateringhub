@@ -11,7 +11,7 @@ import GoogleDriveDocuments from './components/GoogleDriveDocuments';
 
 
 type BucketType = 'product-images' | 'event-photos' | 'document-management';
-type WorkspaceTab = 'products' | 'media' | 'orders' | 'staff' | 'homepage_cards' | 'categories' | 'weekly_menu' | 'vouchers' | 'discount_vouchers' | 'testimonials' | 'reporting' | 'analytics' | 'social_media';
+type WorkspaceTab = 'products' | 'media' | 'media_events' | 'orders' | 'staff' | 'homepage_cards' | 'categories' | 'weekly_menu' | 'vouchers' | 'discount_vouchers' | 'testimonials' | 'reporting' | 'analytics' | 'social_media';
 
 type ProductCategory = string;
 type StaffRole = 'admin' | 'staff' | 'super_admin';
@@ -491,6 +491,7 @@ export default function StaffWorkspacePage() {
   const [reportsMenuOpen, setReportsMenuOpen] = useState(false);
   const [siteContentOpen, setSiteContentOpen] = useState(false);
   const [vouchersMenuOpen, setVouchersMenuOpen] = useState(false);
+  const [mediaMenuOpen, setMediaMenuOpen] = useState(false);
 
   // Inactivity timer
   const [showInactivityWarning, setShowInactivityWarning] = useState(false);
@@ -1809,14 +1810,37 @@ export default function StaffWorkspacePage() {
 
               {/* ── Media Library ── */}
               <button
-                onClick={() => { handleTabChange('media'); }}
+                onClick={() => setMediaMenuOpen(prev => !prev)}
                 className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
-                  activeTab === 'media' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
+                  ['media', 'media_events'].includes(activeTab) ? 'text-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
                 }`}
               >
                 <span className="text-base">📄</span>
-                <span>Media Library</span>
+                <span className="flex-1">Media Library</span>
+                <span className="text-xs">{mediaMenuOpen ? '▲' : '▼'}</span>
               </button>
+              {mediaMenuOpen && (
+                <div className="pl-4 border-l-2 border-[#E8DDD0] ml-4">
+                  <button
+                    onClick={() => { handleTabChange('media_events'); }}
+                    className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${
+                      activeTab === 'media_events' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'
+                    }`}
+                  >
+                    <span className="text-base">🗓️</span>
+                    <span>Add Events</span>
+                  </button>
+                  <button
+                    onClick={() => { handleTabChange('media'); }}
+                    className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${
+                      activeTab === 'media' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'
+                    }`}
+                  >
+                    <span className="text-base">📁</span>
+                    <span>Document Management</span>
+                  </button>
+                </div>
+              )}
 
             </nav>
           </aside>
@@ -2639,10 +2663,24 @@ export default function StaffWorkspacePage() {
             {activeTab === 'media' && (
               <div className="p-6">
                 <div className="mb-6">
-                  <h2 className="text-xl font-bold text-[#1A1612]">Media Library</h2>
+                  <h2 className="text-xl font-bold text-[#1A1612]">Document Management</h2>
                   <p className="text-sm text-[#8C8278] mt-0.5">Manage and view documents from Google Drive</p>
                 </div>
                 <GoogleDriveDocuments isSuperAdmin={userProfile?.role === 'super_admin'} />
+              </div>
+            )}
+
+            {/* ── ADD EVENTS TAB ── */}
+            {activeTab === 'media_events' && (
+              <div className="p-6">
+                <div className="mb-6">
+                  <h2 className="text-xl font-bold text-[#1A1612]">Add Events</h2>
+                  <p className="text-sm text-[#8C8278] mt-0.5">Manage and publish upcoming events</p>
+                </div>
+                <div className="bg-white rounded-2xl border border-[#EDE7DA] p-8 text-center">
+                  <span className="text-4xl">🗓️</span>
+                  <p className="text-[#8C8278] mt-3 text-sm">Events management will appear here.</p>
+                </div>
               </div>
             )}
 
