@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
         full_name,
         role,
       },
-      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://cateringhu2257.builtwithrocket.new'}/auth/callback`,
+      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://cateringhub-rk3rj04.public.builtwithrocket.new'}/auth/callback`,
     });
 
     if (error) {
