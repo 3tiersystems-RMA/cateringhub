@@ -1,13 +1,16 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import AppLogo from '@/components/ui/AppLogo';
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal';
 import VoucherErrorModal from '@/components/ui/VoucherErrorModal';
-import GoogleDriveDocuments from './components/GoogleDriveDocuments';
-import EventManagement from './components/EventManagement';
+
+
+import {  } from 'recharts';
+import GoogleDriveDocuments from '@/app/staff/workspace/components/GoogleDriveDocuments';
+import EventManagement from '@/app/staff/workspace/components/EventManagement';
 
 
 
@@ -480,6 +483,64 @@ function RedemptionAuditRow({ redemption, index }: { redemption: VoucherRedempti
   );
 }
 
+// ─── Analytics types & helpers ────────────────────────────────────────────────
+type AnalyticsPeriod = '7d' | '30d' | '90d' | '12m';
+
+interface OrderTrendPoint { label: string; orders: number; revenue: number; }
+interface FulfillmentMetric { status: string; count: number; color: string; }
+interface VoucherUsagePoint { label: string; mealVouchers: number; discountVouchers: number; }
+interface SummaryMetric { label: string; value: string; sub?: string; icon: string; }
+
+function getAnalyticsPeriodRange(period: AnalyticsPeriod): { from: Date; to: Date; bucketFn: (d: Date) => string } {
+  const to = new Date();
+  const from = new Date();
+  if (period === '7d') {
+    from.setDate(to.getDate() - 6);
+    return { from, to, bucketFn: (d) => d.toLocaleDateString('en-ZA', { weekday: 'short', day: '2-digit' }) };
+  }
+  if (period === '30d') {
+    from.setDate(to.getDate() - 29);
+    return { from, to, bucketFn: (d) => d.toLocaleDateString('en-ZA', { day: '2-digit', month: 'short' }) };
+  }
+  if (period === '90d') {
+    from.setDate(to.getDate() - 89);
+    return { from, to, bucketFn: (d) => { const w = new Date(d); w.setDate(d.getDate() - d.getDay()); return w.toLocaleDateString('en-ZA', { day: '2-digit', month: 'short' }); } };
+  }
+  from.setMonth(to.getMonth() - 11); from.setDate(1);
+  return { from, to, bucketFn: (d) => d.toLocaleDateString('en-ZA', { month: 'short', year: '2-digit' }) };
+}
+
+function buildAnalyticsBuckets(period: AnalyticsPeriod, bucketFn: (d: Date) => string): string[] {
+  const buckets: string[] = [];
+  const seen = new Set<string>();
+  const to = new Date(); const from = new Date();
+  if (period === '7d') from.setDate(to.getDate() - 6);
+  else if (period === '30d') from.setDate(to.getDate() - 29);
+  else if (period === '90d') from.setDate(to.getDate() - 89);
+  else { from.setMonth(to.getMonth() - 11); from.setDate(1); }
+  const cur = new Date(from);
+  while (cur <= to) { const label = bucketFn(new Date(cur)); if (!seen.has(label)) { seen.add(label); buckets.push(label); } cur.setDate(cur.getDate() + 1); }
+  return buckets;
+}
+
+const ANALYTICS_FULFILLMENT_COLORS: Record<string, string> = { new: '#3B82F6', confirmed: '#8B5CF6', preparing: '#F97316', ready: '#14B8A6', delivered: '#22C55E', cancelled: '#EF4444' };
+const ANALYTICS_FULFILLMENT_LABELS: Record<string, string> = { new: 'New', confirmed: 'Confirmed', preparing: 'Preparing', ready: 'Ready', delivered: 'Delivered', cancelled: 'Cancelled' };
+
+function AnalyticsTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="bg-white border border-[#DDD5C8] rounded-xl shadow-lg px-4 py-3 text-xs">
+      <p className="font-semibold text-[#1A1612] mb-2">{label}</p>
+      {payload.map((p: any, i: number) => (
+        <p key={i} style={{ color: p.color }} className="font-medium">
+          {p.name}: {p.name === 'Revenue' ? `R${Number(p.value).toFixed(2)}` : p.value}
+        </p>
+      ))}
+    </div>
+  );
+}
+// ─── End Analytics helpers ────────────────────────────────────────────────────
+
 export default function StaffWorkspacePage() {
   const router = useRouter();
   const supabase = createClient();
@@ -493,6 +554,16 @@ export default function StaffWorkspacePage() {
   const [siteContentOpen, setSiteContentOpen] = useState(false);
   const [vouchersMenuOpen, setVouchersMenuOpen] = useState(false);
   const [mediaMenuOpen, setMediaMenuOpen] = useState(false);
+
+  // ── Analytics state ──────────────────────────────────────────────────────
+  const [analyticsPeriod, setAnalyticsPeriod] = useState<AnalyticsPeriod>('30d');
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [analyticsError, setAnalyticsError] = useState('');
+  const [orderTrend, setOrderTrend] = useState<OrderTrendPoint[]>([]);
+  const [voucherUsage, setVoucherUsage] = useState<VoucherUsagePoint[]>([]);
+  const [fulfillmentMetrics, setFulfillmentMetrics] = useState<FulfillmentMetric[]>([]);
+  const [summaryMetrics, setSummaryMetrics] = useState<SummaryMetric[]>([]);
+  // ── End Analytics state ──────────────────────────────────────────────────
 
   // Inactivity timer
   const [showInactivityWarning, setShowInactivityWarning] = useState(false);
@@ -525,7 +596,6 @@ export default function StaffWorkspacePage() {
   const [categoryNames, setCategoryNames] = useState<string[]>([]);
   const [packageTypes, setPackageTypes] = useState<string[]>([]);
   const [productSearchQuery, setProductSearchQuery] = useState('');
-
   // Categories state
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoriesLoading, setCategoriesLoading] = useState(false);
@@ -536,7 +606,6 @@ export default function StaffWorkspacePage() {
   const [categoryFormSuccess, setCategoryFormSuccess] = useState('');
   const [savingCategory, setSavingCategory] = useState(false);
   const [deletingCategoryId, setDeletingCategoryId] = useState<string | null>(null);
-
   // Staff management state
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
   const [staffLoading, setStaffLoading] = useState(false);
@@ -548,7 +617,6 @@ export default function StaffWorkspacePage() {
   const [staffSearchQuery, setStaffSearchQuery] = useState('');
   const [sendingResetId, setSendingResetId] = useState<string | null>(null);
   const [resetMessages, setResetMessages] = useState<Record<string, { type: 'success' | 'error'; text: string }>>({});
-
   // Homepage cards state
   const [homepageCards, setHomepageCards] = useState<HomepageCard[]>([]);
   const [cardsLoading, setCardsLoading] = useState(false);
@@ -559,7 +627,6 @@ export default function StaffWorkspacePage() {
   const [savingCard, setSavingCard] = useState(false);
   const [togglingCardId, setTogglingCardId] = useState<string | null>(null);
   const [homepageCardSearchQuery, setHomepageCardSearchQuery] = useState('');
-
   // Weekly Menu state
   const [weeklyMenuEntries, setWeeklyMenuEntries] = useState<WeeklyMenuEntry[]>([]);
   const [weeklyMenuLoading, setWeeklyMenuLoading] = useState(false);
@@ -575,7 +642,6 @@ export default function StaffWorkspacePage() {
   const [weekOffset, setWeekOffset] = useState(0);
   const [closingDayDate, setClosingDayDate] = useState<string | null>(null);
   const [savingClosedDay, setSavingClosedDay] = useState(false);
-
   // Vouchers state
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [vouchersLoading, setVouchersLoading] = useState(false);
@@ -591,19 +657,17 @@ export default function StaffWorkspacePage() {
   const [vouchersSearchQuery, setVouchersSearchQuery] = useState('');
   const [markingVoucherPaidId, setMarkingVoucherPaidId] = useState<string | null>(null);
   const [loadingMarkingPaid, setLoadingMarkingPaid] = useState(false);
-
   // Discount Vouchers state
   const [discountVouchers, setDiscountVouchers] = useState<DiscountVoucher[]>([]);
   const [dvLoading, setDvLoading] = useState(false);
   const [showDvForm, setShowDvForm] = useState(false);
   const [editingDv, setEditingDv] = useState<DiscountVoucher | null>(null);
-  const [dvForm, setDvForm] = useState({ dv_code: '', dv_amount: '', status: 'Active\' as \'Active\' | \'Inactive', expiry_date: '' });
+  const [dvForm, setDvForm] = useState({ dv_code: '', dv_amount: '', status: 'Active' as 'Active' | 'Inactive', expiry_date: '' });
   const [dvFormError, setDvFormError] = useState('');
   const [dvFormSuccess, setDvFormSuccess] = useState('');
   const [savingDv, setSavingDv] = useState(false);
   const [dvSearchQuery, setDvSearchQuery] = useState('');
   const [generatingQrId, setGeneratingQrId] = useState<string | null>(null);
-
   // Testimonials state
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
   const [testimonialsLoading, setTestimonialsLoading] = useState(false);
@@ -616,7 +680,6 @@ export default function StaffWorkspacePage() {
   const [testimonialFormSuccess, setTestimonialFormSuccess] = useState('');
   const [savingTestimonial, setSavingTestimonial] = useState(false);
   const [testimonialSearchQuery, setTestimonialSearchQuery] = useState('');
-
   // Social Links state
   const [socialLinks, setSocialLinks] = useState<{ id: string; platform: string; url: string; display_order: number }[]>([]);
   const [socialLinksLoading, setSocialLinksLoading] = useState(false);
@@ -624,7 +687,6 @@ export default function StaffWorkspacePage() {
   const [socialLinksError, setSocialLinksError] = useState('');
   const [socialLinksSuccess, setSocialLinksSuccess] = useState('');
   const [socialLinksForm, setSocialLinksForm] = useState<Record<string, string>>({});
-
   // Orders tab state
   const [wsOrders, setWsOrders] = useState<Order[]>([]);
   const [wsOrdersLoading, setWsOrdersLoading] = useState(false);
@@ -634,7 +696,6 @@ export default function StaffWorkspacePage() {
   const [wsOrderSearch, setWsOrderSearch] = useState('');
   const [wsFilterPayment, setWsFilterPayment] = useState<string>('all');
   const [wsFilterFulfillment, setWsFilterFulfillment] = useState<string>('all');
-
   // Reporting state
   const [reportingView, setReportingView] = useState<'cards' | 'products_ordered' | 'package_meals_ordered' | 'discount_vouchers_report'>('cards');
   const [productsOrderedRows, setProductsOrderedRows] = useState<ProductsOrderedRow[]>([]);
@@ -643,7 +704,6 @@ export default function StaffWorkspacePage() {
   const [packageMealsLoading, setPackageMealsLoading] = useState(false);
   const [discountVouchersReportRows, setDiscountVouchersReportRows] = useState<DiscountVouchersReportRow[]>([]);
   const [discountVouchersReportLoading, setDiscountVouchersReportLoading] = useState(false);
-
   // Date range filter state for each report
   const [productsOrderedDateFrom, setProductsOrderedDateFrom] = useState('');
   const [productsOrderedDateTo, setProductsOrderedDateTo] = useState('');
@@ -652,7 +712,6 @@ export default function StaffWorkspacePage() {
   const [discountVouchersDateFrom, setDiscountVouchersDateFrom] = useState('');
   const [discountVouchersDateTo, setDiscountVouchersDateTo] = useState('');
   const [reportingSearchQuery, setReportingSearchQuery] = useState('');
-
   // Media library state
   const [mediaFiles, setMediaFiles] = useState<StorageFile[]>([]);
   const [mediaLoading, setMediaLoading] = useState(false);
@@ -1019,6 +1078,95 @@ export default function StaffWorkspacePage() {
       setDiscountVouchersReportLoading(false);
     }
   };
+
+  // ─── Analytics loader ─────────────────────────────────────────────────────────
+  const loadAnalytics = useCallback(async (p: AnalyticsPeriod) => {
+    setAnalyticsLoading(true);
+    setAnalyticsError('');
+    try {
+      const { from, to, bucketFn } = getAnalyticsPeriodRange(p);
+      const fromISO = from.toISOString();
+      const toISO = to.toISOString();
+
+      const { data: orders, error: ordersErr } = await supabase
+        .from('orders')
+        .select('id, total, payment_status, fulfillment_status, created_at')
+        .gte('created_at', fromISO)
+        .lte('created_at', toISO)
+        .order('created_at', { ascending: true });
+      if (ordersErr) throw ordersErr;
+
+      const { data: redemptions, error: redemptionsErr } = await supabase
+        .from('voucher_redemptions')
+        .select('id, redeemed_at')
+        .gte('redeemed_at', fromISO)
+        .lte('redeemed_at', toISO);
+      if (redemptionsErr) throw redemptionsErr;
+
+      const { data: dvOrders, error: dvErr } = await supabase
+        .from('orders')
+        .select('id, created_at, payment_status')
+        .eq('payment_status', 'discounted')
+        .gte('created_at', fromISO)
+        .lte('created_at', toISO);
+      if (dvErr) throw dvErr;
+
+      const buckets = buildAnalyticsBuckets(p, bucketFn);
+      const orderMap: Record<string, { orders: number; revenue: number }> = {};
+      const voucherMap: Record<string, { mealVouchers: number; discountVouchers: number }> = {};
+      buckets.forEach(b => { orderMap[b] = { orders: 0, revenue: 0 }; voucherMap[b] = { mealVouchers: 0, discountVouchers: 0 }; });
+
+      (orders || []).forEach(o => {
+        const label = bucketFn(new Date(o.created_at));
+        if (orderMap[label] !== undefined) { orderMap[label].orders += 1; orderMap[label].revenue += Number(o.total) || 0; }
+      });
+      (redemptions || []).forEach(r => {
+        const label = bucketFn(new Date(r.redeemed_at));
+        if (voucherMap[label] !== undefined) voucherMap[label].mealVouchers += 1;
+      });
+      (dvOrders || []).forEach(o => {
+        const label = bucketFn(new Date(o.created_at));
+        if (voucherMap[label] !== undefined) voucherMap[label].discountVouchers += 1;
+      });
+
+      setOrderTrend(buckets.map(b => ({ label: b, ...orderMap[b] })));
+      setVoucherUsage(buckets.map(b => ({ label: b, ...voucherMap[b] })));
+
+      const fulfillmentCount: Record<string, number> = {};
+      (orders || []).forEach(o => { fulfillmentCount[o.fulfillment_status] = (fulfillmentCount[o.fulfillment_status] || 0) + 1; });
+      const fulfillmentOrder = ['new', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled'];
+      setFulfillmentMetrics(
+        fulfillmentOrder.filter(s => fulfillmentCount[s] !== undefined).map(s => ({
+          status: ANALYTICS_FULFILLMENT_LABELS[s] || s,
+          count: fulfillmentCount[s],
+          color: ANALYTICS_FULFILLMENT_COLORS[s] || '#8C8278',
+        }))
+      );
+
+      const totalOrders = (orders || []).length;
+      const totalRevenue = (orders || []).reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+      const paidOrders = (orders || []).filter(o => o.payment_status === 'paid' || o.payment_status === 'discounted').length;
+      const deliveredOrders = (orders || []).filter(o => o.fulfillment_status === 'delivered').length;
+      const totalMealRedemptions = (redemptions || []).length;
+      const totalDvUsed = (dvOrders || []).length;
+      const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+      const fulfillmentRate = totalOrders > 0 ? Math.round((deliveredOrders / totalOrders) * 100) : 0;
+
+      setSummaryMetrics([
+        { label: 'Total Orders', value: String(totalOrders), sub: `${paidOrders} paid`, icon: '📋' },
+        { label: 'Total Revenue', value: `R${totalRevenue.toFixed(2)}`, sub: `Avg R${avgOrderValue.toFixed(2)}/order`, icon: '💰' },
+        { label: 'Meal Vouchers Used', value: String(totalMealRedemptions), sub: 'Redemptions', icon: '🎟️' },
+        { label: 'Discount Vouchers', value: String(totalDvUsed), sub: 'Orders with discount', icon: '🏷️' },
+        { label: 'Delivered Orders', value: String(deliveredOrders), sub: `${fulfillmentRate}% fulfillment rate`, icon: '✅' },
+        { label: 'Cancelled Orders', value: String(fulfillmentCount['cancelled'] || 0), sub: 'In period', icon: '❌' },
+      ]);
+    } catch (err: any) {
+      setAnalyticsError(err?.message || 'Failed to load analytics data');
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  }, []);
+  // ─── End Analytics loader ─────────────────────────────────────────────────────
 
   // ─── Weekly menu helpers ───────────────────────────────────────────────────────
   const getMondayOfWeek = (offset = 0) => {
@@ -1616,6 +1764,7 @@ export default function StaffWorkspacePage() {
     if (tab === 'social_media') loadSocialLinks();
     if (tab === 'orders') loadWsOrders();
     if (tab === 'reporting') loadReporting();
+    if (tab === 'analytics') loadAnalytics(analyticsPeriod);
   };
 
   return (
@@ -1664,7 +1813,7 @@ export default function StaffWorkspacePage() {
             </button>
             <button
               onClick={handleLogout}
-              className="text-sm bg-[#F5F0E8] border border-[#DDD5C8] text-[#5C5347] px-4 py-2 rounded-xl hover:bg-[#EDE7DA] transition-colors"
+              className="text-sm bg-[#F5F0E8] border border-[#DDD5C8] text-[#5C5347] px-4 py-2 rounded-xl hover:bg-[#F5F0E8] transition-colors"
             >
               Log Out
             </button>
@@ -1995,138 +2144,21 @@ export default function StaffWorkspacePage() {
                         </button>
                       </div>
                     </div>
+                    {formError && <p className="text-red-600 text-sm mt-3">{formError}</p>}
                     <div className="flex items-center gap-3 mt-4">
                       <button
                         onClick={handleSaveProduct}
                         disabled={saving || uploadingImage}
                         className="bg-[#C4622D] text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
                       >
-                        {saving ? 'Saving…' : editingProduct ? 'Update Product' : 'Add Product'}
+                        {saving ? 'Saving…' : 'Update Product'}
                       </button>
                       <button
-                        onClick={() => setShowForm(false)}
+                        onClick={() => { setShowEditModal(false); setEditingProduct(null); }}
                         className="text-sm text-[#5C5347] border border-[#DDD5C8] px-4 py-2 rounded-xl hover:bg-[#F5F0E8] transition-colors"
                       >
                         Cancel
                       </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Edit Product Modal */}
-                {showEditModal && editingProduct && (
-                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                    <div className="bg-white rounded-2xl border border-[#EDE7DA] p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-base font-bold text-[#1A1612]">Edit Product</h3>
-                        <button
-                          onClick={() => { setShowEditModal(false); setEditingProduct(null); }}
-                          className="text-[#5C5347] hover:text-[#1A1612] transition-colors"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </button>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Name *</label>
-                          <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Category</label>
-                          <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white">
-                            <option value="">-- Select Category --</option>
-                            {categoryNames.map(c => <option key={c} value={c}>{c}</option>)}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Price (R) *</label>
-                          <input type="number" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Unit</label>
-                          <input value={form.unit} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
-                        </div>
-                        <div className="md:col-span-2">
-                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Description</label>
-                          <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={3} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Tags (comma-separated)</label>
-                          <input value={form.tags} onChange={e => setForm(f => ({ ...f, tags: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Badge</label>
-                          <input value={form.badge} onChange={e => setForm(f => ({ ...f, badge: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Min Order</label>
-                          <input type="number" value={form.min_order} onChange={e => setForm(f => ({ ...f, min_order: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Sort Order</label>
-                          <input type="number" value={form.sort_order} onChange={e => setForm(f => ({ ...f, sort_order: Number(e.target.value) }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Package Type</label>
-                          <select value={form.package_type} onChange={e => setForm(f => ({ ...f, package_type: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white">
-                            {packageTypes.map(pt => <option key={pt} value={pt}>{pt}</option>)}
-                          </select>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <label className="flex items-center gap-2 text-sm text-[#5C5347] cursor-pointer">
-                            <input type="checkbox" checked={form.available} onChange={e => setForm(f => ({ ...f, available: e.target.checked }))} className="rounded" />
-                            Available
-                          </label>
-                          <label className="flex items-center gap-2 text-sm text-[#5C5347] cursor-pointer">
-                            <input type="checkbox" checked={form.featured} onChange={e => setForm(f => ({ ...f, featured: e.target.checked }))} className="rounded" />
-                            Featured
-                          </label>
-                        </div>
-                        <div>
-                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Product Image</label>
-                          <input
-                            ref={productImageRef}
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={e => {
-                              const file = e.target.files?.[0];
-                              if (file) {
-                                setPendingImageFile(file);
-                                setPendingImagePreview(URL.createObjectURL(file));
-                              }
-                            }}
-                          />
-                          {pendingImagePreview && (
-                            <img src={pendingImagePreview} alt="Preview" className="w-20 h-20 object-cover rounded-xl mb-2 border border-[#DDD5C8]" />
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => productImageRef.current?.click()}
-                            className="text-sm text-[#C4622D] border border-[#C4622D] rounded-xl px-3 py-1.5 hover:bg-[#FDF6EE] transition-colors"
-                          >
-                            {pendingImagePreview ? 'Change Image' : 'Upload Image'}
-                          </button>
-                        </div>
-                      </div>
-                      {formError && <p className="text-red-600 text-sm mt-3">{formError}</p>}
-                      <div className="flex items-center gap-3 mt-4">
-                        <button
-                          onClick={handleSaveProduct}
-                          disabled={saving || uploadingImage}
-                          className="bg-[#C4622D] text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
-                        >
-                          {saving ? 'Saving…' : 'Update Product'}
-                        </button>
-                        <button
-                          onClick={() => { setShowEditModal(false); setEditingProduct(null); }}
-                          className="text-sm text-[#5C5347] border border-[#DDD5C8] px-4 py-2 rounded-xl hover:bg-[#F5F0E8] transition-colors"
-                        >
-                          Cancel
-                        </button>
-                      </div>
                     </div>
                   </div>
                 )}
@@ -2254,7 +2286,8 @@ export default function StaffWorkspacePage() {
                                 !canDeactivate
                                   ? 'border-gray-200 text-gray-400 bg-gray-50 cursor-not-allowed'
                                   : member.is_active
-                                    ? 'border-red-200 text-red-600 hover:bg-red-50' :'border-green-200 text-green-600 hover:bg-green-50'
+                                    ? 'border-red-200 text-red-600 hover:bg-red-50'
+                                    : 'border-green-200 text-green-600 hover:bg-green-50'
                               }`}
                             >
                               {member.is_active ? 'Deactivate' : 'Activate'}
@@ -2594,7 +2627,7 @@ export default function StaffWorkspacePage() {
                             </div>
                             <button
                               onClick={() => openAddWeeklyMenuForm(day.date, day.dayName)}
-                              className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl hover:bg-[#FDF6EE] transition-colors"
+                              className="text-xs text-[#C4622D] hover:underline"
                             >
                               + Add
                             </button>
@@ -2665,7 +2698,7 @@ export default function StaffWorkspacePage() {
                                 </svg>
                               )}
                               {s.platform === 'instagram' && (
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="16" height="16">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" width="16" height="16">
                                   <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
                                   <circle cx="12" cy="12" r="4"/>
                                   <circle cx="17.5" cy="6.5" r="1" fill="white" stroke="none"/>
@@ -2678,43 +2711,31 @@ export default function StaffWorkspacePage() {
                             <input
                               type="url"
                               value={socialLinksForm[s.platform] || ''}
-                              onChange={e => setSocialLinksForm(f => ({ ...f, [s.platform]: e.target.value }))}
-                              placeholder="https://..."
-                              className="flex-1 border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                              onChange={e => setSocialLinksForm(prev => ({ ...prev, [s.platform]: e.target.value }))}
+                              placeholder={`https://...`}
+                              className="flex-1 border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm text-[#1A1612] focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30 focus:border-[#C4622D]"
                             />
                           </div>
                         </div>
                       ))}
                     </div>
-
-                    {socialLinksError && <p className="text-sm text-red-600 mt-4">{socialLinksError}</p>}
-                    {socialLinksSuccess && <p className="text-sm text-green-600 mt-4">{socialLinksSuccess}</p>}
-
-                    <div className="mt-6">
+                    {socialLinksError && (
+                      <p className="text-red-600 text-xs mt-3">{socialLinksError}</p>
+                    )}
+                    {socialLinksSuccess && (
+                      <p className="text-green-600 text-xs mt-3">Social links saved!</p>
+                    )}
+                    <div className="mt-5 flex justify-end">
                       <button
                         onClick={handleSaveSocialLinks}
                         disabled={socialLinksSaving}
-                        className="bg-[#C4622D] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
+                        className="bg-[#C4622D] text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
                       >
-                        {socialLinksSaving ? 'Saving…' : 'Save Social Links'}
+                        {socialLinksSaving ? 'Saving…' : 'Save Links'}
                       </button>
                     </div>
                   </div>
                 )}
-              </div>
-            )}
-
-            {/* ── ANALYTICS TAB ── */}
-            {activeTab === 'analytics' && (
-              <div className="p-6">
-                <div className="mb-6">
-                  <h2 className="text-xl font-bold text-[#1A1612]">Analytics</h2>
-                  <p className="text-sm text-[#8C8278] mt-0.5">View site analytics and performance data</p>
-                </div>
-                <div className="bg-white rounded-2xl border border-[#EDE7DA] p-8 text-center">
-                  <span className="text-4xl">📈</span>
-                  <p className="text-[#8C8278] mt-3 text-sm">Analytics data will appear here.</p>
-                </div>
               </div>
             )}
 
@@ -2729,623 +2750,28 @@ export default function StaffWorkspacePage() {
               </div>
             )}
 
-            {/* ── ADD PRODUCTS (MEDIA LIBRARY) TAB ── */}
-            {activeTab === 'media_products' && (
-              <div className="p-6">
-                <div className="mb-6">
-                  <h2 className="text-xl font-bold text-[#1A1612]">Add Products</h2>
-                  <p className="text-sm text-[#8C8278] mt-0.5">Manage and add products to the catalogue</p>
-                </div>
-                <div className="bg-white rounded-xl border border-[#E8DDD0] p-6 text-center">
-                  <span className="text-4xl">🛍️</span>
-                  <p className="text-[#5C5347] mt-3 text-sm">Use the <strong>Products</strong> section in the main menu to add and manage products.</p>
-                  <button
-                    onClick={() => handleTabChange('products')}
-                    className="mt-4 px-5 py-2 bg-[#C4622D] text-white text-sm font-medium rounded-lg hover:bg-[#A0522D] transition-colors"
-                  >
-                    Go to Products
-                  </button>
-                </div>
-              </div>
-            )}
-
             {/* ── ADD EVENTS TAB ── */}
             {activeTab === 'media_events' && (
               <EventManagement />
             )}
 
-            {/* ── ORDERS TAB ── */}
-            {activeTab === 'orders' && (
+            {/* ── MEDIA PRODUCTS TAB ── */}
+            {activeTab === 'media_products' && (
               <div className="p-6">
-                <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-                  <div>
-                    <h2 className="text-xl font-bold text-[#1A1612]">Orders</h2>
-                    <p className="text-sm text-[#8C8278] mt-0.5">{wsFilteredOrders.length} orders</p>
-                  </div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <input
-                      type="text"
-                      placeholder="Search by customer name, email, or order ID..."
-                      value={wsOrderSearch}
-                      onChange={e => setWsOrderSearch(e.target.value)}
-                      className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white min-w-[240px]"
-                    />
-                    <select value={wsFilterPayment} onChange={e => setWsFilterPayment(e.target.value)} className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white">
-                      <option value="all">All Payments</option>
-                      {PAYMENT_OPTIONS.map(s => <option key={s} value={s}>{PAYMENT_STATUS_LABELS[s]}</option>)}
-                    </select>
-                    <select value={wsFilterFulfillment} onChange={e => setWsFilterFulfillment(e.target.value)} className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white">
-                      <option value="all">All Fulfillment</option>
-                      {FULFILLMENT_OPTIONS.map(s => <option key={s} value={s}>{FULFILLMENT_STATUS_LABELS[s]}</option>)}
-                    </select>
-                    <button onClick={loadWsOrders} className="text-sm border border-[#DDD5C8] text-[#5C5347] px-3 py-2 rounded-xl hover:bg-[#F5F0E8] transition-colors">Refresh</button>
-                  </div>
+                <div className="mb-6">
+                  <h2 className="text-xl font-bold text-[#1A1612]">Add Products</h2>
+                  <p className="text-sm text-[#8C8278] mt-0.5">Manage products available in the store</p>
                 </div>
-
-                {wsOrdersLoading ? (
-                  <div className="flex items-center justify-center py-16">
-                    <div className="w-8 h-8 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
-                  </div>
-                ) : wsOrdersError ? (
-                  <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">{wsOrdersError}</div>
-                ) : wsFilteredOrders.length === 0 ? (
-                  <div className="text-center py-16 text-[#8C8278]">
-                    <p className="text-lg font-medium">No orders found</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {wsFilteredOrders.map((order) => (
-                      <div key={order.id} className="bg-white rounded-2xl border border-[#EDE7DA] overflow-hidden">
-                        <div
-                          className="p-4 flex items-center justify-between cursor-pointer hover:border-[#C4622D] hover:shadow-md transition-all group"
-                          onClick={() => setWsExpandedOrderId(wsExpandedOrderId === order.id ? null : order.id)}
-                        >
-                          <div className="flex items-center gap-3">
-                            <span className="w-6 h-6 rounded-full bg-[#C4622D] text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
-                              {order.id.slice(0, 2)}
-                            </span>
-                            <div>
-                              <p className="font-semibold text-[#1A1612] text-sm">{order.customer_name}</p>
-                              <p className="text-xs text-[#8C8278] mt-0.5">{order.customer_email}</p>
-                              <p className="text-xs text-[#B5ADA5] mt-0.5">{formatDate(order.created_at)}</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <div className="text-right">
-                              <p className="text-sm font-bold text-[#C4622D]">{formatCurrency(order.total)}</p>
-                              <span className={`inline-block text-xs px-2 py-0.5 rounded-full font-semibold border ${PAYMENT_STATUS_COLORS[order.payment_status]}`}>
-                                {PAYMENT_STATUS_LABELS[order.payment_status]}
-                              </span>
-                            </div>
-                            <svg
-                              className={`w-4 h-4 text-[#8C8278] transition-transform ${wsExpandedOrderId === order.id ? 'rotate-180' : ''}`}
-                              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
-                            >
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                            </svg>
-                          </div>
-                        </div>
-
-                        {wsExpandedOrderId === order.id && (
-                          <div className="px-4 pb-4 bg-[#FDFAF6] border-t border-[#EDE7DA]">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
-                              <div className="bg-white rounded-2xl border border-[#DDD5C8] p-4">
-                                <h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3">Customer Details</h4>
-                                <div className="space-y-2">
-                                  <div><p className="text-sm text-[#1A1612]"><span className="font-medium text-[#8C8278]">Name:</span> {order.customer_name || '—'}</p></div>
-                                  <div><p className="text-sm text-[#1A1612] break-all"><span className="font-medium text-[#8C8278]">Email:</span> {order.customer_email || '—'}</p></div>
-                                  <div><p className="text-sm text-[#1A1612]"><span className="font-medium text-[#8C8278]">Phone:</span> {order.customer_phone || '—'}</p></div>
-                                  {order.event_date && <div><p className="text-sm text-[#1A1612]"><span className="font-medium text-[#8C8278]">Event Date:</span> {formatDate(order.event_date)}</p></div>}
-                                  {order.delivered_date && <div><p className="text-sm text-[#1A1612]"><span className="font-medium text-[#8C8278]">Delivered Date:</span> {formatDate(order.delivered_date)}</p></div>}
-                                  {order.delivery_address && <div><p className="text-sm text-[#1A1612]"><span className="font-medium text-[#8C8278]">Delivery Address:</span> {order.delivery_address}</p></div>}
-                                  {order.notes && <div><p className="text-sm text-[#1A1612]"><span className="font-medium text-[#8C8278]">Notes:</span> {order.notes}</p></div>}
-                                </div>
-                              </div>
-
-                              <div className="bg-white rounded-2xl border border-[#DDD5C8] p-4">
-                                <h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3">Order Items</h4>
-                                {Array.isArray(order.items) && order.items.length > 0 ? (
-                                  <div className="space-y-2">
-                                    {order.items.map((item, idx) => (
-                                      <div key={idx} className="flex items-center justify-between py-1 border-b border-[#F0EBE3] last:border-0">
-                                        <div className="flex items-center gap-2">
-                                          <span className="w-5 h-5 rounded-full bg-[#EDE7DA] text-[#5C5347] text-xs font-bold flex items-center justify-center flex-shrink-0">{item.quantity}</span>
-                                          <span className="text-sm text-[#1A1612]">{item.name}</span>
-                                        </div>
-                                        <span className="text-sm font-semibold text-[#1A1612]">R{(item.price * item.quantity).toFixed(2)}</span>
-                                      </div>
-                                    ))}
-                                    <div className="pt-2 flex justify-between text-sm font-bold text-[#1A1612]">
-                                      <span>Total</span>
-                                      <span className="text-[#C4622D]">R{(order.total || 0).toFixed(2)}</span>
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <p className="text-xs text-[#B5ADA5]">No items</p>
-                                )}
-                              </div>
-
-                              <div className="bg-white rounded-2xl border border-[#DDD5C8] p-4 md:col-span-2">
-                                <h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3">Update Status</h4>
-                                <div className="flex flex-wrap gap-4" onClick={(e) => e.stopPropagation()}>
-                                  <div>
-                                    <p className="text-xs text-[#B5ADA5] mb-1">Payment Status</p>
-                                    <select
-                                      value={order.payment_status}
-                                      onChange={(e) => handleWsPaymentUpdate(order.id, e.target.value as PaymentStatus)}
-                                      disabled={getWsOrderUpdateState(order.id).paymentSaving}
-                                      className={`text-xs font-semibold border rounded-full px-3 py-1.5 focus:outline-none cursor-pointer disabled:opacity-50 ${PAYMENT_STATUS_COLORS[order.payment_status]}`}
-                                    >
-                                      {PAYMENT_OPTIONS.map((s) => (
-                                        <option key={s} value={s}>{PAYMENT_STATUS_LABELS[s]}</option>
-                                      ))}
-                                    </select>
-                                    {getWsOrderUpdateState(order.id).paymentSuccess && (
-                                      <span className="text-xs text-green-600 ml-2">✓ Saved</span>
-                                    )}
-                                  </div>
-                                  <div>
-                                    <p className="text-xs text-[#B5ADA5] mb-1">Fulfillment Status</p>
-                                    {order.fulfillment_status === 'delivered' && userProfile?.role !== 'super_admin' ? (
-                                      <div className="flex items-center gap-2">
-                                        <span className={`text-xs font-semibold border rounded-full px-3 py-1.5 ${FULFILLMENT_STATUS_COLORS['delivered']}`}>Delivered</span>
-                                        <span className="text-xs text-[#8C8278]" title="Only Super Admin can change a Delivered order's fulfillment status">🔒</span>
-                                      </div>
-                                    ) : (
-                                      <select
-                                        value={order.fulfillment_status}
-                                        onChange={(e) => handleWsFulfillmentUpdate(order.id, e.target.value as FulfillmentStatus)}
-                                        disabled={getWsOrderUpdateState(order.id).fulfillmentSaving}
-                                        className={`text-xs font-semibold border rounded-full px-3 py-1.5 focus:outline-none cursor-pointer disabled:opacity-50 ${FULFILLMENT_STATUS_COLORS[order.fulfillment_status]}`}
-                                      >
-                                        {FULFILLMENT_OPTIONS.map((s) => (
-                                          <option key={s} value={s}>{FULFILLMENT_STATUS_LABELS[s]}</option>
-                                        ))}
-                                      </select>
-                                    )}
-                                    {getWsOrderUpdateState(order.id).fulfillmentSuccess && (
-                                      <span className="text-xs text-green-600 ml-2">✓ Saved</span>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* ── MEAL VOUCHERS TAB ── */}
-            {activeTab === 'vouchers' && (
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-                  <div>
-                    <h2 className="text-xl font-bold text-[#1A1612]">Meal Vouchers</h2>
-                    <p className="text-sm text-[#8C8278] mt-0.5">{vouchers.length} vouchers</p>
-                  </div>
-                  <input
-                    type="text"
-                    placeholder="Search vouchers…"
-                    value={vouchersSearchQuery}
-                    onChange={e => setVouchersSearchQuery(e.target.value)}
-                    className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
-                  />
-                </div>
-
-                {/* Issue voucher form */}
-                <div className="bg-white rounded-2xl border border-[#EDE7DA] p-6 mb-6">
-                  <h3 className="text-base font-bold text-[#1A1612] mb-4">Issue New Voucher</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-semibold text-[#5C5347] mb-1">Customer Name *</label>
-                      <input value={issueVoucherForm.customer_name} onChange={e => setIssueVoucherForm(f => ({ ...f, customer_name: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-[#5C5347] mb-1">Email *</label>
-                      <input type="email" value={issueVoucherForm.customer_email} onChange={e => setIssueVoucherForm(f => ({ ...f, customer_email: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-[#5C5347] mb-1">Phone</label>
-                      <input value={issueVoucherForm.customer_phone} onChange={e => setIssueVoucherForm(f => ({ ...f, customer_phone: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-[#5C5347] mb-1">Total Meals *</label>
-                      <input type="number" value={issueVoucherForm.total_meals} onChange={e => setIssueVoucherForm(f => ({ ...f, total_meals: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
-                    </div>
-                    <div className="md:col-span-2">
-                      <label className="block text-xs font-semibold text-[#5C5347] mb-1">Notes</label>
-                      <input value={issueVoucherForm.notes} onChange={e => setIssueVoucherForm(f => ({ ...f, notes: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
-                    </div>
-                  </div>
-                  {issueVoucherSuccess && <p className="text-sm text-green-600 mt-3">{issueVoucherSuccess}</p>}
+                <div className="bg-white rounded-2xl border border-[#EDE7DA] p-8 text-center">
+                  <span className="text-4xl">🛍️</span>
+                  <p className="text-[#8C8278] mt-3 text-sm">Switch to the Products tab to manage your product catalog.</p>
                   <button
-                    onClick={handleIssueVoucher}
-                    disabled={issuingVoucher}
-                    className="mt-4 bg-[#C4622D] text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
+                    onClick={() => handleTabChange('products')}
+                    className="mt-4 bg-[#C4622D] text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors"
                   >
-                    {issuingVoucher ? 'Issuing…' : 'Issue Voucher'}
+                    Go to Products
                   </button>
                 </div>
-
-                {vouchersLoading ? (
-                  <div className="flex items-center justify-center py-16">
-                    <div className="w-8 h-8 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
-                  </div>
-                ) : filteredVouchers.length === 0 ? (
-                  <div className="text-center py-16 text-[#8C8278]">
-                    <p className="text-lg font-medium">No vouchers found</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {filteredVouchers.map((voucher) => (
-                      <div key={voucher.id} className="bg-white rounded-2xl border border-[#EDE7DA] overflow-hidden">
-                        <div
-                          className="p-4 flex items-center justify-between cursor-pointer hover:border-[#C4622D] hover:shadow-md transition-all group"
-                          onClick={() => setWsExpandedOrderId(wsExpandedOrderId === voucher.id ? null : voucher.id)}
-                        >
-                          <div className="flex items-center gap-3">
-                            <span className="w-6 h-6 rounded-full bg-[#C4622D] text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
-                              {voucher.id.slice(0, 2)}
-                            </span>
-                            <div>
-                              <p className="font-semibold text-[#1A1612] text-sm">{voucher.voucher_code}</p>
-                              <p className="text-xs text-[#8C8278] mt-0.5">{voucher.customer_name}</p>
-                              <p className="text-xs text-[#8C8278] mt-0.5">{voucher.total_meals} meals · {voucher.meals_remaining} remaining</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <div className="text-right">
-                              <span className={`inline-block text-xs px-2 py-0.5 rounded-full font-semibold ${
-                                voucher.status === 'paid' ? 'bg-green-100 text-green-700' :
-                                voucher.status === 'unpaid' ? 'bg-amber-100 text-amber-700' :
-                                voucher.status === 'redeemed' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
-                              }`}>{voucher.status}</span>
-                            </div>
-                            <svg
-                              className={`w-4 h-4 text-[#8C8278] transition-transform ${wsExpandedOrderId === voucher.id ? 'rotate-180' : ''}`}
-                              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
-                            >
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                            </svg>
-                          </div>
-                        </div>
-
-                        {wsExpandedOrderId === voucher.id && (
-                          <div className="px-4 pb-4 bg-[#FDFAF6] border-t border-[#EDE7DA]">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
-                              <div className="bg-white rounded-xl border border-[#DDD5C8] p-4">
-                                <h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3">Customer Details</h4>
-                                <div className="space-y-2">
-                                  <div><p className="text-sm text-[#1A1612]"><span className="font-medium text-[#8C8278]">Name:</span> {voucher.customer_name || '—'}</p></div>
-                                  <div><p className="text-sm text-[#1A1612] break-all"><span className="font-medium text-[#8C8278]">Email:</span> {voucher.customer_email || '—'}</p></div>
-                                  <div><p className="text-sm text-[#1A1612]"><span className="font-medium text-[#8C8278]">Phone:</span> {voucher.customer_phone || '—'}</p></div>
-                                </div>
-                              </div>
-                              <div className="bg-white rounded-xl border border-[#DDD5C8] p-4">
-                                <h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3">Voucher Details</h4>
-                                <div className="space-y-2">
-                                  <div className="flex justify-between text-sm"><span className="text-[#8C8278]">Code</span><span className="font-mono font-bold text-[#C4622D]">{voucher.voucher_code}</span></div>
-                                  <div className="flex justify-between text-sm"><span className="text-[#8C8278]">Total Meals</span><span className="font-medium text-[#1A1612]">{voucher.total_meals}</span></div>
-                                  <div className="flex justify-between text-sm"><span className="text-[#8C8278]">Remaining</span><span className="font-medium text-[#1A1612]">{voucher.meals_remaining}</span></div>
-                                  <div className="flex justify-between text-sm"><span className="text-[#8C8278]">Status</span><span className={`font-semibold ${voucher.status === 'paid' ? 'text-green-600' : voucher.status === 'unpaid' ? 'text-amber-600' : 'text-blue-600'}`}>{voucher.status}</span></div>
-                                  <div className="flex justify-between text-sm"><span className="text-[#8C8278]">Purchased</span><span className="font-medium text-[#1A1612]">{formatDate(voucher.purchased_at)}</span></div>
-                                  {voucher.notes && <div className="flex justify-between text-sm"><span className="text-[#8C8278]">Notes</span><span className="font-medium text-[#1A1612] text-right max-w-[160px]">{voucher.notes}</span></div>}
-                                </div>
-                              </div>
-                            </div>
-                            {voucher.status === 'unpaid' && (
-                              <div className="mt-3 flex justify-end">
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); handleMarkVoucherPaid(voucher); }}
-                                  disabled={loadingMarkingPaid && markingVoucherPaidId === voucher.id}
-                                  className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-colors"
-                                >
-                                  Mark as Paid
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* ── DISCOUNT VOUCHERS TAB ── */}
-            {activeTab === 'discount_vouchers' && (
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-                  <div>
-                    <h2 className="text-xl font-bold text-[#1A1612]">Discount Vouchers</h2>
-                    <p className="text-sm text-[#8C8278] mt-0.5">{discountVouchers.length} vouchers</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="text"
-                      placeholder="Search discount vouchers…"
-                      value={dvSearchQuery}
-                      onChange={e => setDvSearchQuery(e.target.value)}
-                      className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
-                    />
-                    <button onClick={openAddDvForm} className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors">
-                      + Create Voucher
-                    </button>
-                  </div>
-                </div>
-
-                {showDvForm && (
-                  <div className="bg-white rounded-2xl border border-[#EDE7DA] p-6 mb-6">
-                    <h3 className="text-base font-bold text-[#1A1612] mb-4">{editingDv ? 'Edit Discount Voucher' : 'Create Discount Voucher'}</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Voucher Code *</label>
-                        <input value={dvForm.dv_code} onChange={e => setDvForm(f => ({ ...f, dv_code: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" placeholder="e.g. SAVE20" />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Discount Amount (R) *</label>
-                        <input type="number" value={dvForm.dv_amount} onChange={e => setDvForm(f => ({ ...f, dv_amount: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Status</label>
-                        <select value={dvForm.status} onChange={e => setDvForm(f => ({ ...f, status: e.target.value as 'Active' | 'Inactive' }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white">
-                          <option value="Active">Active</option>
-                          <option value="Inactive">Inactive</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Expiry Date *</label>
-                        <input type="date" value={dvForm.expiry_date} onChange={e => setDvForm(f => ({ ...f, expiry_date: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
-                      </div>
-                    </div>
-                    {dvFormError && <p className="text-sm text-red-600 mt-3">{dvFormError}</p>}
-                    {dvFormSuccess && <p className="text-sm text-green-600 mt-3">{dvFormSuccess}</p>}
-                    <div className="flex items-center gap-3 mt-4">
-                      <button onClick={handleSaveDv} disabled={savingDv} className="bg-[#C4622D] text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50">
-                        {savingDv ? 'Saving…' : editingDv ? 'Update Voucher' : 'Create Voucher'}
-                      </button>
-                      <button onClick={() => setShowDvForm(false)} className="text-sm text-[#5C5347] border border-[#DDD5C8] px-4 py-2 rounded-xl hover:bg-[#F5F0E8] transition-colors">Cancel</button>
-                    </div>
-                  </div>
-                )}
-
-                {dvLoading ? (
-                  <div className="flex items-center justify-center py-16">
-                    <div className="w-8 h-8 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
-                  </div>
-                ) : filteredDiscountVouchers.length === 0 ? (
-                  <div className="text-center py-16 text-[#8C8278]">
-                    <p className="text-lg font-medium">No discount vouchers found</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {filteredDiscountVouchers.map((dv) => (
-                      <div key={dv.id} className="bg-white rounded-2xl border border-[#EDE7DA] overflow-hidden">
-                        <div
-                          className="p-4 flex items-center justify-between cursor-pointer hover:border-[#C4622D] hover:shadow-md transition-all group"
-                          onClick={() => setWsExpandedOrderId(wsExpandedOrderId === dv.id ? null : dv.id)}
-                        >
-                          <div className="flex items-center gap-3">
-                            <span className="w-6 h-6 rounded-full bg-[#C4622D] text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
-                              {dv.id.slice(0, 2)}
-                            </span>
-                            <div>
-                              <p className="font-semibold text-[#1A1612] text-sm">{dv.dv_code}</p>
-                              <p className="text-xs text-[#8C8278] mt-0.5">R{(dv.dv_amount || 0).toFixed(2)} discount</p>
-                              <p className="text-xs text-[#8C8278] mt-0.5">{dv.status === 'Active' ? 'Active' : 'Inactive'} · {formatDate(dv.expiry_date)}</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${dv.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{dv.status}</span>
-                            <svg
-                              className={`w-4 h-4 text-[#8C8278] transition-transform ${wsExpandedOrderId === dv.id ? 'rotate-180' : ''}`}
-                              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
-                            >
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                            </svg>
-                          </div>
-                        </div>
-
-                        {wsExpandedOrderId === dv.id && (
-                          <div className="px-4 pb-4 bg-[#FDFAF6] border-t border-[#EDE7DA]">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
-                              <div className="bg-white rounded-xl border border-[#DDD5C8] p-4">
-                                <h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3">Voucher Details</h4>
-                                <div className="space-y-2">
-                                  <div className="flex justify-between text-sm"><span className="text-[#8C8278]">Code</span><span className="font-mono font-bold text-[#C4622D]">{dv.dv_code}</span></div>
-                                  <div className="flex justify-between text-sm"><span className="text-[#8C8278]">Discount Amount</span><span className="font-medium text-[#1A1612]">R{(dv.dv_amount || 0).toFixed(2)}</span></div>
-                                  <div className="flex justify-between text-sm"><span className="text-[#8C8278]">Status</span><span className={`font-semibold ${dv.status === 'Active' ? 'text-green-600' : 'text-gray-500'}`}>{dv.status}</span></div>
-                                  <div className="flex justify-between text-sm"><span className="text-[#8C8278]">Expiry Date</span><span className="font-medium text-[#1A1612]">{formatDate(dv.expiry_date)}</span></div>
-                                  <div className="flex justify-between text-sm"><span className="text-[#8C8278]">Times Used</span><span className="font-medium text-[#1A1612]">{dv.times_used ?? 0}</span></div>
-                                  <div className="flex justify-between text-sm"><span className="text-[#8C8278]">Created</span><span className="font-medium text-[#1A1612]">{formatDate(dv.created_at)}</span></div>
-                                </div>
-                              </div>
-                              <div className="bg-white rounded-xl border border-[#DDD5C8] p-4 flex flex-col gap-3">
-                                <h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider">Actions</h4>
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); openEditDvForm(dv); }}
-                                  className="w-full flex items-center justify-center gap-2 bg-[#C4622D] hover:bg-[#A04E22] text-white px-4 py-2 rounded-xl text-sm font-semibold transition-colors"
-                                >
-                                  Edit Voucher
-                                </button>
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); handleGenerateDvQr(dv); }}
-                                  disabled={generatingQrId === dv.id}
-                                  className="w-full flex items-center justify-center gap-2 border border-[#DDD5C8] hover:border-[#C4622D] text-[#5C5347] hover:text-[#C4622D] px-4 py-2 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50"
-                                >
-                                  {generatingQrId === dv.id ? 'Generating…' : 'Download QR Code'}
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* ── REPORTING TAB ── */}
-            {activeTab === 'reporting' && (
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-                  <div>
-                    <h2 className="text-lg font-bold text-[#1A1612]">Reports Dashboard</h2>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      placeholder="Search reports…"
-                      value={reportingSearchQuery}
-                      onChange={e => setReportingSearchQuery(e.target.value)}
-                      className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
-                    />
-                    {reportingView === 'products_ordered' && (
-                      <button onClick={downloadProductsOrderedPDF} className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl hover:bg-[#FDF6EE] transition-colors">Download PDF</button>
-                    )}
-                    {reportingView === 'package_meals_ordered' && (
-                      <button onClick={downloadPackageMealsPDF} className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl hover:bg-[#FDF6EE] transition-colors">Download PDF</button>
-                    )}
-                    {reportingView === 'discount_vouchers_report' && (
-                      <button onClick={downloadDiscountVouchersPDF} className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl hover:bg-[#FDF6EE] transition-colors">Download PDF</button>
-                    )}
-                  </div>
-                </div>
-
-                {reportingView === 'cards' ? (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
-                    <button
-                      onClick={() => setReportingView('products_ordered')}
-                      className="bg-white rounded-2xl border border-[#EDE7DA] p-6 text-left hover:border-[#C4622D] hover:shadow-md transition-all group"
-                    >
-                      <div className="flex items-center gap-3 mb-3">
-                        <span className="text-3xl">🛒</span>
-                        <h3 className="text-base font-bold text-[#1A1612] group-hover:text-[#C4622D] transition-colors">Products Ordered</h3>
-                      </div>
-                      <p className="text-sm text-[#8C8278]">View all individual products ordered by customers, including meal and discount voucher usage.</p>
-                      <div className="mt-4 flex items-center gap-1 text-xs font-semibold text-[#C4622D]">
-                        <span>View report</span>
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
-                      </div>
-                    </button>
-                    <button
-                      onClick={() => setReportingView('package_meals_ordered')}
-                      className="bg-white rounded-2xl border border-[#EDE7DA] p-6 text-left hover:border-[#C4622D] hover:shadow-md transition-all group"
-                    >
-                      <div className="flex items-center gap-3 mb-3">
-                        <span className="text-3xl">🍱</span>
-                        <h3 className="text-base font-bold text-[#1A1612] group-hover:text-[#C4622D] transition-colors">Package Meals Ordered</h3>
-                      </div>
-                      <p className="text-sm text-[#8C8278]">View all package meal orders, including package type purchased and meal voucher details.</p>
-                      <div className="mt-4 flex items-center gap-1 text-xs font-semibold text-[#C4622D]">
-                        <span>View report</span>
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
-                      </div>
-                    </button>
-                    <button
-                      onClick={() => setReportingView('discount_vouchers_report')}
-                      className="bg-white rounded-2xl border border-[#EDE7DA] p-6 text-left hover:border-[#C4622D] hover:shadow-md transition-all group"
-                    >
-                      <div className="flex items-center gap-3 mb-3">
-                        <span className="text-3xl">🏷️</span>
-                        <h3 className="text-base font-bold text-[#1A1612] group-hover:text-[#C4622D] transition-colors">Discount Vouchers</h3>
-                      </div>
-                      <p className="text-sm text-[#8C8278]">View all orders where discount vouchers were applied, including voucher codes and amounts.</p>
-                      <div className="mt-4 flex items-center gap-1 text-xs font-semibold text-[#C4622D]">
-                        <span>View report</span>
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
-                      </div>
-                    </button>
-                  </div>
-                ) : reportingView === 'products_ordered' ? (
-                  <div className="space-y-3">
-                    <button
-                      onClick={() => setReportingView('cards')}
-                      className="flex items-center gap-1.5 text-sm text-[#C4622D] font-medium hover:underline mb-4"
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
-                      Return to Dashboard
-                    </button>
-                    {productsOrderedLoading ? (
-                      <div className="flex items-center justify-center py-16"><div className="w-8 h-8 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>
-                    ) : filteredProductsOrderedRows.length === 0 ? (
-                      <div className="text-center py-16 text-[#8C8278]"><p className="text-lg font-medium">No products ordered data found</p></div>
-                    ) : (
-                      filteredProductsOrderedRows.map((row, i) => (
-                        <div key={i} className="bg-white rounded-2xl border border-[#EDE7DA] p-4 flex items-center justify-between">
-                          <div>
-                            <p className="font-semibold text-[#1A1612] text-sm">{row.productName}</p>
-                            <p className="text-xs text-[#8C8278] mt-0.5">{row.productType} · {row.item}</p>
-                            <p className="text-xs text-[#B5ADA5] mt-0.5">{row.clientName} · {row.orderedDate}</p>
-                          </div>
-                          <div className="text-right">
-                            {row.mealVoucher && <p className="text-xs text-blue-600">MV: {row.mealVoucher}</p>}
-                            {row.discountVoucher && <p className="text-xs text-green-600">DV: {row.discountVoucher}</p>}
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                ) : reportingView === 'package_meals_ordered' ? (
-                  <div className="space-y-3">
-                    <button
-                      onClick={() => setReportingView('cards')}
-                      className="flex items-center gap-1.5 text-sm text-[#C4622D] font-medium hover:underline mb-4"
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
-                      Return to Dashboard
-                    </button>
-                    {packageMealsLoading ? (
-                      <div className="flex items-center justify-center py-16"><div className="w-8 h-8 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>
-                    ) : filteredPackageMealsRows.length === 0 ? (
-                      <div className="text-center py-16 text-[#8C8278]"><p className="text-lg font-medium">No package meals data found</p></div>
-                    ) : (
-                      filteredPackageMealsRows.map((row, i) => (
-                        <div key={i} className="bg-white rounded-2xl border border-[#EDE7DA] p-4 flex items-center justify-between">
-                          <div>
-                            <p className="font-semibold text-[#1A1612] text-sm">{row.productName}</p>
-                            <p className="text-xs text-[#8C8278] mt-0.5">{row.packagePurchased} · {row.item}</p>
-                            <p className="text-xs text-[#B5ADA5] mt-0.5">{row.clientName} · {row.orderedDate}</p>
-                          </div>
-                          <div className="text-right">
-                            {row.mealVoucher && <p className="text-xs text-blue-600">MV: {row.mealVoucher}</p>}
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                ) : reportingView === 'discount_vouchers_report' ? (
-                  <div className="space-y-3">
-                    <button
-                      onClick={() => setReportingView('cards')}
-                      className="flex items-center gap-1.5 text-sm text-[#C4622D] font-medium hover:underline mb-4"
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
-                      Return to Dashboard
-                    </button>
-                    {discountVouchersReportLoading ? (
-                      <div className="flex items-center justify-center py-16"><div className="w-8 h-8 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>
-                    ) : filteredDiscountVouchersReportRows.length === 0 ? (
-                      <div className="text-center py-16 text-[#8C8278]"><p className="text-lg font-medium">No discount voucher report data found</p></div>
-                    ) : (
-                      filteredDiscountVouchersReportRows.map((row, i) => (
-                        <div key={i} className="bg-white rounded-2xl border border-[#EDE7DA] p-4 flex items-center justify-between">
-                          <div>
-                            <p className="font-semibold text-[#1A1612] text-sm">{row.dvCode}</p>
-                            <p className="text-xs text-[#8C8278] mt-0.5">R{row.dvAmount.toFixed(2)} · {row.expiryDate && new Date(row.expiryDate) < new Date() ? 'Expired' : 'Expires'} {row.expiryDate}</p>
-                            <p className="text-xs text-[#B5ADA5] mt-0.5">Status: {row.productType} · {row.item} · Created {row.orderedDate}</p>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                ) : null}
               </div>
             )}
 
