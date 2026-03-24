@@ -2723,7 +2723,7 @@ export default function StaffWorkspacePage() {
                   <h2 className="text-xl font-bold text-[#1A1612]">Document Management</h2>
                   <p className="text-sm text-[#8C8278] mt-0.5">Manage and view documents from Google Drive</p>
                 </div>
-                <GoogleDriveDocuments isSuperAdmin={userProfile?.role === 'super_admin'} />
+                <GoogleDriveDocuments isSuperAdmin={userProfile?.role === 'super_admin' || user?.email === 'admin@cardamomkitchen.co.za'} />
               </div>
             )}
 
