@@ -8,7 +8,7 @@ import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal';
 import VoucherErrorModal from '@/components/ui/VoucherErrorModal';
 
 
-import {  } from 'recharts';
+import { ResponsiveContainer, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend,  } from 'recharts';
 import GoogleDriveDocuments from '@/app/staff/workspace/components/GoogleDriveDocuments';
 import EventManagement from '@/app/staff/workspace/components/EventManagement';
 
@@ -662,7 +662,7 @@ export default function StaffWorkspacePage() {
   const [dvLoading, setDvLoading] = useState(false);
   const [showDvForm, setShowDvForm] = useState(false);
   const [editingDv, setEditingDv] = useState<DiscountVoucher | null>(null);
-  const [dvForm, setDvForm] = useState({ dv_code: '', dv_amount: '', status: 'Active' as 'Active' | 'Inactive', expiry_date: '' });
+  const [dvForm, setDvForm] = useState({ dv_code: '', dv_amount: '', status: 'Active\' as \'Active\' | \'Inactive', expiry_date: '' });
   const [dvFormError, setDvFormError] = useState('');
   const [dvFormSuccess, setDvFormSuccess] = useState('');
   const [savingDv, setSavingDv] = useState(false);
@@ -1905,7 +1905,7 @@ export default function StaffWorkspacePage() {
                 <span>Weekly Menu</span>
               </button>
 
-              {/* ── Orders ── */}
+              {/* ── ORDERS TAB */}
               <button
                 onClick={() => { handleTabChange('orders'); }}
                 className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
@@ -2286,8 +2286,7 @@ export default function StaffWorkspacePage() {
                                 !canDeactivate
                                   ? 'border-gray-200 text-gray-400 bg-gray-50 cursor-not-allowed'
                                   : member.is_active
-                                    ? 'border-red-200 text-red-600 hover:bg-red-50'
-                                    : 'border-green-200 text-green-600 hover:bg-green-50'
+                                    ? 'border-red-200 text-red-600 hover:bg-red-50' :'border-green-200 text-green-600 hover:bg-green-50'
                               }`}
                             >
                               {member.is_active ? 'Deactivate' : 'Activate'}
@@ -2665,7 +2664,803 @@ export default function StaffWorkspacePage() {
               </div>
             )}
 
-            {/* ── SOCIAL LINKS TAB ── */}
+            {/* ── ORDERS TAB */}
+            {activeTab === 'orders' && (
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+                  <div>
+                    <h2 className="text-xl font-bold text-[#1A1612]">Orders</h2>
+                    <p className="text-sm text-[#8C8278] mt-0.5">{wsOrders.length} orders</p>
+                  </div>
+                  <button
+                    onClick={loadWsOrders}
+                    className="text-sm border border-[#DDD5C8] text-[#5C5347] px-4 py-2 rounded-xl hover:bg-[#F5F0E8] transition-colors"
+                  >
+                    ↻ Refresh
+                  </button>
+                </div>
+
+                {/* Filters */}
+                <div className="flex flex-wrap gap-3 mb-5">
+                  <input
+                    type="text"
+                    placeholder="Search orders…"
+                    value={wsOrderSearch}
+                    onChange={e => setWsOrderSearch(e.target.value)}
+                    className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white min-w-[200px]"
+                  />
+                  <select
+                    value={wsFilterPayment}
+                    onChange={e => setWsFilterPayment(e.target.value)}
+                    className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+                  >
+                    <option value="all">All Payments</option>
+                    {PAYMENT_OPTIONS.map(s => <option key={s} value={s}>{PAYMENT_STATUS_LABELS[s]}</option>)}
+                  </select>
+                  <select
+                    value={wsFilterFulfillment}
+                    onChange={e => setWsFilterFulfillment(e.target.value)}
+                    className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+                  >
+                    <option value="all">All Fulfillment</option>
+                    {FULFILLMENT_OPTIONS.map(s => <option key={s} value={s}>{FULFILLMENT_STATUS_LABELS[s]}</option>)}
+                  </select>
+                </div>
+
+                {wsOrdersLoading ? (
+                  <div className="flex items-center justify-center py-16">
+                    <div className="w-8 h-8 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
+                  </div>
+                ) : wsOrdersError ? (
+                  <div className="text-center py-16 text-red-500">
+                    <p className="text-sm">{wsOrdersError}</p>
+                  </div>
+                ) : wsFilteredOrders.length === 0 ? (
+                  <div className="text-center py-16 text-[#8C8278]">
+                    <p className="text-lg font-medium">No orders found</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {wsFilteredOrders.map(order => {
+                      const expanded = wsExpandedOrderId === order.id;
+                      const updateState = getWsOrderUpdateState(order.id);
+                      return (
+                        <div key={order.id} className="bg-white rounded-2xl border border-[#EDE7DA] overflow-hidden">
+                          <button
+                            onClick={() => setWsExpandedOrderId(expanded ? null : order.id)}
+                            className="w-full flex items-center justify-between px-5 py-4 hover:bg-[#FAF5EE] transition-colors text-left"
+                          >
+                            <div className="flex items-center gap-4">
+                              <div>
+                                <p className="font-semibold text-[#1A1612] text-sm">{order.customer_name}</p>
+                                <p className="text-xs text-[#8C8278] mt-0.5">{order.customer_email}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className={`text-xs px-2.5 py-1 rounded-full font-semibold border ${PAYMENT_STATUS_COLORS[order.payment_status]}`}>
+                                {PAYMENT_STATUS_LABELS[order.payment_status]}
+                              </span>
+                              <span className={`text-xs px-2.5 py-1 rounded-full font-semibold border ${FULFILLMENT_STATUS_COLORS[order.fulfillment_status]}`}>
+                                {FULFILLMENT_STATUS_LABELS[order.fulfillment_status]}
+                              </span>
+                              <span className="text-sm font-bold text-[#C4622D]">{formatCurrency(order.total)}</span>
+                              <svg className={`w-4 h-4 text-[#8C8278] transition-transform ${expanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                              </svg>
+                            </div>
+                          </button>
+
+                          {expanded && (
+                            <div className="border-t border-[#EDE7DA] px-5 py-4 space-y-4">
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                                <div>
+                                  <p className="text-[#8C8278] mb-0.5">Order ID</p>
+                                  <p className="font-mono text-[#1A1612] font-semibold text-xs">{order.id.slice(0, 8)}…</p>
+                                </div>
+                                <div>
+                                  <p className="text-[#8C8278] mb-0.5">Phone</p>
+                                  <p className="font-semibold text-[#1A1612]">{order.customer_phone || '—'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-[#8C8278] mb-0.5">Ordered</p>
+                                  <p className="font-semibold text-[#1A1612]">{formatDate(order.created_at)}</p>
+                                </div>
+                                <div>
+                                  <p className="text-[#8C8278] mb-0.5">Event Date</p>
+                                  <p className="font-semibold text-[#1A1612]">{formatDate(order.event_date)}</p>
+                                </div>
+                                {order.delivery_address && (
+                                  <div className="col-span-2">
+                                    <p className="text-[#8C8278] mb-0.5">Delivery Address</p>
+                                    <p className="font-semibold text-[#1A1612]">{order.delivery_address}</p>
+                                  </div>
+                                )}
+                                {order.notes && (
+                                  <div className="col-span-2">
+                                    <p className="text-[#8C8278] mb-0.5">Notes</p>
+                                    <p className="font-semibold text-[#1A1612]">{order.notes}</p>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Items */}
+                              <div>
+                                <p className="text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-2">Items</p>
+                                <div className="space-y-1">
+                                  {(order.items || []).map((item, i) => (
+                                    <div key={i} className="flex items-center justify-between text-xs py-1 border-b border-[#F0EBE3] last:border-0">
+                                      <span className="text-[#1A1612]">{item.quantity}× {item.name}</span>
+                                      <span className="font-semibold text-[#1A1612]">{formatCurrency(item.price * item.quantity)}</span>
+                                    </div>
+                                  ))}
+                                  <div className="flex justify-between text-xs pt-1 font-bold text-[#1A1612]">
+                                    <span>Total</span>
+                                    <span>{formatCurrency(order.total)}</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Status updates */}
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                  <p className="text-xs font-semibold text-[#5C5347] mb-2">Update Fulfillment</p>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {FULFILLMENT_OPTIONS.map(s => (
+                                      <button
+                                        key={s}
+                                        onClick={() => handleWsFulfillmentUpdate(order.id, s)}
+                                        disabled={updateState.fulfillmentSaving || order.fulfillment_status === s}
+                                        className={`text-xs px-3 py-1.5 rounded-xl border font-semibold transition-colors disabled:opacity-50 ${
+                                          order.fulfillment_status === s
+                                            ? FULFILLMENT_STATUS_COLORS[s] + 'cursor-default' :'border-[#DDD5C8] text-[#5C5347] hover:bg-[#F5F0E8]'
+                                        }`}
+                                      >
+                                        {FULFILLMENT_STATUS_LABELS[s]}
+                                      </button>
+                                    ))}
+                                  </div>
+                                  {updateState.fulfillmentSuccess && <p className="text-xs text-green-600 mt-1">✓ Updated</p>}
+                                  {updateState.fulfillmentError && <p className="text-xs text-red-500 mt-1">{updateState.fulfillmentError}</p>}
+                                </div>
+                                <div>
+                                  <p className="text-xs font-semibold text-[#5C5347] mb-2">Update Payment</p>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {PAYMENT_OPTIONS.map(s => (
+                                      <button
+                                        key={s}
+                                        onClick={() => handleWsPaymentUpdate(order.id, s)}
+                                        disabled={updateState.paymentSaving || order.payment_status === s}
+                                        className={`text-xs px-3 py-1.5 rounded-xl border font-semibold transition-colors disabled:opacity-50 ${
+                                          order.payment_status === s
+                                            ? PAYMENT_STATUS_COLORS[s] + 'cursor-default' :'border-[#DDD5C8] text-[#5C5347] hover:bg-[#F5F0E8]'
+                                        }`}
+                                      >
+                                        {PAYMENT_STATUS_LABELS[s]}
+                                      </button>
+                                    ))}
+                                  </div>
+                                  {updateState.paymentSuccess && <p className="text-xs text-green-600 mt-1">✓ Updated</p>}
+                                  {updateState.paymentError && <p className="text-xs text-red-500 mt-1">{updateState.paymentError}</p>}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── MEAL VOUCHERS TAB */}
+            {activeTab === 'vouchers' && (
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+                  <div>
+                    <h2 className="text-xl font-bold text-[#1A1612]">Meal Vouchers</h2>
+                    <p className="text-sm text-[#8C8278] mt-0.5">{vouchers.length} vouchers</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="text"
+                      placeholder="Search vouchers…"
+                      value={vouchersSearchQuery}
+                      onChange={e => setVouchersSearchQuery(e.target.value)}
+                      className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+                    />
+                    <button onClick={loadVouchers} className="text-sm border border-[#DDD5C8] text-[#5C5347] px-4 py-2 rounded-xl hover:bg-[#F5F0E8] transition-colors">↻ Refresh</button>
+                  </div>
+                </div>
+
+                {/* Issue Voucher Form */}
+                <div className="bg-white rounded-2xl border border-[#EDE7DA] p-6 mb-6">
+                  <h3 className="text-base font-bold text-[#1A1612] mb-4">Issue New Meal Voucher</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-[#5C5347] mb-1">Customer Name *</label>
+                      <input value={issueVoucherForm.customer_name} onChange={e => setIssueVoucherForm(f => ({ ...f, customer_name: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-[#5C5347] mb-1">Customer Email *</label>
+                      <input type="email" value={issueVoucherForm.customer_email} onChange={e => setIssueVoucherForm(f => ({ ...f, customer_email: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-[#5C5347] mb-1">Phone</label>
+                      <input value={issueVoucherForm.customer_phone} onChange={e => setIssueVoucherForm(f => ({ ...f, customer_phone: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-[#5C5347] mb-1">Total Meals *</label>
+                      <input type="number" value={issueVoucherForm.total_meals} onChange={e => setIssueVoucherForm(f => ({ ...f, total_meals: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-xs font-semibold text-[#5C5347] mb-1">Notes</label>
+                      <textarea value={issueVoucherForm.notes} onChange={e => setIssueVoucherForm(f => ({ ...f, notes: e.target.value }))} rows={2} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                    </div>
+                  </div>
+                  {issueVoucherSuccess && <p className="text-sm text-green-600 mt-3">{issueVoucherSuccess}</p>}
+                  <button
+                    onClick={async () => {
+                      if (!issueVoucherForm.customer_name.trim() || !issueVoucherForm.customer_email.trim() || !issueVoucherForm.total_meals) {
+                        showIssueVoucherError('Name, email, and total meals are required.');
+                        return;
+                      }
+                      setIssuingVoucher(true);
+                      const code = 'MV-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+                      const { error } = await supabase.from('vouchers').insert({
+                        voucher_code: code,
+                        customer_name: issueVoucherForm.customer_name.trim(),
+                        customer_email: issueVoucherForm.customer_email.trim(),
+                        customer_phone: issueVoucherForm.customer_phone.trim(),
+                        total_meals: Number(issueVoucherForm.total_meals),
+                        meals_remaining: Number(issueVoucherForm.total_meals),
+                        status: 'unpaid',
+                        notes: issueVoucherForm.notes.trim() || null,
+                      });
+                      if (error) { showIssueVoucherError(error.message); }
+                      else {
+                        setIssueVoucherSuccess(`Voucher ${code} issued!`);
+                        setIssueVoucherForm({ customer_name: '', customer_email: '', customer_phone: '', total_meals: '', notes: '' });
+                        await loadVouchers();
+                      }
+                      setIssuingVoucher(false);
+                    }}
+                    disabled={issuingVoucher}
+                    className="mt-4 bg-[#C4622D] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
+                  >
+                    {issuingVoucher ? 'Issuing…' : 'Issue Voucher'}
+                  </button>
+                </div>
+
+                {vouchersLoading ? (
+                  <div className="flex items-center justify-center py-16">
+                    <div className="w-8 h-8 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
+                  </div>
+                ) : filteredVouchers.length === 0 ? (
+                  <div className="text-center py-16 text-[#8C8278]">
+                    <p className="text-lg font-medium">No vouchers found</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {filteredVouchers.map(v => {
+                      const isSelected = selectedVoucher?.id === v.id;
+                      return (
+                        <div key={v.id} className="bg-white rounded-2xl border border-[#EDE7DA] overflow-hidden">
+                          <button
+                            onClick={() => {
+                              if (isSelected) { setSelectedVoucher(null); setVoucherRedemptions([]); }
+                              else {
+                                setSelectedVoucher(v);
+                                setRedemptionsLoading(true);
+                                supabase.from('voucher_redemptions').select('*').eq('voucher_code', v.voucher_code).order('redeemed_at', { ascending: false })
+                                  .then(({ data }) => { setVoucherRedemptions(data || []); setRedemptionsLoading(false); });
+                              }
+                            }}
+                            className="w-full flex items-center justify-between px-5 py-4 hover:bg-[#FAF5EE] transition-colors text-left"
+                          >
+                            <div>
+                              <p className="font-semibold text-[#1A1612] text-sm">{v.customer_name}</p>
+                              <p className="text-xs text-[#8C8278] mt-0.5">{v.customer_email}</p>
+                              <p className="text-xs font-mono text-[#C4622D] mt-0.5">{v.voucher_code}</p>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <div className="text-right">
+                                <p className="text-sm font-bold text-[#1A1612]">{v.meals_remaining}/{v.total_meals} meals</p>
+                                <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+                                  v.status === 'paid' ? 'bg-green-100 text-green-700' :
+                                  v.status === 'redeemed' ? 'bg-blue-100 text-blue-700' :
+                                  v.status === 'expired'? 'bg-gray-100 text-gray-500' : 'bg-amber-100 text-amber-700'
+                                }`}>{v.status}</span>
+                              </div>
+                              <svg className={`w-4 h-4 text-[#8C8278] transition-transform ${isSelected ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                              </svg>
+                            </div>
+                          </button>
+
+                          {isSelected && (
+                            <div className="border-t border-[#EDE7DA] px-5 py-4 space-y-4">
+                              <div className="flex items-center gap-3 flex-wrap">
+                                {v.status === 'unpaid' && (
+                                  <button
+                                    onClick={async () => {
+                                      setMarkingVoucherPaidId(v.id);
+                                      setLoadingMarkingPaid(true);
+                                      await supabase.from('vouchers').update({ status: 'paid' }).eq('id', v.id);
+                                      await loadVouchers();
+                                      setSelectedVoucher(prev => prev ? { ...prev, status: 'paid' } : null);
+                                      setLoadingMarkingPaid(false);
+                                      setMarkingVoucherPaidId(null);
+                                    }}
+                                    disabled={loadingMarkingPaid && markingVoucherPaidId === v.id}
+                                    className="text-xs bg-green-600 text-white px-4 py-2 rounded-xl font-semibold hover:bg-green-700 transition-colors disabled:opacity-50"
+                                  >
+                                    {loadingMarkingPaid && markingVoucherPaidId === v.id ? 'Marking…' : 'Mark as Paid'}
+                                  </button>
+                                )}
+                              </div>
+                              <div>
+                                <p className="text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-3">Redemption History</p>
+                                {redemptionsLoading ? (
+                                  <div className="flex items-center justify-center py-6">
+                                    <div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
+                                  </div>
+                                ) : voucherRedemptions.length === 0 ? (
+                                  <p className="text-xs text-[#B5ADA5] italic">No redemptions yet</p>
+                                ) : (
+                                  <div className="space-y-2">
+                                    {voucherRedemptions.map((r, i) => (
+                                      <RedemptionAuditRow key={r.id} redemption={r} index={i + 1} />
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── DISCOUNT VOUCHERS TAB */}
+            {activeTab === 'discount_vouchers' && (
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+                  <div>
+                    <h2 className="text-xl font-bold text-[#1A1612]">Discount Vouchers</h2>
+                    <p className="text-sm text-[#8C8278] mt-0.5">{discountVouchers.length} vouchers</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="text"
+                      placeholder="Search discount vouchers…"
+                      value={dvSearchQuery}
+                      onChange={e => setDvSearchQuery(e.target.value)}
+                      className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+                    />
+                    <button
+                      onClick={() => { setEditingDv(null); setDvForm({ dv_code: '', dv_amount: '', status: 'Active', expiry_date: '' }); setDvFormError(''); setDvFormSuccess(''); setShowDvForm(true); }}
+                      className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors"
+                    >
+                      + Add Voucher
+                    </button>
+                  </div>
+                </div>
+
+                {showDvForm && (
+                  <div className="bg-white rounded-2xl border border-[#EDE7DA] p-6 mb-6">
+                    <h3 className="text-base font-bold text-[#1A1612] mb-4">{editingDv ? 'Edit Discount Voucher' : 'Add Discount Voucher'}</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Voucher Code *</label>
+                        <input value={dvForm.dv_code} onChange={e => setDvForm(f => ({ ...f, dv_code: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Amount (R) *</label>
+                        <input type="number" value={dvForm.dv_amount} onChange={e => setDvForm(f => ({ ...f, dv_amount: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Status</label>
+                        <select value={dvForm.status} onChange={e => setDvForm(f => ({ ...f, status: e.target.value as 'Active' | 'Inactive' }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white">
+                          <option value="Active">Active</option>
+                          <option value="Inactive">Inactive</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Expiry Date *</label>
+                        <input type="date" value={dvForm.expiry_date} onChange={e => setDvForm(f => ({ ...f, expiry_date: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                      </div>
+                    </div>
+                    {dvFormError && <p className="text-sm text-red-600 mt-3">{dvFormError}</p>}
+                    {dvFormSuccess && <p className="text-sm text-green-600 mt-3">{dvFormSuccess}</p>}
+                    <div className="flex items-center gap-3 mt-4">
+                      <button
+                        onClick={async () => {
+                          if (!dvForm.dv_code.trim() || !dvForm.dv_amount || !dvForm.expiry_date) { setDvFormError('Code, amount, and expiry date are required.'); return; }
+                          setSavingDv(true);
+                          const payload = { dv_code: dvForm.dv_code.trim().toUpperCase(), dv_amount: Number(dvForm.dv_amount), status: dvForm.status, expiry_date: dvForm.expiry_date };
+                          let error;
+                          if (editingDv) {
+                            ({ error } = await supabase.from('discount_vouchers').update(payload).eq('id', editingDv.id));
+                          } else {
+                            ({ error } = await supabase.from('discount_vouchers').insert({ ...payload, times_used: 0 }));
+                          }
+                          if (error) { setDvFormError(error.message); }
+                          else { setDvFormSuccess(editingDv ? 'Voucher updated!' : 'Voucher created!'); setShowDvForm(false); await loadDiscountVouchers(); }
+                          setSavingDv(false);
+                        }}
+                        disabled={savingDv}
+                        className="bg-[#C4622D] text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
+                      >
+                        {savingDv ? 'Saving…' : editingDv ? 'Update' : 'Create Voucher'}
+                      </button>
+                      <button onClick={() => setShowDvForm(false)} className="text-sm text-[#5C5347] border border-[#DDD5C8] px-4 py-2 rounded-xl hover:bg-[#F5F0E8] transition-colors">Cancel</button>
+                    </div>
+                  </div>
+                )}
+
+                {dvLoading ? (
+                  <div className="flex items-center justify-center py-16">
+                    <div className="w-8 h-8 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
+                  </div>
+                ) : filteredDiscountVouchers.length === 0 ? (
+                  <div className="text-center py-16 text-[#8C8278]">
+                    <p className="text-lg font-medium">No discount vouchers found</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {filteredDiscountVouchers.map(dv => (
+                      <div key={dv.id} className="bg-white rounded-2xl border border-[#EDE7DA] p-4 flex items-center justify-between">
+                        <div>
+                          <p className="font-semibold text-[#1A1612] text-sm font-mono">{dv.dv_code}</p>
+                          <p className="text-xs text-[#8C8278] mt-0.5">R{Number(dv.dv_amount).toFixed(2)} · Expires {formatDate(dv.expiry_date)} · Used {dv.times_used ?? 0}×</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs px-2.5 py-1 rounded-full font-semibold border ${dv.status === 'Active' ? 'bg-green-100 text-green-700 border-green-200' : 'bg-gray-100 text-gray-500 border-gray-200'}`}>
+                            {dv.status}
+                          </span>
+                          <button
+                            onClick={() => { setEditingDv(dv); setDvForm({ dv_code: dv.dv_code, dv_amount: String(dv.dv_amount), status: dv.status, expiry_date: dv.expiry_date?.split('T')[0] || '' }); setDvFormError(''); setDvFormSuccess(''); setShowDvForm(true); }}
+                            className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl hover:bg-[#FDF6EE] transition-colors"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => setDeleteModal({ open: true, title: 'Delete Discount Voucher', message: `Delete voucher "${dv.dv_code}"?`, onConfirm: async () => { setDeleteModal(prev => ({ ...prev, open: false })); await supabase.from('discount_vouchers').delete().eq('id', dv.id); await loadDiscountVouchers(); } })}
+                            className="text-xs text-red-600 border border-red-200 px-3 py-1.5 rounded-xl hover:bg-red-50 transition-colors"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── REPORTING TAB */}
+            {activeTab === 'reporting' && (
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+                  <div>
+                    <h2 className="text-xl font-bold text-[#1A1612]">Reports Dashboard</h2>
+                    <p className="text-sm text-[#8C8278] mt-0.5">Detailed order and voucher reports</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="text"
+                      placeholder="Search reports…"
+                      value={reportingSearchQuery}
+                      onChange={e => setReportingSearchQuery(e.target.value)}
+                      className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+                    />
+                    <button onClick={loadReporting} className="text-sm border border-[#DDD5C8] text-[#5C5347] px-4 py-2 rounded-xl hover:bg-[#F5F0E8] transition-colors">↻ Refresh</button>
+                  </div>
+                </div>
+
+                {/* Report sub-tabs */}
+                <div className="flex gap-2 mb-6 flex-wrap">
+                  {([
+                    { key: 'products_ordered', label: 'Products Ordered' },
+                    { key: 'package_meals_ordered', label: 'Package Meals' },
+                    { key: 'discount_vouchers_report', label: 'Discount Vouchers' },
+                  ] as const).map(tab => (
+                    <button
+                      key={tab.key}
+                      onClick={() => setReportingView(tab.key)}
+                      className={`text-sm px-4 py-2 rounded-xl font-semibold border transition-colors ${
+                        reportingView === tab.key
+                          ? 'bg-[#C4622D] text-white border-[#C4622D]'
+                          : 'border-[#DDD5C8] text-[#5C5347] hover:bg-[#F5F0E8]'
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Products Ordered */}
+                {reportingView === 'products_ordered' && (
+                  <div>
+                    <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                      <p className="text-sm font-semibold text-[#1A1612]">Products Ordered ({filteredProductsOrderedRows.length})</p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <input type="date" value={productsOrderedDateFrom} onChange={e => setProductsOrderedDateFrom(e.target.value)} className="border border-[#DDD5C8] rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-[#C4622D] bg-white" />
+                        <span className="text-xs text-[#8C8278]">to</span>
+                        <input type="date" value={productsOrderedDateTo} onChange={e => setProductsOrderedDateTo(e.target.value)} className="border border-[#DDD5C8] rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-[#C4622D] bg-white" />
+                        <button onClick={downloadProductsOrderedPDF} className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl hover:bg-[#FDF6EE] transition-colors">⬇ PDF</button>
+                      </div>
+                    </div>
+                    {productsOrderedLoading ? (
+                      <div className="flex items-center justify-center py-12"><div className="w-7 h-7 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>
+                    ) : (
+                      <div className="overflow-x-auto rounded-2xl border border-[#EDE7DA]">
+                        <table className="w-full text-xs">
+                          <thead className="bg-[#F5F0E8]">
+                            <tr>
+                              {['Product', 'Type', 'Item', 'Meal Voucher', 'Discount Voucher', 'Ordered', 'Delivered', 'Client', 'Email'].map(h => (
+                                <th key={h} className="px-3 py-2.5 text-left font-semibold text-[#5C5347] whitespace-nowrap">{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filteredProductsOrderedRows.length === 0 ? (
+                              <tr><td colSpan={9} className="text-center py-8 text-[#8C8278]">No data</td></tr>
+                            ) : filteredProductsOrderedRows.map((r, i) => (
+                              <tr key={i} className="border-t border-[#F0EBE3] hover:bg-[#FAF5EE]">
+                                <td className="px-3 py-2 font-medium text-[#1A1612]">{r.productName}</td>
+                                <td className="px-3 py-2 text-[#5C5347]">{r.productType}</td>
+                                <td className="px-3 py-2 text-[#5C5347]">{r.item}</td>
+                                <td className="px-3 py-2 text-[#5C5347]">{r.mealVoucher || '—'}</td>
+                                <td className="px-3 py-2 text-[#5C5347]">{r.discountVoucher || '—'}</td>
+                                <td className="px-3 py-2 text-[#5C5347] whitespace-nowrap">{r.orderedDate}</td>
+                                <td className="px-3 py-2 text-[#5C5347] whitespace-nowrap">{r.deliveredDt || '—'}</td>
+                                <td className="px-3 py-2 text-[#5C5347]">{r.clientName}</td>
+                                <td className="px-3 py-2 text-[#5C5347]">{r.clientEmail}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Package Meals Ordered */}
+                {reportingView === 'package_meals_ordered' && (
+                  <div>
+                    <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                      <p className="text-sm font-semibold text-[#1A1612]">Package Meals Ordered ({filteredPackageMealsRows.length})</p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <input type="date" value={packageMealsDateFrom} onChange={e => setPackageMealsDateFrom(e.target.value)} className="border border-[#DDD5C8] rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-[#C4622D] bg-white" />
+                        <span className="text-xs text-[#8C8278]">to</span>
+                        <input type="date" value={packageMealsDateTo} onChange={e => setPackageMealsDateTo(e.target.value)} className="border border-[#DDD5C8] rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-[#C4622D] bg-white" />
+                        <button onClick={downloadPackageMealsPDF} className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl hover:bg-[#FDF6EE] transition-colors">⬇ PDF</button>
+                      </div>
+                    </div>
+                    {packageMealsLoading ? (
+                      <div className="flex items-center justify-center py-12"><div className="w-7 h-7 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>
+                    ) : (
+                      <div className="overflow-x-auto rounded-2xl border border-[#EDE7DA]">
+                        <table className="w-full text-xs">
+                          <thead className="bg-[#F5F0E8]">
+                            <tr>
+                              {['Product', 'Type', 'Item', 'Package', 'Meal Voucher', 'Discount Voucher', 'Ordered', 'Delivered', 'Client', 'Email'].map(h => (
+                                <th key={h} className="px-3 py-2.5 text-left font-semibold text-[#5C5347] whitespace-nowrap">{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filteredPackageMealsRows.length === 0 ? (
+                              <tr><td colSpan={10} className="text-center py-8 text-[#8C8278]">No data</td></tr>
+                            ) : filteredPackageMealsRows.map((r, i) => (
+                              <tr key={i} className="border-t border-[#F0EBE3] hover:bg-[#FAF5EE]">
+                                <td className="px-3 py-2 font-medium text-[#1A1612]">{r.productName}</td>
+                                <td className="px-3 py-2 text-[#5C5347]">{r.productType}</td>
+                                <td className="px-3 py-2 text-[#5C5347]">{r.item}</td>
+                                <td className="px-3 py-2 text-[#5C5347]">{r.packagePurchased}</td>
+                                <td className="px-3 py-2 text-[#5C5347]">{r.mealVoucher || '—'}</td>
+                                <td className="px-3 py-2 text-[#5C5347]">{r.discountVoucher || '—'}</td>
+                                <td className="px-3 py-2 text-[#5C5347] whitespace-nowrap">{r.orderedDate}</td>
+                                <td className="px-3 py-2 text-[#5C5347] whitespace-nowrap">{r.deliveredDt || '—'}</td>
+                                <td className="px-3 py-2 text-[#5C5347]">{r.clientName}</td>
+                                <td className="px-3 py-2 text-[#5C5347]">{r.clientEmail}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Discount Vouchers Report */}
+                {reportingView === 'discount_vouchers_report' && (
+                  <div>
+                    <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                      <p className="text-sm font-semibold text-[#1A1612]">Discount Vouchers ({filteredDiscountVouchersReportRows.length})</p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <input type="date" value={discountVouchersDateFrom} onChange={e => setDiscountVouchersDateFrom(e.target.value)} className="border border-[#DDD5C8] rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-[#C4622D] bg-white" />
+                        <span className="text-xs text-[#8C8278]">to</span>
+                        <input type="date" value={discountVouchersDateTo} onChange={e => setDiscountVouchersDateTo(e.target.value)} className="border border-[#DDD5C8] rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-[#C4622D] bg-white" />
+                        <button onClick={downloadDiscountVouchersPDF} className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl hover:bg-[#FDF6EE] transition-colors">⬇ PDF</button>
+                      </div>
+                    </div>
+                    {discountVouchersReportLoading ? (
+                      <div className="flex items-center justify-center py-12"><div className="w-7 h-7 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>
+                    ) : (
+                      <div className="overflow-x-auto rounded-2xl border border-[#EDE7DA]">
+                        <table className="w-full text-xs">
+                          <thead className="bg-[#F5F0E8]">
+                            <tr>
+                              {['Code', 'Amount', 'Expiry', 'Product', 'Type', 'Item', 'Ordered', 'Delivered', 'Client', 'Email'].map(h => (
+                                <th key={h} className="px-3 py-2.5 text-left font-semibold text-[#5C5347] whitespace-nowrap">{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filteredDiscountVouchersReportRows.length === 0 ? (
+                              <tr><td colSpan={10} className="text-center py-8 text-[#8C8278]">No data</td></tr>
+                            ) : filteredDiscountVouchersReportRows.map((r, i) => (
+                              <tr key={i} className="border-t border-[#F0EBE3] hover:bg-[#FAF5EE]">
+                                <td className="px-3 py-2 font-mono font-semibold text-[#C4622D]">{r.dvCode}</td>
+                                <td className="px-3 py-2 text-[#1A1612]">R{r.dvAmount.toFixed(2)}</td>
+                                <td className="px-3 py-2 text-[#5C5347] whitespace-nowrap">{r.expiryDate}</td>
+                                <td className="px-3 py-2 text-[#5C5347]">{r.productName || '—'}</td>
+                                <td className="px-3 py-2 text-[#5C5347]">{r.productType}</td>
+                                <td className="px-3 py-2 text-[#5C5347]">{r.item}</td>
+                                <td className="px-3 py-2 text-[#5C5347] whitespace-nowrap">{r.orderedDate}</td>
+                                <td className="px-3 py-2 text-[#5C5347] whitespace-nowrap">{r.deliveredDt || '—'}</td>
+                                <td className="px-3 py-2 text-[#5C5347]">{r.clientName}</td>
+                                <td className="px-3 py-2 text-[#5C5347]">{r.clientEmail}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── ANALYTICS TAB */}
+            {activeTab === 'analytics' && (
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+                  <div>
+                    <h2 className="text-xl font-bold text-[#1A1612]">Analytics</h2>
+                    <p className="text-sm text-[#8C8278] mt-0.5">Performance overview and trends</p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {(['7d', '30d', '90d', '12m'] as AnalyticsPeriod[]).map(p => (
+                      <button
+                        key={p}
+                        onClick={() => { setAnalyticsPeriod(p); loadAnalytics(p); }}
+                        className={`text-xs px-3 py-1.5 rounded-xl font-semibold border transition-colors ${
+                          analyticsPeriod === p ? 'bg-[#C4622D] text-white border-[#C4622D]' : 'border-[#DDD5C8] text-[#5C5347] hover:bg-[#F5F0E8]'
+                        }`}
+                      >
+                        {p === '7d' ? 'Last 7 Days' : p === '30d' ? 'Last 30 Days' : p === '90d' ? 'Last 90 Days' : 'Last 12 Months'}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => loadAnalytics(analyticsPeriod)}
+                      className="text-xs border border-[#DDD5C8] text-[#5C5347] px-3 py-1.5 rounded-xl hover:bg-[#F5F0E8] transition-colors"
+                    >
+                      ↻ Refresh
+                    </button>
+                  </div>
+                </div>
+
+                {analyticsLoading ? (
+                  <div className="flex items-center justify-center py-20">
+                    <div className="w-8 h-8 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
+                  </div>
+                ) : analyticsError ? (
+                  <div className="text-center py-16 text-red-500">
+                    <p className="text-sm">{analyticsError}</p>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {/* Summary Metrics */}
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      {summaryMetrics.map((m, i) => (
+                        <div key={i} className="bg-white rounded-2xl border border-[#EDE7DA] p-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="text-xl">{m.icon}</span>
+                            <p className="text-xs font-semibold text-[#5C5347] uppercase tracking-wide">{m.label}</p>
+                          </div>
+                          <p className="text-2xl font-bold text-[#1A1612]">{m.value}</p>
+                          {m.sub && <p className="text-xs text-[#8C8278] mt-0.5">{m.sub}</p>}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Order Trends Chart */}
+                    <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5">
+                      <h3 className="text-sm font-bold text-[#1A1612] mb-4">Order Trends</h3>
+                      {orderTrend.length === 0 ? (
+                        <p className="text-xs text-[#8C8278] text-center py-8">No order data for this period</p>
+                      ) : (
+                        <ResponsiveContainer width="100%" height={220}>
+                          <LineChart data={orderTrend} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#F0EBE3" />
+                            <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#8C8278' }} />
+                            <YAxis tick={{ fontSize: 10, fill: '#8C8278' }} />
+                            <RechartsTooltip content={<AnalyticsTooltip />} />
+                            <Legend wrapperStyle={{ fontSize: 11 }} />
+                            <Line type="monotone" dataKey="orders" name="Orders" stroke="#C4622D" strokeWidth={2} dot={false} />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      )}
+                    </div>
+
+                    {/* Revenue Chart */}
+                    <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5">
+                      <h3 className="text-sm font-bold text-[#1A1612] mb-4">Revenue</h3>
+                      {orderTrend.length === 0 ? (
+                        <p className="text-xs text-[#8C8278] text-center py-8">No revenue data for this period</p>
+                      ) : (
+                        <ResponsiveContainer width="100%" height={220}>
+                          <BarChart data={orderTrend} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#F0EBE3" />
+                            <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#8C8278' }} />
+                            <YAxis tick={{ fontSize: 10, fill: '#8C8278' }} tickFormatter={(v) => `R${v}`} />
+                            <RechartsTooltip content={<AnalyticsTooltip />} />
+                            <Bar dataKey="revenue" name="Revenue" fill="#C4622D" radius={[4, 4, 0, 0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      )}
+                    </div>
+
+                    {/* Voucher Usage Chart */}
+                    <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5">
+                      <h3 className="text-sm font-bold text-[#1A1612] mb-4">Voucher Usage</h3>
+                      {voucherUsage.length === 0 ? (
+                        <p className="text-xs text-[#8C8278] text-center py-8">No voucher data for this period</p>
+                      ) : (
+                        <ResponsiveContainer width="100%" height={220}>
+                          <BarChart data={voucherUsage} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#F0EBE3" />
+                            <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#8C8278' }} />
+                            <YAxis tick={{ fontSize: 10, fill: '#8C8278' }} />
+                            <RechartsTooltip content={<AnalyticsTooltip />} />
+                            <Legend wrapperStyle={{ fontSize: 11 }} />
+                            <Bar dataKey="mealVouchers" name="Meal Vouchers" fill="#C4622D" radius={[4, 4, 0, 0]} />
+                            <Bar dataKey="discountVouchers" name="Discount Vouchers" fill="#8B5CF6" radius={[4, 4, 0, 0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      )}
+                    </div>
+
+                    {/* Fulfillment Breakdown */}
+                    {fulfillmentMetrics.length > 0 && (
+                      <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5">
+                        <h3 className="text-sm font-bold text-[#1A1612] mb-4">Fulfillment Breakdown</h3>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                          {fulfillmentMetrics.map((m, i) => (
+                            <div key={i} className="flex items-center gap-3 bg-[#F5F0E8] rounded-xl px-3 py-2.5">
+                              <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: m.color }} />
+                              <div>
+                                <p className="text-xs font-semibold text-[#1A1612]">{m.count}</p>
+                                <p className="text-xs text-[#8C8278]">{m.status}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── SOCIAL LINKS TAB */}
             {activeTab === 'social_media' && userProfile?.role === 'super_admin' && (
               <div className="p-6">
                 <div className="mb-6">
