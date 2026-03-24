@@ -546,6 +546,8 @@ export default function StaffWorkspacePage() {
   const [inviting, setInviting] = useState(false);
   const [togglingStaffId, setTogglingStaffId] = useState<string | null>(null);
   const [staffSearchQuery, setStaffSearchQuery] = useState('');
+  const [sendingResetId, setSendingResetId] = useState<string | null>(null);
+  const [resetMessages, setResetMessages] = useState<Record<string, { type: 'success' | 'error'; text: string }>>({});
 
   // Homepage cards state
   const [homepageCards, setHomepageCards] = useState<HomepageCard[]>([]);
@@ -1280,6 +1282,28 @@ export default function StaffWorkspacePage() {
     await supabase.from('user_profiles').update({ is_active: !member.is_active }).eq('id', member.id);
     await loadStaff();
     setTogglingStaffId(null);
+  };
+
+  const handleResetPassword = async (member: StaffMember) => {
+    setSendingResetId(member.id);
+    setResetMessages(prev => ({ ...prev, [member.id]: { type: 'success', text: '' } }));
+    try {
+      const res = await fetch('/api/staff/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: member.id, email: member.email }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setResetMessages(prev => ({ ...prev, [member.id]: { type: 'error', text: json.error || 'Failed to send reset email.' } }));
+      } else {
+        setResetMessages(prev => ({ ...prev, [member.id]: { type: 'success', text: `Reset email sent to ${member.email}` } }));
+      }
+    } catch {
+      setResetMessages(prev => ({ ...prev, [member.id]: { type: 'error', text: 'Network error. Please try again.' } }));
+    } finally {
+      setSendingResetId(null);
+    }
   };
 
   // ─── Homepage Cards CRUD ──────────────────────────────────────────────────────
@@ -2227,6 +2251,22 @@ export default function StaffWorkspacePage() {
                           >
                             {member.is_active ? 'Deactivate' : 'Activate'}
                           </button>
+                        )}
+                        {userProfile?.role === 'super_admin' && (
+                          <div className="flex flex-col items-end gap-1">
+                            <button
+                              onClick={() => handleResetPassword(member)}
+                              disabled={sendingResetId === member.id}
+                              className="text-xs px-3 py-1.5 rounded-xl border border-[#C4622D] text-[#C4622D] hover:bg-[#FDF6EE] font-semibold transition-colors disabled:opacity-50"
+                            >
+                              {sendingResetId === member.id ? 'Sending…' : 'Reset Password'}
+                            </button>
+                            {resetMessages[member.id]?.text && (
+                              <span className={`text-xs ${resetMessages[member.id].type === 'success' ? 'text-green-600' : 'text-red-500'}`}>
+                                {resetMessages[member.id].text}
+                              </span>
+                            )}
+                          </div>
                         )}
                       </div>
                     ))}
