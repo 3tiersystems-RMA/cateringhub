@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import AppLogo from '@/components/ui/AppLogo';
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal';
 import VoucherErrorModal from '@/components/ui/VoucherErrorModal';
+import GoogleDriveDocuments from './components/GoogleDriveDocuments';
 
 
 
@@ -1716,775 +1717,106 @@ export default function StaffWorkspacePage() {
                 <span>Products &amp; Pricing</span>
               </button>
 
-              {/* ── WEEKLY MENU TAB ── */}
-              {activeTab === 'weekly_menu' && (
-                <div className="p-6">
-                  <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-                    <div>
-                      <h2 className="text-xl font-bold text-[#1A1612]">Weekly Menu</h2>
-                      <p className="text-sm text-[#8C8278] mt-0.5">Manage the weekly meal schedule</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button onClick={() => setWeekOffset(w => w - 1)} className="text-sm border border-[#DDD5C8] text-[#5C5347] px-3 py-1.5 rounded-xl hover:bg-[#F5F0E8] transition-colors">← Prev</button>
-                      <button onClick={() => setWeekOffset(0)} className="text-sm border border-[#DDD5C8] text-[#5C5347] px-3 py-1.5 rounded-xl hover:bg-[#F5F0E8] transition-colors">This Week</button>
-                      <button onClick={() => setWeekOffset(w => w + 1)} className="text-sm border border-[#DDD5C8] text-[#5C5347] px-3 py-1.5 rounded-xl hover:bg-[#F5F0E8] transition-colors">Next →</button>
-                    </div>
-                  </div>
+              {/* ── Weekly Menu ── */}
+              <button
+                onClick={() => { handleTabChange('weekly_menu'); }}
+                className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
+                  activeTab === 'weekly_menu' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
+                }`}
+              >
+                <span className="text-base">📅</span>
+                <span>Weekly Menu</span>
+              </button>
 
-                  {showWeeklyMenuForm && (
-                    <div className="bg-white rounded-2xl border border-[#EDE7DA] p-6 mb-6">
-                      <h3 className="text-base font-bold text-[#1A1612] mb-4">{editingWeeklyEntry ? 'Edit Menu Entry' : `Add Entry for ${weeklyMenuForm.day_name}`}</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Meal Name</label>
-                          <input value={weeklyMenuForm.meal_name} onChange={e => setWeeklyMenuForm(f => ({ ...f, meal_name: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Price (R)</label>
-                          <input type="number" value={weeklyMenuForm.price} onChange={e => setWeeklyMenuForm(f => ({ ...f, price: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
-                        </div>
-                        <div className="md:col-span-2">
-                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Description</label>
-                          <textarea value={weeklyMenuForm.description} onChange={e => setWeeklyMenuForm(f => ({ ...f, description: e.target.value }))} rows={2} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <label className="flex items-center gap-2 text-sm text-[#5C5347] cursor-pointer">
-                            <input type="checkbox" checked={weeklyMenuForm.is_closed} onChange={e => setWeeklyMenuForm(f => ({ ...f, is_closed: e.target.checked }))} className="rounded" />
-                            Mark as Closed
-                          </label>
-                        </div>
-                        {weeklyMenuForm.is_closed && (
-                          <div>
-                            <label className="block text-xs font-semibold text-[#5C5347] mb-1">Closed Reason</label>
-                            <input value={weeklyMenuForm.closed_reason} onChange={e => setWeeklyMenuForm(f => ({ ...f, closed_reason: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-3 mt-4">
-                        <button onClick={handleSaveWeeklyMenuEntry} disabled={savingWeeklyEntry} className="bg-[#C4622D] text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50">
-                          {savingWeeklyEntry ? 'Saving…' : editingWeeklyEntry ? 'Update Entry' : 'Add Entry'}
-                        </button>
-                        <button onClick={() => setShowWeeklyMenuForm(false)} className="text-sm text-[#5C5347] border border-[#DDD5C8] px-4 py-2 rounded-xl hover:bg-[#F5F0E8] transition-colors">Cancel</button>
-                      </div>
-                    </div>
-                  )}
+              {/* ── Orders ── */}
+              <button
+                onClick={() => { handleTabChange('orders'); }}
+                className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
+                  activeTab === 'orders' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
+                }`}
+              >
+                <span className="text-base">📦</span>
+                <span>Orders</span>
+              </button>
 
-                  {weeklyMenuLoading ? (
-                    <div className="flex items-center justify-center py-16">
-                      <div className="w-8 h-8 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {getWeekDays().map(day => {
-                        const entries = weeklyMenuEntries.filter(e => e.meal_date === day.date);
-                        return (
-                          <div key={day.date} className="bg-white rounded-2xl border border-[#EDE7DA] p-4">
-                            <div className="flex items-center justify-between mb-3">
-                              <div>
-                                <p className="font-semibold text-[#1A1612] text-sm">{day.dayName}</p>
-                                <p className="text-xs text-[#8C8278]">{day.shortDate}</p>
-                              </div>
-                              <button
-                                onClick={() => openAddWeeklyMenuForm(day.date, day.dayName)}
-                                className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl hover:bg-[#FDF6EE] transition-colors"
-                              >
-                                + Add
-                              </button>
-                            </div>
-                            {entries.length === 0 ? (
-                              <p className="text-xs text-[#B5ADA5] italic">No entries for this day</p>
-                            ) : (
-                              <div className="space-y-2">
-                                {entries.map(entry => (
-                                  <div key={entry.id} className="flex items-center justify-between bg-[#F5F0E8] rounded-xl px-3 py-2">
-                                    <div>
-                                      {entry.is_closed ? (
-                                        <p className="text-sm font-medium text-red-600">🔒 Closed{entry.closed_reason ? ` — ${entry.closed_reason}` : ''}</p>
-                                      ) : (
-                                        <>
-                                          <p className="text-sm font-medium text-[#1A1612]">{entry.meal_name}</p>
-                                          {entry.description && <p className="text-xs text-[#8C8278]">{entry.description}</p>}
-                                          {entry.price && <p className="text-xs font-semibold text-[#C4622D]">{formatCurrency(entry.price)}</p>}
-                                        </>
-                                      )}
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                      <button onClick={() => openEditWeeklyMenuForm(entry)} className="text-xs text-[#C4622D] hover:underline">Edit</button>
-                                      <button onClick={() => handleDeleteWeeklyEntry(entry)} disabled={deletingWeeklyEntryId === entry.id} className="text-xs text-red-600 hover:underline disabled:opacity-50">Delete</button>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
+              {/* ── Vouchers (collapsible) ── */}
+              <button
+                onClick={() => setVouchersMenuOpen(prev => !prev)}
+                className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
+                  ['vouchers', 'discount_vouchers'].includes(activeTab) ? 'text-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
+                }`}
+              >
+                <span className="text-base">🎟️</span>
+                <span className="flex-1">Vouchers</span>
+                <span className="text-xs">{vouchersMenuOpen ? '▲' : '▼'}</span>
+              </button>
+              {vouchersMenuOpen && (
+                <div className="pl-4 border-l-2 border-[#E8DDD0] ml-4">
+                  <button
+                    onClick={() => { handleTabChange('vouchers'); }}
+                    className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${
+                      activeTab === 'vouchers' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'
+                    }`}
+                  >
+                    <span className="text-base">🍽️</span>
+                    <span>Meal Vouchers</span>
+                  </button>
+                  <button
+                    onClick={() => { handleTabChange('discount_vouchers'); }}
+                    className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${
+                      activeTab === 'discount_vouchers' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'
+                    }`}
+                  >
+                    <span className="text-base">🏷️</span>
+                    <span>Discount Vouchers</span>
+                  </button>
                 </div>
               )}
 
-              {/* ── SOCIAL LINKS TAB ── */}
-              {activeTab === 'social_links' && userProfile?.role === 'super_admin' && (
-                <div className="p-6">
-                  <div className="mb-6">
-                    <h2 className="text-xl font-bold text-[#1A1612]">Social Media Links</h2>
-                    <p className="text-sm text-[#8C8278] mt-0.5">Update the URLs for each social media icon displayed in the footer</p>
-                  </div>
-
-                  {socialLinksLoading ? (
-                    <div className="flex items-center justify-center py-16">
-                      <div className="w-8 h-8 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
-                    </div>
-                  ) : (
-                    <div className="bg-white rounded-2xl border border-[#EDE7DA] p-6 max-w-xl">
-                      <div className="space-y-4">
-                        {socialLinks.map(s => (
-                          <div key={s.platform}>
-                            <label className="block text-xs font-semibold text-[#5C5347] mb-1 capitalize">
-                              {s.platform === 'twitter' ? 'X / Twitter' : s.platform === 'custom' ? 'Custom Icon' : s.platform} URL
-                            </label>
-                            <div className="flex items-center gap-2">
-                              <img
-                                src="/assets/images/Screenshot_2026-03-24_at_08.52.59-1774335297294.png"
-                                alt={s.platform}
-                                className="h-8 w-8 rounded-full border border-[#DDD5C8] object-cover flex-shrink-0"
-                                style={{
-                                  objectPosition: (() => {
-                                    const positions: Record<string, string> = {
-                                      facebook: '0% 50%',
-                                      twitter: '25% 50%',
-                                      instagram: '50% 50%',
-                                      pinterest: '75% 50%',
-                                      custom: '100% 50%',
-                                    };
-                                    return positions[s.platform] || '0% 50%';
-                                  })(),
-                                }}
-                              />
-                              <input
-                                type="url"
-                                value={socialLinksForm[s.platform] || ''}
-                                onChange={e => setSocialLinksForm(f => ({ ...f, [s.platform]: e.target.value }))}
-                                placeholder="https://..."
-                                className="flex-1 border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
-                              />
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-
-                      {socialLinksError && <p className="text-sm text-red-600 mt-4">{socialLinksError}</p>}
-                      {socialLinksSuccess && <p className="text-sm text-green-600 mt-4">{socialLinksSuccess}</p>}
-
-                      <div className="mt-6">
-                        <button
-                          onClick={handleSaveSocialLinks}
-                          disabled={socialLinksSaving}
-                          className="bg-[#C4622D] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
-                        >
-                          {socialLinksSaving ? 'Saving…' : 'Save Social Links'}
-                        </button>
-                      </div>
-                    </div>
-                  )}
+              {/* ── Reports and Analytics (collapsible) ── */}
+              <button
+                onClick={() => setReportsMenuOpen(prev => !prev)}
+                className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
+                  ['reporting', 'analytics'].includes(activeTab) ? 'text-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
+                }`}
+              >
+                <span className="text-base">📁</span>
+                <span className="flex-1">Reports and Analytics</span>
+                <span className="text-xs">{reportsMenuOpen ? '▲' : '▼'}</span>
+              </button>
+              {reportsMenuOpen && (
+                <div className="pl-4 border-l-2 border-[#E8DDD0] ml-4">
+                  <button
+                    onClick={() => { handleTabChange('reporting'); }}
+                    className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${
+                      activeTab === 'reporting' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'
+                    }`}
+                  >
+                    <span className="text-base">📊</span>
+                    <span>Reports Dashboard</span>
+                  </button>
+                  <button
+                    onClick={() => { handleTabChange('analytics'); }}
+                    className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${
+                      activeTab === 'analytics' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'
+                    }`}
+                  >
+                    <span className="text-base">📈</span>
+                    <span>Analytics</span>
+                  </button>
                 </div>
               )}
 
-              {/* ── ORDERS TAB ── */}
-              {activeTab === 'orders' && (
-                <div className="p-6">
-                  <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-                    <div>
-                      <h2 className="text-xl font-bold text-[#1A1612]">Orders</h2>
-                      <p className="text-sm text-[#8C8278] mt-0.5">{wsFilteredOrders.length} orders</p>
-                    </div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <input
-                        type="text"
-                        placeholder="Search by customer name, email, or order ID..."
-                        value={wsOrderSearch}
-                        onChange={e => setWsOrderSearch(e.target.value)}
-                        className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white min-w-[240px]"
-                      />
-                      <select value={wsFilterPayment} onChange={e => setWsFilterPayment(e.target.value)} className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white">
-                        <option value="all">All Payments</option>
-                        {PAYMENT_OPTIONS.map(s => <option key={s} value={s}>{PAYMENT_STATUS_LABELS[s]}</option>)}
-                      </select>
-                      <select value={wsFilterFulfillment} onChange={e => setWsFilterFulfillment(e.target.value)} className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white">
-                        <option value="all">All Fulfillment</option>
-                        {FULFILLMENT_OPTIONS.map(s => <option key={s} value={s}>{FULFILLMENT_STATUS_LABELS[s]}</option>)}
-                      </select>
-                      <button onClick={loadWsOrders} className="text-sm border border-[#DDD5C8] text-[#5C5347] px-3 py-2 rounded-xl hover:bg-[#F5F0E8] transition-colors">Refresh</button>
-                    </div>
-                  </div>
-
-                  {wsOrdersLoading ? (
-                    <div className="flex items-center justify-center py-16">
-                      <div className="w-8 h-8 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
-                    </div>
-                  ) : wsOrdersError ? (
-                    <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">{wsOrdersError}</div>
-                  ) : wsFilteredOrders.length === 0 ? (
-                    <div className="text-center py-16 text-[#8C8278]">
-                      <p className="text-lg font-medium">No orders found</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {wsFilteredOrders.map((order) => (
-                        <div key={order.id} className="bg-white rounded-2xl border border-[#EDE7DA] overflow-hidden">
-                          <div
-                            className="p-4 flex items-center justify-between cursor-pointer hover:border-[#C4622D] hover:shadow-md transition-all group"
-                            onClick={() => setWsExpandedOrderId(wsExpandedOrderId === order.id ? null : order.id)}
-                          >
-                            <div className="flex items-center gap-3">
-                              <span className="w-6 h-6 rounded-full bg-[#C4622D] text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
-                                {order.id.slice(0, 2)}
-                              </span>
-                              <div>
-                                <p className="font-semibold text-[#1A1612] text-sm">{order.customer_name}</p>
-                                <p className="text-xs text-[#8C8278] mt-0.5">{order.customer_email}</p>
-                                <p className="text-xs text-[#B5ADA5] mt-0.5">{formatDate(order.created_at)}</p>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <div className="text-right">
-                                <p className="text-sm font-bold text-[#C4622D]">{formatCurrency(order.total)}</p>
-                                <span className={`inline-block text-xs px-2 py-0.5 rounded-full font-semibold border ${PAYMENT_STATUS_COLORS[order.payment_status]}`}>
-                                  {PAYMENT_STATUS_LABELS[order.payment_status]}
-                                </span>
-                              </div>
-                              <svg
-                                className={`w-4 h-4 text-[#8C8278] transition-transform ${wsExpandedOrderId === order.id ? 'rotate-180' : ''}`}
-                                fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
-                              >
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                              </svg>
-                            </div>
-                          </div>
-
-                          {wsExpandedOrderId === order.id && (
-                            <div className="px-4 pb-4 bg-[#FDFAF6] border-t border-[#EDE7DA]">
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
-                                <div className="bg-white rounded-2xl border border-[#DDD5C8] p-4">
-                                  <h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3">Customer Details</h4>
-                                  <div className="space-y-2">
-                                    <div><p className="text-sm text-[#1A1612]"><span className="font-medium text-[#8C8278]">Name:</span> {order.customer_name || '—'}</p></div>
-                                    <div><p className="text-sm text-[#1A1612] break-all"><span className="font-medium text-[#8C8278]">Email:</span> {order.customer_email || '—'}</p></div>
-                                    <div><p className="text-sm text-[#1A1612]"><span className="font-medium text-[#8C8278]">Phone:</span> {order.customer_phone || '—'}</p></div>
-                                    {order.event_date && <div><p className="text-sm text-[#1A1612]"><span className="font-medium text-[#8C8278]">Event Date:</span> {formatDate(order.event_date)}</p></div>}
-                                    {order.delivered_date && <div><p className="text-sm text-[#1A1612]"><span className="font-medium text-[#8C8278]">Delivered Date:</span> {formatDate(order.delivered_date)}</p></div>}
-                                    {order.delivery_address && <div><p className="text-sm text-[#1A1612]"><span className="font-medium text-[#8C8278]">Delivery Address:</span> {order.delivery_address}</p></div>}
-                                    {order.notes && <div><p className="text-sm text-[#1A1612]"><span className="font-medium text-[#8C8278]">Notes:</span> {order.notes}</p></div>}
-                                  </div>
-                                </div>
-
-                                <div className="bg-white rounded-2xl border border-[#DDD5C8] p-4">
-                                  <h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3">Order Items</h4>
-                                  {Array.isArray(order.items) && order.items.length > 0 ? (
-                                    <div className="space-y-2">
-                                      {order.items.map((item, idx) => (
-                                        <div key={idx} className="flex items-center justify-between py-1 border-b border-[#F0EBE3] last:border-0">
-                                          <div className="flex items-center gap-2">
-                                            <span className="w-5 h-5 rounded-full bg-[#EDE7DA] text-[#5C5347] text-xs font-bold flex items-center justify-center flex-shrink-0">{item.quantity}</span>
-                                            <span className="text-sm text-[#1A1612]">{item.name}</span>
-                                          </div>
-                                          <span className="text-sm font-semibold text-[#1A1612]">R{(item.price * item.quantity).toFixed(2)}</span>
-                                        </div>
-                                      ))}
-                                      <div className="pt-2 flex justify-between text-sm font-bold text-[#1A1612]">
-                                        <span>Total</span>
-                                        <span className="text-[#C4622D]">R{(order.total || 0).toFixed(2)}</span>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <p className="text-xs text-[#B5ADA5]">No items</p>
-                                  )}
-                                </div>
-
-                                <div className="bg-white rounded-2xl border border-[#DDD5C8] p-4 md:col-span-2">
-                                  <h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3">Update Status</h4>
-                                  <div className="flex flex-wrap gap-4" onClick={(e) => e.stopPropagation()}>
-                                    <div>
-                                      <p className="text-xs text-[#B5ADA5] mb-1">Payment Status</p>
-                                      <select
-                                        value={order.payment_status}
-                                        onChange={(e) => handleWsPaymentUpdate(order.id, e.target.value as PaymentStatus)}
-                                        disabled={getWsOrderUpdateState(order.id).paymentSaving}
-                                        className={`text-xs font-semibold border rounded-full px-3 py-1.5 focus:outline-none cursor-pointer disabled:opacity-50 ${PAYMENT_STATUS_COLORS[order.payment_status]}`}
-                                      >
-                                        {PAYMENT_OPTIONS.map((s) => (
-                                          <option key={s} value={s}>{PAYMENT_STATUS_LABELS[s]}</option>
-                                        ))}
-                                      </select>
-                                      {getWsOrderUpdateState(order.id).paymentSuccess && (
-                                        <span className="text-xs text-green-600 ml-2">✓ Saved</span>
-                                      )}
-                                    </div>
-                                    <div>
-                                      <p className="text-xs text-[#B5ADA5] mb-1">Fulfillment Status</p>
-                                      {order.fulfillment_status === 'delivered' && userProfile?.role !== 'super_admin' ? (
-                                        <div className="flex items-center gap-2">
-                                          <span className={`text-xs font-semibold border rounded-full px-3 py-1.5 ${FULFILLMENT_STATUS_COLORS['delivered']}`}>Delivered</span>
-                                          <span className="text-xs text-[#8C8278]" title="Only Super Admin can change a Delivered order's fulfillment status">🔒</span>
-                                        </div>
-                                      ) : (
-                                        <select
-                                          value={order.fulfillment_status}
-                                          onChange={(e) => handleWsFulfillmentUpdate(order.id, e.target.value as FulfillmentStatus)}
-                                          disabled={getWsOrderUpdateState(order.id).fulfillmentSaving}
-                                          className={`text-xs font-semibold border rounded-full px-3 py-1.5 focus:outline-none cursor-pointer disabled:opacity-50 ${FULFILLMENT_STATUS_COLORS[order.fulfillment_status]}`}
-                                        >
-                                          {FULFILLMENT_OPTIONS.map((s) => (
-                                            <option key={s} value={s}>{FULFILLMENT_STATUS_LABELS[s]}</option>
-                                          ))}
-                                        </select>
-                                      )}
-                                      {getWsOrderUpdateState(order.id).fulfillmentSuccess && (
-                                        <span className="text-xs text-green-600 ml-2">✓ Saved</span>
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* ── MEAL VOUCHERS TAB ── */}
-              {activeTab === 'vouchers' && (
-                <div className="p-6">
-                  <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-                    <div>
-                      <h2 className="text-xl font-bold text-[#1A1612]">Meal Vouchers</h2>
-                      <p className="text-sm text-[#8C8278] mt-0.5">{vouchers.length} vouchers</p>
-                    </div>
-                    <input
-                      type="text"
-                      placeholder="Search vouchers…"
-                      value={vouchersSearchQuery}
-                      onChange={e => setVouchersSearchQuery(e.target.value)}
-                      className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
-                    />
-                  </div>
-
-                  {/* Issue voucher form */}
-                  <div className="bg-white rounded-2xl border border-[#EDE7DA] p-6 mb-6">
-                    <h3 className="text-base font-bold text-[#1A1612] mb-4">Issue New Voucher</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Customer Name *</label>
-                        <input value={issueVoucherForm.customer_name} onChange={e => setIssueVoucherForm(f => ({ ...f, customer_name: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Email *</label>
-                        <input type="email" value={issueVoucherForm.customer_email} onChange={e => setIssueVoucherForm(f => ({ ...f, customer_email: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Phone</label>
-                        <input value={issueVoucherForm.customer_phone} onChange={e => setIssueVoucherForm(f => ({ ...f, customer_phone: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Total Meals *</label>
-                        <input type="number" value={issueVoucherForm.total_meals} onChange={e => setIssueVoucherForm(f => ({ ...f, total_meals: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
-                      </div>
-                      <div className="md:col-span-2">
-                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Notes</label>
-                        <input value={issueVoucherForm.notes} onChange={e => setIssueVoucherForm(f => ({ ...f, notes: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
-                      </div>
-                    </div>
-                    {issueVoucherSuccess && <p className="text-sm text-green-600 mt-3">{issueVoucherSuccess}</p>}
-                    <button
-                      onClick={handleIssueVoucher}
-                      disabled={issuingVoucher}
-                      className="mt-4 bg-[#C4622D] text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
-                    >
-                      {issuingVoucher ? 'Issuing…' : 'Issue Voucher'}
-                    </button>
-                  </div>
-
-                  {vouchersLoading ? (
-                    <div className="flex items-center justify-center py-16">
-                      <div className="w-8 h-8 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
-                    </div>
-                  ) : filteredVouchers.length === 0 ? (
-                    <div className="text-center py-16 text-[#8C8278]">
-                      <p className="text-lg font-medium">No vouchers found</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {filteredVouchers.map((voucher) => (
-                        <div key={voucher.id} className="bg-white rounded-2xl border border-[#EDE7DA] overflow-hidden">
-                          <div
-                            className="p-4 flex items-center justify-between cursor-pointer hover:border-[#C4622D] hover:shadow-md transition-all group"
-                            onClick={() => setWsExpandedOrderId(wsExpandedOrderId === voucher.id ? null : voucher.id)}
-                          >
-                            <div className="flex items-center gap-3">
-                              <span className="w-6 h-6 rounded-full bg-[#C4622D] text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
-                                {voucher.id.slice(0, 2)}
-                              </span>
-                              <div>
-                                <p className="font-semibold text-[#1A1612] text-sm">{voucher.voucher_code}</p>
-                                <p className="text-xs text-[#8C8278] mt-0.5">{voucher.customer_name}</p>
-                                <p className="text-xs text-[#8C8278] mt-0.5">{voucher.total_meals} meals · {voucher.meals_remaining} remaining</p>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <div className="text-right">
-                                <span className={`inline-block text-xs px-2 py-0.5 rounded-full font-semibold ${
-                                  voucher.status === 'paid' ? 'bg-green-100 text-green-700' :
-                                  voucher.status === 'unpaid' ? 'bg-amber-100 text-amber-700' :
-                                  voucher.status === 'redeemed' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
-                                }`}>{voucher.status}</span>
-                              </div>
-                              <svg
-                                className={`w-4 h-4 text-[#8C8278] transition-transform ${wsExpandedOrderId === voucher.id ? 'rotate-180' : ''}`}
-                                fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
-                              >
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                              </svg>
-                            </div>
-                          </div>
-
-                          {wsExpandedOrderId === voucher.id && (
-                            <div className="px-4 pb-4 bg-[#FDFAF6] border-t border-[#EDE7DA]">
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
-                                <div className="bg-white rounded-xl border border-[#DDD5C8] p-4">
-                                  <h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3">Customer Details</h4>
-                                  <div className="space-y-2">
-                                    <div><p className="text-sm text-[#1A1612]"><span className="font-medium text-[#8C8278]">Name:</span> {voucher.customer_name || '—'}</p></div>
-                                    <div><p className="text-sm text-[#1A1612] break-all"><span className="font-medium text-[#8C8278]">Email:</span> {voucher.customer_email || '—'}</p></div>
-                                    <div><p className="text-sm text-[#1A1612]"><span className="font-medium text-[#8C8278]">Phone:</span> {voucher.customer_phone || '—'}</p></div>
-                                  </div>
-                                </div>
-                                <div className="bg-white rounded-xl border border-[#DDD5C8] p-4">
-                                  <h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3">Voucher Details</h4>
-                                  <div className="space-y-2">
-                                    <div className="flex justify-between text-sm"><span className="text-[#8C8278]">Code</span><span className="font-mono font-bold text-[#C4622D]">{voucher.voucher_code}</span></div>
-                                    <div className="flex justify-between text-sm"><span className="text-[#8C8278]">Total Meals</span><span className="font-medium text-[#1A1612]">{voucher.total_meals}</span></div>
-                                    <div className="flex justify-between text-sm"><span className="text-[#8C8278]">Remaining</span><span className="font-medium text-[#1A1612]">{voucher.meals_remaining}</span></div>
-                                    <div className="flex justify-between text-sm"><span className="text-[#8C8278]">Status</span><span className={`font-semibold ${voucher.status === 'paid' ? 'text-green-600' : voucher.status === 'unpaid' ? 'text-amber-600' : 'text-blue-600'}`}>{voucher.status}</span></div>
-                                    <div className="flex justify-between text-sm"><span className="text-[#8C8278]">Purchased</span><span className="font-medium text-[#1A1612]">{formatDate(voucher.purchased_at)}</span></div>
-                                    {voucher.notes && <div className="flex justify-between text-sm"><span className="text-[#8C8278]">Notes</span><span className="font-medium text-[#1A1612] text-right max-w-[160px]">{voucher.notes}</span></div>}
-                                  </div>
-                                </div>
-                              </div>
-                              {voucher.status === 'unpaid' && (
-                                <div className="mt-3 flex justify-end">
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); handleMarkVoucherPaid(voucher); }}
-                                    disabled={loadingMarkingPaid && markingVoucherPaidId === voucher.id}
-                                    className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-colors"
-                                  >
-                                    Mark as Paid
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* ── DISCOUNT VOUCHERS TAB ── */}
-              {activeTab === 'discount_vouchers' && (
-                <div className="p-6">
-                  <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-                    <div>
-                      <h2 className="text-xl font-bold text-[#1A1612]">Discount Vouchers</h2>
-                      <p className="text-sm text-[#8C8278] mt-0.5">{discountVouchers.length} vouchers</p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="text"
-                        placeholder="Search discount vouchers…"
-                        value={dvSearchQuery}
-                        onChange={e => setDvSearchQuery(e.target.value)}
-                        className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
-                      />
-                      <button onClick={openAddDvForm} className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors">
-                        + Create Voucher
-                      </button>
-                    </div>
-                  </div>
-
-                  {showDvForm && (
-                    <div className="bg-white rounded-2xl border border-[#EDE7DA] p-6 mb-6">
-                      <h3 className="text-base font-bold text-[#1A1612] mb-4">{editingDv ? 'Edit Discount Voucher' : 'Create Discount Voucher'}</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Voucher Code *</label>
-                          <input value={dvForm.dv_code} onChange={e => setDvForm(f => ({ ...f, dv_code: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" placeholder="e.g. SAVE20" />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Discount Amount (R) *</label>
-                          <input type="number" value={dvForm.dv_amount} onChange={e => setDvForm(f => ({ ...f, dv_amount: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Status</label>
-                          <select value={dvForm.status} onChange={e => setDvForm(f => ({ ...f, status: e.target.value as 'Active' | 'Inactive' }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white">
-                            <option value="Active">Active</option>
-                            <option value="Inactive">Inactive</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Expiry Date *</label>
-                          <input type="date" value={dvForm.expiry_date} onChange={e => setDvForm(f => ({ ...f, expiry_date: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
-                        </div>
-                      </div>
-                      {dvFormError && <p className="text-sm text-red-600 mt-3">{dvFormError}</p>}
-                      {dvFormSuccess && <p className="text-sm text-green-600 mt-3">{dvFormSuccess}</p>}
-                      <div className="flex items-center gap-3 mt-4">
-                        <button onClick={handleSaveDv} disabled={savingDv} className="bg-[#C4622D] text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50">
-                          {savingDv ? 'Saving…' : editingDv ? 'Update Voucher' : 'Create Voucher'}
-                        </button>
-                        <button onClick={() => setShowDvForm(false)} className="text-sm text-[#5C5347] border border-[#DDD5C8] px-4 py-2 rounded-xl hover:bg-[#F5F0E8] transition-colors">Cancel</button>
-                      </div>
-                    </div>
-                  )}
-
-                  {dvLoading ? (
-                    <div className="flex items-center justify-center py-16">
-                      <div className="w-8 h-8 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
-                    </div>
-                  ) : filteredDiscountVouchers.length === 0 ? (
-                    <div className="text-center py-16 text-[#8C8278]">
-                      <p className="text-lg font-medium">No discount vouchers found</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {filteredDiscountVouchers.map((dv) => (
-                        <div key={dv.id} className="bg-white rounded-2xl border border-[#EDE7DA] overflow-hidden">
-                          <div
-                            className="p-4 flex items-center justify-between cursor-pointer hover:border-[#C4622D] hover:shadow-md transition-all group"
-                            onClick={() => setWsExpandedOrderId(wsExpandedOrderId === dv.id ? null : dv.id)}
-                          >
-                            <div className="flex items-center gap-3">
-                              <span className="w-6 h-6 rounded-full bg-[#C4622D] text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
-                                {dv.id.slice(0, 2)}
-                              </span>
-                              <div>
-                                <p className="font-semibold text-[#1A1612] text-sm">{dv.dv_code}</p>
-                                <p className="text-xs text-[#8C8278] mt-0.5">R{(dv.dv_amount || 0).toFixed(2)} discount</p>
-                                <p className="text-xs text-[#8C8278] mt-0.5">{dv.status === 'Active' ? 'Active' : 'Inactive'} · {formatDate(dv.expiry_date)}</p>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${dv.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{dv.status}</span>
-                              <svg
-                                className={`w-4 h-4 text-[#8C8278] transition-transform ${wsExpandedOrderId === dv.id ? 'rotate-180' : ''}`}
-                                fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
-                              >
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                              </svg>
-                            </div>
-                          </div>
-
-                          {wsExpandedOrderId === dv.id && (
-                            <div className="px-4 pb-4 bg-[#FDFAF6] border-t border-[#EDE7DA]">
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
-                                <div className="bg-white rounded-xl border border-[#DDD5C8] p-4">
-                                  <h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3">Voucher Details</h4>
-                                  <div className="space-y-2">
-                                    <div className="flex justify-between text-sm"><span className="text-[#8C8278]">Code</span><span className="font-mono font-bold text-[#C4622D]">{dv.dv_code}</span></div>
-                                    <div className="flex justify-between text-sm"><span className="text-[#8C8278]">Discount Amount</span><span className="font-medium text-[#1A1612]">R{(dv.dv_amount || 0).toFixed(2)}</span></div>
-                                    <div className="flex justify-between text-sm"><span className="text-[#8C8278]">Status</span><span className={`font-semibold ${dv.status === 'Active' ? 'text-green-600' : 'text-gray-500'}`}>{dv.status}</span></div>
-                                    <div className="flex justify-between text-sm"><span className="text-[#8C8278]">Expiry Date</span><span className="font-medium text-[#1A1612]">{formatDate(dv.expiry_date)}</span></div>
-                                    <div className="flex justify-between text-sm"><span className="text-[#8C8278]">Times Used</span><span className="font-medium text-[#1A1612]">{dv.times_used ?? 0}</span></div>
-                                    <div className="flex justify-between text-sm"><span className="text-[#8C8278]">Created</span><span className="font-medium text-[#1A1612]">{formatDate(dv.created_at)}</span></div>
-                                  </div>
-                                </div>
-                                <div className="bg-white rounded-xl border border-[#DDD5C8] p-4 flex flex-col gap-3">
-                                  <h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider">Actions</h4>
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); openEditDvForm(dv); }}
-                                    className="w-full flex items-center justify-center gap-2 bg-[#C4622D] hover:bg-[#A04E22] text-white px-4 py-2 rounded-xl text-sm font-semibold transition-colors"
-                                  >
-                                    Edit Voucher
-                                  </button>
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); handleGenerateDvQr(dv); }}
-                                    disabled={generatingQrId === dv.id}
-                                    className="w-full flex items-center justify-center gap-2 border border-[#DDD5C8] hover:border-[#C4622D] text-[#5C5347] hover:text-[#C4622D] px-4 py-2 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50"
-                                  >
-                                    {generatingQrId === dv.id ? 'Generating…' : 'Download QR Code'}
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* ── REPORTING TAB ── */}
-              {activeTab === 'reporting' && (
-                <div className="p-6">
-                  <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-                    <div>
-                      <h2 className="text-lg font-bold text-[#1A1612]">Reports Dashboard</h2>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        placeholder="Search reports…"
-                        value={reportingSearchQuery}
-                        onChange={e => setReportingSearchQuery(e.target.value)}
-                        className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
-                      />
-                      {reportingView === 'products_ordered' && (
-                        <button onClick={downloadProductsOrderedPDF} className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl hover:bg-[#FDF6EE] transition-colors">Download PDF</button>
-                      )}
-                      {reportingView === 'package_meals_ordered' && (
-                        <button onClick={downloadPackageMealsPDF} className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl hover:bg-[#FDF6EE] transition-colors">Download PDF</button>
-                      )}
-                      {reportingView === 'discount_vouchers_report' && (
-                        <button onClick={downloadDiscountVouchersPDF} className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl hover:bg-[#FDF6EE] transition-colors">Download PDF</button>
-                      )}
-                    </div>
-                  </div>
-
-                  {reportingView === 'cards' ? (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
-                      <button
-                        onClick={() => setReportingView('products_ordered')}
-                        className="bg-white rounded-2xl border border-[#EDE7DA] p-6 text-left hover:border-[#C4622D] hover:shadow-md transition-all group"
-                      >
-                        <div className="flex items-center gap-3 mb-3">
-                          <span className="text-3xl">🛒</span>
-                          <h3 className="text-base font-bold text-[#1A1612] group-hover:text-[#C4622D] transition-colors">Products Ordered</h3>
-                        </div>
-                        <p className="text-sm text-[#8C8278]">View all individual products ordered by customers, including meal and discount voucher usage.</p>
-                        <div className="mt-4 flex items-center gap-1 text-xs font-semibold text-[#C4622D]">
-                          <span>View report</span>
-                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
-                        </div>
-                      </button>
-                      <button
-                        onClick={() => setReportingView('package_meals_ordered')}
-                        className="bg-white rounded-2xl border border-[#EDE7DA] p-6 text-left hover:border-[#C4622D] hover:shadow-md transition-all group"
-                      >
-                        <div className="flex items-center gap-3 mb-3">
-                          <span className="text-3xl">🍱</span>
-                          <h3 className="text-base font-bold text-[#1A1612] group-hover:text-[#C4622D] transition-colors">Package Meals Ordered</h3>
-                        </div>
-                        <p className="text-sm text-[#8C8278]">View all package meal orders, including package type purchased and meal voucher details.</p>
-                        <div className="mt-4 flex items-center gap-1 text-xs font-semibold text-[#C4622D]">
-                          <span>View report</span>
-                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
-                        </div>
-                      </button>
-                      <button
-                        onClick={() => setReportingView('discount_vouchers_report')}
-                        className="bg-white rounded-2xl border border-[#EDE7DA] p-6 text-left hover:border-[#C4622D] hover:shadow-md transition-all group"
-                      >
-                        <div className="flex items-center gap-3 mb-3">
-                          <span className="text-3xl">🏷️</span>
-                          <h3 className="text-base font-bold text-[#1A1612] group-hover:text-[#C4622D] transition-colors">Discount Vouchers</h3>
-                        </div>
-                        <p className="text-sm text-[#8C8278]">View all orders where discount vouchers were applied, including voucher codes and amounts.</p>
-                        <div className="mt-4 flex items-center gap-1 text-xs font-semibold text-[#C4622D]">
-                          <span>View report</span>
-                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
-                        </div>
-                      </button>
-                    </div>
-                  ) : reportingView === 'products_ordered' ? (
-                    <div className="space-y-3">
-                      <button
-                        onClick={() => setReportingView('cards')}
-                        className="flex items-center gap-1.5 text-sm text-[#C4622D] font-medium hover:underline mb-4"
-                      >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
-                        Return to Dashboard
-                      </button>
-                      {productsOrderedLoading ? (
-                        <div className="flex items-center justify-center py-16"><div className="w-8 h-8 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>
-                      ) : filteredProductsOrderedRows.length === 0 ? (
-                        <div className="text-center py-16 text-[#8C8278]"><p className="text-lg font-medium">No products ordered data found</p></div>
-                      ) : (
-                        filteredProductsOrderedRows.map((row, i) => (
-                          <div key={i} className="bg-white rounded-2xl border border-[#EDE7DA] p-4 flex items-center justify-between">
-                            <div>
-                              <p className="font-semibold text-[#1A1612] text-sm">{row.productName}</p>
-                              <p className="text-xs text-[#8C8278] mt-0.5">{row.productType} · {row.item}</p>
-                              <p className="text-xs text-[#B5ADA5] mt-0.5">{row.clientName} · {row.orderedDate}</p>
-                            </div>
-                            <div className="text-right">
-                              {row.mealVoucher && <p className="text-xs text-blue-600">MV: {row.mealVoucher}</p>}
-                              {row.discountVoucher && <p className="text-xs text-green-600">DV: {row.discountVoucher}</p>}
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  ) : reportingView === 'package_meals_ordered' ? (
-                    <div className="space-y-3">
-                      <button
-                        onClick={() => setReportingView('cards')}
-                        className="flex items-center gap-1.5 text-sm text-[#C4622D] font-medium hover:underline mb-4"
-                      >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
-                        Return to Dashboard
-                      </button>
-                      {packageMealsLoading ? (
-                        <div className="flex items-center justify-center py-16"><div className="w-8 h-8 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>
-                      ) : filteredPackageMealsRows.length === 0 ? (
-                        <div className="text-center py-16 text-[#8C8278]"><p className="text-lg font-medium">No package meals data found</p></div>
-                      ) : (
-                        filteredPackageMealsRows.map((row, i) => (
-                          <div key={i} className="bg-white rounded-2xl border border-[#EDE7DA] p-4 flex items-center justify-between">
-                            <div>
-                              <p className="font-semibold text-[#1A1612] text-sm">{row.productName}</p>
-                              <p className="text-xs text-[#8C8278] mt-0.5">{row.packagePurchased} · {row.item}</p>
-                              <p className="text-xs text-[#B5ADA5] mt-0.5">{row.clientName} · {row.orderedDate}</p>
-                            </div>
-                            <div className="text-right">
-                              {row.mealVoucher && <p className="text-xs text-blue-600">MV: {row.mealVoucher}</p>}
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  ) : reportingView === 'discount_vouchers_report' ? (
-                    <div className="space-y-3">
-                      <button
-                        onClick={() => setReportingView('cards')}
-                        className="flex items-center gap-1.5 text-sm text-[#C4622D] font-medium hover:underline mb-4"
-                      >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
-                        Return to Dashboard
-                      </button>
-                      {discountVouchersReportLoading ? (
-                        <div className="flex items-center justify-center py-16"><div className="w-8 h-8 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>
-                      ) : filteredDiscountVouchersReportRows.length === 0 ? (
-                        <div className="text-center py-16 text-[#8C8278]"><p className="text-lg font-medium">No discount voucher report data found</p></div>
-                      ) : (
-                        filteredDiscountVouchersReportRows.map((row, i) => (
-                          <div key={i} className="bg-white rounded-2xl border border-[#EDE7DA] p-4 flex items-center justify-between">
-                            <div>
-                              <p className="font-semibold text-[#1A1612] text-sm">{row.dvCode}</p>
-                              <p className="text-xs text-[#8C8278] mt-0.5">R{row.dvAmount.toFixed(2)} · {row.expiryDate && new Date(row.expiryDate) < new Date() ? 'Expired' : 'Expires'} {row.expiryDate}</p>
-                              <p className="text-xs text-[#B5ADA5] mt-0.5">Status: {row.productType} · {row.item} · Created {row.orderedDate}</p>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  ) : null}
-                </div>
-              )}
+              {/* ── Document Management ── */}
+              <button
+                onClick={() => { handleTabChange('media'); }}
+                className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
+                  activeTab === 'media' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
+                }`}
+              >
+                <span className="text-base">📄</span>
+                <span>Document Management</span>
+              </button>
 
             </nav>
           </aside>
@@ -2822,7 +2154,7 @@ export default function StaffWorkspacePage() {
                   <button
                     onClick={handleInviteStaff}
                     disabled={inviting}
-                    className="mt-4 bg-[#C4622D] text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
+                    className="mt-4 bg-[#C4622D] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
                   >
                     {inviting ? 'Sending…' : 'Send Invite'}
                   </button>
@@ -3106,6 +2438,206 @@ export default function StaffWorkspacePage() {
                     )}
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* ── WEEKLY MENU TAB ── */}
+            {activeTab === 'weekly_menu' && (
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+                  <div>
+                    <h2 className="text-xl font-bold text-[#1A1612]">Weekly Menu</h2>
+                    <p className="text-sm text-[#8C8278] mt-0.5">Manage the weekly meal schedule</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => setWeekOffset(w => w - 1)} className="text-sm border border-[#DDD5C8] text-[#5C5347] px-3 py-1.5 rounded-xl hover:bg-[#F5F0E8] transition-colors">← Prev</button>
+                    <button onClick={() => setWeekOffset(0)} className="text-sm border border-[#DDD5C8] text-[#5C5347] px-3 py-1.5 rounded-xl hover:bg-[#F5F0E8] transition-colors">This Week</button>
+                    <button onClick={() => setWeekOffset(w => w + 1)} className="text-sm border border-[#DDD5C8] text-[#5C5347] px-3 py-1.5 rounded-xl hover:bg-[#F5F0E8] transition-colors">Next →</button>
+                  </div>
+                </div>
+
+                {showWeeklyMenuForm && (
+                  <div className="bg-white rounded-2xl border border-[#EDE7DA] p-6 mb-6">
+                    <h3 className="text-base font-bold text-[#1A1612] mb-4">{editingWeeklyEntry ? 'Edit Menu Entry' : `Add Entry for ${weeklyMenuForm.day_name}`}</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Meal Name</label>
+                        <input value={weeklyMenuForm.meal_name} onChange={e => setWeeklyMenuForm(f => ({ ...f, meal_name: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Price (R)</label>
+                        <input type="number" value={weeklyMenuForm.price} onChange={e => setWeeklyMenuForm(f => ({ ...f, price: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Description</label>
+                        <textarea value={weeklyMenuForm.description} onChange={e => setWeeklyMenuForm(f => ({ ...f, description: e.target.value }))} rows={2} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <label className="flex items-center gap-2 text-sm text-[#5C5347] cursor-pointer">
+                          <input type="checkbox" checked={weeklyMenuForm.is_closed} onChange={e => setWeeklyMenuForm(f => ({ ...f, is_closed: e.target.checked }))} className="rounded" />
+                          Mark as Closed
+                        </label>
+                      </div>
+                      {weeklyMenuForm.is_closed && (
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Closed Reason</label>
+                          <input value={weeklyMenuForm.closed_reason} onChange={e => setWeeklyMenuForm(f => ({ ...f, closed_reason: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 mt-4">
+                      <button onClick={handleSaveWeeklyMenuEntry} disabled={savingWeeklyEntry} className="bg-[#C4622D] text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50">
+                        {savingWeeklyEntry ? 'Saving…' : editingWeeklyEntry ? 'Update Entry' : 'Add Entry'}
+                      </button>
+                      <button onClick={() => setShowWeeklyMenuForm(false)} className="text-sm text-[#5C5347] border border-[#DDD5C8] px-4 py-2 rounded-xl hover:bg-[#F5F0E8] transition-colors">Cancel</button>
+                    </div>
+                  </div>
+                )}
+
+                {weeklyMenuLoading ? (
+                  <div className="flex items-center justify-center py-16">
+                    <div className="w-8 h-8 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {getWeekDays().map(day => {
+                      const entries = weeklyMenuEntries.filter(e => e.meal_date === day.date);
+                      return (
+                        <div key={day.date} className="bg-white rounded-2xl border border-[#EDE7DA] p-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <div>
+                              <p className="font-semibold text-[#1A1612] text-sm">{day.dayName}</p>
+                              <p className="text-xs text-[#8C8278]">{day.shortDate}</p>
+                            </div>
+                            <button
+                              onClick={() => openAddWeeklyMenuForm(day.date, day.dayName)}
+                              className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl hover:bg-[#FDF6EE] transition-colors"
+                            >
+                              + Add
+                            </button>
+                          </div>
+                          {entries.length === 0 ? (
+                            <p className="text-xs text-[#B5ADA5] italic">No entries for this day</p>
+                          ) : (
+                            <div className="space-y-2">
+                              {entries.map(entry => (
+                                <div key={entry.id} className="flex items-center justify-between bg-[#F5F0E8] rounded-xl px-3 py-2">
+                                  <div>
+                                    {entry.is_closed ? (
+                                      <p className="text-sm font-medium text-red-600">🔒 Closed{entry.closed_reason ? ` — ${entry.closed_reason}` : ''}</p>
+                                    ) : (
+                                      <>
+                                        <p className="text-sm font-medium text-[#1A1612]">{entry.meal_name}</p>
+                                        {entry.description && <p className="text-xs text-[#8C8278]">{entry.description}</p>}
+                                        {entry.price && <p className="text-xs font-semibold text-[#C4622D]">{formatCurrency(entry.price)}</p>}
+                                      </>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <button onClick={() => openEditWeeklyMenuForm(entry)} className="text-xs text-[#C4622D] hover:underline">Edit</button>
+                                    <button onClick={() => handleDeleteWeeklyEntry(entry)} disabled={deletingWeeklyEntryId === entry.id} className="text-xs text-red-600 hover:underline disabled:opacity-50">Delete</button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── SOCIAL LINKS TAB ── */}
+            {activeTab === 'social_links' && userProfile?.role === 'super_admin' && (
+              <div className="p-6">
+                <div className="mb-6">
+                  <h2 className="text-xl font-bold text-[#1A1612]">Social Media Links</h2>
+                  <p className="text-sm text-[#8C8278] mt-0.5">Update the URLs for each social media icon displayed in the footer</p>
+                </div>
+
+                {socialLinksLoading ? (
+                  <div className="flex items-center justify-center py-16">
+                    <div className="w-8 h-8 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
+                  </div>
+                ) : (
+                  <div className="bg-white rounded-2xl border border-[#EDE7DA] p-6 max-w-xl">
+                    <div className="space-y-4">
+                      {socialLinks.map(s => (
+                        <div key={s.platform}>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1 capitalize">
+                            {s.platform === 'twitter' ? 'X / Twitter' : s.platform === 'custom' ? 'Custom Icon' : s.platform} URL
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <img
+                              src="/assets/images/Screenshot_2026-03-24_at_08.52.59-1774335297294.png"
+                              alt={s.platform}
+                              className="h-8 w-8 rounded-full border border-[#DDD5C8] object-cover flex-shrink-0"
+                              style={{
+                                objectPosition: (() => {
+                                  const positions: Record<string, string> = {
+                                    facebook: '0% 50%',
+                                    twitter: '25% 50%',
+                                    instagram: '50% 50%',
+                                    pinterest: '75% 50%',
+                                    custom: '100% 50%',
+                                  };
+                                  return positions[s.platform] || '0% 50%';
+                                })(),
+                              }}
+                            />
+                            <input
+                              type="url"
+                              value={socialLinksForm[s.platform] || ''}
+                              onChange={e => setSocialLinksForm(f => ({ ...f, [s.platform]: e.target.value }))}
+                              placeholder="https://..."
+                              className="flex-1 border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {socialLinksError && <p className="text-sm text-red-600 mt-4">{socialLinksError}</p>}
+                    {socialLinksSuccess && <p className="text-sm text-green-600 mt-4">{socialLinksSuccess}</p>}
+
+                    <div className="mt-6">
+                      <button
+                        onClick={handleSaveSocialLinks}
+                        disabled={socialLinksSaving}
+                        className="bg-[#C4622D] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
+                      >
+                        {socialLinksSaving ? 'Saving…' : 'Save Social Links'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── ANALYTICS TAB ── */}
+            {activeTab === 'analytics' && (
+              <div className="p-6">
+                <div className="mb-6">
+                  <h2 className="text-xl font-bold text-[#1A1612]">Analytics</h2>
+                  <p className="text-sm text-[#8C8278] mt-0.5">View site analytics and performance data</p>
+                </div>
+                <div className="bg-white rounded-2xl border border-[#EDE7DA] p-8 text-center">
+                  <span className="text-4xl">📈</span>
+                  <p className="text-[#8C8278] mt-3 text-sm">Analytics data will appear here.</p>
+                </div>
+              </div>
+            )}
+
+            {/* ── DOCUMENT MANAGEMENT TAB ── */}
+            {activeTab === 'media' && (
+              <div className="p-6">
+                <div className="mb-6">
+                  <h2 className="text-xl font-bold text-[#1A1612]">Document Management</h2>
+                  <p className="text-sm text-[#8C8278] mt-0.5">Manage and view documents from Google Drive</p>
+                </div>
+                <GoogleDriveDocuments isSuperAdmin={userProfile?.role === 'super_admin'} />
               </div>
             )}
 
