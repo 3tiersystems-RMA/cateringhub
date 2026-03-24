@@ -11,7 +11,7 @@ import GoogleDriveDocuments from './components/GoogleDriveDocuments';
 
 
 type BucketType = 'product-images' | 'event-photos' | 'document-management';
-type WorkspaceTab = 'products' | 'media' | 'media_events' | 'orders' | 'staff' | 'homepage_cards' | 'categories' | 'weekly_menu' | 'vouchers' | 'discount_vouchers' | 'testimonials' | 'reporting' | 'analytics' | 'social_media';
+type WorkspaceTab = 'products' | 'media' | 'media_events' | 'media_products' | 'orders' | 'staff' | 'homepage_cards' | 'categories' | 'weekly_menu' | 'vouchers' | 'discount_vouchers' | 'testimonials' | 'reporting' | 'analytics' | 'social_media';
 
 type ProductCategory = string;
 type StaffRole = 'admin' | 'staff' | 'super_admin';
@@ -1812,7 +1812,7 @@ export default function StaffWorkspacePage() {
               <button
                 onClick={() => setMediaMenuOpen(prev => !prev)}
                 className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
-                  ['media', 'media_events'].includes(activeTab) ? 'text-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
+                  ['media', 'media_events', 'media_products'].includes(activeTab) ? 'text-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
                 }`}
               >
                 <span className="text-base">📄</span>
@@ -1838,6 +1838,15 @@ export default function StaffWorkspacePage() {
                   >
                     <span className="text-base">📁</span>
                     <span>Document Management</span>
+                  </button>
+                  <button
+                    onClick={() => { handleTabChange('media_products'); }}
+                    className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${
+                      activeTab === 'media_products' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'
+                    }`}
+                  >
+                    <span className="text-base">🛍️</span>
+                    <span>Add Products</span>
                   </button>
                 </div>
               )}
@@ -2667,6 +2676,26 @@ export default function StaffWorkspacePage() {
                   <p className="text-sm text-[#8C8278] mt-0.5">Manage and view documents from Google Drive</p>
                 </div>
                 <GoogleDriveDocuments isSuperAdmin={userProfile?.role === 'super_admin'} />
+              </div>
+            )}
+
+            {/* ── ADD PRODUCTS (MEDIA LIBRARY) TAB ── */}
+            {activeTab === 'media_products' && (
+              <div className="p-6">
+                <div className="mb-6">
+                  <h2 className="text-xl font-bold text-[#1A1612]">Add Products</h2>
+                  <p className="text-sm text-[#8C8278] mt-0.5">Manage and add products to the catalogue</p>
+                </div>
+                <div className="bg-white rounded-xl border border-[#E8DDD0] p-6 text-center">
+                  <span className="text-4xl">🛍️</span>
+                  <p className="text-[#5C5347] mt-3 text-sm">Use the <strong>Products</strong> section in the main menu to add and manage products.</p>
+                  <button
+                    onClick={() => handleTabChange('products')}
+                    className="mt-4 px-5 py-2 bg-[#C4622D] text-white text-sm font-medium rounded-lg hover:bg-[#A0522D] transition-colors"
+                  >
+                    Go to Products
+                  </button>
+                </div>
               </div>
             )}
 
