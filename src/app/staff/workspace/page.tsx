@@ -1289,7 +1289,7 @@ export default function StaffWorkspacePage() {
     setFormError('');
     setFormSuccess('');
     await loadCategoryNames();
-    setShowEditModal(true);
+    setShowForm(true);
   };
 
   const handleSaveProduct = async () => {
@@ -2154,7 +2154,7 @@ export default function StaffWorkspacePage() {
                         {saving ? 'Saving…' : 'Update Product'}
                       </button>
                       <button
-                        onClick={() => { setShowEditModal(false); setEditingProduct(null); }}
+                        onClick={() => { setShowForm(false); setEditingProduct(null); }}
                         className="text-sm text-[#5C5347] border border-[#DDD5C8] px-4 py-2 rounded-xl hover:bg-[#F5F0E8] transition-colors"
                       >
                         Cancel
