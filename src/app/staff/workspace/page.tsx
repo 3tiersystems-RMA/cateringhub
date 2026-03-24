@@ -511,6 +511,7 @@ export default function StaffWorkspacePage() {
   const [productsLoading, setProductsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
@@ -1099,7 +1100,7 @@ export default function StaffWorkspacePage() {
     setFormError('');
     setFormSuccess('');
     await loadCategoryNames();
-    setShowForm(true);
+    setShowEditModal(true);
   };
 
   const handleSaveProduct = async () => {
@@ -1141,6 +1142,7 @@ export default function StaffWorkspacePage() {
     else {
       setFormSuccess(editingProduct ? 'Product updated!' : 'Product added!');
       setShowForm(false);
+      setShowEditModal(false);
       await loadProducts();
     }
     setSaving(false);
@@ -1887,6 +1889,124 @@ export default function StaffWorkspacePage() {
                   </div>
                 )}
 
+                {/* Edit Product Modal */}
+                {showEditModal && editingProduct && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                    <div className="bg-white rounded-2xl border border-[#EDE7DA] p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-base font-bold text-[#1A1612]">Edit Product</h3>
+                        <button
+                          onClick={() => { setShowEditModal(false); setEditingProduct(null); }}
+                          className="text-[#5C5347] hover:text-[#1A1612] transition-colors"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Name *</label>
+                          <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Category</label>
+                          <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white">
+                            <option value="">-- Select Category --</option>
+                            {categoryNames.map(c => <option key={c} value={c}>{c}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Price (R) *</label>
+                          <input type="number" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Unit</label>
+                          <input value={form.unit} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                        </div>
+                        <div className="md:col-span-2">
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Description</label>
+                          <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={3} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Tags (comma-separated)</label>
+                          <input value={form.tags} onChange={e => setForm(f => ({ ...f, tags: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Badge</label>
+                          <input value={form.badge} onChange={e => setForm(f => ({ ...f, badge: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Min Order</label>
+                          <input type="number" value={form.min_order} onChange={e => setForm(f => ({ ...f, min_order: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Sort Order</label>
+                          <input type="number" value={form.sort_order} onChange={e => setForm(f => ({ ...f, sort_order: Number(e.target.value) }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Package Type</label>
+                          <select value={form.package_type} onChange={e => setForm(f => ({ ...f, package_type: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white">
+                            {packageTypes.map(pt => <option key={pt} value={pt}>{pt}</option>)}
+                          </select>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <label className="flex items-center gap-2 text-sm text-[#5C5347] cursor-pointer">
+                            <input type="checkbox" checked={form.available} onChange={e => setForm(f => ({ ...f, available: e.target.checked }))} className="rounded" />
+                            Available
+                          </label>
+                          <label className="flex items-center gap-2 text-sm text-[#5C5347] cursor-pointer">
+                            <input type="checkbox" checked={form.featured} onChange={e => setForm(f => ({ ...f, featured: e.target.checked }))} className="rounded" />
+                            Featured
+                          </label>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Product Image</label>
+                          <input
+                            ref={productImageRef}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={e => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                setPendingImageFile(file);
+                                setPendingImagePreview(URL.createObjectURL(file));
+                              }
+                            }}
+                          />
+                          {pendingImagePreview && (
+                            <img src={pendingImagePreview} alt="Preview" className="w-20 h-20 object-cover rounded-xl mb-2 border border-[#DDD5C8]" />
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => productImageRef.current?.click()}
+                            className="text-sm text-[#C4622D] border border-[#C4622D] rounded-xl px-3 py-1.5 hover:bg-[#FDF6EE] transition-colors"
+                          >
+                            {pendingImagePreview ? 'Change Image' : 'Upload Image'}
+                          </button>
+                        </div>
+                      </div>
+                      {formError && <p className="text-red-600 text-sm mt-3">{formError}</p>}
+                      <div className="flex items-center gap-3 mt-4">
+                        <button
+                          onClick={handleSaveProduct}
+                          disabled={saving || uploadingImage}
+                          className="bg-[#C4622D] text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
+                        >
+                          {saving ? 'Saving…' : 'Update Product'}
+                        </button>
+                        <button
+                          onClick={() => { setShowEditModal(false); setEditingProduct(null); }}
+                          className="text-sm text-[#5C5347] border border-[#DDD5C8] px-4 py-2 rounded-xl hover:bg-[#F5F0E8] transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {productsLoading ? (
                   <div className="flex items-center justify-center py-16">
                     <div className="w-8 h-8 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
@@ -1905,11 +2025,9 @@ export default function StaffWorkspacePage() {
                             <p className="font-semibold text-[#1A1612] text-sm">{product.name}</p>
                             <p className="text-xs text-[#8C8278] mt-0.5">{product.category} · {formatCurrency(product.price)} {product.unit}</p>
                             <div className="flex items-center gap-2 mt-1">
-                              {product.available ? (
-                                <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Available</span>
-                              ) : (
-                                <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">Unavailable</span>
-                              )}
+                              <span className={`text-xs px-2 py-0.5 rounded-full font-semibold border ${product.available ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                                {product.available ? 'Available' : 'Unavailable'}
+                              </span>
                               {product.featured && <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Featured</span>}
                               {product.badge && <span className="text-xs bg-[#FDF6EE] text-[#C4622D] border border-[#EDE7DA] px-2 py-0.5 rounded-full">{product.badge}</span>}
                             </div>
@@ -2456,7 +2574,7 @@ export default function StaffWorkspacePage() {
                                 {Array.isArray(order.items) && order.items.length > 0 ? (
                                   <div className="space-y-2">
                                     {order.items.map((item, idx) => (
-                                      <div key={idx} className="flex items-center justify-between py-1.5 border-b border-[#F0EBE3] last:border-0">
+                                      <div key={idx} className="flex items-center justify-between py-1 border-b border-[#F0EBE3] last:border-0">
                                         <div className="flex items-center gap-2">
                                           <span className="w-5 h-5 rounded-full bg-[#EDE7DA] text-[#5C5347] text-xs font-bold flex items-center justify-center flex-shrink-0">{item.quantity}</span>
                                           <span className="text-sm text-[#1A1612]">{item.name}</span>
@@ -2746,7 +2864,7 @@ export default function StaffWorkspacePage() {
                             <div>
                               <p className="font-semibold text-[#1A1612] text-sm">{dv.dv_code}</p>
                               <p className="text-xs text-[#8C8278] mt-0.5">R{(dv.dv_amount || 0).toFixed(2)} discount</p>
-                              <p className="text-xs text-[#8C8278] mt-0.5">{dv.expiry_date && new Date(dv.expiry_date) < new Date() ? 'Expired:' : 'Expires:'} {formatDate(dv.expiry_date)}</p>
+                              <p className="text-xs text-[#8C8278] mt-0.5">{dv.status === 'Active' ? 'Active' : 'Inactive'} · {formatDate(dv.expiry_date)}</p>
                             </div>
                           </div>
                           <div className="flex items-center gap-3">
