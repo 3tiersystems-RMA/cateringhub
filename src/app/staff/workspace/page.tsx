@@ -1807,7 +1807,7 @@ export default function StaffWorkspacePage() {
                 </div>
               )}
 
-              {/* ── Document Management ── */}
+              {/* ── Media Library ── */}
               <button
                 onClick={() => { handleTabChange('media'); }}
                 className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
@@ -1815,7 +1815,7 @@ export default function StaffWorkspacePage() {
                 }`}
               >
                 <span className="text-base">📄</span>
-                <span>Document Management</span>
+                <span>Media Library</span>
               </button>
 
             </nav>
@@ -2573,7 +2573,7 @@ export default function StaffWorkspacePage() {
                             <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 border border-[#DDD5C8]${s.platform !== 'custom' ? ' bg-black' : ''}`}>
                               {s.platform === 'facebook' && (
                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" width="16" height="16">
-                                  <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/>
+                                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
                                 </svg>
                               )}
                               {s.platform === 'twitter' && (
@@ -2639,7 +2639,7 @@ export default function StaffWorkspacePage() {
             {activeTab === 'media' && (
               <div className="p-6">
                 <div className="mb-6">
-                  <h2 className="text-xl font-bold text-[#1A1612]">Document Management</h2>
+                  <h2 className="text-xl font-bold text-[#1A1612]">Media Library</h2>
                   <p className="text-sm text-[#8C8278] mt-0.5">Manage and view documents from Google Drive</p>
                 </div>
                 <GoogleDriveDocuments isSuperAdmin={userProfile?.role === 'super_admin'} />
