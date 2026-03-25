@@ -81,8 +81,11 @@ export default function HowItWorksSection() {
           {steps.map((step, i) => (
             <div
               key={step.number}
-              className={`hiw-reveal reveal hidden-init group relative bg-[#FAF7F2] border border-[#DDD5C8] rounded-4xl p-7 hover:border-[#C4622D]/40 hover:shadow-warm transition-all duration-400`}
+              className={`hiw-reveal reveal hidden-init group relative bg-[#FAF7F2] border border-[#DDD5C8] rounded-4xl p-7 hover:border-[#C4622D]/40 hover:shadow-warm transition-all duration-400 overflow-hidden`}
             >
+              {/* Left orange border accent */}
+              <div className="absolute left-0 top-4 bottom-4 w-1 bg-[#C4622D] rounded-full" />
+
               {/* Connector line (desktop) */}
               {i < steps.length - 1 && (
                 <div className="hidden lg:block absolute top-12 -right-3 w-6 h-px bg-[#DDD5C8] z-10" />
