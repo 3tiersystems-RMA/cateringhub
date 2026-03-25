@@ -26,7 +26,7 @@ const steps = [
     icon: "CreditCardIcon" as const,
     title: "Secure Your Booking",
     description:
-      "Pay a 25% deposit online to lock in your date. We accept all major cards and ACH bank transfers.",
+      "Pay a 25% deposit online to lock in your date. We accept all major cards and EFT bank transfers.",
     detail: "Secure payment portal",
   },
   {
