@@ -596,6 +596,7 @@ export default function StaffWorkspacePage() {
   const [categoryNames, setCategoryNames] = useState<string[]>([]);
   const [packageTypes, setPackageTypes] = useState<string[]>([]);
   const [productSearchQuery, setProductSearchQuery] = useState('');
+  const [staffProductCategory, setStaffProductCategory] = useState<string>('All');
   // Categories state
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoriesLoading, setCategoriesLoading] = useState(false);
@@ -1704,10 +1705,12 @@ export default function StaffWorkspacePage() {
   };
 
   // ─── Filtered data ────────────────────────────────────────────────────────────
-  const filteredProducts = products.filter(p =>
-    !productSearchQuery || p.name.toLowerCase().includes(productSearchQuery.toLowerCase()) ||
-    p.category.toLowerCase().includes(productSearchQuery.toLowerCase())
-  );
+  const filteredProducts = products.filter(p => {
+    const matchesSearch = !productSearchQuery || p.name.toLowerCase().includes(productSearchQuery.toLowerCase()) ||
+      p.category.toLowerCase().includes(productSearchQuery.toLowerCase());
+    const matchesCategory = staffProductCategory === 'All' || p.category === staffProductCategory;
+    return matchesSearch && matchesCategory;
+  });
 
   const filteredStaff = staffMembers.filter(s =>
     !staffSearchQuery || s.full_name?.toLowerCase().includes(staffSearchQuery.toLowerCase()) ||
@@ -2057,6 +2060,35 @@ export default function StaffWorkspacePage() {
                     </button>
                   </div>
                 </div>
+
+                {/* ── Category Filter Tabs ── */}
+                {!showForm && (
+                  <div className="flex flex-wrap gap-2 mb-6">
+                    {(() => {
+                      const desiredOrder = ['All', 'Weekly Menu', 'Packaged Meals', 'Voucher Meals', 'Frozen Meals', 'Prepared Meals', 'À La Carte'];
+                      const available = ['All', ...categoryNames];
+                      const displayCats = desiredOrder.filter(c => available.includes(c));
+                      const getCatCount = (cat: string) =>
+                        cat === 'All' ? products.length : products.filter(p => p.category === cat).length;
+                      return displayCats.map(cat => (
+                        <button
+                          key={cat}
+                          onClick={() => setStaffProductCategory(cat)}
+                          className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                            staffProductCategory === cat
+                              ? 'bg-[#C4622D] text-white shadow-sm'
+                              : 'bg-white border border-[#DDD5C8] text-[#5C5347] hover:border-[#C4622D]/40 hover:text-[#C4622D]'
+                          }`}
+                        >
+                          {cat}
+                          <span className={`ml-1.5 text-xs ${staffProductCategory === cat ? 'text-white/70' : 'text-[#B5ADA5]'}`}>
+                            ({getCatCount(cat)})
+                          </span>
+                        </button>
+                      ));
+                    })()}
+                  </div>
+                )}
 
                 {showForm && (
                   <div className="bg-white rounded-2xl border border-[#EDE7DA] p-6 mb-6">
