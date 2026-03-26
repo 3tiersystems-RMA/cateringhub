@@ -11,6 +11,7 @@ interface Event {
   title: string;
   description: string | null;
   event_date: string;
+  event_date_to: string | null;
   location: string | null;
   image_path: string | null;
   is_published: boolean;
@@ -78,6 +79,28 @@ function EventsContent() {
     } catch {
       return dateStr;
     }
+  };
+
+  const formatDateShort = (dateStr: string) => {
+    try {
+      return new Date(dateStr).toLocaleDateString('en-ZA', {
+        weekday: 'long',
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric',
+      });
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const formatDateRange = (from: string, to: string | null) => {
+    const fromDate = formatDateShort(from);
+    if (!to) return fromDate;
+    const toNorm = to.slice(0, 10);
+    const fromNorm = from.slice(0, 10);
+    if (toNorm === fromNorm) return fromDate;
+    return `${fromDate} – ${formatDateShort(to)}`;
   };
 
   const formatTime = (dateStr: string) => {
@@ -199,13 +222,17 @@ function EventsContent() {
                       <svg className="w-4 h-4 text-[#C4622D] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                       </svg>
-                      <span>{formatDate(ev.event_date)}</span>
+                      <span>{formatDateRange(ev.event_date, ev.event_date_to)}</span>
                     </div>
                     <div className="flex items-center gap-2 text-sm text-[#5C5347]">
                       <svg className="w-4 h-4 text-[#C4622D] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
-                      <span>{formatTime(ev.event_date)}</span>
+                      {ev.event_date_to && ev.event_date_to.slice(0, 10) !== ev.event_date.slice(0, 10) ? (
+                        <span>{formatTime(ev.event_date)} – {formatTime(ev.event_date_to)}</span>
+                      ) : (
+                        <span>{formatTime(ev.event_date)}</span>
+                      )}
                     </div>
                     {ev.location && (
                       <div className="flex items-center gap-2 text-sm text-[#5C5347]">
