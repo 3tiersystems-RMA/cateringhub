@@ -8,8 +8,10 @@ interface Event {
   title: string;
   description: string | null;
   event_date: string;
+  event_date_to: string | null;
   location: string | null;
   image_path: string | null;
+  image_url: string | null;
   is_published: boolean;
   created_at: string;
   imageUrl?: string;
@@ -19,16 +21,20 @@ interface EventForm {
   title: string;
   description: string;
   event_date: string;
+  event_date_to: string;
   location: string;
   is_published: boolean;
+  image_url: string;
 }
 
 const emptyEventForm: EventForm = {
   title: '',
   description: '',
   event_date: '',
+  event_date_to: '',
   location: '',
   is_published: false,
+  image_url: '',
 };
 
 export default function EventManagement() {
@@ -49,6 +55,8 @@ export default function EventManagement() {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  // 'device' | 'url'
+  const [imageInputMode, setImageInputMode] = useState<'device' | 'url'>('device');
 
   useEffect(() => {
     loadEvents();
@@ -69,6 +77,10 @@ export default function EventManagement() {
               .from('event-photos')
               .createSignedUrl(ev.image_path, 3600);
             return { ...ev, imageUrl: urlData?.signedUrl };
+          }
+          // If image_url is set, use it directly as the preview
+          if (ev.image_url) {
+            return { ...ev, imageUrl: ev.image_url };
           }
           return ev;
         })
@@ -108,6 +120,7 @@ export default function EventManagement() {
     setForm(emptyEventForm);
     setPendingImageFile(null);
     setPendingImagePreview(null);
+    setImageInputMode('device');
     setFormError('');
     setFormSuccess('');
     setShowForm(true);
@@ -119,11 +132,16 @@ export default function EventManagement() {
       title: ev.title,
       description: ev.description || '',
       event_date: ev.event_date ? ev.event_date.slice(0, 16) : '',
+      event_date_to: ev.event_date_to ? ev.event_date_to.slice(0, 16) : '',
       location: ev.location || '',
       is_published: ev.is_published,
+      image_url: ev.image_url || '',
     });
     setPendingImageFile(null);
+    // If there's a stored image_path preview use it, else use image_url
     setPendingImagePreview(ev.imageUrl || null);
+    // Determine which mode to show based on existing data
+    setImageInputMode(ev.image_url && !ev.image_path ? 'url' : 'device');
     setFormError('');
     setFormSuccess('');
     setShowForm(true);
@@ -133,23 +151,49 @@ export default function EventManagement() {
     setFormError('');
     setFormSuccess('');
     if (!form.title.trim()) { setFormError('Title is required.'); return; }
-    if (!form.event_date) { setFormError('Event date is required.'); return; }
+    if (!form.event_date) { setFormError('Event start date is required.'); return; }
+
+    // Validate date range
+    if (form.event_date_to) {
+      const fromDate = new Date(form.event_date);
+      const toDate = new Date(form.event_date_to);
+      if (toDate < fromDate) {
+        setFormError('The "To" date cannot be before the "From" date.');
+        return;
+      }
+    }
 
     setSaving(true);
     let imagePath = editingEvent?.image_path || null;
+    let imageUrlValue: string | null = null;
 
-    if (pendingImageFile) {
-      const uploaded = await uploadImage();
-      if (!uploaded) { setSaving(false); return; }
-      imagePath = uploaded;
+    if (imageInputMode === 'url') {
+      // URL mode: clear any uploaded file path, use the URL
+      imagePath = null;
+      imageUrlValue = form.image_url.trim() || null;
+    } else {
+      // Device mode: upload if new file selected
+      imageUrlValue = null;
+      if (pendingImageFile) {
+        const uploaded = await uploadImage();
+        if (!uploaded) { setSaving(false); return; }
+        imagePath = uploaded;
+      }
     }
+
+    // If to-date is blank, copy from-date
+    const eventDateTo = form.event_date_to
+      ? new Date(form.event_date_to).toISOString()
+      : new Date(form.event_date).toISOString();
 
     const payload = {
       title: form.title.trim(),
       description: form.description.trim() || null,
       event_date: new Date(form.event_date).toISOString(),
+      event_date_to: eventDateTo,
       location: form.location.trim() || null,
       image_path: imagePath,
+      image_url: imageUrlValue,
       is_published: form.is_published,
     };
 
@@ -201,6 +245,18 @@ export default function EventManagement() {
         year: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
+      });
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const formatDateShort = (dateStr: string) => {
+    try {
+      return new Date(dateStr).toLocaleDateString('en-ZA', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
       });
     } catch {
       return dateStr;
@@ -305,17 +361,33 @@ export default function EventManagement() {
                 />
               </div>
 
-              {/* Date */}
+              {/* Date Range */}
               <div>
                 <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">
-                  Event Date & Time <span className="text-red-500">*</span>
+                  Event Date &amp; Time <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="datetime-local"
-                  value={form.event_date}
-                  onChange={(e) => setForm((f) => ({ ...f, event_date: e.target.value }))}
-                  className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D]"
-                />
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-xs text-[#8C8278] mb-1">From</p>
+                    <input
+                      type="datetime-local"
+                      value={form.event_date}
+                      onChange={(e) => setForm((f) => ({ ...f, event_date: e.target.value }))}
+                      className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D]"
+                    />
+                  </div>
+                  <div>
+                    <p className="text-xs text-[#8C8278] mb-1">To <span className="text-[#B0A89E] font-normal">(optional)</span></p>
+                    <input
+                      type="datetime-local"
+                      value={form.event_date_to}
+                      min={form.event_date || undefined}
+                      onChange={(e) => setForm((f) => ({ ...f, event_date_to: e.target.value }))}
+                      className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D]"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-[#B0A89E] mt-1">If "To" is left blank, it will be set to the same as "From".</p>
               </div>
 
               {/* Location */}
@@ -337,40 +409,96 @@ export default function EventManagement() {
                 <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">
                   Event Image
                 </label>
-                {pendingImagePreview && (
-                  <div className="mb-2 relative w-full h-36 rounded-xl overflow-hidden border border-[#DDD5C8]">
-                    <img
-                      src={pendingImagePreview}
-                      alt="Event preview"
-                      className="w-full h-full object-cover"
+
+                {/* Image mode toggle */}
+                <div className="flex rounded-xl border border-[#DDD5C8] overflow-hidden mb-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setImageInputMode('device');
+                      setForm((f) => ({ ...f, image_url: '' }));
+                    }}
+                    className={`flex-1 py-2 text-xs font-semibold transition-colors ${
+                      imageInputMode === 'device' ?'bg-[#C4622D] text-white' :'bg-white text-[#5C5347] hover:bg-[#F5F0E8]'
+                    }`}
+                  >
+                    Upload from Device
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setImageInputMode('url');
+                      setPendingImageFile(null);
+                      setPendingImagePreview(null);
+                    }}
+                    className={`flex-1 py-2 text-xs font-semibold transition-colors ${
+                      imageInputMode === 'url' ?'bg-[#C4622D] text-white' :'bg-white text-[#5C5347] hover:bg-[#F5F0E8]'
+                    }`}
+                  >
+                    Enter Image URL
+                  </button>
+                </div>
+
+                {imageInputMode === 'device' ? (
+                  <>
+                    {pendingImagePreview && (
+                      <div className="mb-2 relative w-full h-36 rounded-xl overflow-hidden border border-[#DDD5C8]">
+                        <img
+                          src={pendingImagePreview}
+                          alt="Event preview"
+                          className="w-full h-full object-cover"
+                        />
+                        <button
+                          onClick={() => {
+                            setPendingImageFile(null);
+                            setPendingImagePreview(null);
+                          }}
+                          className="absolute top-2 right-2 bg-black/60 text-white rounded-full p-1 hover:bg-black/80"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    )}
+                    <input
+                      ref={imageInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      onChange={handleImageSelect}
+                      className="hidden"
                     />
                     <button
-                      onClick={() => {
-                        setPendingImageFile(null);
-                        setPendingImagePreview(null);
-                      }}
-                      className="absolute top-2 right-2 bg-black/60 text-white rounded-full p-1 hover:bg-black/80"
+                      type="button"
+                      onClick={() => imageInputRef.current?.click()}
+                      className="w-full border-2 border-dashed border-[#DDD5C8] rounded-xl py-3 text-sm text-[#8C8278] hover:border-[#C4622D] hover:text-[#C4622D] transition-colors"
                     >
-                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
+                      {pendingImagePreview ? 'Change Image' : 'Upload Image'}
                     </button>
-                  </div>
+                  </>
+                ) : (
+                  <>
+                    <input
+                      type="url"
+                      value={form.image_url}
+                      onChange={(e) => setForm((f) => ({ ...f, image_url: e.target.value }))}
+                      placeholder="https://example.com/image.jpg"
+                      className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D]"
+                    />
+                    {form.image_url && (
+                      <div className="mt-2 relative w-full h-36 rounded-xl overflow-hidden border border-[#DDD5C8]">
+                        <img
+                          src={form.image_url}
+                          alt="URL image preview"
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                          }}
+                        />
+                      </div>
+                    )}
+                  </>
                 )}
-                <input
-                  ref={imageInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp,image/gif"
-                  onChange={handleImageSelect}
-                  className="hidden"
-                />
-                <button
-                  type="button"
-                  onClick={() => imageInputRef.current?.click()}
-                  className="w-full border-2 border-dashed border-[#DDD5C8] rounded-xl py-3 text-sm text-[#8C8278] hover:border-[#C4622D] hover:text-[#C4622D] transition-colors"
-                >
-                  {pendingImagePreview ? 'Change Image' : 'Upload Image'}
-                </button>
               </div>
 
               {/* Published toggle */}
@@ -464,6 +592,9 @@ export default function EventManagement() {
         <div className="space-y-3">
           {filtered.map((ev) => {
             const past = isPast(ev.event_date);
+            const showDateRange =
+              ev.event_date_to &&
+              ev.event_date_to !== ev.event_date;
             return (
               <div
                 key={ev.id}
@@ -511,7 +642,9 @@ export default function EventManagement() {
                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
-                        {formatDate(ev.event_date)}
+                        {showDateRange
+                          ? `${formatDateShort(ev.event_date)} – ${formatDateShort(ev.event_date_to!)}`
+                          : formatDate(ev.event_date)}
                       </span>
                       {ev.location && (
                         <span className="flex items-center gap-1 text-xs text-[#5C5347]">
