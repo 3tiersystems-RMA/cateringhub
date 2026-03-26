@@ -37,6 +37,21 @@ const emptyEventForm: EventForm = {
   image_url: '',
 };
 
+/** Convert a UTC ISO string (from DB) to the "YYYY-MM-DDTHH:mm" format
+ *  that <input type="datetime-local"> expects, expressed in the user's
+ *  local timezone so the displayed value matches what was originally saved. */
+function toLocalDateTimeInput(isoString: string): string {
+  const d = new Date(isoString);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return (
+    d.getFullYear() +
+    '-' + pad(d.getMonth() + 1) +
+    '-' + pad(d.getDate()) +
+    'T' + pad(d.getHours()) +
+    ':' + pad(d.getMinutes())
+  );
+}
+
 export default function EventManagement() {
   const supabase = createClient();
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -131,8 +146,8 @@ export default function EventManagement() {
     setForm({
       title: ev.title,
       description: ev.description || '',
-      event_date: ev.event_date ? ev.event_date.slice(0, 16) : '',
-      event_date_to: ev.event_date_to ? ev.event_date_to.slice(0, 16) : '',
+      event_date: ev.event_date ? toLocalDateTimeInput(ev.event_date) : '',
+      event_date_to: ev.event_date_to ? toLocalDateTimeInput(ev.event_date_to) : '',
       location: ev.location || '',
       is_published: ev.is_published,
       image_url: ev.image_url || '',
