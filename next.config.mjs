@@ -21,7 +21,12 @@ const nextConfig = {
       },
     ];
   },
-  webpack(config) {
+  webpack(
+    config,
+    {
+      dev: dev
+    }
+  ) {
     config.module.rules.push({
       test: /\.(jsx|tsx)$/,
       exclude: [/node_modules/],
@@ -29,6 +34,17 @@ const nextConfig = {
         loader: '@dhiwise/component-tagger/nextLoader',
       }],
     });
+    if (dev) {
+      const ignoredPaths = (process.env.WATCH_IGNORED_PATHS || '')
+        .split(',')
+        .map((p) => p.trim())
+        .filter(Boolean);
+      config.watchOptions = {
+        ignored: ignoredPaths.length
+          ? ignoredPaths.map((p) => `**/${p.replace(/^\/+|\/+$/g, '')}/**`)
+          : undefined,
+      };
+    }
     return config;
   },
 };

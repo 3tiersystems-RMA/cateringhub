@@ -663,7 +663,7 @@ export default function StaffWorkspacePage() {
   const [dvLoading, setDvLoading] = useState(false);
   const [showDvForm, setShowDvForm] = useState(false);
   const [editingDv, setEditingDv] = useState<DiscountVoucher | null>(null);
-  const [dvForm, setDvForm] = useState({ dv_code: '', dv_amount: '', status: 'Active\' as \'Active\' | \'Inactive', expiry_date: '' });
+  const [dvForm, setDvForm] = useState({ dv_code: '', dv_amount: '', status: 'Active' as 'Active' | 'Inactive', expiry_date: '' });
   const [dvFormError, setDvFormError] = useState('');
   const [dvFormSuccess, setDvFormSuccess] = useState('');
   const [savingDv, setSavingDv] = useState(false);
@@ -1290,7 +1290,7 @@ export default function StaffWorkspacePage() {
     setFormError('');
     setFormSuccess('');
     await loadCategoryNames();
-    setShowForm(true);
+    setShowEditModal(true);
   };
 
   const handleSaveProduct = async () => {
@@ -1322,13 +1322,13 @@ export default function StaffWorkspacePage() {
       package_type: form.package_type,
       image_path,
     };
-    let error;
+    let saveError;
     if (editingProduct) {
-      ({ error } = await supabase.from('products').update(payload).eq('id', editingProduct.id));
+      ({ error: saveError } = await supabase.from('products').update(payload).eq('id', editingProduct.id));
     } else {
-      ({ error } = await supabase.from('products').insert(payload));
+      ({ error: saveError } = await supabase.from('products').insert(payload));
     }
-    if (error) { showProductFormError(error.message); }
+    if (saveError) { showProductFormError(saveError.message); }
     else {
       setFormSuccess(editingProduct ? 'Product updated!' : 'Product added!');
       setShowForm(false);
@@ -1373,13 +1373,13 @@ export default function StaffWorkspacePage() {
     setSavingCategory(true);
     const slug = categoryForm.slug.trim() || categoryForm.name.toLowerCase().replace(/\s+/g, '-');
     const payload = { name: categoryForm.name.trim(), slug, active: categoryForm.active, sort_order: Number(categoryForm.sort_order) };
-    let error;
+    let saveError;
     if (editingCategory) {
-      ({ error } = await supabase.from('product_categories').update(payload).eq('id', editingCategory.id));
+      ({ error: saveError } = await supabase.from('product_categories').update(payload).eq('id', editingCategory.id));
     } else {
-      ({ error } = await supabase.from('product_categories').insert(payload));
+      ({ error: saveError } = await supabase.from('product_categories').insert(payload));
     }
-    if (error) { showCategoryFormError(error.message); }
+    if (saveError) { showCategoryFormError(saveError.message); }
     else {
       setCategoryFormSuccess(editingCategory ? 'Category updated!' : 'Category added!');
       setShowCategoryForm(false);
@@ -1523,13 +1523,13 @@ export default function StaffWorkspacePage() {
       is_closed: weeklyMenuForm.is_closed,
       closed_reason: weeklyMenuForm.closed_reason.trim() || null,
     };
-    let error;
+    let saveError;
     if (editingWeeklyEntry) {
-      ({ error } = await supabase.from('weekly_menu').update(payload).eq('id', editingWeeklyEntry.id));
+      ({ error: saveError } = await supabase.from('weekly_menu').update(payload).eq('id', editingWeeklyEntry.id));
     } else {
-      ({ error } = await supabase.from('weekly_menu').insert(payload));
+      ({ error: saveError } = await supabase.from('weekly_menu').insert(payload));
     }
-    if (error) { showWeeklyMenuFormError(error.message); }
+    if (saveError) { showWeeklyMenuFormError(saveError.message); }
     else {
       setWeeklyMenuFormSuccess(editingWeeklyEntry ? 'Entry updated!' : 'Entry added!');
       setShowWeeklyMenuForm(false);
@@ -1613,13 +1613,13 @@ export default function StaffWorkspacePage() {
     }
     setSavingDv(true);
     const payload = { dv_code: dvForm.dv_code.trim().toUpperCase(), dv_amount: Number(dvForm.dv_amount), status: dvForm.status, expiry_date: dvForm.expiry_date };
-    let error;
+    let saveError;
     if (editingDv) {
-      ({ error } = await supabase.from('discount_vouchers').update(payload).eq('id', editingDv.id));
+      ({ error: saveError } = await supabase.from('discount_vouchers').update(payload).eq('id', editingDv.id));
     } else {
-      ({ error } = await supabase.from('discount_vouchers').insert(payload));
+      ({ error: saveError } = await supabase.from('discount_vouchers').insert(payload));
     }
-    if (error) { setDvFormError(error.message); }
+    if (saveError) { setDvFormError(saveError.message); }
     else {
       setDvFormSuccess(editingDv ? 'Voucher updated!' : 'Voucher created!');
       setShowDvForm(false);
@@ -1676,13 +1676,13 @@ export default function StaffWorkspacePage() {
       is_active: testimonialForm.is_active,
       display_order: Number(testimonialForm.display_order),
     };
-    let error;
+    let saveError;
     if (editingTestimonial) {
-      ({ error } = await supabase.from('testimonials').update(payload).eq('id', editingTestimonial.id));
+      ({ error: saveError } = await supabase.from('testimonials').update(payload).eq('id', editingTestimonial.id));
     } else {
-      ({ error } = await supabase.from('testimonials').insert(payload));
+      ({ error: saveError } = await supabase.from('testimonials').insert(payload));
     }
-    if (error) { setTestimonialFormError(error.message); }
+    if (saveError) { setTestimonialFormError(saveError.message); }
     else {
       setTestimonialFormSuccess(editingTestimonial ? 'Testimonial updated!' : 'Testimonial added!');
       setShowTestimonialForm(false);
@@ -2191,6 +2191,122 @@ export default function StaffWorkspacePage() {
                       >
                         Cancel
                       </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── Edit Product Modal ── */}
+                {showEditModal && editingProduct && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                    <div className="bg-white rounded-2xl border border-[#EDE7DA] p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-base font-bold text-[#1A1612]">Edit Product</h3>
+                        <button
+                          onClick={() => { setShowEditModal(false); setEditingProduct(null); }}
+                          className="text-[#8C8278] hover:text-[#1A1612] transition-colors text-xl font-bold leading-none"
+                        >
+                          ×
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Name *</label>
+                          <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Category</label>
+                          <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white">
+                            <option value="">-- Select Category --</option>
+                            {categoryNames.map(c => <option key={c} value={c}>{c}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Price (R) *</label>
+                          <input type="number" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Unit</label>
+                          <input value={form.unit} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                        </div>
+                        <div className="md:col-span-2">
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Description</label>
+                          <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={3} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Tags (comma-separated)</label>
+                          <input value={form.tags} onChange={e => setForm(f => ({ ...f, tags: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Badge</label>
+                          <input value={form.badge} onChange={e => setForm(f => ({ ...f, badge: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Min Order</label>
+                          <input type="number" value={form.min_order} onChange={e => setForm(f => ({ ...f, min_order: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Sort Order</label>
+                          <input type="number" value={form.sort_order} onChange={e => setForm(f => ({ ...f, sort_order: Number(e.target.value) }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Package Type</label>
+                          <select value={form.package_type} onChange={e => setForm(f => ({ ...f, package_type: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white">
+                            {packageTypes.map(pt => <option key={pt} value={pt}>{pt}</option>)}
+                          </select>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <label className="flex items-center gap-2 text-sm text-[#5C5347] cursor-pointer">
+                            <input type="checkbox" checked={form.available} onChange={e => setForm(f => ({ ...f, available: e.target.checked }))} className="rounded" />
+                            Available
+                          </label>
+                          <label className="flex items-center gap-2 text-sm text-[#5C5347] cursor-pointer">
+                            <input type="checkbox" checked={form.featured} onChange={e => setForm(f => ({ ...f, featured: e.target.checked }))} className="rounded" />
+                            Featured
+                          </label>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Product Image</label>
+                          <input
+                            ref={productImageRef}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={e => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                setPendingImageFile(file);
+                                setPendingImagePreview(URL.createObjectURL(file));
+                              }
+                            }}
+                          />
+                          {pendingImagePreview && (
+                            <img src={pendingImagePreview} alt="Preview" className="w-20 h-20 object-cover rounded-xl mb-2 border border-[#DDD5C8]" />
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => productImageRef.current?.click()}
+                            className="text-sm text-[#C4622D] border border-[#C4622D] rounded-xl px-3 py-1.5 hover:bg-[#FDF6EE] transition-colors"
+                          >
+                            {pendingImagePreview ? 'Change Image' : 'Upload Image'}
+                          </button>
+                        </div>
+                      </div>
+                      {formError && <p className="text-red-600 text-sm mt-3">{formError}</p>}
+                      <div className="flex items-center gap-3 mt-4">
+                        <button
+                          onClick={handleSaveProduct}
+                          disabled={saving || uploadingImage}
+                          className="bg-[#C4622D] text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
+                        >
+                          {saving ? 'Saving…' : 'Update Product'}
+                        </button>
+                        <button
+                          onClick={() => { setShowEditModal(false); setEditingProduct(null); }}
+                          className="text-sm text-[#5C5347] border border-[#DDD5C8] px-4 py-2 rounded-xl hover:bg-[#F5F0E8] transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -3114,13 +3230,13 @@ export default function StaffWorkspacePage() {
                           if (!dvForm.dv_code.trim() || !dvForm.dv_amount || !dvForm.expiry_date) { setDvFormError('Code, amount, and expiry date are required.'); return; }
                           setSavingDv(true);
                           const payload = { dv_code: dvForm.dv_code.trim().toUpperCase(), dv_amount: Number(dvForm.dv_amount), status: dvForm.status, expiry_date: dvForm.expiry_date };
-                          let error;
+                          let inlineError;
                           if (editingDv) {
-                            ({ error } = await supabase.from('discount_vouchers').update(payload).eq('id', editingDv.id));
+                            ({ error: inlineError } = await supabase.from('discount_vouchers').update(payload).eq('id', editingDv.id));
                           } else {
-                            ({ error } = await supabase.from('discount_vouchers').insert({ ...payload, times_used: 0 }));
+                            ({ error: inlineError } = await supabase.from('discount_vouchers').insert({ ...payload, times_used: 0 }));
                           }
-                          if (error) { setDvFormError(error.message); }
+                          if (inlineError) { setDvFormError(inlineError.message); }
                           else { setDvFormSuccess(editingDv ? 'Voucher updated!' : 'Voucher created!'); setShowDvForm(false); await loadDiscountVouchers(); }
                           setSavingDv(false);
                         }}
