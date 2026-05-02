@@ -16,7 +16,7 @@ const services = [
   imageAlt: "Elegant catering service with white tablecloths and plated dishes",
   badge: "Most Popular",
   badgeColor: "bg-[#C4622D] text-white",
-  stat: "From $45/head",
+  stat: "From R45/head",
   features: ["Custom menu design", "Staffed service", "Equipment included"],
   span: "lg:col-span-2 lg:row-span-2",
   tall: true
@@ -31,7 +31,7 @@ const services = [
   imageAlt: "Neatly arranged meal prep containers with colorful healthy food",
   badge: "New",
   badgeColor: "bg-[#D4A853] text-[#1A1612]",
-  stat: "From $12/meal",
+  stat: "From R12/meal",
   features: ["Weekly delivery", "Macro-balanced", "Dietary options"],
   span: "lg:col-span-1",
   tall: false
@@ -46,7 +46,7 @@ const services = [
   imageAlt: "Beautiful charcuterie and food platter arrangement with fresh fruits",
   badge: "Quick Order",
   badgeColor: "bg-[#EDE7DA] text-[#5C5347] border border-[#DDD5C8]",
-  stat: "From $35/platter",
+  stat: "From R35/platter",
   features: ["48hr notice", "Pickup or delivery", "Seasonal items"],
   span: "lg:col-span-1",
   tall: false
