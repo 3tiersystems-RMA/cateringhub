@@ -5,6 +5,7 @@ import Link from "next/link";
 import AppImage from "@/components/ui/AppImage";
 import Icon from "@/components/ui/AppIcon";
 
+// Currency: South African Rand (R)
 const services = [
 {
   id: "catering",
