@@ -13,6 +13,10 @@ interface Event {
   image_path: string | null;
   image_url: string | null;
   is_published: boolean;
+  is_registered: boolean;
+  cost: number | null;
+  enrollment_url: string | null;
+  event_menu: string | null;
   created_at: string;
   imageUrl?: string;
 }
@@ -25,6 +29,10 @@ interface EventForm {
   location: string;
   is_published: boolean;
   image_url: string;
+  is_registered: boolean;
+  cost: string;
+  enrollment_url: string;
+  event_menu: string;
 }
 
 const emptyEventForm: EventForm = {
@@ -35,6 +43,10 @@ const emptyEventForm: EventForm = {
   location: '',
   is_published: false,
   image_url: '',
+  is_registered: false,
+  cost: '',
+  enrollment_url: '',
+  event_menu: '',
 };
 
 /** Convert a UTC ISO string (from DB) to the "YYYY-MM-DDTHH:mm" format
@@ -151,6 +163,10 @@ export default function EventManagement() {
       location: ev.location || '',
       is_published: ev.is_published,
       image_url: ev.image_url || '',
+      is_registered: ev.is_registered || false,
+      cost: ev.cost != null ? String(ev.cost) : '',
+      enrollment_url: ev.enrollment_url || '',
+      event_menu: ev.event_menu || '',
     });
     setPendingImageFile(null);
     // If there's a stored image_path preview use it, else use image_url
@@ -178,6 +194,13 @@ export default function EventManagement() {
       }
     }
 
+    if (form.is_registered) {
+      if (form.cost && isNaN(parseFloat(form.cost))) {
+        setFormError('Cost must be a valid number.');
+        return;
+      }
+    }
+
     setSaving(true);
     let imagePath = editingEvent?.image_path || null;
     let imageUrlValue: string | null = null;
@@ -201,7 +224,7 @@ export default function EventManagement() {
       ? new Date(form.event_date_to).toISOString()
       : new Date(form.event_date).toISOString();
 
-    const payload = {
+    const payload: Record<string, unknown> = {
       title: form.title.trim(),
       description: form.description.trim() || null,
       event_date: new Date(form.event_date).toISOString(),
@@ -210,6 +233,10 @@ export default function EventManagement() {
       image_path: imagePath,
       image_url: imageUrlValue,
       is_published: form.is_published,
+      is_registered: form.is_registered,
+      cost: form.is_registered && form.cost.trim() ? parseFloat(form.cost) : null,
+      enrollment_url: form.is_registered && form.enrollment_url.trim() ? form.enrollment_url.trim() : null,
+      event_menu: form.is_registered && form.event_menu.trim() ? form.event_menu.trim() : null,
     };
 
     if (editingEvent) {
@@ -451,7 +478,7 @@ export default function EventManagement() {
                       setForm((f) => ({ ...f, image_url: '' }));
                     }}
                     className={`flex-1 py-2 text-xs font-semibold transition-colors ${
-                      imageInputMode === 'device' ?'bg-[#C4622D] text-white' :'bg-white text-[#5C5347] hover:bg-[#F5F0E8]'
+                      imageInputMode === 'device' ? 'bg-[#C4622D] text-white' : 'bg-white text-[#5C5347] hover:bg-[#F5F0E8]'
                     }`}
                   >
                     Upload from Device
@@ -464,7 +491,7 @@ export default function EventManagement() {
                       setPendingImagePreview(null);
                     }}
                     className={`flex-1 py-2 text-xs font-semibold transition-colors ${
-                      imageInputMode === 'url' ?'bg-[#C4622D] text-white' :'bg-white text-[#5C5347] hover:bg-[#F5F0E8]'
+                      imageInputMode === 'url' ? 'bg-[#C4622D] text-white' : 'bg-white text-[#5C5347] hover:bg-[#F5F0E8]'
                     }`}
                   >
                     Enter Image URL
@@ -532,6 +559,82 @@ export default function EventManagement() {
                   </>
                 )}
               </div>
+
+              {/* Registered Event Toggle */}
+              <div className="flex items-center justify-between bg-[#FFF8F4] border border-[#F0D5C4] rounded-xl px-4 py-3">
+                <div>
+                  <p className="text-sm font-semibold text-[#1A1612]">Registered Event</p>
+                  <p className="text-xs text-[#8C8278]">Requires enrollment — add cost, URL &amp; menu</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setForm((f) => ({ ...f, is_registered: !f.is_registered }))}
+                  className={`relative w-11 h-6 rounded-full transition-colors ${
+                    form.is_registered ? 'bg-[#C4622D]' : 'bg-[#DDD5C8]'
+                  }`}
+                >
+                  <span
+                    className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                      form.is_registered ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {/* Registered Event Fields */}
+              {form.is_registered && (
+                <div className="space-y-4 bg-[#FFF8F4] border border-[#F0D5C4] rounded-xl p-4">
+                  <p className="text-xs font-bold text-[#C4622D] uppercase tracking-wider">Registered Event Details</p>
+
+                  {/* Cost */}
+                  <div>
+                    <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">
+                      Cost (R)
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[#8C8278] font-medium">R</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={form.cost}
+                        onChange={(e) => setForm((f) => ({ ...f, cost: e.target.value }))}
+                        placeholder="0.00"
+                        className="w-full border border-[#DDD5C8] rounded-xl pl-8 pr-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D]"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Enrollment URL */}
+                  <div>
+                    <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">
+                      Enrollment URL
+                    </label>
+                    <input
+                      type="url"
+                      value={form.enrollment_url}
+                      onChange={(e) => setForm((f) => ({ ...f, enrollment_url: e.target.value }))}
+                      placeholder="https://forms.example.com/enroll"
+                      className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D]"
+                    />
+                  </div>
+
+                  {/* Event Menu */}
+                  <div>
+                    <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">
+                      Event Menu
+                    </label>
+                    <textarea
+                      value={form.event_menu}
+                      onChange={(e) => setForm((f) => ({ ...f, event_menu: e.target.value }))}
+                      placeholder="e.g. Chocolate Chip Cookies, Banana Bread, Cupcake Decorating..."
+                      rows={4}
+                      className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] resize-none"
+                    />
+                    <p className="text-xs text-[#B0A89E] mt-1">List the baking/cooking items covered in this class.</p>
+                  </div>
+                </div>
+              )}
 
               {/* Published toggle */}
               <div className="flex items-center justify-between bg-[#F5F0E8] rounded-xl px-4 py-3">
@@ -624,9 +727,6 @@ export default function EventManagement() {
         <div className="space-y-3">
           {filtered.map((ev) => {
             const past = isPast(ev.event_date);
-            const showDateRange =
-              ev.event_date_to &&
-              ev.event_date_to !== ev.event_date;
             return (
               <div
                 key={ev.id}
@@ -649,7 +749,14 @@ export default function EventManagement() {
                 <div className="flex-1 px-4 py-3 flex flex-col justify-between">
                   <div>
                     <div className="flex items-start justify-between gap-2 flex-wrap">
-                      <h3 className="text-sm font-bold text-[#1A1612]">{ev.title}</h3>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-sm font-bold text-[#1A1612]">{ev.title}</h3>
+                        {ev.is_registered && (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-[#FFF0E8] text-[#C4622D] border border-[#F0D5C4] font-semibold">
+                            Registered
+                          </span>
+                        )}
+                      </div>
                       <div className="flex items-center gap-2 flex-wrap">
                         {past && (
                           <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 border border-gray-200">
@@ -685,7 +792,17 @@ export default function EventManagement() {
                           {ev.location}
                         </span>
                       )}
+                      {ev.is_registered && ev.cost != null && (
+                        <span className="flex items-center gap-1 text-xs font-semibold text-[#C4622D]">
+                          R{Number(ev.cost).toFixed(2)}
+                        </span>
+                      )}
                     </div>
+                    {ev.is_registered && ev.event_menu && (
+                      <p className="text-xs text-[#8C8278] mt-1 line-clamp-1">
+                        <span className="font-semibold text-[#5C5347]">Menu: </span>{ev.event_menu}
+                      </p>
+                    )}
                   </div>
 
                   {/* Actions */}
