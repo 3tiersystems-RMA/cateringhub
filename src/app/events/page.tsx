@@ -228,7 +228,7 @@ function EventsContent() {
                       <svg className="w-4 h-4 text-[#C4622D] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
-                      {ev.event_date_to && ev.event_date_to.slice(0, 10) !== ev.event_date.slice(0, 10) ? (
+                      {ev.event_date_to ? (
                         <span>{formatTime(ev.event_date)} – {formatTime(ev.event_date_to)}</span>
                       ) : (
                         <span>{formatTime(ev.event_date)}</span>
