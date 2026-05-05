@@ -278,6 +278,23 @@ export default function EventManagement() {
     }
   };
 
+  const formatEventDateTime = (from: string, to: string | null) => {
+    try {
+      const fromDate = new Date(from);
+      const dateLabel = fromDate.toLocaleDateString('en-ZA', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      });
+      const fromTime = fromDate.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' });
+      if (!to) return `${dateLabel}, ${fromTime}`;
+      const toTime = new Date(to).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' });
+      return `${dateLabel}, ${fromTime} – ${toTime}`;
+    } catch {
+      return from;
+    }
+  };
+
   const isPast = (dateStr: string) => new Date(dateStr) < new Date();
 
   const filtered = events.filter(
@@ -657,9 +674,7 @@ export default function EventManagement() {
                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
-                        {showDateRange
-                          ? `${formatDateShort(ev.event_date)} – ${formatDateShort(ev.event_date_to!)}`
-                          : formatDate(ev.event_date)}
+                        {formatEventDateTime(ev.event_date, ev.event_date_to)}
                       </span>
                       {ev.location && (
                         <span className="flex items-center gap-1 text-xs text-[#5C5347]">

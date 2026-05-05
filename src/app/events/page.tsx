@@ -52,8 +52,14 @@ function EventsContent() {
           if (ev.image_path) {
             const { data: urlData } = await supabase.storage
               .from('event-photos')
-              .createSignedUrl(ev.image_path, 3600);
-            return { ...ev, imageUrl: urlData?.signedUrl };
+              .createSignedUrl(ev.image_path, 86400);
+            if (urlData?.signedUrl) {
+              return { ...ev, imageUrl: urlData.signedUrl };
+            }
+          }
+          // Fall back to image_url if no image_path or signed URL failed
+          if ((ev as any).image_url) {
+            return { ...ev, imageUrl: (ev as any).image_url };
           }
           return ev;
         })
@@ -111,6 +117,23 @@ function EventsContent() {
       });
     } catch {
       return '';
+    }
+  };
+
+  const formatDateWithTime = (from: string, to: string | null) => {
+    try {
+      const fromDate = new Date(from);
+      const dateLabel = fromDate.toLocaleDateString('en-ZA', {
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric',
+      });
+      const fromTime = fromDate.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' });
+      if (!to) return `${dateLabel}, ${fromTime}`;
+      const toTime = new Date(to).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' });
+      return `${dateLabel}, ${fromTime} – ${toTime}`;
+    } catch {
+      return from;
     }
   };
 
@@ -222,17 +245,7 @@ function EventsContent() {
                       <svg className="w-4 h-4 text-[#C4622D] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                       </svg>
-                      <span>{formatDateRange(ev.event_date, ev.event_date_to)}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-[#5C5347]">
-                      <svg className="w-4 h-4 text-[#C4622D] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      {ev.event_date_to ? (
-                        <span>{formatTime(ev.event_date)} – {formatTime(ev.event_date_to)}</span>
-                      ) : (
-                        <span>{formatTime(ev.event_date)}</span>
-                      )}
+                      <span>{formatDateWithTime(ev.event_date, ev.event_date_to)}</span>
                     </div>
                     {ev.location && (
                       <div className="flex items-center gap-2 text-sm text-[#5C5347]">
