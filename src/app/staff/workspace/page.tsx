@@ -2004,6 +2004,15 @@ export default function StaffWorkspacePage() {
               {mediaMenuOpen && (
                 <div className="pl-4 border-l-2 border-[#E8DDD0] ml-4">
                   <button
+                    onClick={() => { handleTabChange('media_products'); }}
+                    className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${
+                      activeTab === 'media_products' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'
+                    }`}
+                  >
+                    <span className="text-base">🛍️</span>
+                    <span>Add Products</span>
+                  </button>
+                  <button
                     onClick={() => { handleTabChange('media_events'); }}
                     className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${
                       activeTab === 'media_events' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'
@@ -2020,15 +2029,6 @@ export default function StaffWorkspacePage() {
                   >
                     <span className="text-base">📁</span>
                     <span>Document Management</span>
-                  </button>
-                  <button
-                    onClick={() => { handleTabChange('media_products'); }}
-                    className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${
-                      activeTab === 'media_products' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'
-                    }`}
-                  >
-                    <span className="text-base">🛍️</span>
-                    <span>Add Products</span>
                   </button>
                   <a
                     href="https://forms.gle/x572WQzUhJtvCn4i9"
