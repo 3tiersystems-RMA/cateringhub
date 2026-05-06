@@ -3317,8 +3317,8 @@ export default function StaffWorkspacePage() {
                           <p className="text-xs text-[#8C8278] mt-0.5">R{Number(dv.dv_amount).toFixed(2)} · Expires {formatDate(dv.expiry_date)} · Used {dv.times_used ?? 0}×</p>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className={`text-xs px-2.5 py-1 rounded-full font-semibold border ${dv.status === 'Active' ? 'bg-green-100 text-green-700 border-green-200' : 'bg-gray-100 text-gray-500 border-gray-200'}`}>
-                            {dv.status}
+                          <span className={`text-xs px-2.5 py-1 rounded-full font-semibold border ${!isExpiredDv && dv.status === 'Active' ? 'bg-green-100 text-green-700 border-green-200' : 'bg-gray-100 text-gray-500 border-gray-200'}`}>
+                            {isExpiredDv ? 'Inactive' : dv.status}
                           </span>
                           <button
                             onClick={() => { setEditingDv(dv); setDvForm({ dv_code: dv.dv_code, dv_type: dv.dv_code.startsWith('GV-') ? 'Gift' : 'Discount', dv_amount: String(dv.dv_amount), status: dv.status, expiry_date: dv.expiry_date?.split('T')[0] || '' }); setDvFormError(''); setDvFormSuccess(''); setShowDvForm(true); }}
