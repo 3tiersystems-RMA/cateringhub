@@ -668,6 +668,7 @@ export default function StaffWorkspacePage() {
   const [dvFormSuccess, setDvFormSuccess] = useState('');
   const [savingDv, setSavingDv] = useState(false);
   const [dvSearchQuery, setDvSearchQuery] = useState('');
+  const [dvFilterExpired, setDvFilterExpired] = useState<'all' | 'active' | 'expired'>('all');
   const [generatingQrId, setGeneratingQrId] = useState<string | null>(null);
   // Testimonials state
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
@@ -1728,10 +1729,12 @@ export default function StaffWorkspacePage() {
     v.customer_email.toLowerCase().includes(vouchersSearchQuery.toLowerCase())
   );
 
-  const filteredDiscountVouchers = discountVouchers.filter(dv =>
-    !dvSearchQuery ||
-    dv.dv_code.toLowerCase().includes(dvSearchQuery.toLowerCase())
-  );
+  const filteredDiscountVouchers = discountVouchers.filter(dv => {
+    const isExpired = dv.expiry_date ? new Date(dv.expiry_date) < new Date(new Date().toDateString()) : false;
+    if (dvFilterExpired === 'active' && isExpired) return false;
+    if (dvFilterExpired === 'expired' && !isExpired) return false;
+    return !dvSearchQuery || dv.dv_code.toLowerCase().includes(dvSearchQuery.toLowerCase());
+  });
 
   const filteredTestimonials = testimonials.filter(t =>
     !testimonialSearchQuery ||
@@ -3199,6 +3202,20 @@ export default function StaffWorkspacePage() {
                       onChange={e => setDvSearchQuery(e.target.value)}
                       className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
                     />
+                    <div className="flex items-center gap-1 bg-[#F5EFE7] rounded-xl p-1">
+                      <button
+                        onClick={() => setDvFilterExpired('all')}
+                        className={`text-xs px-3 py-1.5 rounded-lg font-semibold transition-colors ${dvFilterExpired === 'all' ? 'bg-white text-[#C4622D] shadow-sm' : 'text-[#8C8278] hover:text-[#1A1612]'}`}
+                      >All</button>
+                      <button
+                        onClick={() => setDvFilterExpired('active')}
+                        className={`text-xs px-3 py-1.5 rounded-lg font-semibold transition-colors ${dvFilterExpired === 'active' ? 'bg-white text-green-700 shadow-sm' : 'text-[#8C8278] hover:text-[#1A1612]'}`}
+                      >Active</button>
+                      <button
+                        onClick={() => setDvFilterExpired('expired')}
+                        className={`text-xs px-3 py-1.5 rounded-lg font-semibold transition-colors ${dvFilterExpired === 'expired' ? 'bg-white text-red-600 shadow-sm' : 'text-[#8C8278] hover:text-[#1A1612]'}`}
+                      >Expired</button>
+                    </div>
                     <button
                       onClick={() => { setEditingDv(null); setDvForm({ dv_code: '', dv_type: 'Discount', dv_amount: '', status: 'Active', expiry_date: '' }); setDvFormError(''); setDvFormSuccess(''); setShowDvForm(true); }}
                       className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors"
@@ -3286,10 +3303,17 @@ export default function StaffWorkspacePage() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {filteredDiscountVouchers.map(dv => (
-                      <div key={dv.id} className="bg-white rounded-2xl border border-[#EDE7DA] p-4 flex items-center justify-between">
+                    {filteredDiscountVouchers.map(dv => {
+                      const isExpiredDv = dv.expiry_date ? new Date(dv.expiry_date) < new Date(new Date().toDateString()) : false;
+                      return (
+                      <div key={dv.id} className={`bg-white rounded-2xl border p-4 flex items-center justify-between ${isExpiredDv ? 'border-red-200 bg-red-50/30' : 'border-[#EDE7DA]'}`}>
                         <div>
-                          <p className="font-semibold text-[#1A1612] text-sm font-mono">{dv.dv_code}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-semibold text-[#1A1612] text-sm font-mono">{dv.dv_code}</p>
+                            {isExpiredDv && (
+                              <span className="text-xs px-2 py-0.5 rounded-full font-semibold bg-red-100 text-red-600 border border-red-200">Expired</span>
+                            )}
+                          </div>
                           <p className="text-xs text-[#8C8278] mt-0.5">R{Number(dv.dv_amount).toFixed(2)} · Expires {formatDate(dv.expiry_date)} · Used {dv.times_used ?? 0}×</p>
                         </div>
                         <div className="flex items-center gap-2">
@@ -3310,7 +3334,8 @@ export default function StaffWorkspacePage() {
                           </button>
                         </div>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
