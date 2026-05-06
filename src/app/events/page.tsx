@@ -54,11 +54,11 @@ function EventsContent() {
       const withUrls = await Promise.all(
         data.map(async (ev: Event) => {
           if (ev.image_path) {
-            const { data: urlData } = await supabase.storage
+            const { data: urlData } = supabase.storage
               .from('event-photos')
-              .createSignedUrl(ev.image_path, 86400);
-            if (urlData?.signedUrl) {
-              return { ...ev, imageUrl: urlData.signedUrl };
+              .getPublicUrl(ev.image_path);
+            if (urlData?.publicUrl) {
+              return { ...ev, imageUrl: urlData.publicUrl };
             }
           }
           if ((ev as any).image_url) {
@@ -85,14 +85,11 @@ function EventsContent() {
       const month = monthNames[fromDate.getMonth()];
       const year = fromDate.getFullYear();
       const dateLabel = `${day} ${month} ${year}`;
-      const fromHH = String(fromDate.getHours()).padStart(2, '0');
-      const fromMM = String(fromDate.getMinutes()).padStart(2, '0');
-      const fromTime = `${fromHH}:${fromMM}`;
+      const fromHH = fromDate.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' });
+      const fromTime = fromHH;
       if (!to) return `${dateLabel}, ${fromTime}`;
       const toDate = new Date(to);
-      const toHH = String(toDate.getHours()).padStart(2, '0');
-      const toMM = String(toDate.getMinutes()).padStart(2, '0');
-      const toTime = `${toHH}:${toMM}`;
+      const toTime = toDate.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' });
       return `${dateLabel}, ${fromTime} – ${toTime}`;
     } catch {
       return from;
