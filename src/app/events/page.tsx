@@ -77,25 +77,6 @@ function EventsContent() {
   const pastEvents = events.filter((e) => new Date(e.event_date) < now);
   const displayedEvents = activeTab === 'current' ? currentEvents : pastEvents;
 
-  const formatDateWithTime = (from: string, to: string | null) => {
-    try {
-      const fromDate = new Date(from);
-      const day = String(fromDate.getDate()).padStart(2, '0');
-      const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-      const month = monthNames[fromDate.getMonth()];
-      const year = fromDate.getFullYear();
-      const dateLabel = `${day} ${month} ${year}`;
-      const fromHH = fromDate.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' });
-      const fromTime = fromHH;
-      if (!to) return `${dateLabel}, ${fromTime}`;
-      const toDate = new Date(to);
-      const toTime = toDate.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' });
-      return `${dateLabel}, ${fromTime} – ${toTime}`;
-    } catch {
-      return from;
-    }
-  };
-
   const formatDateOnly = (from: string) => {
     try {
       const d = new Date(from);
@@ -111,16 +92,58 @@ function EventsContent() {
     }
   };
 
+  /**
+   * Extracts HH:MM from an ISO timestamp string without using toLocaleTimeString.
+   * Supabase returns timestamptz as e.g. "2026-05-10T13:30:00+02:00" or "2026-05-10T11:30:00Z".
+   * We parse the offset and compute SAST (UTC+2) manually so it works in any Node.js environment.
+   */
+  const extractSASTTime = (isoString: string): string => {
+    try {
+      // Try to parse offset directly from the string first (e.g. +02:00 or -05:00)
+      const offsetMatch = isoString.match(/([+-])(\d{2}):(\d{2})$/);
+      let totalMinutesUTC = 0;
+
+      const d = new Date(isoString);
+      totalMinutesUTC = d.getUTCHours() * 60 + d.getUTCMinutes();
+
+      // SAST is UTC+2 = +120 minutes
+      const sastMinutes = (totalMinutesUTC + 120) % (24 * 60);
+      const hh = Math.floor(sastMinutes / 60);
+      const mm = sastMinutes % 60;
+      return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+    } catch {
+      return '';
+    }
+  };
+
   const formatTimeRange = (from: string, to: string | null) => {
     try {
-      const fromDate = new Date(from);
-      const fromTime = fromDate.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' });
+      const fromTime = extractSASTTime(from);
+      if (!fromTime) return '';
       if (!to) return fromTime;
-      const toDate = new Date(to);
-      const toTime = toDate.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' });
+      const toTime = extractSASTTime(to);
+      if (!toTime) return fromTime;
       return `${fromTime} – ${toTime}`;
     } catch {
       return '';
+    }
+  };
+
+  const formatDateWithTime = (from: string, to: string | null) => {
+    try {
+      const fromDate = new Date(from);
+      const day = String(fromDate.getUTCDate()).padStart(2, '0');
+      const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+      // Use UTC date parts to avoid local timezone shifting the date
+      const month = monthNames[fromDate.getUTCMonth()];
+      const year = fromDate.getUTCFullYear();
+      const dateLabel = `${day} ${month} ${year}`;
+      const fromTime = extractSASTTime(from);
+      if (!to) return `${dateLabel}, ${fromTime}`;
+      const toTime = extractSASTTime(to);
+      return `${dateLabel}, ${fromTime} – ${toTime}`;
+    } catch {
+      return from;
     }
   };
 
