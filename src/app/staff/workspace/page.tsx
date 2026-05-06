@@ -663,7 +663,7 @@ export default function StaffWorkspacePage() {
   const [dvLoading, setDvLoading] = useState(false);
   const [showDvForm, setShowDvForm] = useState(false);
   const [editingDv, setEditingDv] = useState<DiscountVoucher | null>(null);
-  const [dvForm, setDvForm] = useState({ dv_code: '', dv_amount: '', status: 'Active\' as \'Active\' | \'Inactive', expiry_date: '' });
+  const [dvForm, setDvForm] = useState({ dv_code: '', dv_type: 'Discount' as 'Discount' | 'Gift', dv_amount: '', status: 'Active\' as \'Active\' | \'Inactive', expiry_date: '' });
   const [dvFormError, setDvFormError] = useState('');
   const [dvFormSuccess, setDvFormSuccess] = useState('');
   const [savingDv, setSavingDv] = useState(false);
@@ -1592,7 +1592,7 @@ export default function StaffWorkspacePage() {
   // ─── Discount Voucher CRUD ────────────────────────────────────────────────────
   const openAddDvForm = () => {
     setEditingDv(null);
-    setDvForm({ dv_code: '', dv_amount: '', status: 'Active' as 'Active' | 'Inactive', expiry_date: '' });
+    setDvForm({ dv_code: '', dv_type: 'Discount', dv_amount: '', status: 'Active' as 'Active' | 'Inactive', expiry_date: '' });
     setDvFormError('');
     setDvFormSuccess('');
     setShowDvForm(true);
@@ -1600,15 +1600,15 @@ export default function StaffWorkspacePage() {
 
   const openEditDvForm = (dv: DiscountVoucher) => {
     setEditingDv(dv);
-    setDvForm({ dv_code: dv.dv_code, dv_amount: String(dv.dv_amount), status: dv.status, expiry_date: dv.expiry_date?.split('T')[0] || '' });
+    setDvForm({ dv_code: dv.dv_code, dv_type: dv.dv_code.startsWith('GV-') ? 'Gift' : 'Discount', dv_amount: String(dv.dv_amount), status: dv.status, expiry_date: dv.expiry_date?.split('T')[0] || '' });
     setDvFormError('');
     setDvFormSuccess('');
     setShowDvForm(true);
   };
 
   const handleSaveDv = async () => {
-    if (!dvForm.dv_code.trim() || !dvForm.dv_amount || !dvForm.expiry_date) {
-      setDvFormError('Code, amount, and expiry date are required.');
+    if (!dvForm.dv_amount || !dvForm.expiry_date) {
+      setDvFormError('Amount and expiry date are required.');
       return;
     }
     setSavingDv(true);
@@ -1617,7 +1617,7 @@ export default function StaffWorkspacePage() {
     if (editingDv) {
       ({ error: saveError } = await supabase.from('discount_vouchers').update(payload).eq('id', editingDv.id));
     } else {
-      ({ error: saveError } = await supabase.from('discount_vouchers').insert(payload));
+      ({ error: saveError } = await supabase.from('discount_vouchers').insert({ ...payload, times_used: 0 }));
     }
     if (saveError) { setDvFormError(saveError.message); }
     else {
@@ -3200,7 +3200,7 @@ export default function StaffWorkspacePage() {
                       className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
                     />
                     <button
-                      onClick={() => { setEditingDv(null); setDvForm({ dv_code: '', dv_amount: '', status: 'Active', expiry_date: '' }); setDvFormError(''); setDvFormSuccess(''); setShowDvForm(true); }}
+                      onClick={() => { setEditingDv(null); setDvForm({ dv_code: '', dv_type: 'Discount', dv_amount: '', status: 'Active', expiry_date: '' }); setDvFormError(''); setDvFormSuccess(''); setShowDvForm(true); }}
                       className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors"
                     >
                       + Add Voucher
@@ -3213,8 +3213,11 @@ export default function StaffWorkspacePage() {
                     <h3 className="text-base font-bold text-[#1A1612] mb-4">{editingDv ? 'Edit Discount Voucher' : 'Add Discount Voucher'}</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Voucher Code *</label>
-                        <input value={dvForm.dv_code} onChange={e => setDvForm(f => ({ ...f, dv_code: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Voucher Type *</label>
+                        <select value={dvForm.dv_type} onChange={e => setDvForm(f => ({ ...f, dv_type: e.target.value as 'Discount' | 'Gift', dv_code: '' }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white">
+                          <option value="Discount">Discount</option>
+                          <option value="Gift">Gift</option>
+                        </select>
                       </div>
                       <div>
                         <label className="block text-xs font-semibold text-[#5C5347] mb-1">Amount (R) *</label>
@@ -3231,23 +3234,36 @@ export default function StaffWorkspacePage() {
                         <label className="block text-xs font-semibold text-[#5C5347] mb-1">Expiry Date *</label>
                         <input type="date" value={dvForm.expiry_date} onChange={e => setDvForm(f => ({ ...f, expiry_date: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
                       </div>
+                      {dvForm.dv_code && (
+                        <div className="md:col-span-2">
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Generated Voucher Code</label>
+                          <div className="w-full border border-[#C4622D] rounded-xl px-3 py-2 text-sm bg-[#FDF8F3] text-[#C4622D] font-mono font-bold tracking-wider">{dvForm.dv_code}</div>
+                        </div>
+                      )}
                     </div>
                     {dvFormError && <p className="text-sm text-red-600 mt-3">{dvFormError}</p>}
                     {dvFormSuccess && <p className="text-sm text-green-600 mt-3">{dvFormSuccess}</p>}
                     <div className="flex items-center gap-3 mt-4">
                       <button
                         onClick={async () => {
-                          if (!dvForm.dv_code.trim() || !dvForm.dv_amount || !dvForm.expiry_date) { setDvFormError('Code, amount, and expiry date are required.'); return; }
+                          if (!dvForm.dv_amount || !dvForm.expiry_date) { setDvFormError('Amount and expiry date are required.'); return; }
                           setSavingDv(true);
-                          const payload = { dv_code: dvForm.dv_code.trim().toUpperCase(), dv_amount: Number(dvForm.dv_amount), status: dvForm.status, expiry_date: dvForm.expiry_date };
+                          const year = new Date().getFullYear();
+                          const randomPart = Math.random().toString(36).substring(2, 8).toUpperCase();
+                          const prefix = dvForm.dv_type === 'Gift' ? 'GV' : 'DV';
+                          const generatedCode = editingDv ? dvForm.dv_code : `${prefix}-${year}-${randomPart}`;
+                          const payload = { dv_code: generatedCode, dv_amount: Number(dvForm.dv_amount), status: dvForm.status, expiry_date: dvForm.expiry_date };
                           let inlineError: any = null;
                           if (editingDv) {
                             ({ error: inlineError } = await supabase.from('discount_vouchers').update(payload).eq('id', editingDv.id));
                           } else {
                             ({ error: inlineError } = await supabase.from('discount_vouchers').insert({ ...payload, times_used: 0 }));
                           }
-                          if (inlineError) { setDvFormError(inlineError.message); }
-                          else { setDvFormSuccess(editingDv ? 'Voucher updated!' : 'Voucher created!'); setShowDvForm(false); await loadDiscountVouchers(); }
+                          if (inlineError) { setDvFormError(inlineError.message); setSavingDv(false); return; }
+                          setDvForm(f => ({ ...f, dv_code: generatedCode }));
+                          setDvFormSuccess(editingDv ? 'Voucher updated!' : `Voucher created! Code: ${generatedCode}`);
+                          setShowDvForm(false);
+                          await loadDiscountVouchers();
                           setSavingDv(false);
                         }}
                         disabled={savingDv}
@@ -3281,7 +3297,7 @@ export default function StaffWorkspacePage() {
                             {dv.status}
                           </span>
                           <button
-                            onClick={() => { setEditingDv(dv); setDvForm({ dv_code: dv.dv_code, dv_amount: String(dv.dv_amount), status: dv.status, expiry_date: dv.expiry_date?.split('T')[0] || '' }); setDvFormError(''); setDvFormSuccess(''); setShowDvForm(true); }}
+                            onClick={() => { setEditingDv(dv); setDvForm({ dv_code: dv.dv_code, dv_type: dv.dv_code.startsWith('GV-') ? 'Gift' : 'Discount', dv_amount: String(dv.dv_amount), status: dv.status, expiry_date: dv.expiry_date?.split('T')[0] || '' }); setDvFormError(''); setDvFormSuccess(''); setShowDvForm(true); }}
                             className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl hover:bg-[#FDF6EE] transition-colors"
                           >
                             Edit
