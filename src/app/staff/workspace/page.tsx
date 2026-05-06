@@ -2028,7 +2028,7 @@ export default function StaffWorkspacePage() {
                     <span>Add Products</span>
                   </button>
                   <a
-                    href="https://docs.google.com/forms/d/e/YOUR_GOOGLE_FORM_ID/viewform"
+                    href="https://forms.gle/x572WQzUhJtvCn4i9"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]"
