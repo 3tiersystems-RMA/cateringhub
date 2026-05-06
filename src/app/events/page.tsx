@@ -114,14 +114,10 @@ function EventsContent() {
   const formatTimeRange = (from: string, to: string | null) => {
     try {
       const fromDate = new Date(from);
-      const fromHH = String(fromDate.getHours()).padStart(2, '0');
-      const fromMM = String(fromDate.getMinutes()).padStart(2, '0');
-      const fromTime = `${fromHH}:${fromMM}`;
+      const fromTime = fromDate.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' });
       if (!to) return fromTime;
       const toDate = new Date(to);
-      const toHH = String(toDate.getHours()).padStart(2, '0');
-      const toMM = String(toDate.getMinutes()).padStart(2, '0');
-      const toTime = `${toHH}:${toMM}`;
+      const toTime = toDate.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' });
       return `${fromTime} – ${toTime}`;
     } catch {
       return '';
