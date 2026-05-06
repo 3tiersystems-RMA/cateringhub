@@ -663,7 +663,7 @@ export default function StaffWorkspacePage() {
   const [dvLoading, setDvLoading] = useState(false);
   const [showDvForm, setShowDvForm] = useState(false);
   const [editingDv, setEditingDv] = useState<DiscountVoucher | null>(null);
-  const [dvForm, setDvForm] = useState({ dv_code: '', dv_amount: '', status: 'Active' as 'Active' | 'Inactive', expiry_date: '' });
+  const [dvForm, setDvForm] = useState({ dv_code: '', dv_amount: '', status: 'Active\' as \'Active\' | \'Inactive', expiry_date: '' });
   const [dvFormError, setDvFormError] = useState('');
   const [dvFormSuccess, setDvFormSuccess] = useState('');
   const [savingDv, setSavingDv] = useState(false);
@@ -1987,7 +1987,7 @@ export default function StaffWorkspacePage() {
                 </div>
               )}
 
-              {/* ── Media Library ── */}
+              {/* ── Customer Relations ── */}
               <button
                 onClick={() => setMediaMenuOpen(prev => !prev)}
                 className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
@@ -1995,7 +1995,7 @@ export default function StaffWorkspacePage() {
                 }`}
               >
                 <span className="text-base">📄</span>
-                <span className="flex-1">Media Library</span>
+                <span className="flex-1">Customer Relations</span>
                 <span className="text-xs">{mediaMenuOpen ? '▲' : '▼'}</span>
               </button>
               {mediaMenuOpen && (
@@ -2027,6 +2027,16 @@ export default function StaffWorkspacePage() {
                     <span className="text-base">🛍️</span>
                     <span>Add Products</span>
                   </button>
+                  <a
+                    href="https://docs.google.com/forms/d/e/YOUR_GOOGLE_FORM_ID/viewform"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]"
+                  >
+                    <span className="text-base">🤝</span>
+                    <span>Customer Onboarding</span>
+                    <span className="text-xs text-[#8C8278]">↗</span>
+                  </a>
                 </div>
               )}
 
