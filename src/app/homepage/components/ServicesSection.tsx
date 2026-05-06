@@ -43,7 +43,7 @@ const services = [
   description:
   "Order individual platters — perfect for smaller gatherings, office meetings, or last-minute hosting.",
   image:
-  "https://images.unsplash.com/photo-1653206729413-4d8bccf8049f",
+  "https://images.unsplash.com/photo-1641297074000-6f06ad82ef04",
   imageAlt: "Beautiful charcuterie and food platter arrangement with fresh fruits",
   badge: "Quick Order",
   badgeColor: "bg-[#EDE7DA] text-[#5C5347] border border-[#DDD5C8]",
@@ -100,10 +100,10 @@ export default function ServicesSection() {
         {/* Bento Grid */}
         <div className="grid lg:grid-cols-3 lg:grid-rows-2 gap-4">
           {services?.map((svc) => {
-            const cardContent = (
-              <div
-                key={svc?.id}
-                className={`srv-reveal reveal hidden-init group relative overflow-hidden rounded-4xl bg-[#EDE7DA] border border-[#DDD5C8] hover:border-[#C4622D]/40 transition-all duration-500 cursor-pointer ${svc?.span} ${svc?.tall ? "min-h-[500px]" : "min-h-[240px]"}`}>
+            const cardContent =
+            <div
+              key={svc?.id}
+              className={`srv-reveal reveal hidden-init group relative overflow-hidden rounded-4xl bg-[#EDE7DA] border border-[#DDD5C8] hover:border-[#C4622D]/40 transition-all duration-500 cursor-pointer ${svc?.span} ${svc?.tall ? "min-h-[500px]" : "min-h-[240px]"}`}>
               
                 {/* Image */}
                 <div className="absolute inset-0">
@@ -149,15 +149,15 @@ export default function ServicesSection() {
                     </div>
                   </div>
                 </div>
-              </div>
-            );
+              </div>;
+
 
             if (svc?.id === "meals") {
               return (
                 <Link key={svc?.id} href="/weekly-menu" className={`${svc?.span} block`}>
                   {cardContent}
-                </Link>
-              );
+                </Link>);
+
             }
 
             return cardContent;

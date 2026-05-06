@@ -94,6 +94,30 @@ function EventsContent() {
     }
   };
 
+  const formatDateOnly = (from: string) => {
+    try {
+      return new Date(from).toLocaleDateString('en-ZA', {
+        weekday: 'long',
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric',
+      });
+    } catch {
+      return from;
+    }
+  };
+
+  const formatTimeRange = (from: string, to: string | null) => {
+    try {
+      const fromTime = new Date(from).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' });
+      if (!to) return fromTime;
+      const toTime = new Date(to).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' });
+      return `${fromTime} – ${toTime}`;
+    } catch {
+      return '';
+    }
+  };
+
   return (
     <>
       {/* Hero */}
@@ -209,7 +233,13 @@ function EventsContent() {
                         <svg className="w-4 h-4 text-[#C4622D] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
-                        <span>{formatDateWithTime(ev.event_date, ev.event_date_to)}</span>
+                        <span>{formatDateOnly(ev.event_date)}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-[#5C5347]">
+                        <svg className="w-4 h-4 text-[#C4622D] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span>{formatTimeRange(ev.event_date, ev.event_date_to)}</span>
                       </div>
                       {ev.location && (
                         <div className="flex items-center gap-2 text-sm text-[#5C5347]">
@@ -292,7 +322,13 @@ function EventsContent() {
                         <svg className="w-4 h-4 text-[#C4622D] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
-                        <span>{formatDateWithTime(ev.event_date, ev.event_date_to)}</span>
+                        <span>{formatDateOnly(ev.event_date)}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-[#5C5347]">
+                        <svg className="w-4 h-4 text-[#C4622D] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span>{formatTimeRange(ev.event_date, ev.event_date_to)}</span>
                       </div>
                       {ev.location && (
                         <div className="flex items-center gap-2 text-sm text-[#5C5347]">

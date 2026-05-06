@@ -1322,7 +1322,7 @@ export default function StaffWorkspacePage() {
       package_type: form.package_type,
       image_path,
     };
-    let saveError;
+    let saveError: any = null;
     if (editingProduct) {
       ({ error: saveError } = await supabase.from('products').update(payload).eq('id', editingProduct.id));
     } else {
@@ -1373,7 +1373,7 @@ export default function StaffWorkspacePage() {
     setSavingCategory(true);
     const slug = categoryForm.slug.trim() || categoryForm.name.toLowerCase().replace(/\s+/g, '-');
     const payload = { name: categoryForm.name.trim(), slug, active: categoryForm.active, sort_order: Number(categoryForm.sort_order) };
-    let saveError;
+    let saveError: any = null;
     if (editingCategory) {
       ({ error: saveError } = await supabase.from('product_categories').update(payload).eq('id', editingCategory.id));
     } else {
@@ -1523,7 +1523,7 @@ export default function StaffWorkspacePage() {
       is_closed: weeklyMenuForm.is_closed,
       closed_reason: weeklyMenuForm.closed_reason.trim() || null,
     };
-    let saveError;
+    let saveError: any = null;
     if (editingWeeklyEntry) {
       ({ error: saveError } = await supabase.from('weekly_menu').update(payload).eq('id', editingWeeklyEntry.id));
     } else {
@@ -1613,7 +1613,7 @@ export default function StaffWorkspacePage() {
     }
     setSavingDv(true);
     const payload = { dv_code: dvForm.dv_code.trim().toUpperCase(), dv_amount: Number(dvForm.dv_amount), status: dvForm.status, expiry_date: dvForm.expiry_date };
-    let saveError;
+    let saveError: any = null;
     if (editingDv) {
       ({ error: saveError } = await supabase.from('discount_vouchers').update(payload).eq('id', editingDv.id));
     } else {
@@ -1676,7 +1676,7 @@ export default function StaffWorkspacePage() {
       is_active: testimonialForm.is_active,
       display_order: Number(testimonialForm.display_order),
     };
-    let saveError;
+    let saveError: any = null;
     if (editingTestimonial) {
       ({ error: saveError } = await supabase.from('testimonials').update(payload).eq('id', editingTestimonial.id));
     } else {
@@ -3230,7 +3230,7 @@ export default function StaffWorkspacePage() {
                           if (!dvForm.dv_code.trim() || !dvForm.dv_amount || !dvForm.expiry_date) { setDvFormError('Code, amount, and expiry date are required.'); return; }
                           setSavingDv(true);
                           const payload = { dv_code: dvForm.dv_code.trim().toUpperCase(), dv_amount: Number(dvForm.dv_amount), status: dvForm.status, expiry_date: dvForm.expiry_date };
-                          let inlineError;
+                          let inlineError: any = null;
                           if (editingDv) {
                             ({ error: inlineError } = await supabase.from('discount_vouchers').update(payload).eq('id', editingDv.id));
                           } else {
