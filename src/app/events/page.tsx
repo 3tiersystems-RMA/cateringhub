@@ -80,14 +80,19 @@ function EventsContent() {
   const formatDateWithTime = (from: string, to: string | null) => {
     try {
       const fromDate = new Date(from);
-      const dateLabel = fromDate.toLocaleDateString('en-ZA', {
-        day: '2-digit',
-        month: 'long',
-        year: 'numeric',
-      });
-      const fromTime = fromDate.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' });
+      const day = String(fromDate.getDate()).padStart(2, '0');
+      const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+      const month = monthNames[fromDate.getMonth()];
+      const year = fromDate.getFullYear();
+      const dateLabel = `${day} ${month} ${year}`;
+      const fromHH = String(fromDate.getHours()).padStart(2, '0');
+      const fromMM = String(fromDate.getMinutes()).padStart(2, '0');
+      const fromTime = `${fromHH}:${fromMM}`;
       if (!to) return `${dateLabel}, ${fromTime}`;
-      const toTime = new Date(to).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' });
+      const toDate = new Date(to);
+      const toHH = String(toDate.getHours()).padStart(2, '0');
+      const toMM = String(toDate.getMinutes()).padStart(2, '0');
+      const toTime = `${toHH}:${toMM}`;
       return `${dateLabel}, ${fromTime} – ${toTime}`;
     } catch {
       return from;
@@ -96,12 +101,14 @@ function EventsContent() {
 
   const formatDateOnly = (from: string) => {
     try {
-      return new Date(from).toLocaleDateString('en-ZA', {
-        weekday: 'long',
-        day: '2-digit',
-        month: 'long',
-        year: 'numeric',
-      });
+      const d = new Date(from);
+      const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+      const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+      const weekday = dayNames[d.getDay()];
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = monthNames[d.getMonth()];
+      const year = d.getFullYear();
+      return `${weekday}, ${day} ${month} ${year}`;
     } catch {
       return from;
     }
@@ -109,9 +116,15 @@ function EventsContent() {
 
   const formatTimeRange = (from: string, to: string | null) => {
     try {
-      const fromTime = new Date(from).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' });
+      const fromDate = new Date(from);
+      const fromHH = String(fromDate.getHours()).padStart(2, '0');
+      const fromMM = String(fromDate.getMinutes()).padStart(2, '0');
+      const fromTime = `${fromHH}:${fromMM}`;
       if (!to) return fromTime;
-      const toTime = new Date(to).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' });
+      const toDate = new Date(to);
+      const toHH = String(toDate.getHours()).padStart(2, '0');
+      const toMM = String(toDate.getMinutes()).padStart(2, '0');
+      const toTime = `${toHH}:${toMM}`;
       return `${fromTime} – ${toTime}`;
     } catch {
       return '';
