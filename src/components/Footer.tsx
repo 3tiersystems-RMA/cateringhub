@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from "next/link";
+import { usePathname } from 'next/navigation';
 import AppLogo from "@/components/ui/AppLogo";
 import { APP_NAME } from "@/lib/constants";
 import { createClient } from "@/lib/supabase/client";
@@ -47,6 +48,7 @@ const SOCIAL_ICONS: { platform: string; label: string; Icon: React.FC }[] = [
 export default function Footer() {
   const [socialLinks, setSocialLinks] = useState<SocialLink[]>([]);
   const supabase = createClient();
+  const pathname = usePathname();
 
   useEffect(() => {
     const load = async () => {
@@ -61,6 +63,8 @@ export default function Footer() {
 
   const getUrl = (platform: string) =>
     socialLinks.find(s => s.platform === platform)?.url || '#';
+
+  const isHomepage = pathname === '/homepage' || pathname === '/';
 
   return (
     <footer className="border-t border-[#DDD5C8] bg-[#F5F0E8]">
@@ -89,10 +93,10 @@ export default function Footer() {
             <Link href="/weekly-menu" className="hover:text-[#C4622D] transition-colors">
               Weekly Menu
             </Link>
-            <a href="#services" className="hover:text-[#C4622D] transition-colors">
+            <a href={isHomepage ? '#services' : '/homepage#services'} className="hover:text-[#C4622D] transition-colors">
               Services
             </a>
-            <a href="#contact" className="hover:text-[#C4622D] transition-colors">
+            <a href={isHomepage ? '#contact' : '/homepage#contact'} className="hover:text-[#C4622D] transition-colors">
               Contact
             </a>
           </nav>
