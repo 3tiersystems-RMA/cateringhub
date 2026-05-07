@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   description: 'A boilerplate project with Next.js and Tailwind CSS',
   icons: {
     icon: [
-      { url: '/assets/images/app_logo.png', type: 'image/x-icon' }
+      { url: '/assets/images/Logo-Transparent-1772539392689.png', type: 'image/png' }
     ],
   },
 };
