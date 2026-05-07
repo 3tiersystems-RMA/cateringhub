@@ -52,22 +52,39 @@ function EventsContent() {
       .order('event_date', { ascending: false });
 
     if (!error && data) {
-      const withUrls = await Promise.all(
-        data.map(async (ev: Event) => {
-          if (ev.image_path) {
-            const { data: urlData } = await supabase.storage
-              .from('event-photos')
-              .createSignedUrl(ev.image_path, 3600);
-            if (urlData?.signedUrl) {
-              return { ...ev, imageUrl: urlData.signedUrl };
-            }
+      // Collect all image_path values that need signed URLs
+      const pathsToSign = data
+        .map((ev: Event) => ev.image_path)
+        .filter((p): p is string => !!p);
+
+      let signedUrlMap: Record<string, string> = {};
+
+      if (pathsToSign.length > 0) {
+        try {
+          const res = await fetch('/api/events/signed-urls', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ paths: pathsToSign }),
+          });
+          if (res.ok) {
+            const json = await res.json();
+            signedUrlMap = json.urls ?? {};
           }
-          if (ev.image_url) {
-            return { ...ev, imageUrl: ev.image_url };
-          }
-          return ev;
-        })
-      );
+        } catch (e) {
+          console.error('Failed to fetch signed URLs:', e);
+        }
+      }
+
+      const withUrls = data.map((ev: Event) => {
+        if (ev.image_path && signedUrlMap[ev.image_path]) {
+          return { ...ev, imageUrl: signedUrlMap[ev.image_path] };
+        }
+        if (ev.image_url) {
+          return { ...ev, imageUrl: ev.image_url };
+        }
+        return ev;
+      });
+
       setEvents(withUrls);
     }
     setLoading(false);
