@@ -14,6 +14,7 @@ interface Event {
   event_date_to: string | null;
   location: string | null;
   image_path: string | null;
+  image_url: string | null;
   is_published: boolean;
   is_registered: boolean;
   cost: number | null;
@@ -54,15 +55,15 @@ function EventsContent() {
       const withUrls = await Promise.all(
         data.map(async (ev: Event) => {
           if (ev.image_path) {
-            const { data: urlData } = supabase.storage
+            const { data: urlData } = await supabase.storage
               .from('event-photos')
-              .getPublicUrl(ev.image_path);
-            if (urlData?.publicUrl) {
-              return { ...ev, imageUrl: urlData.publicUrl };
+              .createSignedUrl(ev.image_path, 3600);
+            if (urlData?.signedUrl) {
+              return { ...ev, imageUrl: urlData.signedUrl };
             }
           }
-          if ((ev as any).image_url) {
-            return { ...ev, imageUrl: (ev as any).image_url };
+          if (ev.image_url) {
+            return { ...ev, imageUrl: ev.image_url };
           }
           return ev;
         })
