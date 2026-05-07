@@ -16,6 +16,8 @@ export const metadata: Metadata = {
     icon: [
       { url: '/assets/images/Favicon-1778145940787.jpg', type: 'image/jpeg' }
     ],
+    shortcut: '/assets/images/Favicon-1778145940787.jpg',
+    apple: '/assets/images/Favicon-1778145940787.jpg',
   },
 };
 

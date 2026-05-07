@@ -21,6 +21,14 @@ const nextConfig = {
       },
     ];
   },
+  async rewrites() {
+    return [
+      {
+        source: '/assets/images/app_logo.png',
+        destination: '/assets/images/Favicon-1778145940787.jpg',
+      },
+    ];
+  },
   webpack(
     config,
     {
