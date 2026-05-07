@@ -47,8 +47,13 @@ const SOCIAL_ICONS: { platform: string; label: string; Icon: React.FC }[] = [
 
 export default function Footer() {
   const [socialLinks, setSocialLinks] = useState<SocialLink[]>([]);
+  const [currentYear, setCurrentYear] = useState<number>(2026);
   const supabase = createClient();
   const pathname = usePathname();
+
+  useEffect(() => {
+    setCurrentYear(new Date().getFullYear());
+  }, []);
 
   useEffect(() => {
     const load = async () => {
@@ -120,7 +125,7 @@ export default function Footer() {
               ))}
             </div>
             <p className="text-xs text-[#B5ADA5]">
-              © {new Date()?.getFullYear()} {APP_NAME} · Privacy · Terms | Powered by SERiTi Digital Studio
+              © {currentYear} {APP_NAME} · Privacy · Terms | Powered by SERiTi Digital Studio
             </p>
           </div>
         </div>
