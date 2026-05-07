@@ -4,13 +4,6 @@ import { NextResponse, type NextRequest } from 'next/server';
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
-  // Redirect /favicon.ico to our custom favicon image
-  if (pathname === '/favicon.ico') {
-    const url = request.nextUrl.clone();
-    url.pathname = '/assets/images/Favicon-1778145940787.jpg';
-    return NextResponse.redirect(url, { status: 302 });
-  }
-
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
