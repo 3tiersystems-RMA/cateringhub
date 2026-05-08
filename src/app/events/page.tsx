@@ -98,6 +98,7 @@ function EventsContent() {
   const formatDateOnly = (from: string) => {
     try {
       const d = new Date(from);
+      if (Number.isNaN(d.getTime())) return from;
       const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
       const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
       const weekday = dayNames[d.getDay()];
@@ -110,22 +111,44 @@ function EventsContent() {
     }
   };
 
+  const areSameUTCDate = (a: Date, b: Date) =>
+    a.getUTCFullYear() === b.getUTCFullYear() &&
+    a.getUTCMonth() === b.getUTCMonth() &&
+    a.getUTCDate() === b.getUTCDate();
+
+  const formatDateRange = (from: string, to: string | null) => {
+    const fromLabel = formatDateOnly(from);
+    if (!to) return fromLabel;
+    try {
+      const fromDate = new Date(from);
+      const toDate = new Date(to);
+      if (Number.isNaN(fromDate.getTime()) || Number.isNaN(toDate.getTime())) return fromLabel;
+      if (areSameUTCDate(fromDate, toDate)) return fromLabel;
+      return `${fromLabel} – ${formatDateOnly(to)}`;
+    } catch {
+      return fromLabel;
+    }
+  };
+
   /**
-   * Extracts HH:MM from an ISO timestamp string without using toLocaleTimeString.
-   * Supabase returns timestamptz as e.g. "2026-05-10T13:30:00+02:00" or "2026-05-10T11:30:00Z".
-   * We parse the offset and compute SAST (UTC+2) manually so it works in any Node.js environment.
+   * Extract HH:MM for SAST from ISO-ish timestamp strings.
+   * Keeps output stable across client environments by validating parse
+   * and handling UTC / offset / local datetime forms explicitly.
    */
   const extractSASTTime = (isoString: string): string => {
     try {
-      // Try to parse offset directly from the string first (e.g. +02:00 or -05:00)
-      const offsetMatch = isoString.match(/([+-])(\d{2}):(\d{2})$/);
-      let totalMinutesUTC = 0;
+      if (!isoString?.trim()) return '';
+
+      // Treat timezone-less datetime values as already-local event time.
+      if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?$/.test(isoString)) {
+        return isoString.slice(11, 16);
+      }
 
       const d = new Date(isoString);
-      totalMinutesUTC = d.getUTCHours() * 60 + d.getUTCMinutes();
+      if (Number.isNaN(d.getTime())) return '';
 
-      // SAST is UTC+2 = +120 minutes
-      const sastMinutes = (totalMinutesUTC + 120) % (24 * 60);
+      // SAST is UTC+2 (no DST).
+      const sastMinutes = ((d.getUTCHours() * 60 + d.getUTCMinutes() + 120) % (24 * 60) + (24 * 60)) % (24 * 60);
       const hh = Math.floor(sastMinutes / 60);
       const mm = sastMinutes % 60;
       return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
@@ -141,6 +164,15 @@ function EventsContent() {
       if (!to) return fromTime;
       const toTime = extractSASTTime(to);
       if (!toTime) return fromTime;
+      const fromDate = new Date(from);
+      const toDate = new Date(to);
+      if (Number.isNaN(fromDate.getTime()) || Number.isNaN(toDate.getTime())) {
+        return `${fromTime} – ${toTime}`;
+      }
+      if (!areSameUTCDate(fromDate, toDate)) {
+        // Include end date when event spans multiple dates.
+        return `${fromTime} – ${formatDateOnly(to)}, ${toTime}`;
+      }
       return `${fromTime} – ${toTime}`;
     } catch {
       return '';
@@ -280,7 +312,7 @@ function EventsContent() {
                         <svg className="w-4 h-4 text-[#C4622D] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
-                        <span>{formatDateOnly(ev.event_date)}</span>
+                        <span>{formatDateRange(ev.event_date, ev.event_date_to)}</span>
                       </div>
                       <div className="flex items-center gap-2 text-sm text-[#5C5347]">
                         <svg className="w-4 h-4 text-[#C4622D] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -369,7 +401,7 @@ function EventsContent() {
                         <svg className="w-4 h-4 text-[#C4622D] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
-                        <span>{formatDateOnly(ev.event_date)}</span>
+                        <span>{formatDateRange(ev.event_date, ev.event_date_to)}</span>
                       </div>
                       <div className="flex items-center gap-2 text-sm text-[#5C5347]">
                         <svg className="w-4 h-4 text-[#C4622D] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

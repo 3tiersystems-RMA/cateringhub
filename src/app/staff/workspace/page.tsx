@@ -1796,7 +1796,7 @@ export default function StaffWorkspacePage() {
         />
       )}
 
-      <div className="min-h-screen bg-[#F5F0E8]">
+      <div className="h-screen bg-[#F5F0E8] overflow-hidden">
         {/* Header */}
         <header className="bg-white border-b border-[#DDD5C8] px-6 py-4 flex items-center justify-between sticky top-0 z-30">
           <div className="flex items-center gap-3">
@@ -1826,9 +1826,9 @@ export default function StaffWorkspacePage() {
           </div>
         </header>
 
-        <div className="flex">
+        <div className="flex h-[calc(100vh-73px)] overflow-hidden">
           {/* Sidebar */}
-          <aside className="w-64 bg-white border-r border-[#DDD5C8] min-h-[calc(100vh-73px)] sticky top-[73px] flex-shrink-0">
+          <aside className="w-64 bg-white border-r border-[#DDD5C8] h-full overflow-y-auto flex-shrink-0">
             <nav className="py-4 space-y-0.5">
 
               {/* ── Site Content (collapsible) ── */}
@@ -2047,7 +2047,7 @@ export default function StaffWorkspacePage() {
           </aside>
 
           {/* Main content */}
-          <main className="flex-1 min-w-0">
+          <main className="flex-1 min-w-0 h-full overflow-y-auto">
 
             {/* ── PRODUCTS TAB ── */}
             {activeTab === 'products' && (

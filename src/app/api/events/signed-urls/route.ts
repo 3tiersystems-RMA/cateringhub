@@ -9,21 +9,50 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ urls: {} });
     }
 
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!serviceRoleKey) {
+      console.error('signed-urls error: SUPABASE_SERVICE_ROLE_KEY is not configured');
+      return NextResponse.json({ urls: {} }, { status: 500 });
+    }
+
     // Use service role key so unauthenticated visitors can get signed URLs
     const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
+      serviceRoleKey
     );
 
     const urlMap: Record<string, string> = {};
 
+    const normalizedPathMap = new Map<string, string>();
+    for (const rawPath of paths) {
+      if (typeof rawPath !== 'string') continue;
+      const original = rawPath.trim();
+      if (!original) continue;
+      const normalized = original.replace(/^\/+/, '');
+      // Preserve original key expected by the client mapping.
+      if (!normalizedPathMap.has(original)) {
+        normalizedPathMap.set(original, normalized);
+      }
+    }
+
     await Promise.all(
-      paths.map(async (path: string) => {
+      Array.from(normalizedPathMap.entries()).map(async ([originalPath, normalizedPath]) => {
         const { data, error } = await supabaseAdmin.storage
           .from('event-photos')
-          .createSignedUrl(path, 3600);
+          .createSignedUrl(normalizedPath, 3600);
         if (!error && data?.signedUrl) {
-          urlMap[path] = data.signedUrl;
+          urlMap[originalPath] = data.signedUrl;
+          return;
+        }
+
+        // Backward-compat: some rows might include a leading slash in storage path.
+        if (originalPath !== normalizedPath) {
+          const fallback = await supabaseAdmin.storage
+            .from('event-photos')
+            .createSignedUrl(originalPath, 3600);
+          if (!fallback.error && fallback.data?.signedUrl) {
+            urlMap[originalPath] = fallback.data.signedUrl;
+          }
         }
       })
     );

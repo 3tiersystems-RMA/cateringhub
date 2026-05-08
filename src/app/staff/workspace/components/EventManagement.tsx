@@ -49,19 +49,37 @@ const emptyEventForm: EventForm = {
   event_menu: '',
 };
 
-/** Convert a UTC ISO string (from DB) to the "YYYY-MM-DDTHH:mm" format
- *  that <input type="datetime-local"> expects, expressed in the user's
- *  local timezone so the displayed value matches what was originally saved. */
-function toLocalDateTimeInput(isoString: string): string {
+const SAST_OFFSET_MINUTES = 120; // UTC+2
+
+/** Convert stored UTC ISO to a datetime-local value interpreted in SAST. */
+function toSASTDateTimeInput(isoString: string): string {
   const d = new Date(isoString);
+  if (Number.isNaN(d.getTime())) return '';
+  const sastMs = d.getTime() + SAST_OFFSET_MINUTES * 60 * 1000;
+  const sast = new Date(sastMs);
   const pad = (n: number) => String(n).padStart(2, '0');
   return (
-    d.getFullYear() +
-    '-' + pad(d.getMonth() + 1) +
-    '-' + pad(d.getDate()) +
-    'T' + pad(d.getHours()) +
-    ':' + pad(d.getMinutes())
+    sast.getUTCFullYear() +
+    '-' + pad(sast.getUTCMonth() + 1) +
+    '-' + pad(sast.getUTCDate()) +
+    'T' + pad(sast.getUTCHours()) +
+    ':' + pad(sast.getUTCMinutes())
   );
+}
+
+/** Parse datetime-local (treated as SAST wall-clock) and return UTC ISO string. */
+function fromSASTDateTimeInputToUTCISO(input: string): string | null {
+  const m = input.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
+  if (!m) return null;
+  const year = Number(m[1]);
+  const month = Number(m[2]);
+  const day = Number(m[3]);
+  const hour = Number(m[4]);
+  const minute = Number(m[5]);
+  const utcMs = Date.UTC(year, month - 1, day, hour, minute) - SAST_OFFSET_MINUTES * 60 * 1000;
+  const d = new Date(utcMs);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString();
 }
 
 export default function EventManagement() {
@@ -158,8 +176,8 @@ export default function EventManagement() {
     setForm({
       title: ev.title,
       description: ev.description || '',
-      event_date: ev.event_date ? toLocalDateTimeInput(ev.event_date) : '',
-      event_date_to: ev.event_date_to ? toLocalDateTimeInput(ev.event_date_to) : '',
+      event_date: ev.event_date ? toSASTDateTimeInput(ev.event_date) : '',
+      event_date_to: ev.event_date_to ? toSASTDateTimeInput(ev.event_date_to) : '',
       location: ev.location || '',
       is_published: ev.is_published,
       image_url: ev.image_url || '',
@@ -186,9 +204,13 @@ export default function EventManagement() {
 
     // Validate date range
     if (form.event_date_to) {
-      const fromDate = new Date(form.event_date);
-      const toDate = new Date(form.event_date_to);
-      if (toDate < fromDate) {
+      const fromIso = fromSASTDateTimeInputToUTCISO(form.event_date);
+      const toIso = fromSASTDateTimeInputToUTCISO(form.event_date_to);
+      if (!fromIso || !toIso) {
+        setFormError('Invalid date/time format. Please select both From and To again.');
+        return;
+      }
+      if (new Date(toIso) < new Date(fromIso)) {
         setFormError('The "To" date cannot be before the "From" date.');
         return;
       }
@@ -219,15 +241,28 @@ export default function EventManagement() {
       }
     }
 
+    const eventDateFrom = fromSASTDateTimeInputToUTCISO(form.event_date);
+    if (!eventDateFrom) {
+      setFormError('Invalid start date/time format.');
+      setSaving(false);
+      return;
+    }
+
     // If to-date is blank, copy from-date
     const eventDateTo = form.event_date_to
-      ? new Date(form.event_date_to).toISOString()
-      : new Date(form.event_date).toISOString();
+      ? fromSASTDateTimeInputToUTCISO(form.event_date_to)
+      : eventDateFrom;
+
+    if (!eventDateTo) {
+      setFormError('Invalid end date/time format.');
+      setSaving(false);
+      return;
+    }
 
     const payload: Record<string, unknown> = {
       title: form.title.trim(),
       description: form.description.trim() || null,
-      event_date: new Date(form.event_date).toISOString(),
+      event_date: eventDateFrom,
       event_date_to: eventDateTo,
       location: form.location.trim() || null,
       image_path: imagePath,
@@ -308,15 +343,24 @@ export default function EventManagement() {
   const formatEventDateTime = (from: string, to: string | null) => {
     try {
       const fromDate = new Date(from);
-      const dateLabel = fromDate.toLocaleDateString('en-ZA', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-      });
-      const fromTime = fromDate.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' });
+      if (Number.isNaN(fromDate.getTime())) return from;
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const fromSast = new Date(fromDate.getTime() + SAST_OFFSET_MINUTES * 60 * 1000);
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const dateLabel = `${pad(fromSast.getUTCDate())} ${monthNames[fromSast.getUTCMonth()]} ${fromSast.getUTCFullYear()}`;
+      const fromTime = `${pad(fromSast.getUTCHours())}:${pad(fromSast.getUTCMinutes())}`;
       if (!to) return `${dateLabel}, ${fromTime}`;
-      const toTime = new Date(to).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' });
-      return `${dateLabel}, ${fromTime} – ${toTime}`;
+      const toDate = new Date(to);
+      if (Number.isNaN(toDate.getTime())) return `${dateLabel}, ${fromTime}`;
+      const toSast = new Date(toDate.getTime() + SAST_OFFSET_MINUTES * 60 * 1000);
+      const toTime = `${pad(toSast.getUTCHours())}:${pad(toSast.getUTCMinutes())}`;
+      const sameSastDate =
+        fromSast.getUTCFullYear() === toSast.getUTCFullYear() &&
+        fromSast.getUTCMonth() === toSast.getUTCMonth() &&
+        fromSast.getUTCDate() === toSast.getUTCDate();
+      if (sameSastDate) return `${dateLabel}, ${fromTime} – ${toTime}`;
+      const toDateLabel = `${pad(toSast.getUTCDate())} ${monthNames[toSast.getUTCMonth()]} ${toSast.getUTCFullYear()}`;
+      return `${dateLabel}, ${fromTime} – ${toDateLabel}, ${toTime}`;
     } catch {
       return from;
     }
