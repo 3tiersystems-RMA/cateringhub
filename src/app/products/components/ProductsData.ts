@@ -161,7 +161,7 @@ export const products: Product[] = [
   unit: "per board (serves 8–10)",
   image: "https://images.unsplash.com/photo-1664668686853-b78b12bd9e26",
   imageAlt: "Artisan charcuterie board with cured meats, aged cheeses, crackers, and fresh fruit",
-  tags: ["Entertaining", "Crowd Favorite"],
+  tags: ["Entertaining", "Crowd Favourite"],
   rating: 4.9,
   reviews: 567,
   description: "Curated selection of 4 artisan cheeses, 3 cured meats, seasonal fruit, nuts, and house crackers.",

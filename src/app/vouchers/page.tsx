@@ -54,7 +54,7 @@ const BANK_DETAILS = {
 };
 
 const formatPrice = (amount: number): string =>
-  `R ${amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  `R ${amount.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 type Step = "select" | "details" | "confirmation" | "eft-pending";
 
