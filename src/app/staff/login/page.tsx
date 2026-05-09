@@ -121,7 +121,7 @@ function StaffLoginForm() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                placeholder="staff@cardamomkitchen.com"
+                placeholder="staff@cardamomkitchen.co.za"
                 className="w-full px-4 py-3 rounded-xl border border-[#DDD5C8] bg-[#FAFAF8] text-[#1A1612] placeholder-[#B0A89E] focus:outline-none focus:ring-2 focus:ring-[#C4622D] focus:border-transparent transition-all text-sm"
               />
             </div>
