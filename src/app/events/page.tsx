@@ -197,6 +197,12 @@ function EventsContent() {
     }
   };
 
+  const ensureAbsoluteUrl = (url: string): string => {
+    if (!url) return url;
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    return `https://${url}`;
+  };
+
   return (
     <>
       {/* Hero */}
@@ -358,7 +364,7 @@ function EventsContent() {
                     {ev.enrollment_url && activeTab === 'current' && (
                       <div className="mt-auto pt-1">
                         <a
-                          href={ev.enrollment_url}
+                          href={ensureAbsoluteUrl(ev.enrollment_url)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="block w-full text-center bg-[#C4622D] text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors"
