@@ -5,7 +5,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import Icon from "@/components/ui/AppIcon";
 
-const WHATSAPP_NUMBER = "27872652262"; // 087 265 2262 in international format
+const WHATSAPP_NUMBER = "27682892975"; // WhatsApp number in international format
 
 export default function ContactPage() {
   const [formData, setFormData] = useState({
