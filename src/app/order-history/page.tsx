@@ -253,7 +253,7 @@ export default function OrderHistoryPage() {
           </div>
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
-              <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight">
+              <h1 className="font-display text-3xl md:text-4xl font-bold text-white tracking-tight">
                 Order History
               </h1>
               <p className="text-[#A09890] mt-2 text-sm">
@@ -279,7 +279,7 @@ export default function OrderHistoryPage() {
                   <AppIcon name="EnvelopeIcon" size={20} className="text-[#C4622D]" />
                 </div>
                 <div>
-                  <h2 className="text-base font-semibold text-white">Look up your orders</h2>
+                  <h2 className="font-display text-base font-semibold text-white">Look up your orders</h2>
                   <p className="text-xs text-[#A09890]">Enter the email address used when placing your order</p>
                 </div>
               </div>
@@ -325,7 +325,7 @@ export default function OrderHistoryPage() {
                   <div className="w-14 h-14 rounded-2xl bg-[#1E1E1E] flex items-center justify-center mx-auto mb-4">
                     <AppIcon name="ShoppingBagIcon" size={28} className="text-[#555]" />
                   </div>
-                  <h3 className="text-lg font-semibold text-white mb-2">No orders found</h3>
+                  <h3 className="font-display text-lg font-semibold text-white mb-2">No orders found</h3>
                   <p className="text-[#A09890] text-sm mb-6">
                     We couldn't find any orders for this email address.
                   </p>
