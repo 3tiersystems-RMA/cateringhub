@@ -769,9 +769,9 @@ export default function StaffWorkspacePage() {
     if (w) { w.document.write(html); w.document.close(); w.print(); }
   };
 
-  const downloadProductsOrderedPDF = () => {
+  const downloadProductsOrderedPDF = (rows: ProductsOrderedRow[]) => {
     const headers = ['Product', 'Type', 'Item', 'Meal Voucher', 'Discount Voucher', 'Ordered', 'Delivered', 'Client', 'eMail'];
-    let rows = productsOrderedRows.map(r => [
+    const pdfRows = rows.map(r => [
       r.productName,
       r.productType,
       r.item,
@@ -782,12 +782,12 @@ export default function StaffWorkspacePage() {
       r.clientName,
       r.clientEmail,
     ]);
-    printReportPDF('Products Ordered', headers, rows);
+    printReportPDF('Products Ordered', headers, pdfRows);
   };
 
-  const downloadPackageMealsPDF = () => {
+  const downloadPackageMealsPDF = (rows: PackageMealsOrderedRow[]) => {
     const headers = ['Product', 'Type', 'Item', 'Package', 'Meal Voucher', 'Discount Voucher', 'Ordered', 'Delivered', 'Client', 'eMail'];
-    let rows = packageMealsRows.map(r => [
+    const pdfRows = rows.map(r => [
       r.productName,
       r.productType,
       r.item,
@@ -799,12 +799,12 @@ export default function StaffWorkspacePage() {
       r.clientName,
       r.clientEmail,
     ]);
-    printReportPDF('Package Meals Ordered', headers, rows);
+    printReportPDF('Package Meals Ordered', headers, pdfRows);
   };
 
-  const downloadDiscountVouchersPDF = () => {
+  const downloadDiscountVouchersPDF = (rows: DiscountVouchersReportRow[]) => {
     const headers = ['Discount Voucher', 'Amount', 'Expiry Date', 'Product Name', 'Type', 'Item', 'Ordered', 'Delivered', 'Client', 'eMail'];
-    let rows = discountVouchersReportRows.map(r => [
+    const pdfRows = rows.map(r => [
       r.dvCode,
       `R${r.dvAmount.toFixed(2)}`,
       r.expiryDate,
@@ -816,7 +816,7 @@ export default function StaffWorkspacePage() {
       r.clientName,
       r.clientEmail,
     ]);
-    printReportPDF('Discount Vouchers', headers, rows);
+    printReportPDF('Discount Vouchers', headers, pdfRows);
   };
 
   // ─── Inactivity timer ─────────────────────────────────────────────────────────
@@ -3504,7 +3504,7 @@ export default function StaffWorkspacePage() {
                         <input type="date" value={productsOrderedDateFrom} onChange={e => setProductsOrderedDateFrom(e.target.value)} className="border border-[#DDD5C8] rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-[#C4622D] bg-white" />
                         <span className="text-xs text-[#8C8278]">to</span>
                         <input type="date" value={productsOrderedDateTo} onChange={e => setProductsOrderedDateTo(e.target.value)} className="border border-[#DDD5C8] rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-[#C4622D] bg-white" />
-                        <button onClick={downloadProductsOrderedPDF} className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl hover:bg-[#FDF6EE] transition-colors">⬇ PDF</button>
+                        <button onClick={() => downloadProductsOrderedPDF(filteredProductsOrderedRows)} className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl hover:bg-[#FDF6EE] transition-colors">⬇ PDF</button>
                       </div>
                     </div>
                     {productsOrderedLoading ? (
@@ -3557,7 +3557,7 @@ export default function StaffWorkspacePage() {
                         <input type="date" value={packageMealsDateFrom} onChange={e => setPackageMealsDateFrom(e.target.value)} className="border border-[#DDD5C8] rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-[#C4622D] bg-white" />
                         <span className="text-xs text-[#8C8278]">to</span>
                         <input type="date" value={packageMealsDateTo} onChange={e => setPackageMealsDateTo(e.target.value)} className="border border-[#DDD5C8] rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-[#C4622D] bg-white" />
-                        <button onClick={downloadPackageMealsPDF} className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl hover:bg-[#FDF6EE] transition-colors">⬇ PDF</button>
+                        <button onClick={() => downloadPackageMealsPDF(filteredPackageMealsRows)} className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl hover:bg-[#FDF6EE] transition-colors">⬇ PDF</button>
                       </div>
                     </div>
                     {packageMealsLoading ? (
@@ -3611,7 +3611,7 @@ export default function StaffWorkspacePage() {
                         <input type="date" value={discountVouchersDateFrom} onChange={e => setDiscountVouchersDateFrom(e.target.value)} className="border border-[#DDD5C8] rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-[#C4622D] bg-white" />
                         <span className="text-xs text-[#8C8278]">to</span>
                         <input type="date" value={discountVouchersDateTo} onChange={e => setDiscountVouchersDateTo(e.target.value)} className="border border-[#DDD5C8] rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-[#C4622D] bg-white" />
-                        <button onClick={downloadDiscountVouchersPDF} className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl hover:bg-[#FDF6EE] transition-colors">⬇ PDF</button>
+                        <button onClick={() => downloadDiscountVouchersPDF(filteredDiscountVouchersReportRows)} className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl hover:bg-[#FDF6EE] transition-colors">⬇ PDF</button>
                       </div>
                     </div>
                     {discountVouchersReportLoading ? (
