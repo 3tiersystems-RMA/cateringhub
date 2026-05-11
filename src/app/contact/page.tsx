@@ -28,7 +28,7 @@ export default function ContactPage() {
       ``,
       `*Name:* ${formData.fullName}`,
       `*Email:* ${formData.email}`,
-      formData.phone ? `*Phone:* ${formData.phone}` : null,
+      `*Phone:* ${formData.phone}`,
       `*Enquiry Type:* ${formData.enquiryType}`,
       ``,
       `*Message:*`,
@@ -64,7 +64,7 @@ export default function ContactPage() {
     {
       icon: "EnvelopeIcon" as const,
       label: "SUPPORT REQUESTS",
-      value: "support@cardamomkitchen.co.za",
+      value: "admin@cardamomkitchen.co.za",
     },
     {
       icon: "MapPinIcon" as const,
@@ -189,8 +189,7 @@ export default function ContactPage() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-[#1A1612] mb-1.5">
-                        Phone Number{" "}
-                        <span className="text-[#B5ADA5] font-normal">(optional)</span>
+                        Phone Number <span className="text-[#C4622D]">*</span>
                       </label>
                       <input
                         type="tel"
@@ -198,6 +197,7 @@ export default function ContactPage() {
                         value={formData.phone}
                         onChange={handleChange}
                         placeholder="+27 82 000 0000"
+                        required
                         className="w-full border border-[#DDD5C8] rounded-lg px-4 py-3 text-sm text-[#1A1612] placeholder-[#B5ADA5] focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30 focus:border-[#C4622D] bg-white transition"
                       />
                     </div>
