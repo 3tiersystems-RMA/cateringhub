@@ -211,7 +211,7 @@ function EventsContent() {
           <p className="text-[#C4622D] text-sm font-semibold uppercase tracking-widest mb-3">
             What&apos;s On
           </p>
-          <h1 className="text-4xl md:text-5xl font-bold mb-4">Events</h1>
+          <h1 className="text-4xl md:text-5xl font-bold font-display mb-4">Events</h1>
           <p className="text-[#A09890] text-lg max-w-xl mx-auto">
             Discover our upcoming events and browse past highlights from Cardamom Kitchen.
           </p>
@@ -267,7 +267,7 @@ function EventsContent() {
         ) : displayedEvents.length === 0 ? (
           <div className="text-center py-20">
             <span className="text-5xl">🗓️</span>
-            <h3 className="text-xl font-bold text-[#1A1612] mt-4 mb-2">
+            <h3 className="text-xl font-bold font-display text-[#1A1612] mt-4 mb-2">
               {activeTab === 'current' ? 'No Upcoming Events' : 'No Past Events'}
             </h3>
             <p className="text-[#8C8278] text-sm">
@@ -307,7 +307,7 @@ function EventsContent() {
 
                   {/* Content */}
                   <div className="p-5 flex flex-col flex-1">
-                    <h3 className="text-lg font-bold text-[#1A1612] mb-1">{ev.title}</h3>
+                    <h3 className="text-lg font-bold font-display text-[#1A1612] mb-1">{ev.title}</h3>
                     {ev.description && (
                       <p className="text-sm text-[#5C5347] mb-3 line-clamp-2">{ev.description}</p>
                     )}
@@ -397,7 +397,7 @@ function EventsContent() {
                         Past Event
                       </span>
                     )}
-                    <h3 className="text-lg font-bold text-[#1A1612] mb-2">{ev.title}</h3>
+                    <h3 className="text-lg font-bold font-display text-[#1A1612] mb-2">{ev.title}</h3>
                     {ev.description && (
                       <p className="text-sm text-[#5C5347] mb-4 line-clamp-3">{ev.description}</p>
                     )}
