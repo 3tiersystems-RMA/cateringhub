@@ -3487,8 +3487,7 @@ export default function StaffWorkspacePage() {
                       onClick={() => setReportingView(tab.key)}
                       className={`text-sm px-4 py-2 rounded-xl font-semibold border transition-colors ${
                         reportingView === tab.key
-                          ? 'bg-[#C4622D] text-white border-[#C4622D]'
-                          : 'border-[#DDD5C8] text-[#5C5347] hover:bg-[#F5F0E8]'
+                          ? 'bg-black text-white border-black' :'bg-black text-white border-black hover:bg-gray-800'
                       }`}
                     >
                       {tab.label}
