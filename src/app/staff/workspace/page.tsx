@@ -251,7 +251,9 @@ interface ProductsOrderedRow {
   mealVoucher: string | null;
   discountVoucher: string | null;
   orderedDate: string;
+  orderedRaw: string;
   deliveredDt: string;
+  deliveredRaw: string;
   clientName: string;
   clientEmail: string;
 }
@@ -265,7 +267,9 @@ interface PackageMealsOrderedRow {
   mealVoucher: string | null;
   discountVoucher: string | null;
   orderedDate: string;
+  orderedRaw: string;
   deliveredDt: string;
+  deliveredRaw: string;
   clientName: string;
   clientEmail: string;
 }
@@ -278,7 +282,9 @@ interface DiscountVouchersReportRow {
   productType: string;
   item: string;
   orderedDate: string;
+  orderedRaw: string;
   deliveredDt: string;
+  deliveredRaw: string;
   clientName: string;
   clientEmail: string;
 }
@@ -715,6 +721,11 @@ export default function StaffWorkspacePage() {
   const [packageMealsDateTo, setPackageMealsDateTo] = useState('');
   const [discountVouchersDateFrom, setDiscountVouchersDateFrom] = useState('');
   const [discountVouchersDateTo, setDiscountVouchersDateTo] = useState('');
+  // Sort state for each report table
+  type SortDir = 'asc' | 'desc';
+  const [productsOrderedSort, setProductsOrderedSort] = useState<{ col: string; dir: SortDir }>({ col: '', dir: 'asc' });
+  const [packageMealsSort, setPackageMealsSort] = useState<{ col: string; dir: SortDir }>({ col: '', dir: 'asc' });
+  const [discountVouchersSort, setDiscountVouchersSort] = useState<{ col: string; dir: SortDir }>({ col: '', dir: 'asc' });
   const [reportingSearchQuery, setReportingSearchQuery] = useState('');
   // Media library state
   const [mediaFiles, setMediaFiles] = useState<StorageFile[]>([]);
@@ -760,7 +771,7 @@ export default function StaffWorkspacePage() {
 
   const downloadProductsOrderedPDF = () => {
     const headers = ['Product', 'Type', 'Item', 'Meal Voucher', 'Discount Voucher', 'Ordered', 'Delivered', 'Client', 'eMail'];
-    const rows = productsOrderedRows.map(r => [
+    let rows = productsOrderedRows.map(r => [
       r.productName,
       r.productType,
       r.item,
@@ -776,7 +787,7 @@ export default function StaffWorkspacePage() {
 
   const downloadPackageMealsPDF = () => {
     const headers = ['Product', 'Type', 'Item', 'Package', 'Meal Voucher', 'Discount Voucher', 'Ordered', 'Delivered', 'Client', 'eMail'];
-    const rows = packageMealsRows.map(r => [
+    let rows = packageMealsRows.map(r => [
       r.productName,
       r.productType,
       r.item,
@@ -793,7 +804,7 @@ export default function StaffWorkspacePage() {
 
   const downloadDiscountVouchersPDF = () => {
     const headers = ['Discount Voucher', 'Amount', 'Expiry Date', 'Product Name', 'Type', 'Item', 'Ordered', 'Delivered', 'Client', 'eMail'];
-    const rows = discountVouchersReportRows.map(r => [
+    let rows = discountVouchersReportRows.map(r => [
       r.dvCode,
       `R${r.dvAmount.toFixed(2)}`,
       r.expiryDate,
@@ -1026,7 +1037,9 @@ export default function StaffWorkspacePage() {
         productType: dv.status || '',
         item: `Used ${dv.times_used ?? 0} time(s)`,
         orderedDate: formatDate(dv.created_at),
+        orderedRaw: dv.created_at,
         deliveredDt: '',
+        deliveredRaw: '',
         clientName: dv.status || '',
         clientEmail: '',
       }));
@@ -1050,7 +1063,9 @@ export default function StaffWorkspacePage() {
               mealVoucher,
               discountVoucher,
               orderedDate,
+              orderedRaw: order.created_at || '',
               deliveredDt,
+              deliveredRaw: order.delivered_date || '',
               clientName: order.customer_name,
               clientEmail: order.customer_email,
             });
@@ -1063,7 +1078,9 @@ export default function StaffWorkspacePage() {
               mealVoucher,
               discountVoucher,
               orderedDate,
+              orderedRaw: order.created_at || '',
               deliveredDt,
+              deliveredRaw: order.delivered_date || '',
               clientName: order.customer_name,
               clientEmail: order.customer_email,
             });
@@ -1755,20 +1772,89 @@ export default function StaffWorkspacePage() {
     t.quote.toLowerCase().includes(testimonialSearchQuery.toLowerCase())
   );
 
-  const filteredProductsOrderedRows = productsOrderedRows.filter(r => {
+  const filteredProductsOrderedRows = (() => {
     const q = reportingSearchQuery.toLowerCase();
-    return !q || r.productName.toLowerCase().includes(q) || r.clientName.toLowerCase().includes(q) || r.clientEmail.toLowerCase().includes(q);
-  });
+    const fromTs = productsOrderedDateFrom ? new Date(productsOrderedDateFrom).getTime() : null;
+    const toTs = productsOrderedDateTo ? new Date(productsOrderedDateTo + 'T23:59:59').getTime() : null;
+    let rows = productsOrderedRows.filter(r => {
+      if (q && !r.productName.toLowerCase().includes(q) && !r.clientName.toLowerCase().includes(q) && !r.clientEmail.toLowerCase().includes(q)) return false;
+      if (fromTs !== null || toTs !== null) {
+        const rowTs = r.orderedRaw ? new Date(r.orderedRaw).getTime() : null;
+        if (rowTs === null) return false;
+        if (fromTs !== null && rowTs < fromTs) return false;
+        if (toTs !== null && rowTs > toTs) return false;
+      }
+      return true;
+    });
+    if (productsOrderedSort.col) {
+      rows = [...rows].sort((a, b) => {
+        let av = '', bv = '';
+        if (productsOrderedSort.col === 'Product') { av = a.productName; bv = b.productName; }
+        else if (productsOrderedSort.col === 'Ordered') { av = a.orderedRaw; bv = b.orderedRaw; }
+        else if (productsOrderedSort.col === 'Delivered') { av = a.deliveredRaw; bv = b.deliveredRaw; }
+        else if (productsOrderedSort.col === 'Client') { av = a.clientName; bv = b.clientName; }
+        const cmp = av < bv ? -1 : av > bv ? 1 : 0;
+        return productsOrderedSort.dir === 'asc' ? cmp : -cmp;
+      });
+    }
+    return rows;
+  })();
 
-  const filteredPackageMealsRows = packageMealsRows.filter(r => {
+  const filteredPackageMealsRows = (() => {
     const q = reportingSearchQuery.toLowerCase();
-    return !q || r.productName.toLowerCase().includes(q) || r.clientName.toLowerCase().includes(q);
-  });
+    const fromTs = packageMealsDateFrom ? new Date(packageMealsDateFrom).getTime() : null;
+    const toTs = packageMealsDateTo ? new Date(packageMealsDateTo + 'T23:59:59').getTime() : null;
+    let rows = packageMealsRows.filter(r => {
+      if (q && !r.productName.toLowerCase().includes(q) && !r.clientName.toLowerCase().includes(q)) return false;
+      if (fromTs !== null || toTs !== null) {
+        const rowTs = r.orderedRaw ? new Date(r.orderedRaw).getTime() : null;
+        if (rowTs === null) return false;
+        if (fromTs !== null && rowTs < fromTs) return false;
+        if (toTs !== null && rowTs > toTs) return false;
+      }
+      return true;
+    });
+    if (packageMealsSort.col) {
+      rows = [...rows].sort((a, b) => {
+        let av = '', bv = '';
+        if (packageMealsSort.col === 'Product') { av = a.productName; bv = b.productName; }
+        else if (packageMealsSort.col === 'Ordered') { av = a.orderedRaw; bv = b.orderedRaw; }
+        else if (packageMealsSort.col === 'Delivered') { av = a.deliveredRaw; bv = b.deliveredRaw; }
+        else if (packageMealsSort.col === 'Client') { av = a.clientName; bv = b.clientName; }
+        const cmp = av < bv ? -1 : av > bv ? 1 : 0;
+        return packageMealsSort.dir === 'asc' ? cmp : -cmp;
+      });
+    }
+    return rows;
+  })();
 
-  const filteredDiscountVouchersReportRows = discountVouchersReportRows.filter(r => {
+  const filteredDiscountVouchersReportRows = (() => {
     const q = reportingSearchQuery.toLowerCase();
-    return !q || r.dvCode.toLowerCase().includes(q) || r.clientName.toLowerCase().includes(q);
-  });
+    const fromTs = discountVouchersDateFrom ? new Date(discountVouchersDateFrom).getTime() : null;
+    const toTs = discountVouchersDateTo ? new Date(discountVouchersDateTo + 'T23:59:59').getTime() : null;
+    let rows = discountVouchersReportRows.filter(r => {
+      if (q && !r.dvCode.toLowerCase().includes(q) && !r.clientName.toLowerCase().includes(q)) return false;
+      if (fromTs !== null || toTs !== null) {
+        const rowTs = r.orderedRaw ? new Date(r.orderedRaw).getTime() : null;
+        if (rowTs === null) return false;
+        if (fromTs !== null && rowTs < fromTs) return false;
+        if (toTs !== null && rowTs > toTs) return false;
+      }
+      return true;
+    });
+    if (discountVouchersSort.col) {
+      rows = [...rows].sort((a, b) => {
+        let av = '', bv = '';
+        if (discountVouchersSort.col === 'Product') { av = a.productName; bv = b.productName; }
+        else if (discountVouchersSort.col === 'Ordered') { av = a.orderedRaw; bv = b.orderedRaw; }
+        else if (discountVouchersSort.col === 'Delivered') { av = a.deliveredRaw; bv = b.deliveredRaw; }
+        else if (discountVouchersSort.col === 'Client') { av = a.clientName; bv = b.clientName; }
+        const cmp = av < bv ? -1 : av > bv ? 1 : 0;
+        return discountVouchersSort.dir === 'asc' ? cmp : -cmp;
+      });
+    }
+    return rows;
+  })();
 
   // ─── Tab change handler ───────────────────────────────────────────────────────
   const handleTabChange = (tab: WorkspaceTab) => {
@@ -3429,9 +3515,15 @@ export default function StaffWorkspacePage() {
                         <table className="w-full text-xs">
                           <thead className="bg-[#F5F0E8]">
                             <tr>
-                              {['Product', 'Type', 'Item', 'Meal Voucher', 'Discount Voucher', 'Ordered', 'Delivered', 'Client', 'Email'].map(h => (
-                                <th key={h} className="px-3 py-2.5 text-left font-semibold text-[#5C5347] whitespace-nowrap">{h}</th>
-                              ))}
+                              {['Product', 'Type', 'Item', 'Meal Voucher', 'Discount Voucher', 'Ordered', 'Delivered', 'Client', 'Email'].map(h => {
+                                const sortable = ['Product', 'Ordered', 'Delivered', 'Client'].includes(h);
+                                const isActive = productsOrderedSort.col === h;
+                                return (
+                                  <th key={h} onClick={sortable ? () => setProductsOrderedSort(prev => ({ col: h, dir: prev.col === h && prev.dir === 'asc' ? 'desc' : 'asc' })) : undefined} className={`px-3 py-2.5 text-left font-semibold text-[#5C5347] whitespace-nowrap${sortable ? ' cursor-pointer select-none hover:text-[#C4622D]' : ''}`}>
+                                    {h}{sortable && <span className="ml-1 text-[10px]">{isActive ? (productsOrderedSort.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>}
+                                  </th>
+                                );
+                              })}
                             </tr>
                           </thead>
                           <tbody>
@@ -3476,9 +3568,15 @@ export default function StaffWorkspacePage() {
                         <table className="w-full text-xs">
                           <thead className="bg-[#F5F0E8]">
                             <tr>
-                              {['Product', 'Type', 'Item', 'Package', 'Meal Voucher', 'Discount Voucher', 'Ordered', 'Delivered', 'Client', 'Email'].map(h => (
-                                <th key={h} className="px-3 py-2.5 text-left font-semibold text-[#5C5347] whitespace-nowrap">{h}</th>
-                              ))}
+                              {['Product', 'Type', 'Item', 'Package', 'Meal Voucher', 'Discount Voucher', 'Ordered', 'Delivered', 'Client', 'Email'].map(h => {
+                                const sortable = ['Product', 'Ordered', 'Delivered', 'Client'].includes(h);
+                                const isActive = packageMealsSort.col === h;
+                                return (
+                                  <th key={h} onClick={sortable ? () => setPackageMealsSort(prev => ({ col: h, dir: prev.col === h && prev.dir === 'asc' ? 'desc' : 'asc' })) : undefined} className={`px-3 py-2.5 text-left font-semibold text-[#5C5347] whitespace-nowrap${sortable ? ' cursor-pointer select-none hover:text-[#C4622D]' : ''}`}>
+                                    {h}{sortable && <span className="ml-1 text-[10px]">{isActive ? (packageMealsSort.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>}
+                                  </th>
+                                );
+                              })}
                             </tr>
                           </thead>
                           <tbody>
@@ -3524,9 +3622,15 @@ export default function StaffWorkspacePage() {
                         <table className="w-full text-xs">
                           <thead className="bg-[#F5F0E8]">
                             <tr>
-                              {['Code', 'Amount', 'Expiry', 'Product', 'Type', 'Item', 'Ordered', 'Delivered', 'Client', 'Email'].map(h => (
-                                <th key={h} className="px-3 py-2.5 text-left font-semibold text-[#5C5347] whitespace-nowrap">{h}</th>
-                              ))}
+                              {['Code', 'Amount', 'Expiry', 'Product', 'Type', 'Item', 'Ordered', 'Delivered', 'Client', 'Email'].map(h => {
+                                const sortable = ['Product', 'Ordered', 'Delivered', 'Client'].includes(h);
+                                const isActive = discountVouchersSort.col === h;
+                                return (
+                                  <th key={h} onClick={sortable ? () => setDiscountVouchersSort(prev => ({ col: h, dir: prev.col === h && prev.dir === 'asc' ? 'desc' : 'asc' })) : undefined} className={`px-3 py-2.5 text-left font-semibold text-[#5C5347] whitespace-nowrap${sortable ? ' cursor-pointer select-none hover:text-[#C4622D]' : ''}`}>
+                                    {h}{sortable && <span className="ml-1 text-[10px]">{isActive ? (discountVouchersSort.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>}
+                                  </th>
+                                );
+                              })}
                             </tr>
                           </thead>
                           <tbody>
