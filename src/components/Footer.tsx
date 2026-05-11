@@ -101,9 +101,9 @@ export default function Footer() {
             <a href={isHomepage ? '#services' : '/homepage#services'} className="hover:text-[#C4622D] transition-colors">
               Services
             </a>
-            <a href={isHomepage ? '#contact' : '/homepage#contact'} className="hover:text-[#C4622D] transition-colors">
+            <Link href="/contact" className="hover:text-[#C4622D] transition-colors">
               Contact
-            </a>
+            </Link>
           </nav>
 
           {/* Social + Copyright */}
