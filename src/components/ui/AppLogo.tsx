@@ -1,0 +1,44 @@
+'use client';
+
+import React from 'react';
+import AppIcon from './AppIcon';
+import AppImage from './AppImage';
+
+interface AppLogoProps {
+  src?: string; // Image source (optional)
+  text?: string; // Logo text (optional)
+  iconName?: string; // Icon name when no image
+  size?: number; // Size for icon/image
+  className?: string; // Additional classes
+  textClassName?: string; // Additional classes for text
+  onClick?: () => void; // Click handler
+}
+
+function AppLogo({
+  src = '/assets/images/Logo-Transparent-1772539392689.png',
+  text,
+  iconName = 'SparklesIcon',
+  size = 64,
+  className = '',
+  textClassName = 'text-white',
+  onClick,
+}: AppLogoProps) {
+  return (
+    <div
+      className={`flex items-center gap-2 ${onClick ? 'cursor-pointer hover:opacity-80' : ''} ${className}`}
+      onClick={onClick}
+    >
+      {/* Show image if src provided, otherwise show icon */}
+      {src ? (
+        <AppImage src={src} alt="Logo" width={size} height={size} className="flex-shrink-0" />
+      ) : (
+        <AppIcon name={iconName} size={size} className="flex-shrink-0" />
+      )}
+
+      {/* Show text if provided */}
+      {text && <span className={`text-xl font-bold ${textClassName}`}>{text}</span>}
+    </div>
+  );
+}
+
+export default AppLogo;
