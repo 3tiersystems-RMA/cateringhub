@@ -96,7 +96,7 @@ const VOUCHER_MEAL_PRICES: Record<number, number> = {
 export default function OrderHistoryPage() {
   const router = useRouter();
   const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
   const [emailInput, setEmailInput] = useState("");
