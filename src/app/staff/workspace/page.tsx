@@ -698,6 +698,8 @@ export default function StaffWorkspacePage() {
   const [wsOrderSearch, setWsOrderSearch] = useState('');
   const [wsFilterPayment, setWsFilterPayment] = useState<string>('all');
   const [wsFilterFulfillment, setWsFilterFulfillment] = useState<string>('all');
+  const [deleteOrderId, setDeleteOrderId] = useState<string | null>(null);
+  const [deletingOrder, setDeletingOrder] = useState(false);
   // Reporting state
   const [reportingView, setReportingView] = useState<'cards' | 'products_ordered' | 'package_meals_ordered' | 'discount_vouchers_report'>('cards');
   const [productsOrderedRows, setProductsOrderedRows] = useState<ProductsOrderedRow[]>([]);
@@ -1247,6 +1249,17 @@ export default function StaffWorkspacePage() {
     setWsOrderUpdateField(orderId, 'fulfillmentSaving', false);
   };
 
+  const handleDeleteOrder = async () => {
+    if (!deleteOrderId) return;
+    setDeletingOrder(true);
+    const { error } = await supabase.from('orders').delete().eq('id', deleteOrderId);
+    if (!error) {
+      setWsOrders(prev => prev.filter(o => o.id !== deleteOrderId));
+    }
+    setDeletingOrder(false);
+    setDeleteOrderId(null);
+  };
+
   const wsFilteredOrders = wsOrders.filter(o => {
     const q = wsOrderSearch.toLowerCase();
     const matchesSearch = !q ||
@@ -1782,11 +1795,11 @@ export default function StaffWorkspacePage() {
         onClose={() => { setGlobalError(''); setGlobalErrorTitle(''); }}
       />
       <DeleteConfirmModal
-        isOpen={deleteModal.open}
-        title={deleteModal.title}
-        message={deleteModal.message}
-        onConfirm={deleteModal.onConfirm}
-        onCancel={() => setDeleteModal(prev => ({ ...prev, open: false }))}
+        isOpen={!!deleteOrderId}
+        productName=""
+        message={`Are you sure you want to permanently delete this order? This action cannot be undone.`}
+        onConfirm={handleDeleteOrder}
+        onCancel={() => setDeleteOrderId(null)}
       />
       {showInactivityWarning && (
         <InactivityWarningModal
@@ -3004,6 +3017,21 @@ export default function StaffWorkspacePage() {
                                   {updateState.paymentError && <p className="text-xs text-red-500 mt-1">{updateState.paymentError}</p>}
                                 </div>
                               </div>
+
+                              {/* Delete Order — Super Admin only */}
+                              {userProfile?.role === 'super_admin' && (
+                                <div className="flex justify-end pt-2 border-t border-[#F0EBE3]">
+                                  <button
+                                    onClick={() => setDeleteOrderId(order.id)}
+                                    className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl border border-red-200 text-red-600 bg-red-50 hover:bg-red-100 font-semibold transition-colors"
+                                  >
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                    Delete Order
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
