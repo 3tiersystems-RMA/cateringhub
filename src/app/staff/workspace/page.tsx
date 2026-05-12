@@ -319,6 +319,7 @@ const emptyForm = {
 const emptyInviteForm = {
   full_name: '',
   email: '',
+  phone_number: '',
   role: 'staff' as StaffRole,
 };
 
@@ -2485,7 +2486,7 @@ export default function StaffWorkspacePage() {
                 {/* Invite form */}
                 <div className="bg-white rounded-2xl border border-[#EDE7DA] p-6 mb-6">
                   <h3 className="text-base font-bold text-[#1A1612] mb-4">Invite Staff Member</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div>
                       <label className="block text-xs font-semibold text-[#5C5347] mb-1">Full Name *</label>
                       <input value={inviteForm.full_name} onChange={e => setInviteForm(f => ({ ...f, full_name: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
@@ -2493,6 +2494,10 @@ export default function StaffWorkspacePage() {
                     <div>
                       <label className="block text-xs font-semibold text-[#5C5347] mb-1">Email *</label>
                       <input type="email" value={inviteForm.email} onChange={e => setInviteForm(f => ({ ...f, email: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-[#5C5347] mb-1">Phone Number</label>
+                      <input type="tel" value={inviteForm.phone_number} onChange={e => setInviteForm(f => ({ ...f, phone_number: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" placeholder="+27..." />
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-[#5C5347] mb-1">Role</label>
