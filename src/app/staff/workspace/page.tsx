@@ -1273,6 +1273,8 @@ export default function StaffWorkspacePage() {
     const { error } = await supabase.from('orders').delete().eq('id', deleteOrderId);
     if (!error) {
       setWsOrders(prev => prev.filter(o => o.id !== deleteOrderId));
+    } else {
+      setWsOrdersError('Failed to delete order: ' + error.message);
     }
     setDeletingOrder(false);
     setDeleteOrderId(null);
