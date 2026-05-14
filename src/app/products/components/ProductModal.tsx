@@ -68,7 +68,7 @@ export default function ProductModal({ product, onClose, added, onAdd }: Product
             src={product.image}
             alt={product.imageAlt}
             fill
-            className="object-cover"
+            className={product.imageFit === 'fit' ? 'object-contain' : 'object-cover'}
           />
           {/* Badges */}
           <div className="absolute top-3 left-3 flex flex-col gap-1.5">

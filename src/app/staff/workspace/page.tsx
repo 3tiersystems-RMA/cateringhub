@@ -122,6 +122,7 @@ interface Product {
   featured: boolean;
   sort_order: number;
   package_type: string;
+  image_fit?: string;
   imageUrl?: string;
 }
 
@@ -314,6 +315,7 @@ const emptyForm = {
   featured: false,
   sort_order: 0,
   package_type: 'none',
+  image_fit: 'fill',
 };
 
 const emptyInviteForm = {
@@ -1318,6 +1320,7 @@ export default function StaffWorkspacePage() {
       featured: product.featured,
       sort_order: product.sort_order,
       package_type: product.package_type || 'none',
+      image_fit: product.image_fit || 'fill',
     });
     setPendingImageFile(null);
     setPendingImagePreview(product.imageUrl || null);
@@ -1355,6 +1358,7 @@ export default function StaffWorkspacePage() {
       sort_order: form.sort_order,
       package_type: form.package_type,
       image_path,
+      image_fit: form.image_fit || 'fill',
     };
     let saveError: any = null;
     if (editingProduct) {
@@ -2280,7 +2284,7 @@ export default function StaffWorkspacePage() {
                           }}
                         />
                         {pendingImagePreview && (
-                          <img src={pendingImagePreview} alt="Preview" className="w-20 h-20 object-cover rounded-xl mb-2 border border-[#DDD5C8]" />
+                          <img src={pendingImagePreview} alt="Preview" className={`w-full h-32 rounded-xl mb-2 border border-[#DDD5C8] bg-[#EDE7DA] ${form.image_fit === 'fit' ? 'object-contain' : 'object-cover'}`} />
                         )}
                         <button
                           type="button"
@@ -2289,6 +2293,23 @@ export default function StaffWorkspacePage() {
                         >
                           {pendingImagePreview ? 'Change Image' : 'Upload Image'}
                         </button>
+                        <div className="flex items-center gap-2 mt-2">
+                          <span className="text-xs text-[#8C8278]">Display:</span>
+                          <button
+                            type="button"
+                            onClick={() => setForm(f => ({ ...f, image_fit: 'fill' }))}
+                            className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${form.image_fit !== 'fit' ? 'bg-[#C4622D] text-white border-[#C4622D]' : 'bg-white text-[#5C5347] border-[#DDD5C8] hover:bg-[#F5F0E8]'}`}
+                          >
+                            Fill
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setForm(f => ({ ...f, image_fit: 'fit' }))}
+                            className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${form.image_fit === 'fit' ? 'bg-[#C4622D] text-white border-[#C4622D]' : 'bg-white text-[#5C5347] border-[#DDD5C8] hover:bg-[#F5F0E8]'}`}
+                          >
+                            Fit
+                          </button>
+                        </div>
                       </div>
                     </div>
                     {formError && <p className="text-red-600 text-sm mt-3">{formError}</p>}
@@ -2395,7 +2416,7 @@ export default function StaffWorkspacePage() {
                             }}
                           />
                           {pendingImagePreview && (
-                            <img src={pendingImagePreview} alt="Preview" className="w-20 h-20 object-cover rounded-xl mb-2 border border-[#DDD5C8]" />
+                            <img src={pendingImagePreview} alt="Preview" className={`w-full h-32 rounded-xl mb-2 border border-[#DDD5C8] bg-[#EDE7DA] ${form.image_fit === 'fit' ? 'object-contain' : 'object-cover'}`} />
                           )}
                           <button
                             type="button"
@@ -2404,6 +2425,23 @@ export default function StaffWorkspacePage() {
                           >
                             {pendingImagePreview ? 'Change Image' : 'Upload Image'}
                           </button>
+                          <div className="flex items-center gap-2 mt-2">
+                            <span className="text-xs text-[#8C8278]">Display:</span>
+                            <button
+                              type="button"
+                              onClick={() => setForm(f => ({ ...f, image_fit: 'fill' }))}
+                              className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${form.image_fit !== 'fit' ? 'bg-[#C4622D] text-white border-[#C4622D]' : 'bg-white text-[#5C5347] border-[#DDD5C8] hover:bg-[#F5F0E8]'}`}
+                            >
+                              Fill
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setForm(f => ({ ...f, image_fit: 'fit' }))}
+                              className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${form.image_fit === 'fit' ? 'bg-[#C4622D] text-white border-[#C4622D]' : 'bg-white text-[#5C5347] border-[#DDD5C8] hover:bg-[#F5F0E8]'}`}
+                            >
+                              Fit
+                            </button>
+                          </div>
                         </div>
                       </div>
                       {formError && <p className="text-red-600 text-sm mt-3">{formError}</p>}
