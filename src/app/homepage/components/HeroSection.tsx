@@ -24,6 +24,8 @@ interface HomepageCard {
   rating: number | null;
   is_visible: boolean;
   display_order: number;
+  image_path: string | null;
+  imageUrl?: string | null;
 }
 
 export default function HeroSection() {
@@ -52,7 +54,16 @@ export default function HeroSection() {
       order('display_order', { ascending: true });
 
       if (!error && data) {
-        setCards(data as HomepageCard[]);
+        const withUrls = await Promise.all((data as HomepageCard[]).map(async (card) => {
+          if (card.card_type === 'todays_special' && card.image_path) {
+            const { data: urlData } = await supabase.storage
+              .from('homepage-card-images')
+              .createSignedUrl(card.image_path, 3600);
+            return { ...card, imageUrl: urlData?.signedUrl ?? null };
+          }
+          return { ...card, imageUrl: null };
+        }));
+        setCards(withUrls);
       }
       setCardsLoaded(true);
     };
@@ -150,12 +161,22 @@ export default function HeroSection() {
             <div className="float-card w-72 bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-5 shadow-glass">
                   <div className="flex items-center gap-3 mb-3">
                     <div className="w-12 h-12 rounded-2xl overflow-hidden flex-shrink-0">
-                      <AppImage
-                    src="https://img.rocket.new/generatedImages/rocket_gen_img_1017a97cd-1765873722883.png"
-                    alt="Beautifully plated salmon dish with herbs and lemon"
-                    width={48}
-                    height={48}
-                    className="object-cover w-full h-full" />
+                      {specialCard.imageUrl ? (
+                        <img
+                          src={specialCard.imageUrl}
+                          alt={`Today's Special: ${specialCard.title}`}
+                          width={48}
+                          height={48}
+                          className="object-cover w-full h-full"
+                        />
+                      ) : (
+                        <AppImage
+                          src="https://img.rocket.new/generatedImages/rocket_gen_img_1017a97cd-1765873722883.png"
+                          alt="Beautifully plated salmon dish with herbs and lemon"
+                          width={48}
+                          height={48}
+                          className="object-cover w-full h-full" />
+                      )}
                     </div>
                     <div>
                       <p className="text-xs font-mono text-[#D97B4A] uppercase tracking-wider">Today&apos;s Special</p>
