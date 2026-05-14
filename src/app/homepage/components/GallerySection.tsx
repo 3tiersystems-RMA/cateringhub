@@ -125,7 +125,7 @@ export default function GallerySection() {
     <section className="py-24 md:py-32 bg-[#1A1612] overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 md:px-8 mb-12">
         <p className="text-xs font-mono uppercase tracking-widest text-[#C4622D] mb-3">
-          04 / Gallery
+          Gallery
         </p>
         <h2 className="font-display text-4xl md:text-6xl font-semibold tracking-tight text-white leading-tight">
           A Taste of

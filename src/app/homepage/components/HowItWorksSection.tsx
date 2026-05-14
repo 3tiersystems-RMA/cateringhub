@@ -68,7 +68,7 @@ export default function HowItWorksSection() {
         {/* Header */}
         <div className="hiw-reveal reveal hidden-init text-center mb-16">
           <p className="text-xs font-mono uppercase tracking-widest text-[#C4622D] mb-3">
-            03 / The Process
+            / The Process
           </p>
           <h2 className="font-display text-4xl md:text-6xl font-semibold tracking-tight text-[#1A1612] leading-tight">
             Effortless From
