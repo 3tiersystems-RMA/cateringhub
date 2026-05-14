@@ -995,7 +995,10 @@ export default function StaffWorkspacePage() {
     const { data } = await supabase.from('products').select('package_type').not('package_type', 'is', null);
     if (data) {
       const unique = Array.from(new Set(data.map((p: any) => p.package_type).filter(Boolean)));
-      setPackageTypes(['none', ...unique]);
+      const allTypes = Array.from(new Set(['none', 'package-6', 'package-12', 'package-24', 'wellness-range', ...unique]));
+      setPackageTypes(allTypes);
+    } else {
+      setPackageTypes(['none', 'package-6', 'package-12', 'package-24', 'wellness-range']);
     }
   };
 
