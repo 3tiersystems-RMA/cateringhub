@@ -25,6 +25,7 @@ END;
 $$;
 
 -- Add the updated constraint with all valid values including wellness-range
+-- NOTE: package-10 is included to preserve existing rows added by 20260318094137_add_package10_support.sql
 ALTER TABLE public.products
   ADD CONSTRAINT products_package_type_check
-  CHECK (package_type IN ('none', 'package-6', 'package-12', 'package-24', 'wellness-range'));
+  CHECK (package_type IN ('none', 'package-6', 'package-10', 'package-12', 'package-24', 'wellness-range'));
