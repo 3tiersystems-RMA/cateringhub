@@ -107,11 +107,11 @@ export default function AnnouncementCard() {
 
             {/* Full image */}
             {displayImage && (
-              <div className="w-full max-h-72 overflow-hidden">
+              <div className="w-full rounded-t-3xl overflow-hidden">
                 <img
                   src={displayImage}
                   alt={`Announcement image: ${card.title}`}
-                  className="w-full h-full object-cover"
+                  className="w-full h-auto block"
                 />
               </div>
             )}
