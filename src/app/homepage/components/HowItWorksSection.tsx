@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Icon from "@/components/ui/AppIcon";
+import { createClient } from "@/lib/supabase/client";
 
 const steps = [
   {
@@ -41,6 +42,24 @@ const steps = [
 
 export default function HowItWorksSection() {
   const sectionRef = useRef<HTMLDivElement>(null);
+  const [sectionVisible, setSectionVisible] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const checkVisibility = async () => {
+      try {
+        const supabase = createClient();
+        const { data } = await supabase
+          .from("homepage_section_settings")
+          .select("is_visible")
+          .eq("section_key", "the_process")
+          .single();
+        setSectionVisible(data ? data.is_visible : true);
+      } catch {
+        setSectionVisible(true);
+      }
+    };
+    checkVisibility();
+  }, []);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -61,6 +80,8 @@ export default function HowItWorksSection() {
     if (sectionRef.current) observer.observe(sectionRef.current);
     return () => observer.disconnect();
   }, []);
+
+  if (sectionVisible === false) return null;
 
   return (
     <section id="how-it-works" ref={sectionRef} className="py-24 md:py-32 bg-[#F5F0E8]">
