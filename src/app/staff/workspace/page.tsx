@@ -146,7 +146,7 @@ interface StaffMember {
 
 interface HomepageCard {
   id: string;
-  card_type: 'todays_special' | 'next_booking' | 'customer_review';
+  card_type: 'todays_special' | 'next_booking' | 'customer_review' | 'announcement';
   title: string;
   subtitle: string | null;
   description: string | null;
@@ -162,6 +162,7 @@ interface HomepageCard {
   is_visible: boolean;
   display_order: number;
   image_path: string | null;
+  image_url: string | null;
 }
 
 interface WeeklyMenuEntry {
@@ -295,12 +296,14 @@ const CARD_TYPE_LABELS: Record<HomepageCard['card_type'], string> = {
   todays_special: "Today's Special",
   next_booking: 'Next Booking',
   customer_review: 'Customer Review',
+  announcement: 'Announcement',
 };
 
 const CARD_TYPE_ICONS: Record<HomepageCard['card_type'], string> = {
   todays_special: '🍽️',
   next_booking: '📅',
   customer_review: '⭐',
+  announcement: '📢',
 };
 
 const emptyForm = {
@@ -3158,6 +3161,88 @@ export default function StaffWorkspacePage() {
                           <div>
                             <label className="block text-xs font-semibold text-[#5C5347] mb-1">Rating (1-5)</label>
                             <input type="number" min={1} max={5} value={cardForm.rating || 5} onChange={e => setCardForm(f => ({ ...f, rating: Number(e.target.value) }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                          </div>
+                        </>
+                      )}
+                      {editingCard.card_type === 'announcement' && (
+                        <>
+                          <div className="md:col-span-2">
+                            <label className="block text-xs font-semibold text-[#5C5347] mb-2">Image</label>
+                            <div className="space-y-3">
+                              {/* Upload option */}
+                              <div>
+                                <p className="text-xs text-[#8C8278] mb-1.5">Option 1 — Upload an image file</p>
+                                <input
+                                  ref={cardImageRef}
+                                  type="file"
+                                  accept="image/jpeg,image/png,image/webp,image/gif"
+                                  className="hidden"
+                                  onChange={e => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                      setCardImageFile(file);
+                                      const reader = new FileReader();
+                                      reader.onload = ev => setCardImagePreview(ev.target?.result as string);
+                                      reader.readAsDataURL(file);
+                                      setCardForm(f => ({ ...f, image_url: null }));
+                                    }
+                                  }}
+                                />
+                                <div className="flex items-center gap-4">
+                                  {(cardImagePreview || cardForm.image_path) && (
+                                    <div className="w-16 h-16 rounded-xl overflow-hidden border border-[#DDD5C8] flex-shrink-0">
+                                      {cardImagePreview ? (
+                                        <img src={cardImagePreview} alt="Announcement image preview" className="w-full h-full object-cover" />
+                                      ) : (
+                                        <div className="w-full h-full bg-[#F5F0E8] flex items-center justify-center text-xs text-[#8C8278]">Image set</div>
+                                      )}
+                                    </div>
+                                  )}
+                                  <div className="flex flex-col gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => cardImageRef.current?.click()}
+                                      className="text-sm text-[#C4622D] border border-[#C4622D] rounded-xl px-3 py-1.5 hover:bg-[#FDF6EE] transition-colors"
+                                    >
+                                      {cardForm.image_path || cardImagePreview ? 'Change Upload' : 'Upload Image'}
+                                    </button>
+                                    {(cardForm.image_path || cardImagePreview) && (
+                                      <button
+                                        type="button"
+                                        onClick={() => { setCardImageFile(null); setCardImagePreview(null); setCardForm(f => ({ ...f, image_path: null })); }}
+                                        className="text-xs text-red-500 border border-red-200 rounded-xl px-3 py-1 hover:bg-red-50 transition-colors"
+                                      >
+                                        Remove Upload
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                                {cardImageFile && <p className="text-xs text-[#8C8278] mt-1">{cardImageFile.name}</p>}
+                              </div>
+                              {/* URL option */}
+                              <div>
+                                <p className="text-xs text-[#8C8278] mb-1.5">Option 2 — Or paste an image URL</p>
+                                <input
+                                  type="url"
+                                  placeholder="https://example.com/image.jpg"
+                                  value={cardForm.image_url || ''}
+                                  onChange={e => {
+                                    setCardForm(f => ({ ...f, image_url: e.target.value || null }));
+                                    if (e.target.value) {
+                                      setCardImageFile(null);
+                                      setCardImagePreview(null);
+                                      setCardForm(f => ({ ...f, image_path: null, image_url: e.target.value || null }));
+                                    }
+                                  }}
+                                  className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                                />
+                                {cardForm.image_url && !cardImagePreview && (
+                                  <div className="mt-2 w-full h-24 rounded-xl overflow-hidden border border-[#DDD5C8]">
+                                    <img src={cardForm.image_url} alt="URL image preview" className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                                  </div>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         </>
                       )}
