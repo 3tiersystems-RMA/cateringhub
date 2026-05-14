@@ -18,6 +18,7 @@ export interface CartProduct {
   badge?: string;
   available: boolean;
   packageType?: string;
+  imageFit?: string;
 }
 
 export interface CartItem {

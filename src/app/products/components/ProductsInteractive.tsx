@@ -28,6 +28,7 @@ interface Product {
   badge?: string;
   available: boolean;
   packageType?: string;
+  imageFit?: string;
 }
 
 function CartButton() {
@@ -290,6 +291,7 @@ function ProductsContent() {
               badge: p.badge || undefined,
               available: p.available,
               packageType: p.package_type || 'none',
+              imageFit: p.image_fit || 'fill',
             } as Product;
           })
         );
