@@ -2607,7 +2607,7 @@ export default function StaffWorkspacePage() {
                 {!showForm && (
                   <div className="flex flex-wrap gap-2 mb-6">
                     {(() => {
-                      const desiredOrder = ['All', 'Packaged Meals', 'Voucher Meals', 'Frozen Meals', 'Prepared Meals', 'À La Carte'];
+                      const desiredOrder = ['All', 'Packaged Meals', 'Voucher Meals', 'Frozen Meals', 'Prepared Meals', 'À La Carte', 'Wellness'];
                       const available = ['All', ...categoryNames];
                       const displayCats = desiredOrder.filter(c => available.includes(c));
                       const getCatCount = (cat: string) =>
