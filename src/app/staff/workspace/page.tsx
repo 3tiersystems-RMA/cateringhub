@@ -752,11 +752,13 @@ export default function StaffWorkspacePage() {
   const [wsAllReminderResult, setWsAllReminderResult] = useState<{ sent: number; total: number } | null>(null);
   const [wsVoucherPriceMap, setWsVoucherPriceMap] = useState<Record<string, number>>({});
   // Reporting state
-  const [reportingView, setReportingView] = useState<'cards' | 'products_ordered' | 'package_meals_ordered' | 'discount_vouchers_report'>('cards');
+  const [reportingView, setReportingView] = useState<'cards' | 'products_ordered' | 'package_meals_ordered' | 'frozen_meals_ordered' | 'discount_vouchers_report'>('cards');
   const [productsOrderedRows, setProductsOrderedRows] = useState<ProductsOrderedRow[]>([]);
   const [productsOrderedLoading, setProductsOrderedLoading] = useState(false);
   const [packageMealsRows, setPackageMealsRows] = useState<PackageMealsOrderedRow[]>([]);
   const [packageMealsLoading, setPackageMealsLoading] = useState(false);
+  const [frozenMealsRows, setFrozenMealsRows] = useState<PackageMealsOrderedRow[]>([]);
+  const [frozenMealsLoading, setFrozenMealsLoading] = useState(false);
   const [discountVouchersReportRows, setDiscountVouchersReportRows] = useState<DiscountVouchersReportRow[]>([]);
   const [discountVouchersReportLoading, setDiscountVouchersReportLoading] = useState(false);
   // Date range filter state for each report
@@ -764,12 +766,15 @@ export default function StaffWorkspacePage() {
   const [productsOrderedDateTo, setProductsOrderedDateTo] = useState('');
   const [packageMealsDateFrom, setPackageMealsDateFrom] = useState('');
   const [packageMealsDateTo, setPackageMealsDateTo] = useState('');
+  const [frozenMealsDateFrom, setFrozenMealsDateFrom] = useState('');
+  const [frozenMealsDateTo, setFrozenMealsDateTo] = useState('');
   const [discountVouchersDateFrom, setDiscountVouchersDateFrom] = useState('');
   const [discountVouchersDateTo, setDiscountVouchersDateTo] = useState('');
   // Sort state for each report table
   type SortDir = 'asc' | 'desc';
   const [productsOrderedSort, setProductsOrderedSort] = useState<{ col: string; dir: SortDir }>({ col: '', dir: 'asc' });
   const [packageMealsSort, setPackageMealsSort] = useState<{ col: string; dir: SortDir }>({ col: '', dir: 'asc' });
+  const [frozenMealsSort, setFrozenMealsSort] = useState<{ col: string; dir: SortDir }>({ col: '', dir: 'asc' });
   const [discountVouchersSort, setDiscountVouchersSort] = useState<{ col: string; dir: SortDir }>({ col: '', dir: 'asc' });
   const [reportingSearchQuery, setReportingSearchQuery] = useState('');
   // Media library state
@@ -845,6 +850,23 @@ export default function StaffWorkspacePage() {
       r.clientEmail,
     ]);
     printReportPDF('Package Meals Ordered', headers, pdfRows);
+  };
+
+  const downloadFrozenMealsPDF = (rows: PackageMealsOrderedRow[]) => {
+    const headers = ['Product', 'Type', 'Item', 'Package', 'Meal Voucher', 'Discount Voucher', 'Ordered', 'Delivered', 'Client', 'eMail'];
+    const pdfRows = rows.map(r => [
+      r.productName,
+      r.productType,
+      r.item,
+      r.packagePurchased,
+      r.mealVoucher || '',
+      r.discountVoucher || '',
+      r.orderedDate,
+      r.deliveredDt,
+      r.clientName,
+      r.clientEmail,
+    ]);
+    printReportPDF('Frozen Meals Ordered', headers, pdfRows);
   };
 
   const downloadDiscountVouchersPDF = (rows: DiscountVouchersReportRow[]) => {
@@ -1276,6 +1298,7 @@ export default function StaffWorkspacePage() {
   const loadReporting = async () => {
     setProductsOrderedLoading(true);
     setPackageMealsLoading(true);
+    setFrozenMealsLoading(true);
     setDiscountVouchersReportLoading(true);
     try {
       const { data: ordersData } = await supabase
@@ -1289,6 +1312,7 @@ export default function StaffWorkspacePage() {
 
       const productsRows: ProductsOrderedRow[] = [];
       const packageRows: PackageMealsOrderedRow[] = [];
+      const frozenRows: PackageMealsOrderedRow[] = [];
       const dvReportRows: DiscountVouchersReportRow[] = (dvData || []).map((dv: any) => ({
         dvCode: dv.dv_code,
         dvAmount: Number(dv.dv_amount),
@@ -1313,8 +1337,25 @@ export default function StaffWorkspacePage() {
 
         for (const item of items) {
           const isPackage = item.category?.toLowerCase().includes('package') || false;
+          const isFrozen = item.category?.toLowerCase().includes('frozen') || false;
           if (isPackage) {
             packageRows.push({
+              orderId: order.id,
+              productName: item.name,
+              productType: item.category || '',
+              item: `${item.quantity}x ${item.name}`,
+              packagePurchased: item.category || '',
+              mealVoucher,
+              discountVoucher,
+              orderedDate,
+              orderedRaw: order.created_at || '',
+              deliveredDt,
+              deliveredRaw: order.delivered_date || '',
+              clientName: order.customer_name,
+              clientEmail: order.customer_email,
+            });
+          } else if (isFrozen) {
+            frozenRows.push({
               orderId: order.id,
               productName: item.name,
               productType: item.category || '',
@@ -1350,12 +1391,14 @@ export default function StaffWorkspacePage() {
 
       setProductsOrderedRows(productsRows);
       setPackageMealsRows(packageRows);
+      setFrozenMealsRows(frozenRows);
       setDiscountVouchersReportRows(dvReportRows);
     } catch (err) {
       console.error('Reporting load error:', err);
     } finally {
       setProductsOrderedLoading(false);
       setPackageMealsLoading(false);
+      setFrozenMealsLoading(false);
       setDiscountVouchersReportLoading(false);
     }
   };
@@ -2109,6 +2152,34 @@ export default function StaffWorkspacePage() {
         else if (packageMealsSort.col === 'Client') { av = a.clientName; bv = b.clientName; }
         const cmp = av < bv ? -1 : av > bv ? 1 : 0;
         return packageMealsSort.dir === 'asc' ? cmp : -cmp;
+      });
+    }
+    return rows;
+  })();
+
+  const filteredFrozenMealsRows = (() => {
+    const q = reportingSearchQuery.toLowerCase();
+    const fromTs = frozenMealsDateFrom ? new Date(frozenMealsDateFrom).getTime() : null;
+    const toTs = frozenMealsDateTo ? new Date(frozenMealsDateTo + 'T23:59:59').getTime() : null;
+    let rows = frozenMealsRows.filter(r => {
+      if (q && !r.productName.toLowerCase().includes(q) && !r.clientName.toLowerCase().includes(q)) return false;
+      if (fromTs !== null || toTs !== null) {
+        const rowTs = r.orderedRaw ? new Date(r.orderedRaw).getTime() : null;
+        if (rowTs === null) return false;
+        if (fromTs !== null && rowTs < fromTs) return false;
+        if (toTs !== null && rowTs > toTs) return false;
+      }
+      return true;
+    });
+    if (frozenMealsSort.col) {
+      rows = [...rows].sort((a, b) => {
+        let av = '', bv = '';
+        if (frozenMealsSort.col === 'Product') { av = a.productName; bv = b.productName; }
+        else if (frozenMealsSort.col === 'Ordered') { av = a.orderedRaw; bv = b.orderedRaw; }
+        else if (frozenMealsSort.col === 'Delivered') { av = a.deliveredRaw; bv = b.deliveredRaw; }
+        else if (frozenMealsSort.col === 'Client') { av = a.clientName; bv = b.clientName; }
+        const cmp = av < bv ? -1 : av > bv ? 1 : 0;
+        return frozenMealsSort.dir === 'asc' ? cmp : -cmp;
       });
     }
     return rows;
@@ -4137,6 +4208,7 @@ export default function StaffWorkspacePage() {
                   {([
                     { key: 'products_ordered', label: 'Products Ordered' },
                     { key: 'package_meals_ordered', label: 'Package Meals' },
+                    { key: 'frozen_meals_ordered', label: 'Frozen Meals' },
                     { key: 'discount_vouchers_report', label: 'Discount Vouchers' },
                   ] as const).map(tab => (
                     <button
@@ -4239,6 +4311,60 @@ export default function StaffWorkspacePage() {
                             {filteredPackageMealsRows.length === 0 ? (
                               <tr><td colSpan={10} className="text-center py-8 text-[#8C8278]">No data</td></tr>
                             ) : filteredPackageMealsRows.map((r, i) => (
+                              <tr key={i} className="border-t border-[#F0EBE3] hover:bg-[#FAF5EE]">
+                                <td className="px-3 py-2 font-medium text-[#1A1612]">{r.productName}</td>
+                                <td className="px-3 py-2 text-[#5C5347]">{r.productType}</td>
+                                <td className="px-3 py-2 text-[#5C5347]">{r.item}</td>
+                                <td className="px-3 py-2 text-[#5C5347]">{r.packagePurchased}</td>
+                                <td className="px-3 py-2 text-[#5C5347]">{r.mealVoucher || '—'}</td>
+                                <td className="px-3 py-2 text-[#5C5347]">{r.discountVoucher || '—'}</td>
+                                <td className="px-3 py-2 text-[#5C5347] whitespace-nowrap">{r.orderedDate}</td>
+                                <td className="px-3 py-2 text-[#5C5347] whitespace-nowrap">{r.deliveredDt || '—'}</td>
+                                <td className="px-3 py-2 text-[#5C5347]">{r.clientName}</td>
+                                <td className="px-3 py-2 text-[#5C5347]">{r.clientEmail}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Frozen Meals Ordered */}
+                {reportingView === 'frozen_meals_ordered' && (
+                  <div>
+                    <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                      <p className="text-sm font-semibold text-[#1A1612]">Frozen Meals Ordered ({filteredFrozenMealsRows.length})</p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <input type="date" value={frozenMealsDateFrom} onChange={e => setFrozenMealsDateFrom(e.target.value)} className="border border-[#DDD5C8] rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-[#C4622D] bg-white" />
+                        <span className="text-xs text-[#8C8278]">to</span>
+                        <input type="date" value={frozenMealsDateTo} onChange={e => setFrozenMealsDateTo(e.target.value)} className="border border-[#DDD5C8] rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-[#C4622D] bg-white" />
+                        <button onClick={() => downloadFrozenMealsPDF(filteredFrozenMealsRows)} className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl hover:bg-[#FDF6EE] transition-colors">⬇ PDF</button>
+                      </div>
+                    </div>
+                    {frozenMealsLoading ? (
+                      <div className="flex items-center justify-center py-12"><div className="w-7 h-7 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>
+                    ) : (
+                      <div className="overflow-x-auto rounded-2xl border border-[#EDE7DA]">
+                        <table className="w-full text-xs">
+                          <thead className="bg-[#F5F0E8]">
+                            <tr>
+                              {['Product', 'Type', 'Item', 'Package', 'Meal Voucher', 'Discount Voucher', 'Ordered', 'Delivered', 'Client', 'Email'].map(h => {
+                                const sortable = ['Product', 'Ordered', 'Delivered', 'Client'].includes(h);
+                                const isActive = frozenMealsSort.col === h;
+                                return (
+                                  <th key={h} onClick={sortable ? () => setFrozenMealsSort(prev => ({ col: h, dir: prev.col === h && prev.dir === 'asc' ? 'desc' : 'asc' })) : undefined} className={`px-3 py-2.5 text-left font-semibold text-[#5C5347] whitespace-nowrap${sortable ? ' cursor-pointer select-none hover:text-[#C4622D]' : ''}`}>
+                                    {h}{sortable && <span className="ml-1 text-[10px]">{isActive ? (frozenMealsSort.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>}
+                                  </th>
+                                );
+                              })}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filteredFrozenMealsRows.length === 0 ? (
+                              <tr><td colSpan={10} className="text-center py-8 text-[#8C8278]">No data</td></tr>
+                            ) : filteredFrozenMealsRows.map((r, i) => (
                               <tr key={i} className="border-t border-[#F0EBE3] hover:bg-[#FAF5EE]">
                                 <td className="px-3 py-2 font-medium text-[#1A1612]">{r.productName}</td>
                                 <td className="px-3 py-2 text-[#5C5347]">{r.productType}</td>
