@@ -345,39 +345,7 @@ export default function CartStepPayment({
               <div>
                 <p className="text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-3">Select Payment Method</p>
                 <div className="space-y-2">
-                  {/* PayFast — preferred */}
-                  <button
-                    type="button"
-                    onClick={() => setSelectedMethod("payfast")}
-                    className={`w-full flex items-center gap-3 p-3.5 rounded-xl border-2 transition-all text-left ${
-                      selectedMethod === "payfast" ? "border-[#00A0E3] bg-[#00A0E3]/5" : "border-[#DDD5C8] bg-white hover:border-[#00A0E3]/40"
-                    }`}
-                  >
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${selectedMethod === "payfast" ? "bg-[#00A0E3] text-white" : "bg-[#EDE7DA] text-[#8C8278]"}`}>
-                      <Icon name="CreditCardIcon" size={16} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className={`text-sm font-semibold ${selectedMethod === "payfast" ? "text-[#00A0E3]" : "text-[#1A1612]"}`}>
-                          PayFast
-                        </p>
-                        <span className="text-[10px] font-bold bg-[#00A0E3] text-white px-1.5 py-0.5 rounded-full uppercase tracking-wide">
-                          Preferred
-                        </span>
-                        {IS_SANDBOX && (
-                          <span className="text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-300 px-1.5 py-0.5 rounded-full uppercase tracking-wide">
-                            Sandbox
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-[#8C8278]">Card, EFT, Instant payment · Secure checkout</p>
-                    </div>
-                    <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 ${selectedMethod === "payfast" ? "border-[#00A0E3] bg-[#00A0E3]" : "border-[#DDD5C8]"}`}>
-                      {selectedMethod === "payfast" && <div className="w-full h-full rounded-full bg-white scale-50" />}
-                    </div>
-                  </button>
-
-                  {/* Manual EFT */}
+                  {/* Manual EFT — default */}
                   <button
                     type="button"
                     onClick={() => setSelectedMethod("eft")}
@@ -394,6 +362,35 @@ export default function CartStepPayment({
                     </div>
                     <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 ${selectedMethod === "eft" ? "border-[#C4622D] bg-[#C4622D]" : "border-[#DDD5C8]"}`}>
                       {selectedMethod === "eft" && <div className="w-full h-full rounded-full bg-white scale-50" />}
+                    </div>
+                  </button>
+
+                  {/* PayFast */}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedMethod("payfast")}
+                    className={`w-full flex items-center gap-3 p-3.5 rounded-xl border-2 transition-all text-left ${
+                      selectedMethod === "payfast" ? "border-[#00A0E3] bg-[#00A0E3]/5" : "border-[#DDD5C8] bg-white hover:border-[#00A0E3]/40"
+                    }`}
+                  >
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${selectedMethod === "payfast" ? "bg-[#00A0E3] text-white" : "bg-[#EDE7DA] text-[#8C8278]"}`}>
+                      <Icon name="CreditCardIcon" size={16} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className={`text-sm font-semibold ${selectedMethod === "payfast" ? "text-[#00A0E3]" : "text-[#1A1612]"}`}>
+                          PayFast
+                        </p>
+                        {IS_SANDBOX && (
+                          <span className="text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-300 px-1.5 py-0.5 rounded-full uppercase tracking-wide">
+                            Sandbox
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-amber-600 font-medium">Payfast payment pending</p>
+                    </div>
+                    <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 ${selectedMethod === "payfast" ? "border-[#00A0E3] bg-[#00A0E3]" : "border-[#DDD5C8]"}`}>
+                      {selectedMethod === "payfast" && <div className="w-full h-full rounded-full bg-white scale-50" />}
                     </div>
                   </button>
                 </div>

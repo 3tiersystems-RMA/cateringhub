@@ -21,7 +21,7 @@ export default function CartSidebar() {
 
   const [step, setStep] = useState<CheckoutStep>("cart");
   const [form, setForm] = useState({ name: "", email: "", phone: "", date: "", address: "", notes: "" });
-  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>("payfast");
+  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>("eft");
   const [processing, setProcessing] = useState(false);
   const [payError, setPayErrorState] = useState("");
   const [phoneError, setPhoneErrorState] = useState("");
