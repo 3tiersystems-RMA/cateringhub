@@ -684,6 +684,16 @@ export default function StaffWorkspacePage() {
   const [dvSearchQuery, setDvSearchQuery] = useState('');
   const [dvFilterExpired, setDvFilterExpired] = useState<'all' | 'active' | 'expired'>('all');
   const [generatingQrId, setGeneratingQrId] = useState<string | null>(null);
+  // Meal Vouchers management state
+  const [mvLoading, setMvLoading] = useState(false);
+  const [showMvForm, setShowMvForm] = useState(false);
+  const [editingMv, setEditingMv] = useState<Voucher | null>(null);
+  const [mvForm, setMvForm] = useState({ voucher_code: '', customer_name: '', customer_email: '', customer_phone: '', total_meals: '', meals_remaining: '', status: 'unpaid' as Voucher['status'], notes: '', package_type: 'none' as string });
+  const [mvFormError, setMvFormError] = useState('');
+  const [mvFormSuccess, setMvFormSuccess] = useState('');
+  const [savingMv, setSavingMv] = useState(false);
+  const [mvSearchQuery, setMvSearchQuery] = useState('');
+  const [mvFilterStatus, setMvFilterStatus] = useState<'all' | 'active' | 'unpaid' | 'paid' | 'redeemed' | 'expired'>('all');
   // Testimonials state
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
   const [testimonialsLoading, setTestimonialsLoading] = useState(false);
@@ -1014,6 +1024,13 @@ export default function StaffWorkspacePage() {
     const { data } = await supabase.from('vouchers').select('*').order('purchased_at', { ascending: false });
     if (data) setVouchers(data);
     setVouchersLoading(false);
+  };
+
+  const loadMealVouchers = async () => {
+    setMvLoading(true);
+    const { data } = await supabase.from('vouchers').select('*').order('purchased_at', { ascending: false });
+    if (data) setVouchers(data);
+    setMvLoading(false);
   };
 
   const loadDiscountVouchers = async () => {
@@ -2020,6 +2037,14 @@ export default function StaffWorkspacePage() {
     v.customer_email.toLowerCase().includes(vouchersSearchQuery.toLowerCase())
   );
 
+  const filteredMealVouchers = vouchers.filter(v => {
+    if (mvFilterStatus !== 'all' && v.status !== mvFilterStatus) return false;
+    return !mvSearchQuery ||
+      v.voucher_code.toLowerCase().includes(mvSearchQuery.toLowerCase()) ||
+      v.customer_name.toLowerCase().includes(mvSearchQuery.toLowerCase()) ||
+      v.customer_email.toLowerCase().includes(mvSearchQuery.toLowerCase());
+  });
+
   const filteredDiscountVouchers = discountVouchers.filter(dv => {
     const isExpired = dv.expiry_date ? new Date(dv.expiry_date) < new Date(new Date().toDateString()) : false;
     if (dvFilterExpired === 'active' && isExpired) return false;
@@ -2124,7 +2149,7 @@ export default function StaffWorkspacePage() {
     if (tab === 'homepage_cards') loadHomepageCards();
     if (tab === 'categories') loadCategories();
     if (tab === 'weekly_menu') loadWeeklyMenu();
-    if (tab === 'vouchers') loadVouchers();
+    if (tab === 'vouchers') loadMealVouchers();
     if (tab === 'discount_vouchers') loadDiscountVouchers();
     if (tab === 'testimonials') loadTestimonials();
     if (tab === 'social_media') loadSocialLinks();
@@ -3724,165 +3749,209 @@ export default function StaffWorkspacePage() {
                     <h2 className="text-xl font-bold text-[#1A1612]">Meal Vouchers</h2>
                     <p className="text-sm text-[#8C8278] mt-0.5">{vouchers.length} vouchers</p>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 flex-wrap">
                     <input
                       type="text"
-                      placeholder="Search vouchers…"
-                      value={vouchersSearchQuery}
-                      onChange={e => setVouchersSearchQuery(e.target.value)}
+                      placeholder="Search meal vouchers…"
+                      value={mvSearchQuery}
+                      onChange={e => setMvSearchQuery(e.target.value)}
                       className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
                     />
-                    <button onClick={loadVouchers} className="text-sm border border-[#DDD5C8] text-[#5C5347] px-4 py-2 rounded-xl hover:bg-[#F5F0E8] transition-colors">↻ Refresh</button>
+                    <div className="flex items-center gap-1 bg-[#F5EFE7] rounded-xl p-1">
+                      {(['all', 'active', 'unpaid', 'paid', 'redeemed', 'expired'] as const).map(s => (
+                        <button
+                          key={s}
+                          onClick={() => setMvFilterStatus(s)}
+                          className={`text-xs px-3 py-1.5 rounded-lg font-semibold transition-colors capitalize ${
+                            mvFilterStatus === s
+                              ? s === 'all' ? 'bg-white text-[#C4622D] shadow-sm'
+                              : s === 'active' || s === 'paid' ? 'bg-white text-green-700 shadow-sm'
+                              : s === 'unpaid' ? 'bg-white text-amber-700 shadow-sm'
+                              : s === 'redeemed' ? 'bg-white text-blue-700 shadow-sm'
+                              : 'bg-white text-red-600 shadow-sm' :'text-[#8C8278] hover:text-[#1A1612]'
+                          }`}
+                        >
+                          {s === 'all' ? 'All' : s.charAt(0).toUpperCase() + s.slice(1)}
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      onClick={() => {
+                        setEditingMv(null);
+                        setMvForm({ voucher_code: '', customer_name: '', customer_email: '', customer_phone: '', total_meals: '', meals_remaining: '', status: 'unpaid', notes: '', package_type: 'none' });
+                        setMvFormError('');
+                        setMvFormSuccess('');
+                        setShowMvForm(true);
+                      }}
+                      className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors"
+                    >
+                      + Add Voucher
+                    </button>
                   </div>
                 </div>
 
-                {/* Issue Voucher Form */}
-                <div className="bg-white rounded-2xl border border-[#EDE7DA] p-6 mb-6">
-                  <h3 className="text-base font-bold text-[#1A1612] mb-4">Issue New Meal Voucher</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-semibold text-[#5C5347] mb-1">Customer Name *</label>
-                      <input value={issueVoucherForm.customer_name} onChange={e => setIssueVoucherForm(f => ({ ...f, customer_name: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                {showMvForm && (
+                  <div className="bg-white rounded-2xl border border-[#EDE7DA] p-6 mb-6">
+                    <h3 className="text-base font-bold text-[#1A1612] mb-4">{editingMv ? 'Edit Meal Voucher' : 'Add Meal Voucher'}</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Customer Name *</label>
+                        <input value={mvForm.customer_name} onChange={e => setMvForm(f => ({ ...f, customer_name: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Customer Email *</label>
+                        <input type="email" value={mvForm.customer_email} onChange={e => setMvForm(f => ({ ...f, customer_email: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Phone</label>
+                        <input value={mvForm.customer_phone} onChange={e => setMvForm(f => ({ ...f, customer_phone: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Total Meals *</label>
+                        <input type="number" min="1" value={mvForm.total_meals} onChange={e => setMvForm(f => ({ ...f, total_meals: e.target.value, meals_remaining: editingMv ? f.meals_remaining : e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                      </div>
+                      {editingMv && (
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Meals Remaining</label>
+                          <input type="number" min="0" value={mvForm.meals_remaining} onChange={e => setMvForm(f => ({ ...f, meals_remaining: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                        </div>
+                      )}
+                      <div>
+                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Status</label>
+                        <select value={mvForm.status} onChange={e => setMvForm(f => ({ ...f, status: e.target.value as Voucher['status'] }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white">
+                          <option value="unpaid">Unpaid</option>
+                          <option value="paid">Paid</option>
+                          <option value="active">Active</option>
+                          <option value="redeemed">Redeemed</option>
+                          <option value="expired">Expired</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Package Type</label>
+                        <select value={mvForm.package_type} onChange={e => setMvForm(f => ({ ...f, package_type: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white">
+                          <option value="none">None</option>
+                          <option value="package-6">Package 6</option>
+                          <option value="package-10">Package 10</option>
+                          <option value="package-12">Package 12</option>
+                          <option value="package-24">Package 24</option>
+                        </select>
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Notes</label>
+                        <textarea value={mvForm.notes} onChange={e => setMvForm(f => ({ ...f, notes: e.target.value }))} rows={2} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                      </div>
+                      {mvForm.voucher_code && (
+                        <div className="md:col-span-2">
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Generated Voucher Code</label>
+                          <div className="w-full border border-[#C4622D] rounded-xl px-3 py-2 text-sm bg-[#FDF8F3] text-[#C4622D] font-mono font-bold tracking-wider">{mvForm.voucher_code}</div>
+                        </div>
+                      )}
                     </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-[#5C5347] mb-1">Customer Email *</label>
-                      <input type="email" value={issueVoucherForm.customer_email} onChange={e => setIssueVoucherForm(f => ({ ...f, customer_email: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-[#5C5347] mb-1">Phone</label>
-                      <input value={issueVoucherForm.customer_phone} onChange={e => setIssueVoucherForm(f => ({ ...f, customer_phone: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-[#5C5347] mb-1">Total Meals *</label>
-                      <input type="number" value={issueVoucherForm.total_meals} onChange={e => setIssueVoucherForm(f => ({ ...f, total_meals: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
-                    </div>
-                    <div className="md:col-span-2">
-                      <label className="block text-xs font-semibold text-[#5C5347] mb-1">Notes</label>
-                      <textarea value={issueVoucherForm.notes} onChange={e => setIssueVoucherForm(f => ({ ...f, notes: e.target.value }))} rows={2} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                    {mvFormError && <p className="text-sm text-red-600 mt-3">{mvFormError}</p>}
+                    {mvFormSuccess && <p className="text-sm text-green-600 mt-3">{mvFormSuccess}</p>}
+                    <div className="flex items-center gap-3 mt-4">
+                      <button
+                        onClick={async () => {
+                          if (!mvForm.customer_name.trim() || !mvForm.customer_email.trim() || !mvForm.total_meals) {
+                            setMvFormError('Name, email, and total meals are required.');
+                            return;
+                          }
+                          setSavingMv(true);
+                          const generatedCode = editingMv ? mvForm.voucher_code : 'MV-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+                          const totalMeals = Number(mvForm.total_meals);
+                          const mealsRemaining = editingMv ? Number(mvForm.meals_remaining) : totalMeals;
+                          const payload = {
+                            voucher_code: generatedCode,
+                            customer_name: mvForm.customer_name.trim(),
+                            customer_email: mvForm.customer_email.trim(),
+                            customer_phone: mvForm.customer_phone.trim(),
+                            total_meals: totalMeals,
+                            meals_remaining: mealsRemaining,
+                            status: mvForm.status,
+                            notes: mvForm.notes.trim() || null,
+                            package_type: mvForm.package_type,
+                          };
+                          let inlineError: any = null;
+                          if (editingMv) {
+                            ({ error: inlineError } = await supabase.from('vouchers').update(payload).eq('id', editingMv.id));
+                          } else {
+                            ({ error: inlineError } = await supabase.from('vouchers').insert(payload));
+                          }
+                          if (inlineError) { setMvFormError(inlineError.message); setSavingMv(false); return; }
+                          setMvForm(f => ({ ...f, voucher_code: generatedCode }));
+                          setMvFormSuccess(editingMv ? 'Voucher updated!' : `Voucher created! Code: ${generatedCode}`);
+                          setShowMvForm(false);
+                          await loadMealVouchers();
+                          setSavingMv(false);
+                        }}
+                        disabled={savingMv}
+                        className="bg-[#C4622D] text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
+                      >
+                        {savingMv ? 'Saving…' : editingMv ? 'Update' : 'Create Voucher'}
+                      </button>
+                      <button onClick={() => setShowMvForm(false)} className="text-sm text-[#5C5347] border border-[#DDD5C8] px-4 py-2 rounded-xl hover:bg-[#F5F0E8] transition-colors">Cancel</button>
                     </div>
                   </div>
-                  {issueVoucherSuccess && <p className="text-sm text-green-600 mt-3">{issueVoucherSuccess}</p>}
-                  <button
-                    onClick={async () => {
-                      if (!issueVoucherForm.customer_name.trim() || !issueVoucherForm.customer_email.trim() || !issueVoucherForm.total_meals) {
-                        showIssueVoucherError('Name, email, and total meals are required.');
-                        return;
-                      }
-                      setIssuingVoucher(true);
-                      const code = 'MV-' + Math.random().toString(36).substring(2, 8).toUpperCase();
-                      const { error } = await supabase.from('vouchers').insert({
-                        voucher_code: code,
-                        customer_name: issueVoucherForm.customer_name.trim(),
-                        customer_email: issueVoucherForm.customer_email.trim(),
-                        customer_phone: issueVoucherForm.customer_phone.trim(),
-                        total_meals: Number(issueVoucherForm.total_meals),
-                        meals_remaining: Number(issueVoucherForm.total_meals),
-                        status: 'unpaid',
-                        notes: issueVoucherForm.notes.trim() || null,
-                      });
-                      if (error) { showIssueVoucherError(error.message); }
-                      else {
-                        setIssueVoucherSuccess(`Voucher ${code} issued!`);
-                        setIssueVoucherForm({ customer_name: '', customer_email: '', customer_phone: '', total_meals: '', notes: '' });
-                        await loadVouchers();
-                      }
-                      setIssuingVoucher(false);
-                    }}
-                    disabled={issuingVoucher}
-                    className="mt-4 bg-[#C4622D] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
-                  >
-                    {issuingVoucher ? 'Issuing…' : 'Issue Voucher'}
-                  </button>
-                </div>
+                )}
 
-                {vouchersLoading ? (
+                {mvLoading ? (
                   <div className="flex items-center justify-center py-16">
                     <div className="w-8 h-8 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
                   </div>
-                ) : filteredVouchers.length === 0 ? (
+                ) : filteredMealVouchers.length === 0 ? (
                   <div className="text-center py-16 text-[#8C8278]">
-                    <p className="text-lg font-medium">No vouchers found</p>
+                    <p className="text-lg font-medium">No meal vouchers found</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {filteredVouchers.map(v => {
-                      const isSelected = selectedVoucher?.id === v.id;
-                      return (
-                        <div key={v.id} className="bg-white rounded-2xl border border-[#EDE7DA] overflow-hidden">
+                    {filteredMealVouchers.map(v => (
+                      <div key={v.id} className={`bg-white rounded-2xl border p-4 flex items-center justify-between ${v.status === 'expired' ? 'border-red-200 bg-red-50/30' : v.status === 'unpaid' ? 'border-amber-200 bg-amber-50/20' : 'border-[#EDE7DA]'}`}>
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="font-semibold text-[#1A1612] text-sm font-mono">{v.voucher_code}</p>
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-semibold border ${
+                              v.status === 'paid' || v.status === 'active' ? 'bg-green-100 text-green-700 border-green-200' :
+                              v.status === 'unpaid' ? 'bg-amber-100 text-amber-700 border-amber-200' :
+                              v.status === 'redeemed'? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-gray-100 text-gray-500 border-gray-200'
+                            }`}>
+                              {v.status.charAt(0).toUpperCase() + v.status.slice(1)}
+                            </span>
+                          </div>
+                          <p className="text-xs text-[#8C8278] mt-0.5">{v.customer_name} · {v.customer_email}</p>
+                          <p className="text-xs text-[#8C8278] mt-0.5">{v.meals_remaining}/{v.total_meals} meals remaining{v.package_type !== 'none' ? ` · ${v.package_type}` : ''}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
                           <button
                             onClick={() => {
-                              if (isSelected) { setSelectedVoucher(null); setVoucherRedemptions([]); }
-                              else {
-                                setSelectedVoucher(v);
-                                setRedemptionsLoading(true);
-                                supabase.from('voucher_redemptions').select('*').eq('voucher_code', v.voucher_code).order('redeemed_at', { ascending: false })
-                                  .then(({ data }) => { setVoucherRedemptions(data || []); setRedemptionsLoading(false); });
-                              }
+                              setEditingMv(v);
+                              setMvForm({
+                                voucher_code: v.voucher_code,
+                                customer_name: v.customer_name,
+                                customer_email: v.customer_email,
+                                customer_phone: v.customer_phone || '',
+                                total_meals: String(v.total_meals),
+                                meals_remaining: String(v.meals_remaining),
+                                status: v.status,
+                                notes: v.notes || '',
+                                package_type: v.package_type || 'none',
+                              });
+                              setMvFormError('');
+                              setMvFormSuccess('');
+                              setShowMvForm(true);
                             }}
-                            className="w-full flex items-center justify-between px-5 py-4 hover:bg-[#FAF5EE] transition-colors text-left"
+                            className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl hover:bg-[#FDF6EE] transition-colors"
                           >
-                            <div>
-                              <p className="font-semibold text-[#1A1612] text-sm">{v.customer_name}</p>
-                              <p className="text-xs text-[#8C8278] mt-0.5">{v.customer_email}</p>
-                              <p className="text-xs font-mono text-[#C4622D] mt-0.5">{v.voucher_code}</p>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <div className="text-right">
-                                <p className="text-sm font-bold text-[#1A1612]">{v.meals_remaining}/{v.total_meals} meals</p>
-                                <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
-                                  v.status === 'paid' ? 'bg-green-100 text-green-700' :
-                                  v.status === 'redeemed' ? 'bg-blue-100 text-blue-700' :
-                                  v.status === 'expired'? 'bg-gray-100 text-gray-500' : 'bg-amber-100 text-amber-700'
-                                }`}>{v.status}</span>
-                              </div>
-                              <svg className={`w-4 h-4 text-[#8C8278] transition-transform ${isSelected ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                              </svg>
-                            </div>
+                            Edit
                           </button>
-
-                          {isSelected && (
-                            <div className="border-t border-[#EDE7DA] px-5 py-4 space-y-4">
-                              <div className="flex items-center gap-3 flex-wrap">
-                                {v.status === 'unpaid' && (
-                                  <button
-                                    onClick={async () => {
-                                      setMarkingVoucherPaidId(v.id);
-                                      setLoadingMarkingPaid(true);
-                                      await supabase.from('vouchers').update({ status: 'paid' }).eq('id', v.id);
-                                      await loadVouchers();
-                                      setSelectedVoucher(prev => prev ? { ...prev, status: 'paid' } : null);
-                                      setLoadingMarkingPaid(false);
-                                      setMarkingVoucherPaidId(null);
-                                    }}
-                                    disabled={loadingMarkingPaid && markingVoucherPaidId === v.id}
-                                    className="text-xs bg-green-600 text-white px-4 py-2 rounded-xl font-semibold hover:bg-green-700 transition-colors disabled:opacity-50"
-                                  >
-                                    {loadingMarkingPaid && markingVoucherPaidId === v.id ? 'Marking…' : 'Mark as Paid'}
-                                  </button>
-                                )}
-                              </div>
-                              <div>
-                                <p className="text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-3">Redemption History</p>
-                                {redemptionsLoading ? (
-                                  <div className="flex items-center justify-center py-6">
-                                    <div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
-                                  </div>
-                                ) : voucherRedemptions.length === 0 ? (
-                                  <p className="text-xs text-[#B5ADA5] italic">No redemptions yet</p>
-                                ) : (
-                                  <div className="space-y-2">
-                                    {voucherRedemptions.map((r, i) => (
-                                      <RedemptionAuditRow key={r.id} redemption={r} index={i + 1} />
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          )}
+                          <button
+                            onClick={() => setDeleteModal({ open: true, title: 'Delete Meal Voucher', message: `Delete voucher "${v.voucher_code}"?`, onConfirm: async () => { setDeleteModal(prev => ({ ...prev, open: false })); await supabase.from('vouchers').delete().eq('id', v.id); await loadMealVouchers(); } })}
+                            className="text-xs text-red-600 border border-red-200 px-3 py-1.5 rounded-xl hover:bg-red-50 transition-colors"
+                          >
+                            Delete
+                          </button>
                         </div>
-                      );
-                    })}
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
@@ -4378,7 +4447,7 @@ export default function StaffWorkspacePage() {
               </div>
             )}
 
-            {/* ── SOCIAL LINKS TAB */}
+            {/* ── SOCIAL LINKS TAB ── */}
             {activeTab === 'social_media' && userProfile?.role === 'super_admin' && (
               <div className="p-6">
                 <div className="mb-6">
