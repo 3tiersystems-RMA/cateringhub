@@ -15,7 +15,7 @@ import EventManagement from '@/app/staff/workspace/components/EventManagement';
 
 
 type BucketType = 'product-images' | 'event-photos' | 'document-management';
-type WorkspaceTab = 'products' | 'media' | 'media_events' | 'media_products' | 'orders' | 'staff' | 'homepage_cards' | 'categories' | 'weekly_menu' | 'vouchers' | 'discount_vouchers' | 'testimonials' | 'reporting' | 'analytics' | 'social_media' | 'gallery' | 'section_visibility';
+type WorkspaceTab = 'products' | 'media' | 'media_events' | 'media_products' | 'orders' | 'staff' | 'homepage_cards' | 'categories' | 'weekly_menu' | 'vouchers' | 'discount_vouchers' | 'testimonials' | 'reporting' | 'analytics' | 'social_media' | 'gallery' | 'section_visibility' | 'customer_order_history';
 
 type ProductCategory = string;
 type StaffRole = 'admin' | 'staff' | 'super_admin';
@@ -751,6 +751,14 @@ export default function StaffWorkspacePage() {
   const [wsSendingAllReminders, setWsSendingAllReminders] = useState(false);
   const [wsAllReminderResult, setWsAllReminderResult] = useState<{ sent: number; total: number } | null>(null);
   const [wsVoucherPriceMap, setWsVoucherPriceMap] = useState<Record<string, number>>({});
+  // ── Customer Order History state ──────────────────────────────────────────
+  const [cohLookupInput, setCohLookupInput] = useState('');
+  const [cohLookupLoading, setCohLookupLoading] = useState(false);
+  const [cohLookupError, setCohLookupError] = useState('');
+  const [cohProfile, setCohProfile] = useState<{ customer_name: string; customer_email: string; customer_phone: string; first_order_date: string } | null>(null);
+  const [cohOrders, setCohOrders] = useState<Order[]>([]);
+  const [cohExpandedOrderId, setCohExpandedOrderId] = useState<string | null>(null);
+  // ── End Customer Order History state ─────────────────────────────────────
   // Reporting state
   const [reportingView, setReportingView] = useState<'cards' | 'products_ordered' | 'package_meals_ordered' | 'frozen_meals_ordered' | 'discount_vouchers_report'>('cards');
   const [productsOrderedRows, setProductsOrderedRows] = useState<ProductsOrderedRow[]>([]);
@@ -2228,6 +2236,13 @@ export default function StaffWorkspacePage() {
     if (tab === 'reporting') loadReporting();
     if (tab === 'analytics') loadAnalytics(analyticsPeriod);
     if (tab === 'gallery') loadGallery();
+    if (tab === 'customer_order_history') {
+      setCohLookupInput('');
+      setCohLookupError('');
+      setCohProfile(null);
+      setCohOrders([]);
+      setCohExpandedOrderId(null);
+    }
   };
 
   const handleSaveSocialLinks = async () => {
@@ -2411,6 +2426,17 @@ export default function StaffWorkspacePage() {
               >
                 <span className="text-base">📦</span>
                 <span>Order Management</span>
+              </button>
+
+              {/* ── CUSTOMER ORDER HISTORY TAB */}
+              <button
+                onClick={() => { handleTabChange('customer_order_history'); }}
+                className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
+                  activeTab === 'customer_order_history' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
+                }`}
+              >
+                <span className="text-base">🔍</span>
+                <span>Customer Order History</span>
               </button>
 
               {/* ── Vouchers (collapsible) ── */}
@@ -3807,6 +3833,307 @@ export default function StaffWorkspacePage() {
                         </div>
                       );
                     })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── CUSTOMER ORDER HISTORY TAB */}
+            {activeTab === 'customer_order_history' && (
+              <div className="p-6">
+                {/* Header */}
+                <div className="mb-6">
+                  <h2 className="text-xl font-bold text-[#1A1612]">Customer Order History</h2>
+                  <p className="text-sm text-[#8C8278] mt-0.5">Look up any customer's full order history by email or phone number.</p>
+                </div>
+
+                {/* Lookup Form */}
+                <div className="bg-white rounded-2xl border border-[#DDD5C8] p-6 mb-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-xl bg-[#FDF3ED] flex items-center justify-center flex-shrink-0">
+                      <svg className="w-5 h-5 text-[#C4622D]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold text-[#1A1612]">Customer Lookup</h3>
+                      <p className="text-xs text-[#8C8278]">Enter the customer's email address or phone number</p>
+                    </div>
+                  </div>
+                  <form
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      if (!cohLookupInput.trim()) return;
+                      setCohLookupLoading(true);
+                      setCohLookupError('');
+                      setCohProfile(null);
+                      setCohOrders([]);
+                      setCohExpandedOrderId(null);
+                      try {
+                        const res = await fetch('/api/customer-lookup', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ identifier: cohLookupInput.trim() }),
+                        });
+                        const data = await res.json();
+                        if (!res.ok || data.error) {
+                          setCohLookupError(data.error || 'Lookup failed. Please try again.');
+                        } else {
+                          setCohProfile(data.profile);
+                          setCohOrders(data.orders || []);
+                        }
+                      } catch {
+                        setCohLookupError('An unexpected error occurred. Please try again.');
+                      } finally {
+                        setCohLookupLoading(false);
+                      }
+                    }}
+                    className="flex gap-3"
+                  >
+                    <input
+                      type="text"
+                      value={cohLookupInput}
+                      onChange={(e) => setCohLookupInput(e.target.value)}
+                      placeholder="customer@email.com or 0821234567"
+                      className="flex-1 border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white text-[#1A1612] placeholder-[#B5ADA5]"
+                    />
+                    <button
+                      type="submit"
+                      disabled={cohLookupLoading || !cohLookupInput.trim()}
+                      className="bg-[#C4622D] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50 whitespace-nowrap flex items-center gap-2"
+                    >
+                      {cohLookupLoading ? (
+                        <>
+                          <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                          Searching…
+                        </>
+                      ) : 'Look Up'}
+                    </button>
+                    {cohProfile && (
+                      <button
+                        type="button"
+                        onClick={() => { setCohLookupInput(''); setCohProfile(null); setCohOrders([]); setCohLookupError(''); setCohExpandedOrderId(null); }}
+                        className="px-4 py-2.5 rounded-xl text-sm font-medium border border-[#DDD5C8] text-[#5C5347] hover:bg-[#F5F0E8] transition-colors"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </form>
+                  {cohLookupError && (
+                    <div className="mt-3 flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-2.5">
+                      <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>
+                      {cohLookupError}
+                    </div>
+                  )}
+                </div>
+
+                {/* Customer Profile Card */}
+                {cohProfile && (
+                  <div className="bg-white rounded-2xl border border-[#DDD5C8] p-5 mb-6">
+                    <div className="flex items-start gap-4">
+                      <div className="w-12 h-12 rounded-full bg-[#FDF3ED] flex items-center justify-center flex-shrink-0">
+                        <svg className="w-6 h-6 text-[#C4622D]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-base font-bold text-[#1A1612]">{cohProfile.customer_name || '—'}</h3>
+                        <div className="flex flex-wrap gap-x-5 gap-y-1 mt-1">
+                          {cohProfile.customer_email && (
+                            <span className="text-sm text-[#5C5347] flex items-center gap-1.5">
+                              <svg className="w-3.5 h-3.5 text-[#8C8278]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                              {cohProfile.customer_email}
+                            </span>
+                          )}
+                          {cohProfile.customer_phone && (
+                            <span className="text-sm text-[#5C5347] flex items-center gap-1.5">
+                              <svg className="w-3.5 h-3.5 text-[#8C8278]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.948V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
+                              {cohProfile.customer_phone}
+                            </span>
+                          )}
+                          {cohProfile.first_order_date && (
+                            <span className="text-sm text-[#5C5347] flex items-center gap-1.5">
+                              <svg className="w-3.5 h-3.5 text-[#8C8278]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                              Customer since {formatDate(cohProfile.first_order_date)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className="text-2xl font-bold text-[#C4622D]">{cohOrders.length}</p>
+                        <p className="text-xs text-[#8C8278]">order{cohOrders.length !== 1 ? 's' : ''}</p>
+                      </div>
+                    </div>
+
+                    {/* Summary stats */}
+                    {cohOrders.length > 0 && (
+                      <div className="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-[#EDE7DA]">
+                        <div className="text-center">
+                          <p className="text-lg font-bold text-[#1A1612]">
+                            {formatCurrency(cohOrders.filter(o => o.payment_status === 'paid').reduce((s, o) => s + (o.total || 0), 0))}
+                          </p>
+                          <p className="text-xs text-[#8C8278]">Total Spent</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-lg font-bold text-green-700">
+                            {cohOrders.filter(o => o.fulfillment_status === 'delivered').length}
+                          </p>
+                          <p className="text-xs text-[#8C8278]">Delivered</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-lg font-bold text-amber-600">
+                            {cohOrders.filter(o => o.payment_status === 'awaiting_payment').length}
+                          </p>
+                          <p className="text-xs text-[#8C8278]">Awaiting Payment</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Orders List */}
+                {cohOrders.length > 0 && (
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-semibold text-[#5C5347] uppercase tracking-wider mb-3">
+                      Order History — {cohOrders.length} order{cohOrders.length !== 1 ? 's' : ''}
+                    </h3>
+                    {cohOrders.map((order) => {
+                      const isExpanded = cohExpandedOrderId === order.id;
+                      const itemCount = order.items?.reduce((sum, i) => sum + i.quantity, 0) || 0;
+                      return (
+                        <div key={order.id} className="bg-white rounded-2xl border border-[#DDD5C8] overflow-hidden">
+                          {/* Order Row */}
+                          <button
+                            onClick={() => setCohExpandedOrderId(isExpanded ? null : order.id)}
+                            className="w-full text-left px-5 py-4 flex items-center gap-4 hover:bg-[#FAF5EE] transition-colors"
+                          >
+                            {/* Date & Ref */}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-0.5">
+                                <span className="text-xs font-mono text-[#8C8278]">
+                                  #{order.m_payment_id?.slice(-8) || order.id.slice(-8).toUpperCase()}
+                                </span>
+                                <span className="text-[#DDD5C8]">·</span>
+                                <span className="text-xs text-[#8C8278]">{formatDate(order.created_at)}</span>
+                              </div>
+                              <p className="text-sm font-medium text-[#1A1612] truncate">
+                                {itemCount} item{itemCount !== 1 ? 's' : ''}
+                                {order.event_date ? ` · Event: ${formatDate(order.event_date)}` : ''}
+                              </p>
+                            </div>
+
+                            {/* Status badges */}
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <span className={`text-xs px-2.5 py-1 rounded-full font-medium border ${FULFILLMENT_STATUS_COLORS[order.fulfillment_status]}`}>
+                                {FULFILLMENT_STATUS_LABELS[order.fulfillment_status]}
+                              </span>
+                              <span className={`text-xs px-2.5 py-1 rounded-full font-medium border ${PAYMENT_STATUS_COLORS[order.payment_status]}`}>
+                                {PAYMENT_STATUS_LABELS[order.payment_status]}
+                              </span>
+                            </div>
+
+                            {/* Total & chevron */}
+                            <div className="flex items-center gap-3 flex-shrink-0">
+                              <span className="text-sm font-bold text-[#1A1612]">{formatCurrency(order.total)}</span>
+                              <svg
+                                className={`w-4 h-4 text-[#8C8278] transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                                fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                              </svg>
+                            </div>
+                          </button>
+
+                          {/* Expanded Details */}
+                          {isExpanded && (
+                            <div className="border-t border-[#EDE7DA] px-5 py-4 bg-[#FDFAF6]">
+                              {/* Items */}
+                              {order.items && order.items.length > 0 && (
+                                <div className="mb-4">
+                                  <p className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-2">Items Ordered</p>
+                                  <div className="space-y-1.5">
+                                    {order.items.map((item, idx) => (
+                                      <div key={idx} className="flex items-center justify-between py-1.5 border-b border-[#EDE7DA] last:border-0">
+                                        <div className="flex items-center gap-2.5">
+                                          <span className="w-6 h-6 rounded-md bg-[#EDE7DA] flex items-center justify-center text-xs text-[#5C5347] font-bold flex-shrink-0">
+                                            {item.quantity}
+                                          </span>
+                                          <div>
+                                            <p className="text-sm text-[#1A1612]">{item.name}</p>
+                                            {item.category && <p className="text-xs text-[#8C8278]">{item.category}</p>}
+                                          </div>
+                                        </div>
+                                        <span className="text-sm text-[#5C5347] font-medium">{formatCurrency(item.price * item.quantity)}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Totals */}
+                              <div className="bg-white rounded-xl border border-[#EDE7DA] p-3 mb-4 space-y-1.5">
+                                <div className="flex justify-between text-sm text-[#5C5347]">
+                                  <span>Subtotal</span>
+                                  <span>{formatCurrency(order.subtotal)}</span>
+                                </div>
+                                <div className="flex justify-between text-sm text-[#5C5347]">
+                                  <span>Delivery</span>
+                                  <span>{order.delivery_fee > 0 ? formatCurrency(order.delivery_fee) : 'Free'}</span>
+                                </div>
+                                <div className="flex justify-between text-sm font-bold text-[#1A1612] border-t border-[#EDE7DA] pt-1.5 mt-1.5">
+                                  <span>Total</span>
+                                  <span>{formatCurrency(order.total)}</span>
+                                </div>
+                              </div>
+
+                              {/* Delivery & Notes */}
+                              <div className="space-y-2">
+                                {order.delivery_address && (
+                                  <div className="flex items-start gap-2 text-xs text-[#5C5347]">
+                                    <svg className="w-3.5 h-3.5 text-[#8C8278] mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                                    <span>{order.delivery_address}</span>
+                                  </div>
+                                )}
+                                {order.notes && (
+                                  <div className="flex items-start gap-2 text-xs text-[#5C5347]">
+                                    <svg className="w-3.5 h-3.5 text-[#8C8278] mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" /></svg>
+                                    <span className="italic">{order.notes}</span>
+                                  </div>
+                                )}
+                                {order.delivered_date && (
+                                  <div className="flex items-center gap-2 text-xs text-green-700">
+                                    <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                                    <span>Delivered on {formatDate(order.delivered_date)}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Empty state after lookup */}
+                {cohProfile && cohOrders.length === 0 && (
+                  <div className="bg-white rounded-2xl border border-[#DDD5C8] p-12 text-center">
+                    <div className="w-14 h-14 rounded-2xl bg-[#F5F0E8] flex items-center justify-center mx-auto mb-4">
+                      <svg className="w-7 h-7 text-[#B5ADA5]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                    </div>
+                    <h3 className="text-base font-semibold text-[#1A1612] mb-1">No orders found</h3>
+                    <p className="text-sm text-[#8C8278]">This customer has no orders on record.</p>
+                  </div>
+                )}
+
+                {/* Initial empty state */}
+                {!cohProfile && !cohLookupLoading && !cohLookupError && (
+                  <div className="bg-white rounded-2xl border border-[#DDD5C8] p-12 text-center">
+                    <div className="w-14 h-14 rounded-2xl bg-[#F5F0E8] flex items-center justify-center mx-auto mb-4">
+                      <svg className="w-7 h-7 text-[#B5ADA5]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                    </div>
+                    <h3 className="text-base font-semibold text-[#1A1612] mb-1">Look up a customer</h3>
+                    <p className="text-sm text-[#8C8278]">Enter a customer's email or phone number above to view their full order history.</p>
                   </div>
                 )}
               </div>
