@@ -2678,7 +2678,7 @@ export default function StaffWorkspacePage() {
                       <div>
                         <label className="block text-xs font-semibold text-[#5C5347] mb-1">Package Type</label>
                         <select value={form.package_type} onChange={e => setForm(f => ({ ...f, package_type: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white">
-                          {packageTypes.map(pt => <option key={pt} value={pt}>{pt === 'wellness-range' ? 'Wellness' : pt}</option>)}
+                          {packageTypes.map(pt => <option key={pt} value={pt}>{pt === 'wellness-range' ? 'Wellness Range' : pt}</option>)}
                         </select>
                       </div>
                       <div className="flex items-center gap-4">
@@ -2810,7 +2810,7 @@ export default function StaffWorkspacePage() {
                         <div>
                           <label className="block text-xs font-semibold text-[#5C5347] mb-1">Package Type</label>
                           <select value={form.package_type} onChange={e => setForm(f => ({ ...f, package_type: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white">
-                            {packageTypes.map(pt => <option key={pt} value={pt}>{pt === 'wellness-range' ? 'Wellness' : pt}</option>)}
+                            {packageTypes.map(pt => <option key={pt} value={pt}>{pt === 'wellness-range' ? 'Wellness Range' : pt}</option>)}
                           </select>
                         </div>
                         <div className="flex items-center gap-4">
