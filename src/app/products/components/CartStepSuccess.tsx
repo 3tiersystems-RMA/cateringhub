@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Icon from "@/components/ui/AppIcon";
 import type { VoucherData } from "./CartContext";
 import { APP_NAME } from "@/lib/constants";
@@ -19,6 +20,27 @@ interface CartStepSuccessProps {
   voucherMealsUsed: number;
   voucherMealsRemaining: number;
   onClose: () => void;
+}
+
+function CopyButton({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(value).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  return (
+    <button
+      onClick={handleCopy}
+      className="flex items-center gap-1 px-2.5 py-1 rounded-full border border-[#DDD5C8] bg-[#F7F4F0] text-[#5C5347] text-xs hover:bg-[#EDE8E1] transition-colors ml-3 shrink-0"
+    >
+      <Icon name={copied ? "CheckIcon" : "ClipboardDocumentIcon"} size={12} />
+      <span>{copied ? "Copied!" : "Copy"}</span>
+    </button>
+  );
 }
 
 export default function CartStepSuccess({
@@ -71,7 +93,10 @@ export default function CartStepSuccess({
             ].map(({ label, value }) => (
               <div key={label} className="flex justify-between items-center py-1.5 border-b border-[#F0EBE3] last:border-0">
                 <span className="text-[#8C8278] text-xs">{label}</span>
-                <span className="font-semibold text-[#1A1612] font-mono text-xs">{value}</span>
+                <div className="flex items-center">
+                  <span className="font-semibold text-[#1A1612] font-mono text-xs">{value}</span>
+                  <CopyButton value={value} />
+                </div>
               </div>
             ))}
           </div>
