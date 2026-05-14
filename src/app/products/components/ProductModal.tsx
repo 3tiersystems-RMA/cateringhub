@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useCallback } from "react";
-import AppImage from "@/components/ui/AppImage";
+
 import Icon from "@/components/ui/AppIcon";
 import type { CartProduct } from "./CartContext";
 
@@ -63,12 +63,11 @@ export default function ProductModal({ product, onClose, added, onAdd }: Product
         </button>
 
         {/* Product Image — full colour */}
-        <div className="relative h-64 rounded-t-3xl overflow-hidden bg-[#EDE7DA]">
-          <AppImage
+        <div className="relative rounded-t-3xl overflow-hidden bg-[#EDE7DA]">
+          <img
             src={product.image}
             alt={product.imageAlt}
-            fill
-            className={product.imageFit === 'fit' ? 'object-contain' : 'object-cover'}
+            className="w-full h-auto block"
           />
           {/* Badges */}
           <div className="absolute top-3 left-3 flex flex-col gap-1.5">
