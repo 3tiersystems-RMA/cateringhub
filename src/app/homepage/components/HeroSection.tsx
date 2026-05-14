@@ -5,6 +5,7 @@ import Link from "next/link";
 import AppImage from "@/components/ui/AppImage";
 import Icon from "@/components/ui/AppIcon";
 import { createClient } from "@/lib/supabase/client";
+import AnnouncementCard from "./AnnouncementCard";
 
 
 interface HomepageCard {
@@ -251,6 +252,9 @@ export default function HeroSection() {
               }
                 </div>
             }
+
+              {/* Card 4 — Announcement */}
+              <AnnouncementCard />
 
             </div>
           }
