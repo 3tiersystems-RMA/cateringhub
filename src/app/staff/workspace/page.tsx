@@ -3403,16 +3403,16 @@ export default function StaffWorkspacePage() {
                       <p className="text-2xl font-bold text-[#1A1612]">{wsOrders.filter(o => o.payment_status === 'awaiting_payment').length}</p>
                       <p className="text-xs text-[#8C8278] mt-0.5">{formatCurrency(wsOrders.filter(o => o.payment_status === 'awaiting_payment').reduce((s, o) => s + (o.total || 0), 0))} outstanding</p>
                     </div>
-                    {/* Active Orders */}
+                    {/* Delivered Orders */}
                     <div className="bg-white rounded-2xl border border-[#DDD5C8] p-4">
                       <div className="flex items-center justify-between mb-2">
-                        <p className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider">Active Orders</p>
-                        <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center">
-                          <svg className="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                        <p className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider">Delivered Orders</p>
+                        <div className="w-8 h-8 rounded-full bg-green-50 flex items-center justify-center">
+                          <svg className="w-4 h-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
                         </div>
                       </div>
-                      <p className="text-2xl font-bold text-[#1A1612]">{wsOrders.filter(o => ['new','confirmed','preparing','ready'].includes(o.fulfillment_status)).length}</p>
-                      <p className="text-xs text-[#8C8278] mt-0.5">{wsOrders.filter(o => o.fulfillment_status === 'delivered').length} delivered</p>
+                      <p className="text-2xl font-bold text-[#1A1612]">{wsOrders.filter(o => o.fulfillment_status === 'delivered').length}</p>
+                      <p className="text-xs text-[#8C8278] mt-0.5">{wsOrders.length > 0 ? Math.round((wsOrders.filter(o => o.fulfillment_status === 'delivered').length / wsOrders.length) * 100) : 0}% of total orders</p>
                     </div>
                   </div>
                 )}
