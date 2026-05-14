@@ -733,6 +733,14 @@ export default function StaffWorkspacePage() {
   const [wsFilterFulfillment, setWsFilterFulfillment] = useState<string>('all');
   const [deleteOrderId, setDeleteOrderId] = useState<string | null>(null);
   const [deletingOrder, setDeletingOrder] = useState(false);
+  // Order Management Dashboard state
+  const [wsRealtimeConnected, setWsRealtimeConnected] = useState(false);
+  const [wsNewOrderAlert, setWsNewOrderAlert] = useState<string | null>(null);
+  const [wsReminderSending, setWsReminderSending] = useState<Record<string, boolean>>({});
+  const [wsReminderResult, setWsReminderResult] = useState<Record<string, 'sent' | 'error'>>({});
+  const [wsSendingAllReminders, setWsSendingAllReminders] = useState(false);
+  const [wsAllReminderResult, setWsAllReminderResult] = useState<{ sent: number; total: number } | null>(null);
+  const [wsVoucherPriceMap, setWsVoucherPriceMap] = useState<Record<string, number>>({});
   // Reporting state
   const [reportingView, setReportingView] = useState<'cards' | 'products_ordered' | 'package_meals_ordered' | 'discount_vouchers_report'>('cards');
   const [productsOrderedRows, setProductsOrderedRows] = useState<ProductsOrderedRow[]>([]);
@@ -910,6 +918,28 @@ export default function StaffWorkspacePage() {
       if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
     };
   }, []);
+
+  // ─── Orders realtime subscription ────────────────────────────────────────────
+  useEffect(() => {
+    if (activeTab !== 'orders') return;
+    const channel = supabase
+      .channel('ws-orders-realtime')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, (payload) => {
+        const newOrder = payload.new as Order;
+        setWsOrders(prev => {
+          if (prev.some(o => o.id === newOrder.id)) return prev;
+          return [newOrder, ...prev];
+        });
+        setWsNewOrderAlert(`New order from ${newOrder.customer_name || 'a customer'}!`);
+        setTimeout(() => setWsNewOrderAlert(null), 5000);
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, (payload) => {
+        const updated = payload.new as Order;
+        setWsOrders(prev => prev.map(o => o.id === updated.id ? { ...o, ...updated } : o));
+      })
+      .subscribe(status => setWsRealtimeConnected(status === 'SUBSCRIBED'));
+    return () => { supabase.removeChannel(channel); setWsRealtimeConnected(false); };
+  }, [activeTab]);
 
   // ─── Load functions ───────────────────────────────────────────────────────────
   const loadCategoryNames = async () => {
@@ -1139,6 +1169,13 @@ export default function StaffWorkspacePage() {
     await loadGallery();
   };
 
+  const VOUCHER_PACKAGE_PRICES_WS: Record<string, number> = {
+    'package-6': 690,
+    'package-10': 1350,
+    'package-12': 1320,
+    'package-24': 2520,
+  };
+
   const loadWsOrders = async () => {
     setWsOrdersLoading(true);
     setWsOrdersError('');
@@ -1147,8 +1184,76 @@ export default function StaffWorkspacePage() {
       .select('*')
       .order('created_at', { ascending: false });
     if (error) { setWsOrdersError(error.message); }
-    else { setWsOrders(data || []); }
+    else {
+      const orders = data || [];
+      setWsOrders(orders);
+      // Build voucher price map
+      const voucherCodes: string[] = [];
+      orders.forEach((o: Order) => {
+        if (o.notes) {
+          const match = o.notes.match(/Voucher:\s*([A-Z0-9-]+)/i);
+          if (match) voucherCodes.push(match[1].replace(/\.$/, ''));
+        }
+      });
+      if (voucherCodes.length > 0) {
+        const { data: vData } = await supabase
+          .from('vouchers')
+          .select('voucher_code, package_type')
+          .in('voucher_code', voucherCodes);
+        if (vData) {
+          const priceMap: Record<string, number> = {};
+          vData.forEach((v: { voucher_code: string; package_type: string }) => {
+            const price = VOUCHER_PACKAGE_PRICES_WS[v.package_type];
+            if (price !== undefined) priceMap[v.voucher_code] = price;
+          });
+          setWsVoucherPriceMap(priceMap);
+        }
+      }
+    }
     setWsOrdersLoading(false);
+  };
+
+  const handleWsSendReminder = async (orderId: string) => {
+    setWsReminderSending(prev => ({ ...prev, [orderId]: true }));
+    setWsReminderResult(prev => { const n = { ...prev }; delete n[orderId]; return n; });
+    try {
+      const res = await fetch('/api/send-payment-reminder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId }),
+      });
+      const resData = await res.json();
+      if (!res.ok || resData.error) {
+        setWsReminderResult(prev => ({ ...prev, [orderId]: 'error' }));
+      } else {
+        setWsReminderResult(prev => ({ ...prev, [orderId]: 'sent' }));
+        setTimeout(() => setWsReminderResult(prev => { const n = { ...prev }; delete n[orderId]; return n; }), 4000);
+      }
+    } catch {
+      setWsReminderResult(prev => ({ ...prev, [orderId]: 'error' }));
+    } finally {
+      setWsReminderSending(prev => ({ ...prev, [orderId]: false }));
+    }
+  };
+
+  const handleWsSendAllReminders = async () => {
+    setWsSendingAllReminders(true);
+    setWsAllReminderResult(null);
+    try {
+      const res = await fetch('/api/send-payment-reminder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const resData = await res.json();
+      const outstandingCount = wsOrders.filter(o => o.payment_status === 'awaiting_payment').length;
+      setWsAllReminderResult({ sent: resData.sent ?? 0, total: outstandingCount });
+      setTimeout(() => setWsAllReminderResult(null), 5000);
+    } catch {
+      setWsAllReminderResult({ sent: 0, total: 0 });
+    } finally {
+      setWsSendingAllReminders(false);
+    }
   };
 
   const loadReporting = async () => {
@@ -2209,7 +2314,7 @@ export default function StaffWorkspacePage() {
                 }`}
               >
                 <span className="text-base">📦</span>
-                <span>Orders</span>
+                <span>Order Management</span>
               </button>
 
               {/* ── Vouchers (collapsible) ── */}
@@ -3208,47 +3313,173 @@ export default function StaffWorkspacePage() {
               </div>
             )}
 
-            {/* ── ORDERS TAB */}
+            {/* ── ORDER MANAGEMENT DASHBOARD TAB */}
             {activeTab === 'orders' && (
               <div className="p-6">
+                {/* Header */}
                 <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
                   <div>
-                    <h2 className="text-xl font-bold text-[#1A1612]">Orders</h2>
-                    <p className="text-sm text-[#8C8278] mt-0.5">{wsOrders.length} orders</p>
+                    <h2 className="text-xl font-bold text-[#1A1612]">Order Management Dashboard</h2>
+                    <div className="flex items-center gap-3 mt-1">
+                      <p className="text-sm text-[#8C8278]">{wsFilteredOrders.length} of {wsOrders.length} orders</p>
+                      <div className="flex items-center gap-1.5">
+                        <span className={`w-2 h-2 rounded-full ${wsRealtimeConnected ? 'bg-green-400 animate-pulse' : 'bg-gray-400'}`} />
+                        <span className="text-xs text-[#8C8278]">{wsRealtimeConnected ? 'Live' : 'Connecting…'}</span>
+                      </div>
+                    </div>
                   </div>
-                  <button
-                    onClick={loadWsOrders}
-                    className="text-sm border border-[#DDD5C8] text-[#5C5347] px-4 py-2 rounded-xl hover:bg-[#F5F0E8] transition-colors"
-                  >
-                    ↻ Refresh
-                  </button>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {wsOrders.some(o => o.payment_status === 'awaiting_payment') && (
+                      <button
+                        onClick={handleWsSendAllReminders}
+                        disabled={wsSendingAllReminders}
+                        className="flex items-center gap-2 px-4 py-2 bg-amber-50 border border-amber-300 rounded-xl text-sm font-medium text-amber-700 hover:bg-amber-100 transition-colors disabled:opacity-50"
+                      >
+                        {wsSendingAllReminders ? (
+                          <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                        ) : (
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                        )}
+                        Send All Reminders
+                      </button>
+                    )}
+                    {wsAllReminderResult && (
+                      <span className="text-xs font-medium text-green-700 bg-green-50 border border-green-200 px-3 py-1.5 rounded-xl">
+                        ✓ {wsAllReminderResult.sent} reminder{wsAllReminderResult.sent !== 1 ? 's' : ''} sent
+                      </span>
+                    )}
+                    <button
+                      onClick={loadWsOrders}
+                      disabled={wsOrdersLoading}
+                      className="flex items-center gap-2 px-4 py-2 bg-white border border-[#DDD5C8] rounded-xl text-sm font-medium text-[#5C5347] hover:bg-[#EDE7DA] transition-colors disabled:opacity-50"
+                    >
+                      <svg className={`w-4 h-4 ${wsOrdersLoading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                      Refresh
+                    </button>
+                  </div>
                 </div>
 
+                {/* New order alert */}
+                {wsNewOrderAlert && (
+                  <div className="mb-5 flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-green-800 text-sm font-medium animate-pulse">
+                    <svg className="w-4 h-4 text-green-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
+                    {wsNewOrderAlert}
+                  </div>
+                )}
+
+                {/* KPI Summary Cards */}
+                {!wsOrdersLoading && wsOrders.length > 0 && (
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                    {/* Total Orders */}
+                    <div className="bg-white rounded-2xl border border-[#DDD5C8] p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider">Total Orders</p>
+                        <div className="w-8 h-8 rounded-full bg-[#FDF3ED] flex items-center justify-center">
+                          <svg className="w-4 h-4 text-[#C4622D]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                        </div>
+                      </div>
+                      <p className="text-2xl font-bold text-[#1A1612]">{wsOrders.length}</p>
+                      <p className="text-xs text-[#8C8278] mt-0.5">{wsOrders.filter(o => o.fulfillment_status === 'new').length} new</p>
+                    </div>
+                    {/* Total Revenue */}
+                    <div className="bg-white rounded-2xl border border-[#DDD5C8] p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider">Total Revenue</p>
+                        <div className="w-8 h-8 rounded-full bg-green-50 flex items-center justify-center">
+                          <svg className="w-4 h-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        </div>
+                      </div>
+                      <p className="text-2xl font-bold text-[#1A1612]">{formatCurrency(wsOrders.filter(o => o.payment_status === 'paid').reduce((s, o) => s + (o.total || 0), 0))}</p>
+                      <p className="text-xs text-[#8C8278] mt-0.5">{wsOrders.filter(o => o.payment_status === 'paid').length} paid orders</p>
+                    </div>
+                    {/* Awaiting Payment */}
+                    <div className="bg-white rounded-2xl border border-[#DDD5C8] p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider">Awaiting Payment</p>
+                        <div className="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center">
+                          <svg className="w-4 h-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        </div>
+                      </div>
+                      <p className="text-2xl font-bold text-[#1A1612]">{wsOrders.filter(o => o.payment_status === 'awaiting_payment').length}</p>
+                      <p className="text-xs text-[#8C8278] mt-0.5">{formatCurrency(wsOrders.filter(o => o.payment_status === 'awaiting_payment').reduce((s, o) => s + (o.total || 0), 0))} outstanding</p>
+                    </div>
+                    {/* Active Orders */}
+                    <div className="bg-white rounded-2xl border border-[#DDD5C8] p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider">Active Orders</p>
+                        <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center">
+                          <svg className="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                        </div>
+                      </div>
+                      <p className="text-2xl font-bold text-[#1A1612]">{wsOrders.filter(o => ['new','confirmed','preparing','ready'].includes(o.fulfillment_status)).length}</p>
+                      <p className="text-xs text-[#8C8278] mt-0.5">{wsOrders.filter(o => o.fulfillment_status === 'delivered').length} delivered</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Fulfillment Status Breakdown */}
+                {!wsOrdersLoading && wsOrders.length > 0 && (
+                  <div className="bg-white rounded-2xl border border-[#DDD5C8] p-4 mb-6">
+                    <p className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3">Fulfillment Breakdown</p>
+                    <div className="flex flex-wrap gap-2">
+                      {FULFILLMENT_OPTIONS.map(s => {
+                        const count = wsOrders.filter(o => o.fulfillment_status === s).length;
+                        return (
+                          <button
+                            key={s}
+                            onClick={() => setWsFilterFulfillment(wsFilterFulfillment === s ? 'all' : s)}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all ${
+                              wsFilterFulfillment === s
+                                ? FULFILLMENT_STATUS_COLORS[s] + 'ring-2 ring-offset-1 ring-current' :'border-[#DDD5C8] text-[#5C5347] hover:bg-[#F5F0E8]'
+                            }`}
+                          >
+                            <span>{FULFILLMENT_STATUS_LABELS[s]}</span>
+                            <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${wsFilterFulfillment === s ? 'bg-white/40' : 'bg-[#F5F0E8]'}`}>{count}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 {/* Filters */}
-                <div className="flex flex-wrap gap-3 mb-5">
-                  <input
-                    type="text"
-                    placeholder="Search orders…"
-                    value={wsOrderSearch}
-                    onChange={e => setWsOrderSearch(e.target.value)}
-                    className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white min-w-[200px]"
-                  />
-                  <select
-                    value={wsFilterPayment}
-                    onChange={e => setWsFilterPayment(e.target.value)}
-                    className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
-                  >
-                    <option value="all">All Payments</option>
-                    {PAYMENT_OPTIONS.map(s => <option key={s} value={s}>{PAYMENT_STATUS_LABELS[s]}</option>)}
-                  </select>
-                  <select
-                    value={wsFilterFulfillment}
-                    onChange={e => setWsFilterFulfillment(e.target.value)}
-                    className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
-                  >
-                    <option value="all">All Fulfillment</option>
-                    {FULFILLMENT_OPTIONS.map(s => <option key={s} value={s}>{FULFILLMENT_STATUS_LABELS[s]}</option>)}
-                  </select>
+                <div className="bg-white rounded-2xl border border-[#DDD5C8] p-4 mb-5">
+                  <div className="flex flex-wrap gap-3">
+                    <div className="relative flex-1 min-w-[200px]">
+                      <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#B5ADA5]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                      <input
+                        type="text"
+                        placeholder="Search by name, email or order ID…"
+                        value={wsOrderSearch}
+                        onChange={e => setWsOrderSearch(e.target.value)}
+                        className="w-full pl-9 pr-4 border border-[#DDD5C8] rounded-xl py-2.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+                      />
+                    </div>
+                    <select
+                      value={wsFilterPayment}
+                      onChange={e => setWsFilterPayment(e.target.value)}
+                      className="border border-[#DDD5C8] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+                    >
+                      <option value="all">All Payments</option>
+                      {PAYMENT_OPTIONS.map(s => <option key={s} value={s}>{PAYMENT_STATUS_LABELS[s]}</option>)}
+                    </select>
+                    <select
+                      value={wsFilterFulfillment}
+                      onChange={e => setWsFilterFulfillment(e.target.value)}
+                      className="border border-[#DDD5C8] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+                    >
+                      <option value="all">All Fulfillment</option>
+                      {FULFILLMENT_OPTIONS.map(s => <option key={s} value={s}>{FULFILLMENT_STATUS_LABELS[s]}</option>)}
+                    </select>
+                    {(wsOrderSearch || wsFilterPayment !== 'all' || wsFilterFulfillment !== 'all') && (
+                      <button
+                        onClick={() => { setWsOrderSearch(''); setWsFilterPayment('all'); setWsFilterFulfillment('all'); }}
+                        className="px-3 py-2.5 text-xs font-medium text-[#8C8278] border border-[#DDD5C8] rounded-xl hover:bg-[#F5F0E8] transition-colors"
+                      >
+                        Clear filters
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {wsOrdersLoading ? (
@@ -3256,98 +3487,173 @@ export default function StaffWorkspacePage() {
                     <div className="w-8 h-8 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
                   </div>
                 ) : wsOrdersError ? (
-                  <div className="text-center py-16 text-red-500">
-                    <p className="text-sm">{wsOrdersError}</p>
+                  <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-center gap-2 text-red-700 text-sm">
+                    <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    {wsOrdersError}
                   </div>
                 ) : wsFilteredOrders.length === 0 ? (
-                  <div className="text-center py-16 text-[#8C8278]">
-                    <p className="text-lg font-medium">No orders found</p>
+                  <div className="bg-white rounded-2xl border border-[#DDD5C8] p-12 flex flex-col items-center justify-center gap-3 text-center">
+                    <div className="w-14 h-14 rounded-full bg-[#EDE7DA] flex items-center justify-center">
+                      <svg className="w-6 h-6 text-[#B5ADA5]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                    </div>
+                    <p className="text-[#5C5347] font-medium">No orders found</p>
+                    <p className="text-sm text-[#B5ADA5]">
+                      {wsOrderSearch || wsFilterPayment !== 'all' || wsFilterFulfillment !== 'all' ? 'Try adjusting your filters' : 'Orders will appear here once customers complete payments'}
+                    </p>
                   </div>
                 ) : (
                   <div className="space-y-3">
                     {wsFilteredOrders.map(order => {
                       const expanded = wsExpandedOrderId === order.id;
                       const updateState = getWsOrderUpdateState(order.id);
+                      const itemCount = Array.isArray(order.items) ? order.items.length : 0;
                       return (
                         <div key={order.id} className="bg-white rounded-2xl border border-[#EDE7DA] overflow-hidden">
+                          {/* Order Row Header */}
                           <button
                             onClick={() => setWsExpandedOrderId(expanded ? null : order.id)}
                             className="w-full flex items-center justify-between px-5 py-4 hover:bg-[#FAF5EE] transition-colors text-left"
                           >
-                            <div className="flex items-center gap-4">
-                              <div>
-                                <p className="font-semibold text-[#1A1612] text-sm">{order.customer_name}</p>
-                                <p className="text-xs text-[#8C8278] mt-0.5">{order.customer_email}</p>
+                            <div className="flex items-center gap-4 min-w-0">
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className="font-semibold text-[#1A1612] text-sm">{order.customer_name}</p>
+                                  {order.m_payment_id && (
+                                    <span className="text-[10px] font-mono text-[#8C8278] bg-[#F5F0E8] px-1.5 py-0.5 rounded">{order.m_payment_id}</span>
+                                  )}
+                                </div>
+                                <p className="text-xs text-[#8C8278] mt-0.5 truncate">{order.customer_email}</p>
+                                <p className="text-xs text-[#B5ADA5] mt-0.5">{formatDate(order.created_at)} · {itemCount} item{itemCount !== 1 ? 's' : ''}</p>
                               </div>
                             </div>
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
                               <span className={`text-xs px-2.5 py-1 rounded-full font-semibold border ${PAYMENT_STATUS_COLORS[order.payment_status]}`}>
                                 {PAYMENT_STATUS_LABELS[order.payment_status]}
                               </span>
                               <span className={`text-xs px-2.5 py-1 rounded-full font-semibold border ${FULFILLMENT_STATUS_COLORS[order.fulfillment_status]}`}>
                                 {FULFILLMENT_STATUS_LABELS[order.fulfillment_status]}
                               </span>
-                              <span className="text-sm font-bold text-[#C4622D]">{formatCurrency(order.total)}</span>
-                              <svg className={`w-4 h-4 text-[#8C8278] transition-transform ${expanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <span className="text-sm font-bold text-[#C4622D] ml-1">{formatCurrency(order.total)}</span>
+                              <svg className={`w-4 h-4 text-[#8C8278] transition-transform ml-1 ${expanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                               </svg>
                             </div>
                           </button>
 
+                          {/* Expanded Details */}
                           {expanded && (
-                            <div className="border-t border-[#EDE7DA] px-5 py-4 space-y-4">
-                              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-                                <div>
-                                  <p className="text-[#8C8278] mb-0.5">Order ID</p>
-                                  <p className="font-mono text-[#1A1612] font-semibold text-xs">{order.id.slice(0, 8)}…</p>
-                                </div>
-                                <div>
-                                  <p className="text-[#8C8278] mb-0.5">Phone</p>
-                                  <p className="font-semibold text-[#1A1612]">{order.customer_phone || '—'}</p>
-                                </div>
-                                <div>
-                                  <p className="text-[#8C8278] mb-0.5">Ordered</p>
-                                  <p className="font-semibold text-[#1A1612]">{formatDate(order.created_at)}</p>
-                                </div>
-                                <div>
-                                  <p className="text-[#8C8278] mb-0.5">Event Date</p>
-                                  <p className="font-semibold text-[#1A1612]">{formatDate(order.event_date)}</p>
-                                </div>
-                                {order.delivery_address && (
-                                  <div className="col-span-2">
-                                    <p className="text-[#8C8278] mb-0.5">Delivery Address</p>
-                                    <p className="font-semibold text-[#1A1612]">{order.delivery_address}</p>
+                            <div className="border-t border-[#EDE7DA] px-5 py-5 space-y-5">
+                              {/* Customer + Order Info */}
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                {/* Customer Details */}
+                                <div className="bg-[#FDFAF6] rounded-xl border border-[#EDE7DA] p-4">
+                                  <p className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                                    Customer
+                                  </p>
+                                  <div className="space-y-2 text-xs">
+                                    <div><p className="text-[#B5ADA5]">Name</p><p className="font-semibold text-[#1A1612]">{order.customer_name || '—'}</p></div>
+                                    <div><p className="text-[#B5ADA5]">Email</p><p className="font-semibold text-[#1A1612] break-all">{order.customer_email || '—'}</p></div>
+                                    <div><p className="text-[#B5ADA5]">Phone</p><p className="font-semibold text-[#1A1612]">{order.customer_phone || '—'}</p></div>
+                                    {order.event_date && <div><p className="text-[#B5ADA5]">Event Date</p><p className="font-semibold text-[#1A1612]">{formatDate(order.event_date)}</p></div>}
+                                    {order.delivered_date && <div><p className="text-[#B5ADA5]">Delivered</p><p className="font-semibold text-green-700">{formatDate(order.delivered_date)}</p></div>}
+                                    {order.delivery_address && <div><p className="text-[#B5ADA5]">Address</p><p className="font-semibold text-[#1A1612]">{order.delivery_address}</p></div>}
+                                    {order.notes && (
+                                      <div>
+                                        <p className="text-[#B5ADA5]">Notes</p>
+                                        <p className="font-semibold text-[#1A1612]">
+                                          {(() => {
+                                            const match = order.notes.match(/^(Voucher:\s*)([A-Z0-9-]+)(\.?)(.*)$/i);
+                                            if (match) {
+                                              const code = match[2];
+                                              const price = wsVoucherPriceMap[code];
+                                              const priceStr = price !== undefined ? ` (R ${price.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})` : '';
+                                              return `Voucher: ${code}${priceStr}${match[4]}`;
+                                            }
+                                            return order.notes;
+                                          })()}
+                                        </p>
+                                      </div>
+                                    )}
                                   </div>
-                                )}
-                                {order.notes && (
-                                  <div className="col-span-2">
-                                    <p className="text-[#8C8278] mb-0.5">Notes</p>
-                                    <p className="font-semibold text-[#1A1612]">{order.notes}</p>
-                                  </div>
-                                )}
-                              </div>
+                                </div>
 
-                              {/* Items */}
-                              <div>
-                                <p className="text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-2">Items</p>
-                                <div className="space-y-1">
-                                  {(order.items || []).map((item, i) => (
-                                    <div key={i} className="flex items-center justify-between text-xs py-1 border-b border-[#F0EBE3] last:border-0">
-                                      <span className="text-[#1A1612]">{item.quantity}× {item.name}</span>
-                                      <span className="font-semibold text-[#1A1612]">{formatCurrency(item.price * item.quantity)}</span>
+                                {/* Items Ordered */}
+                                <div className="bg-[#FDFAF6] rounded-xl border border-[#EDE7DA] p-4">
+                                  <p className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
+                                    Items Ordered
+                                  </p>
+                                  {Array.isArray(order.items) && order.items.length > 0 ? (
+                                    <div className="space-y-2">
+                                      {order.items.map((item, i) => (
+                                        <div key={i} className="flex items-start justify-between gap-2 text-xs py-1 border-b border-[#F0EBE3] last:border-0">
+                                          <div className="flex-1 min-w-0">
+                                            <p className="font-medium text-[#1A1612] truncate">{item.name}</p>
+                                            <p className="text-[#B5ADA5]">{item.unit} × {item.quantity}</p>
+                                            {item.category && <span className="inline-block mt-0.5 text-[10px] font-medium text-[#C4622D] bg-[#FDF3ED] px-1.5 py-0.5 rounded-full">{item.category}</span>}
+                                          </div>
+                                          <span className="font-semibold text-[#1A1612] flex-shrink-0">{formatCurrency(item.price * item.quantity)}</span>
+                                        </div>
+                                      ))}
                                     </div>
-                                  ))}
-                                  <div className="flex justify-between text-xs pt-1 font-bold text-[#1A1612]">
-                                    <span>Total</span>
-                                    <span>{formatCurrency(order.total)}</span>
+                                  ) : (
+                                    <p className="text-xs text-[#B5ADA5]">No item details</p>
+                                  )}
+                                </div>
+
+                                {/* Payment Summary */}
+                                <div className="bg-[#FDFAF6] rounded-xl border border-[#EDE7DA] p-4">
+                                  <p className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
+                                    Payment Summary
+                                  </p>
+                                  <div className="space-y-1.5 text-xs">
+                                    <div className="flex justify-between"><span className="text-[#8C8278]">Subtotal</span><span className="font-medium text-[#1A1612]">{formatCurrency(order.subtotal)}</span></div>
+                                    <div className="flex justify-between">
+                                      <span className="text-[#8C8278]">Discount</span>
+                                      <span className="text-red-600 font-medium">
+                                        {(() => {
+                                          const match = order.notes?.match(/Discount Voucher:.*?\(R([\d.]+)\s*credit\)/i);
+                                          const amount = match ? parseFloat(match[1]) : 0;
+                                          return `-${formatCurrency(amount)}`;
+                                        })()}
+                                      </span>
+                                    </div>
+                                    <div className="flex justify-between"><span className="text-[#8C8278]">Delivery</span><span className="font-medium text-[#1A1612]">{formatCurrency(order.delivery_fee)}</span></div>
+                                    <div className="flex justify-between font-bold border-t border-[#EDE7DA] pt-1.5 text-sm">
+                                      <span className="text-[#1A1612]">Total</span>
+                                      <span className="text-[#C4622D]">{formatCurrency(order.total)}</span>
+                                    </div>
+                                    {order.m_payment_id && (
+                                      <div className="pt-1"><p className="text-[#B5ADA5]">Reference</p><p className="font-mono text-[#5C5347] text-[10px]">{order.m_payment_id}</p></div>
+                                    )}
                                   </div>
+                                  {/* Payment Reminder */}
+                                  {order.payment_status === 'awaiting_payment' && (
+                                    <div className="mt-3 pt-3 border-t border-[#EDE7DA]">
+                                      <button
+                                        onClick={() => handleWsSendReminder(order.id)}
+                                        disabled={wsReminderSending[order.id]}
+                                        className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-amber-50 border border-amber-300 rounded-lg text-xs font-semibold text-amber-700 hover:bg-amber-100 transition-colors disabled:opacity-50"
+                                      >
+                                        {wsReminderSending[order.id] ? (
+                                          <><svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Sending…</>
+                                        ) : (
+                                          <><svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>Send Payment Reminder</>
+                                        )}
+                                      </button>
+                                      {wsReminderResult[order.id] === 'sent' && <p className="mt-1.5 text-xs text-green-600 font-medium text-center">✓ Reminder sent</p>}
+                                      {wsReminderResult[order.id] === 'error' && <p className="mt-1.5 text-xs text-red-500 text-center">Failed to send. Try again.</p>}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
 
-                              {/* Status updates */}
+                              {/* Status Updates */}
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                  <p className="text-xs font-semibold text-[#5C5347] mb-2">Update Fulfillment</p>
+                                <div className="bg-[#FDFAF6] rounded-xl border border-[#EDE7DA] p-4">
+                                  <p className="text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-3">Update Fulfillment Status</p>
                                   <div className="flex flex-wrap gap-1.5">
                                     {FULFILLMENT_OPTIONS.map(s => (
                                       <button
@@ -3355,19 +3661,19 @@ export default function StaffWorkspacePage() {
                                         onClick={() => handleWsFulfillmentUpdate(order.id, s)}
                                         disabled={updateState.fulfillmentSaving || order.fulfillment_status === s}
                                         className={`text-xs px-3 py-1.5 rounded-xl border font-semibold transition-colors disabled:opacity-50 ${
-                                          order.fulfillment_status === s
-                                            ? FULFILLMENT_STATUS_COLORS[s] + 'cursor-default' :'border-[#DDD5C8] text-[#5C5347] hover:bg-[#F5F0E8]'
+                                          order.fulfillment_status === s ? FULFILLMENT_STATUS_COLORS[s] : 'border-[#DDD5C8] text-[#5C5347] hover:bg-[#F5F0E8]'
                                         }`}
                                       >
                                         {FULFILLMENT_STATUS_LABELS[s]}
                                       </button>
                                     ))}
                                   </div>
-                                  {updateState.fulfillmentSuccess && <p className="text-xs text-green-600 mt-1">✓ Updated</p>}
-                                  {updateState.fulfillmentError && <p className="text-xs text-red-500 mt-1">{updateState.fulfillmentError}</p>}
+                                  {updateState.fulfillmentSaving && <p className="text-xs text-[#8C8278] mt-1.5 flex items-center gap-1"><svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Saving…</p>}
+                                  {updateState.fulfillmentSuccess && <p className="text-xs text-green-600 mt-1.5 font-medium">✓ Updated</p>}
+                                  {updateState.fulfillmentError && <p className="text-xs text-red-500 mt-1.5">{updateState.fulfillmentError}</p>}
                                 </div>
-                                <div>
-                                  <p className="text-xs font-semibold text-[#5C5347] mb-2">Update Payment</p>
+                                <div className="bg-[#FDFAF6] rounded-xl border border-[#EDE7DA] p-4">
+                                  <p className="text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-3">Update Payment Status</p>
                                   <div className="flex flex-wrap gap-1.5">
                                     {PAYMENT_OPTIONS.map(s => (
                                       <button
@@ -3375,29 +3681,27 @@ export default function StaffWorkspacePage() {
                                         onClick={() => handleWsPaymentUpdate(order.id, s)}
                                         disabled={updateState.paymentSaving || order.payment_status === s}
                                         className={`text-xs px-3 py-1.5 rounded-xl border font-semibold transition-colors disabled:opacity-50 ${
-                                          order.payment_status === s
-                                            ? PAYMENT_STATUS_COLORS[s] + 'cursor-default' :'border-[#DDD5C8] text-[#5C5347] hover:bg-[#F5F0E8]'
+                                          order.payment_status === s ? PAYMENT_STATUS_COLORS[s] : 'border-[#DDD5C8] text-[#5C5347] hover:bg-[#F5F0E8]'
                                         }`}
                                       >
                                         {PAYMENT_STATUS_LABELS[s]}
                                       </button>
                                     ))}
                                   </div>
-                                  {updateState.paymentSuccess && <p className="text-xs text-green-600 mt-1">✓ Updated</p>}
-                                  {updateState.paymentError && <p className="text-xs text-red-500 mt-1">{updateState.paymentError}</p>}
+                                  {updateState.paymentSaving && <p className="text-xs text-[#8C8278] mt-1.5 flex items-center gap-1"><svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Saving…</p>}
+                                  {updateState.paymentSuccess && <p className="text-xs text-green-600 mt-1.5 font-medium">✓ Updated</p>}
+                                  {updateState.paymentError && <p className="text-xs text-red-500 mt-1.5">{updateState.paymentError}</p>}
                                 </div>
                               </div>
 
                               {/* Delete Order — Super Admin only */}
                               {userProfile?.role === 'super_admin' && (
-                                <div className="flex justify-end pt-2 border-t border-[#F0EBE3]">
+                                <div className="flex justify-end pt-1 border-t border-[#F0EBE3]">
                                   <button
                                     onClick={() => setDeleteOrderId(order.id)}
                                     className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl border border-black text-white bg-black hover:bg-gray-800 font-semibold transition-colors"
                                   >
-                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                    </svg>
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                     Delete Order
                                   </button>
                                 </div>
