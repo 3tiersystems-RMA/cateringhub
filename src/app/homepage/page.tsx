@@ -9,6 +9,7 @@ import TestimonialSection from "./components/TestimonialSection";
 import HowItWorksSection from "./components/HowItWorksSection";
 import ContactBanner from "./components/ContactBanner";
 import AuthErrorHandler from "./components/AuthErrorHandler";
+import GallerySection from "./components/GallerySection";
 import { APP_NAME } from "@/lib/constants";
 
 export const metadata: Metadata = {
@@ -30,6 +31,7 @@ export default function Homepage() {
         <FeaturedMenu />
         <TestimonialSection />
         <HowItWorksSection />
+        <GallerySection />
         <ContactBanner />
       </main>
       <Footer />

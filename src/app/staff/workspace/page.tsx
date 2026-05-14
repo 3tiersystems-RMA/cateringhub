@@ -15,7 +15,7 @@ import EventManagement from '@/app/staff/workspace/components/EventManagement';
 
 
 type BucketType = 'product-images' | 'event-photos' | 'document-management';
-type WorkspaceTab = 'products' | 'media' | 'media_events' | 'media_products' | 'orders' | 'staff' | 'homepage_cards' | 'categories' | 'weekly_menu' | 'vouchers' | 'discount_vouchers' | 'testimonials' | 'reporting' | 'analytics' | 'social_media';
+type WorkspaceTab = 'products' | 'media' | 'media_events' | 'media_products' | 'orders' | 'staff' | 'homepage_cards' | 'categories' | 'weekly_menu' | 'vouchers' | 'discount_vouchers' | 'testimonials' | 'reporting' | 'analytics' | 'social_media' | 'gallery';
 
 type ProductCategory = string;
 type StaffRole = 'admin' | 'staff' | 'super_admin';
@@ -672,7 +672,7 @@ export default function StaffWorkspacePage() {
   const [dvLoading, setDvLoading] = useState(false);
   const [showDvForm, setShowDvForm] = useState(false);
   const [editingDv, setEditingDv] = useState<DiscountVoucher | null>(null);
-  const [dvForm, setDvForm] = useState({ dv_code: '', dv_type: 'Discount' as 'Discount' | 'Gift', dv_amount: '', status: 'Active\' as \'Active\' | \'Inactive', expiry_date: '' });
+  const [dvForm, setDvForm] = useState({ dv_code: '', dv_type: 'Discount' as 'Discount' | 'Gift', dv_amount: '', status: 'Active' as 'Active' | 'Inactive', expiry_date: '' });
   const [dvFormError, setDvFormError] = useState('');
   const [dvFormSuccess, setDvFormSuccess] = useState('');
   const [savingDv, setSavingDv] = useState(false);
@@ -698,6 +698,22 @@ export default function StaffWorkspacePage() {
   const [socialLinksError, setSocialLinksError] = useState('');
   const [socialLinksSuccess, setSocialLinksSuccess] = useState('');
   const [socialLinksForm, setSocialLinksForm] = useState<Record<string, string>>({});
+  // Gallery state
+  const [galleryImages, setGalleryImages] = useState<{ id: string; title: string; description: string | null; image_path: string; sort_order: number; is_visible: boolean; imageUrl?: string }[]>([]);
+  const [galleryLoading, setGalleryLoading] = useState(false);
+  const [gallerySectionVisible, setGallerySectionVisible] = useState(true);
+  const [gallerySettingsId, setGallerySettingsId] = useState<string | null>(null);
+  const [gallerySettingsSaving, setGallerySettingsSaving] = useState(false);
+  const [showGalleryForm, setShowGalleryForm] = useState(false);
+  const [editingGalleryImage, setEditingGalleryImage] = useState<{ id: string; title: string; description: string | null; image_path: string; sort_order: number; is_visible: boolean; imageUrl?: string } | null>(null);
+  const [galleryForm, setGalleryForm] = useState({ title: '', description: '', sort_order: '0', is_visible: true });
+  const [galleryFormError, setGalleryFormError] = useState('');
+  const [galleryFormSuccess, setGalleryFormSuccess] = useState('');
+  const [savingGallery, setSavingGallery] = useState(false);
+  const [galleryImageFile, setGalleryImageFile] = useState<File | null>(null);
+  const [galleryImagePreview, setGalleryImagePreview] = useState<string | null>(null);
+  const [uploadingGalleryImage, setUploadingGalleryImage] = useState(false);
+  const galleryImageRef = useRef<HTMLInputElement>(null);
   // Orders tab state
   const [wsOrders, setWsOrders] = useState<Order[]>([]);
   const [wsOrdersLoading, setWsOrdersLoading] = useState(false);
@@ -988,20 +1004,112 @@ export default function StaffWorkspacePage() {
     setSocialLinksLoading(false);
   };
 
-  const handleSaveSocialLinks = async () => {
-    setSocialLinksSaving(true);
-    setSocialLinksError('');
-    setSocialLinksSuccess('');
-    const updates = socialLinks.filter(s => s.platform !== 'pinterest').map(s => ({
-      id: s.id,
-      platform: s.platform,
-      url: socialLinksForm[s.platform] || '#',
-      display_order: s.display_order,
-    }));
-    const { error } = await supabase.from('social_links').upsert(updates, { onConflict: 'id' });
-    if (error) setSocialLinksError(error.message);
-    else { setSocialLinksSuccess('Social links updated successfully!'); await loadSocialLinks(); }
-    setSocialLinksSaving(false);
+  const loadGallery = async () => {
+    setGalleryLoading(true);
+    // Load settings
+    const { data: settings } = await supabase.from('gallery_settings').select('*').limit(1).single();
+    if (settings) {
+      setGallerySectionVisible(settings.section_visible);
+      setGallerySettingsId(settings.id);
+    }
+    // Load images
+    const { data } = await supabase.from('gallery_images').select('*').order('sort_order');
+    if (data) {
+      const withUrls = await Promise.all(data.map(async (img: any) => {
+        const { data: urlData } = await supabase.storage.from('gallery-images').createSignedUrl(img.image_path, 3600);
+        return { ...img, imageUrl: urlData?.signedUrl };
+      }));
+      setGalleryImages(withUrls);
+    }
+    setGalleryLoading(false);
+  };
+
+  const handleToggleGallerySectionVisible = async (visible: boolean) => {
+    setGallerySettingsSaving(true);
+    if (gallerySettingsId) {
+      await supabase.from('gallery_settings').update({ section_visible: visible, updated_at: new Date().toISOString() }).eq('id', gallerySettingsId);
+    } else {
+      const { data } = await supabase.from('gallery_settings').insert({ section_visible: visible }).select().single();
+      if (data) setGallerySettingsId(data.id);
+    }
+    setGallerySectionVisible(visible);
+    setGallerySettingsSaving(false);
+  };
+
+  const openAddGalleryForm = () => {
+    setEditingGalleryImage(null);
+    setGalleryForm({ title: '', description: '', sort_order: '0', is_visible: true });
+    setGalleryImageFile(null);
+    setGalleryImagePreview(null);
+    setGalleryFormError('');
+    setGalleryFormSuccess('');
+    setShowGalleryForm(true);
+  };
+
+  const openEditGalleryForm = (img: typeof galleryImages[0]) => {
+    setEditingGalleryImage(img);
+    setGalleryForm({ title: img.title, description: img.description || '', sort_order: String(img.sort_order), is_visible: img.is_visible });
+    setGalleryImageFile(null);
+    setGalleryImagePreview(img.imageUrl || null);
+    setGalleryFormError('');
+    setGalleryFormSuccess('');
+    setShowGalleryForm(true);
+  };
+
+  const handleSaveGalleryImage = async () => {
+    if (!galleryForm.title.trim()) { setGalleryFormError('Title is required.'); return; }
+    if (!editingGalleryImage && !galleryImageFile) { setGalleryFormError('Please upload an image.'); return; }
+    setSavingGallery(true);
+    let image_path = editingGalleryImage?.image_path || '';
+    if (galleryImageFile) {
+      setUploadingGalleryImage(true);
+      const ext = galleryImageFile.name.split('.').pop();
+      const path = `${Date.now()}.${ext}`;
+      const { error: uploadErr } = await supabase.storage.from('gallery-images').upload(path, galleryImageFile);
+      if (uploadErr) { setGalleryFormError(uploadErr.message); setSavingGallery(false); setUploadingGalleryImage(false); return; }
+      image_path = path;
+      setUploadingGalleryImage(false);
+    }
+    const payload = {
+      title: galleryForm.title.trim(),
+      description: galleryForm.description.trim() || null,
+      image_path,
+      sort_order: Number(galleryForm.sort_order),
+      is_visible: galleryForm.is_visible,
+      updated_at: new Date().toISOString(),
+    };
+    let saveError: any = null;
+    if (editingGalleryImage) {
+      ({ error: saveError } = await supabase.from('gallery_images').update(payload).eq('id', editingGalleryImage.id));
+    } else {
+      ({ error: saveError } = await supabase.from('gallery_images').insert(payload));
+    }
+    if (saveError) { setGalleryFormError(saveError.message); }
+    else {
+      setGalleryFormSuccess(editingGalleryImage ? 'Image updated!' : 'Image added!');
+      setShowGalleryForm(false);
+      setEditingGalleryImage(null);
+      await loadGallery();
+    }
+    setSavingGallery(false);
+  };
+
+  const handleDeleteGalleryImage = (img: typeof galleryImages[0]) => {
+    setDeleteModal({
+      open: true,
+      title: 'Delete Gallery Image',
+      message: `Delete "${img.title}" from the gallery? This cannot be undone.`,
+      onConfirm: async () => {
+        setDeleteModal(prev => ({ ...prev, open: false }));
+        await supabase.from('gallery_images').delete().eq('id', img.id);
+        await loadGallery();
+      },
+    });
+  };
+
+  const handleToggleGalleryImageVisible = async (img: typeof galleryImages[0]) => {
+    await supabase.from('gallery_images').update({ is_visible: !img.is_visible }).eq('id', img.id);
+    await loadGallery();
   };
 
   const loadWsOrders = async () => {
@@ -1877,6 +1985,23 @@ export default function StaffWorkspacePage() {
     if (tab === 'orders') loadWsOrders();
     if (tab === 'reporting') loadReporting();
     if (tab === 'analytics') loadAnalytics(analyticsPeriod);
+    if (tab === 'gallery') loadGallery();
+  };
+
+  const handleSaveSocialLinks = async () => {
+    setSocialLinksSaving(true);
+    setSocialLinksError('');
+    setSocialLinksSuccess('');
+    try {
+      for (const s of socialLinks) {
+        await supabase.from('social_links').update({ url: socialLinksForm[s.platform] || '' }).eq('id', s.id);
+      }
+      setSocialLinksSuccess('Social links saved!');
+    } catch (err: any) {
+      setSocialLinksError(err?.message || 'Failed to save social links.');
+    } finally {
+      setSocialLinksSaving(false);
+    }
   };
 
   return (
@@ -1969,6 +2094,15 @@ export default function StaffWorkspacePage() {
                   >
                     <span className="text-base">🏠</span>
                     <span>Home Page Cards</span>
+                  </button>
+                  <button
+                    onClick={() => { handleTabChange('gallery'); }}
+                    className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${
+                      activeTab === 'gallery' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'
+                    }`}
+                  >
+                    <span className="text-base">🖼️</span>
+                    <span>Gallery</span>
                   </button>
                   {userProfile?.role === 'super_admin' && (
                     <button
@@ -3904,6 +4038,188 @@ export default function StaffWorkspacePage() {
                         {socialLinksSaving ? 'Saving…' : 'Save Links'}
                       </button>
                     </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── GALLERY TAB ── */}
+            {activeTab === 'gallery' && (
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+                  <div>
+                    <h2 className="text-xl font-bold text-[#1A1612]">Gallery</h2>
+                    <p className="text-sm text-[#8C8278] mt-0.5">Manage homepage gallery images</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {/* Section visibility toggle */}
+                    <div className="flex items-center gap-2 bg-white border border-[#DDD5C8] rounded-xl px-4 py-2">
+                      <span className="text-xs font-semibold text-[#5C5347]">Show Gallery on Homepage</span>
+                      <button
+                        onClick={() => handleToggleGallerySectionVisible(!gallerySectionVisible)}
+                        disabled={gallerySettingsSaving}
+                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200 focus:outline-none disabled:opacity-50 ${gallerySectionVisible ? 'bg-[#C4622D]' : 'bg-[#DDD5C8]'}`}
+                        aria-label="Toggle gallery visibility"
+                      >
+                        <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform duration-200 ${gallerySectionVisible ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                      </button>
+                    </div>
+                    <button
+                      onClick={openAddGalleryForm}
+                      className="bg-[#C4622D] text-white px-4 py-2.5 rounded-xl font-semibold text-sm hover:bg-[#A04E22] transition-colors"
+                    >
+                      + Add Image
+                    </button>
+                  </div>
+                </div>
+
+                {/* Add / Edit Form */}
+                {showGalleryForm && (
+                  <div className="bg-white rounded-2xl border border-[#EDE7DA] p-6 mb-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-base font-bold text-[#1A1612]">{editingGalleryImage ? 'Edit Gallery Image' : 'Add Gallery Image'}</h3>
+                      <button onClick={() => { setShowGalleryForm(false); setEditingGalleryImage(null); }} className="text-[#8C8278] hover:text-[#1A1612] text-xl font-bold leading-none">×</button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Title *</label>
+                        <input
+                          value={galleryForm.title}
+                          onChange={e => setGalleryForm(f => ({ ...f, title: e.target.value }))}
+                          className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                          placeholder="e.g. Wedding Banquet Setup"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Sort Order</label>
+                        <input
+                          type="number"
+                          value={galleryForm.sort_order}
+                          onChange={e => setGalleryForm(f => ({ ...f, sort_order: e.target.value }))}
+                          className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Description</label>
+                        <textarea
+                          value={galleryForm.description}
+                          onChange={e => setGalleryForm(f => ({ ...f, description: e.target.value }))}
+                          rows={3}
+                          className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                          placeholder="Describe what is shown in this image…"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Image {!editingGalleryImage && '*'}</label>
+                        <input
+                          ref={galleryImageRef}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={e => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              setGalleryImageFile(file);
+                              setGalleryImagePreview(URL.createObjectURL(file));
+                            }
+                          }}
+                        />
+                        {galleryImagePreview && (
+                          <img src={galleryImagePreview} alt="Preview" className="w-full h-40 object-cover rounded-xl mb-2 border border-[#DDD5C8]" />
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => galleryImageRef.current?.click()}
+                          className="text-sm text-[#C4622D] border border-[#C4622D] rounded-xl px-3 py-1.5 hover:bg-[#FDF6EE] transition-colors"
+                        >
+                          {galleryImagePreview ? 'Change Image' : 'Upload Image'}
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-2 mt-6">
+                        <label className="flex items-center gap-2 text-sm text-[#5C5347] cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={galleryForm.is_visible}
+                            onChange={e => setGalleryForm(f => ({ ...f, is_visible: e.target.checked }))}
+                            className="rounded"
+                          />
+                          Visible on homepage
+                        </label>
+                      </div>
+                    </div>
+                    {galleryFormError && <p className="text-red-600 text-sm mt-3">{galleryFormError}</p>}
+                    {galleryFormSuccess && <p className="text-green-600 text-sm mt-3">{galleryFormSuccess}</p>}
+                    <div className="flex items-center gap-3 mt-4">
+                      <button
+                        onClick={handleSaveGalleryImage}
+                        disabled={savingGallery || uploadingGalleryImage}
+                        className="bg-[#C4622D] text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
+                      >
+                        {savingGallery ? 'Saving…' : editingGalleryImage ? 'Update Image' : 'Add Image'}
+                      </button>
+                      <button
+                        onClick={() => { setShowGalleryForm(false); setEditingGalleryImage(null); }}
+                        className="text-sm text-[#5C5347] border border-[#DDD5C8] px-4 py-2 rounded-xl hover:bg-[#F5F0E8] transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {galleryLoading ? (
+                  <div className="flex items-center justify-center py-16">
+                    <div className="w-8 h-8 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
+                  </div>
+                ) : galleryImages.length === 0 ? (
+                  <div className="text-center py-16 text-[#8C8278]">
+                    <span className="text-4xl">🖼️</span>
+                    <p className="text-lg font-medium mt-3">No gallery images yet</p>
+                    <p className="text-sm mt-1">Add your first image to get started.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {galleryImages.map(img => (
+                      <div key={img.id} className="bg-white rounded-2xl border border-[#EDE7DA] overflow-hidden">
+                        <div className="relative h-44 bg-[#F5F0E8]">
+                          {img.imageUrl ? (
+                            <img src={img.imageUrl} alt={img.title} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-3xl">🖼️</div>
+                          )}
+                          <div className="absolute top-2 right-2">
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-semibold border ${img.is_visible ? 'bg-green-100 text-green-700 border-green-200' : 'bg-gray-100 text-gray-500 border-gray-200'}`}>
+                              {img.is_visible ? 'Visible' : 'Hidden'}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="p-4">
+                          <p className="font-semibold text-[#1A1612] text-sm truncate">{img.title}</p>
+                          {img.description && <p className="text-xs text-[#8C8278] mt-1 line-clamp-2">{img.description}</p>}
+                          <p className="text-xs text-[#B5ADA5] mt-1 font-mono">Sort: {img.sort_order}</p>
+                          <div className="flex items-center gap-2 mt-3">
+                            <button
+                              onClick={() => openEditGalleryForm(img)}
+                              className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl hover:bg-[#FDF6EE] transition-colors"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleToggleGalleryImageVisible(img)}
+                              className={`text-xs px-3 py-1.5 rounded-xl border transition-colors ${img.is_visible ? 'border-amber-200 text-amber-700 hover:bg-amber-50' : 'border-green-200 text-green-700 hover:bg-green-50'}`}
+                            >
+                              {img.is_visible ? 'Hide' : 'Show'}
+                            </button>
+                            <button
+                              onClick={() => handleDeleteGalleryImage(img)}
+                              className="text-xs text-red-600 border border-red-200 px-3 py-1.5 rounded-xl hover:bg-red-50 transition-colors"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
