@@ -68,12 +68,12 @@ export default function GallerySection() {
 
     const animate = () => {
       if (!pausedRef.current) {
-        posRef.current += speed;
+        posRef.current -= speed;
         const halfWidth = track.scrollWidth / 2;
-        if (posRef.current >= halfWidth) {
+        if (posRef.current <= -halfWidth) {
           posRef.current = 0;
         }
-        track.style.transform = `translateX(-${posRef.current}px)`;
+        track.style.transform = `translateX(${posRef.current}px)`;
       }
       animFrameRef.current = requestAnimationFrame(animate);
     };

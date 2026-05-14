@@ -23,6 +23,24 @@ export default function FeaturedMenu() {
   const sectionRef = useRef<HTMLDivElement>(null);
   const [featured, setFeatured] = useState<FeaturedItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sectionVisible, setSectionVisible] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const checkVisibility = async () => {
+      try {
+        const supabase = createClient();
+        const { data } = await supabase
+          .from('homepage_section_settings')
+          .select('is_visible')
+          .eq('section_key', 'customer_favourites')
+          .single();
+        setSectionVisible(data ? data.is_visible : true);
+      } catch {
+        setSectionVisible(true);
+      }
+    };
+    checkVisibility();
+  }, []);
 
   useEffect(() => {
     const fetchFeatured = async () => {
@@ -97,6 +115,8 @@ export default function FeaturedMenu() {
     if (sectionRef?.current) observer?.observe(sectionRef?.current);
     return () => observer?.disconnect();
   }, []);
+
+  if (sectionVisible === false) return null;
 
   return (
     <section ref={sectionRef} className="py-24 md:py-32 bg-[#EDE7DA] overflow-hidden">

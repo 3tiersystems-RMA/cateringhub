@@ -709,6 +709,9 @@ export default function StaffWorkspacePage() {
   const [gallerySectionVisible, setGallerySectionVisible] = useState(true);
   const [gallerySettingsId, setGallerySettingsId] = useState<string | null>(null);
   const [gallerySettingsSaving, setGallerySettingsSaving] = useState(false);
+  // Homepage section visibility state
+  const [homepageSections, setHomepageSections] = useState<{ id: string; section_key: string; section_label: string; is_visible: boolean }[]>([]);
+  const [homepageSectionsSaving, setHomepageSectionsSaving] = useState<Record<string, boolean>>({});
   const [showGalleryForm, setShowGalleryForm] = useState(false);
   const [editingGalleryImage, setEditingGalleryImage] = useState<{ id: string; title: string; description: string | null; image_path: string; sort_order: number; is_visible: boolean; imageUrl?: string } | null>(null);
   const [galleryForm, setGalleryForm] = useState({ title: '', description: '', sort_order: '0', is_visible: true });
@@ -1017,6 +1020,9 @@ export default function StaffWorkspacePage() {
       setGallerySectionVisible(settings.section_visible);
       setGallerySettingsId(settings.id);
     }
+    // Load homepage section settings
+    const { data: sectionData } = await supabase.from('homepage_section_settings').select('*').order('section_key');
+    if (sectionData) setHomepageSections(sectionData);
     // Load images
     const { data } = await supabase.from('gallery_images').select('*').order('sort_order');
     if (data) {
@@ -1039,6 +1045,18 @@ export default function StaffWorkspacePage() {
     }
     setGallerySectionVisible(visible);
     setGallerySettingsSaving(false);
+  };
+
+  const handleToggleHomepageSection = async (sectionKey: string, visible: boolean) => {
+    setHomepageSectionsSaving(prev => ({ ...prev, [sectionKey]: true }));
+    await supabase
+      .from('homepage_section_settings')
+      .update({ is_visible: visible, updated_at: new Date().toISOString() })
+      .eq('section_key', sectionKey);
+    setHomepageSections(prev =>
+      prev.map(s => s.section_key === sectionKey ? { ...s, is_visible: visible } : s)
+    );
+    setHomepageSectionsSaving(prev => ({ ...prev, [sectionKey]: false }));
   };
 
   const openAddGalleryForm = () => {
@@ -4144,6 +4162,35 @@ export default function StaffWorkspacePage() {
                     >
                       + Add Image
                     </button>
+                  </div>
+                </div>
+
+                {/* Homepage Section Visibility Controls */}
+                <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5 mb-6">
+                  <h3 className="text-sm font-bold text-[#1A1612] mb-1">Homepage Section Visibility</h3>
+                  <p className="text-xs text-[#8C8278] mb-4">Control which sections are shown on the home page.</p>
+                  <div className="flex flex-col gap-3">
+                    {homepageSections.map(section => (
+                      <div key={section.section_key} className="flex items-center justify-between gap-4 py-2 border-b border-[#F5F0E8] last:border-0">
+                        <span className="text-sm font-medium text-[#5C5347]">{section.section_label}</span>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs font-semibold ${section.is_visible ? 'text-green-600' : 'text-[#8C8278]'}`}>
+                            {section.is_visible ? 'Visible' : 'Hidden'}
+                          </span>
+                          <button
+                            onClick={() => handleToggleHomepageSection(section.section_key, !section.is_visible)}
+                            disabled={!!homepageSectionsSaving[section.section_key]}
+                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200 focus:outline-none disabled:opacity-50 ${section.is_visible ? 'bg-[#C4622D]' : 'bg-[#DDD5C8]'}`}
+                            aria-label={`Toggle ${section.section_label} visibility`}
+                          >
+                            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform duration-200 ${section.is_visible ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    {homepageSections.length === 0 && (
+                      <p className="text-xs text-[#8C8278]">Loading section settings…</p>
+                    )}
                   </div>
                 </div>
 
