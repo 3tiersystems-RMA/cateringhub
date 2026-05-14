@@ -161,6 +161,7 @@ interface HomepageCard {
   rating: number | null;
   is_visible: boolean;
   display_order: number;
+  image_path: string | null;
 }
 
 interface WeeklyMenuEntry {
@@ -637,6 +638,10 @@ export default function StaffWorkspacePage() {
   const [savingCard, setSavingCard] = useState(false);
   const [togglingCardId, setTogglingCardId] = useState<string | null>(null);
   const [homepageCardSearchQuery, setHomepageCardSearchQuery] = useState('');
+  const [cardImageFile, setCardImageFile] = useState<File | null>(null);
+  const [cardImagePreview, setCardImagePreview] = useState<string | null>(null);
+  const [uploadingCardImage, setUploadingCardImage] = useState(false);
+  const cardImageRef = useRef<HTMLInputElement>(null);
   // Weekly Menu state
   const [weeklyMenuEntries, setWeeklyMenuEntries] = useState<WeeklyMenuEntry[]>([]);
   const [weeklyMenuLoading, setWeeklyMenuLoading] = useState(false);
@@ -672,7 +677,7 @@ export default function StaffWorkspacePage() {
   const [dvLoading, setDvLoading] = useState(false);
   const [showDvForm, setShowDvForm] = useState(false);
   const [editingDv, setEditingDv] = useState<DiscountVoucher | null>(null);
-  const [dvForm, setDvForm] = useState({ dv_code: '', dv_type: 'Discount' as 'Discount' | 'Gift', dv_amount: '', status: 'Active' as 'Active' | 'Inactive', expiry_date: '' });
+  const [dvForm, setDvForm] = useState({ dv_code: '', dv_type: 'Discount' as 'Discount' | 'Gift', dv_amount: '', status: 'Active\' as \'Active\' | \'Inactive', expiry_date: '' });
   const [dvFormError, setDvFormError] = useState('');
   const [dvFormSuccess, setDvFormSuccess] = useState('');
   const [savingDv, setSavingDv] = useState(false);
@@ -1607,16 +1612,30 @@ export default function StaffWorkspacePage() {
     setCardForm({ ...card });
     setCardFormError('');
     setCardFormSuccess('');
+    setCardImageFile(null);
+    setCardImagePreview(null);
   };
 
   const handleSaveCard = async () => {
     if (!editingCard) return;
     setSavingCard(true);
-    const { error } = await supabase.from('homepage_cards').update(cardForm).eq('id', editingCard.id);
+    let image_path = cardForm.image_path ?? editingCard.image_path ?? null;
+    if (cardImageFile) {
+      setUploadingCardImage(true);
+      const ext = cardImageFile.name.split('.').pop();
+      const path = `${Date.now()}.${ext}`;
+      const { error: uploadErr } = await supabase.storage.from('homepage-card-images').upload(path, cardImageFile);
+      if (uploadErr) { showCardFormError(uploadErr.message); setSavingCard(false); setUploadingCardImage(false); return; }
+      image_path = path;
+      setUploadingCardImage(false);
+    }
+    const { error } = await supabase.from('homepage_cards').update({ ...cardForm, image_path }).eq('id', editingCard.id);
     if (error) { showCardFormError(error.message); }
     else {
       setCardFormSuccess('Card updated!');
       setEditingCard(null);
+      setCardImageFile(null);
+      setCardImagePreview(null);
       await loadHomepageCards();
     }
     setSavingCard(false);
@@ -2803,6 +2822,61 @@ export default function StaffWorkspacePage() {
                             <label className="block text-xs font-semibold text-[#5C5347] mb-1">Badge Label</label>
                             <input value={cardForm.badge_label || ''} onChange={e => setCardForm(f => ({ ...f, badge_label: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
                           </div>
+                          <div className="md:col-span-2">
+                            <label className="block text-xs font-semibold text-[#5C5347] mb-2">Card Image</label>
+                            <input
+                              ref={cardImageRef}
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp,image/gif"
+                              className="hidden"
+                              onChange={e => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  setCardImageFile(file);
+                                  const reader = new FileReader();
+                                  reader.onload = ev => setCardImagePreview(ev.target?.result as string);
+                                  reader.readAsDataURL(file);
+                                }
+                              }}
+                            />
+                            <div className="flex items-center gap-4">
+                              {(cardImagePreview || cardForm.image_path) && (
+                                <div className="w-16 h-16 rounded-xl overflow-hidden border border-[#DDD5C8] flex-shrink-0">
+                                  <img
+                                    src={cardImagePreview || ''}
+                                    alt="Today's Special preview"
+                                    className="w-full h-full object-cover"
+                                    onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                  />
+                                  {!cardImagePreview && cardForm.image_path && (
+                                    <div className="w-full h-full bg-[#F5F0E8] flex items-center justify-center text-xs text-[#8C8278]">Image set</div>
+                                  )}
+                                </div>
+                              )}
+                              <div className="flex flex-col gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => cardImageRef.current?.click()}
+                                  className="text-sm text-[#C4622D] border border-[#C4622D] rounded-xl px-3 py-1.5 hover:bg-[#FDF6EE] transition-colors"
+                                >
+                                  {cardForm.image_path || cardImagePreview ? 'Change Image' : 'Upload Image'}
+                                </button>
+                                {(cardForm.image_path || cardImagePreview) && (
+                                  <button
+                                    type="button"
+                                    onClick={() => { setCardImageFile(null); setCardImagePreview(null); setCardForm(f => ({ ...f, image_path: null })); }}
+                                    className="text-xs text-red-500 border border-red-200 rounded-xl px-3 py-1 hover:bg-red-50 transition-colors"
+                                  >
+                                    Remove Image
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                            {cardImageFile && <p className="text-xs text-[#8C8278] mt-1">{cardImageFile.name}</p>}
+                            {!cardImagePreview && cardForm.image_path && (
+                              <p className="text-xs text-[#8C8278] mt-1">Current image stored — upload a new one to replace it.</p>
+                            )}
+                          </div>
                         </>
                       )}
                       {editingCard.card_type === 'next_booking' && (
@@ -2832,10 +2906,10 @@ export default function StaffWorkspacePage() {
                     </div>
                     {cardFormSuccess && <p className="text-sm text-green-600 mt-3">{cardFormSuccess}</p>}
                     <div className="flex items-center gap-3 mt-4">
-                      <button onClick={handleSaveCard} disabled={savingCard} className="bg-[#C4622D] text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50">
-                        {savingCard ? 'Saving…' : 'Save Card'}
+                      <button onClick={handleSaveCard} disabled={savingCard || uploadingCardImage} className="bg-[#C4622D] text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50">
+                        {uploadingCardImage ? 'Uploading…' : savingCard ? 'Saving…' : 'Save Card'}
                       </button>
-                      <button onClick={() => setEditingCard(null)} className="text-sm text-[#5C5347] border border-[#DDD5C8] px-4 py-2 rounded-xl hover:bg-[#F5F0E8] transition-colors">Cancel</button>
+                      <button onClick={() => { setEditingCard(null); setCardImageFile(null); setCardImagePreview(null); }} className="text-sm text-[#5C5347] border border-[#DDD5C8] px-4 py-2 rounded-xl hover:bg-[#F5F0E8] transition-colors">Cancel</button>
                     </div>
                   </div>
                 )}
