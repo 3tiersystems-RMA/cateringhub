@@ -25,6 +25,7 @@ export default function GallerySection() {
   const [loading, setLoading] = useState(true);
   const [popupOpen, setPopupOpen] = useState(false);
   const [popupIndex, setPopupIndex] = useState(0);
+  const [instagramUrl, setInstagramUrl] = useState<string>('#');
 
   useEffect(() => {
     const load = async () => {
@@ -36,6 +37,14 @@ export default function GallerySection() {
         .limit(1)
         .single();
       if (settings) setSectionVisible(settings.section_visible);
+
+      // Load Instagram URL from social_links
+      const { data: socialData } = await supabase
+        .from('social_links')
+        .select('url')
+        .eq('platform', 'instagram')
+        .single();
+      if (socialData?.url) setInstagramUrl(socialData.url);
 
       // Load visible gallery images
       const { data } = await supabase
@@ -162,6 +171,19 @@ export default function GallerySection() {
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Instagram follow link */}
+      <div className="max-w-7xl mx-auto px-4 md:px-8 mt-8 flex justify-center">
+        <a
+          href={instagramUrl}
+          target={instagramUrl !== '#' ? '_blank' : undefined}
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 text-sm font-mono text-[#C4622D] hover:text-white transition-colors duration-200 group"
+        >
+          Follow us on Instagram
+          <span className="group-hover:translate-x-1 transition-transform duration-200">→</span>
+        </a>
       </div>
 
       {/* Popup / Lightbox */}
