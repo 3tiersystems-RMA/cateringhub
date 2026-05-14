@@ -101,7 +101,7 @@ export default function ServicesSection() {
         <div className="srv-reveal reveal hidden-init flex flex-col md:flex-row md:items-end justify-between gap-6 mb-14">
           <div>
             <p className="text-xs font-mono uppercase tracking-widest text-[#C4622D] mb-3">
-              01 / What We Do
+              / What We Do
             </p>
             <h2 className="font-display text-4xl md:text-6xl font-semibold tracking-tight text-[#1A1612] leading-tight">
               Three Ways to

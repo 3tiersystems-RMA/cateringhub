@@ -125,7 +125,7 @@ export default function FeaturedMenu() {
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
           <div>
             <p className="text-xs font-mono uppercase tracking-widest text-[#C4622D] mb-3">
-              02 / Customer Favourites
+              / Customer Favourites
             </p>
             <h2 className="font-display text-4xl md:text-6xl font-semibold tracking-tight text-[#1A1612] leading-tight">
               Menu
