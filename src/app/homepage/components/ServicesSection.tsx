@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import AppImage from "@/components/ui/AppImage";
 import Icon from "@/components/ui/AppIcon";
+import { createClient } from "@/lib/supabase/client";
 
 // Currency: South African Rand (R)
 const services = [
@@ -56,6 +57,20 @@ const services = [
 
 export default function ServicesSection() {
   const sectionRef = useRef<HTMLDivElement>(null);
+  const [sectionVisible, setSectionVisible] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const checkVisibility = async () => {
+      try {
+        const supabase = createClient();
+        const { data } = await supabase?.from('homepage_section_settings')?.select('is_visible')?.eq('section_key', 'what_we_do')?.single();
+        setSectionVisible(data ? data?.is_visible : true);
+      } catch {
+        setSectionVisible(true);
+      }
+    };
+    checkVisibility();
+  }, []);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -76,6 +91,8 @@ export default function ServicesSection() {
     if (sectionRef?.current) observer?.observe(sectionRef?.current);
     return () => observer?.disconnect();
   }, []);
+
+  if (sectionVisible === false) return null;
 
   return (
     <section id="services" ref={sectionRef} className="py-24 md:py-32 bg-[#F5F0E8]">
