@@ -1708,6 +1708,11 @@ export default function StaffWorkspacePage() {
     });
   };
 
+  const handleToggleAvailable = async (product: Product) => {
+    await supabase.from('products').update({ available: !product.available }).eq('id', product.id);
+    await loadProducts();
+  };
+
   // ─── Category CRUD ────────────────────────────────────────────────────────────
   const openAddCategoryForm = () => {
     setEditingCategory(null);
@@ -2914,6 +2919,15 @@ export default function StaffWorkspacePage() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleToggleAvailable(product)}
+                            className={`text-xs px-3 py-1.5 rounded-xl border transition-colors font-medium ${
+                              product.available
+                                ? 'bg-green-100 text-green-700 border-green-300 hover:bg-green-200' :'bg-gray-100 text-gray-500 border-gray-300 hover:bg-gray-200'
+                            }`}
+                          >
+                            {product.available ? 'Available' : 'Unavailable'}
+                          </button>
                           <button onClick={() => openEditForm(product)} className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl hover:bg-[#FDF6EE] transition-colors">Edit</button>
                           <button onClick={() => handleDeleteProduct(product)} className="text-xs text-red-600 border border-red-200 px-3 py-1.5 rounded-xl hover:bg-red-50 transition-colors">Delete</button>
                         </div>
