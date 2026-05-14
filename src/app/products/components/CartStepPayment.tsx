@@ -368,30 +368,24 @@ export default function CartStepPayment({
                   {/* PayFast */}
                   <button
                     type="button"
-                    onClick={() => setSelectedMethod("payfast")}
-                    className={`w-full flex items-center gap-3 p-3.5 rounded-xl border-2 transition-all text-left ${
-                      selectedMethod === "payfast" ? "border-[#00A0E3] bg-[#00A0E3]/5" : "border-[#DDD5C8] bg-white hover:border-[#00A0E3]/40"
-                    }`}
+                    disabled
+                    className="w-full flex items-center gap-3 p-3.5 rounded-xl border-2 transition-all text-left border-[#DDD5C8] bg-[#F5F5F5] opacity-50 cursor-not-allowed"
                   >
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${selectedMethod === "payfast" ? "bg-[#00A0E3] text-white" : "bg-[#EDE7DA] text-[#8C8278]"}`}>
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-[#E0E0E0] text-[#AAAAAA]">
                       <Icon name="CreditCardIcon" size={16} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <p className={`text-sm font-semibold ${selectedMethod === "payfast" ? "text-[#00A0E3]" : "text-[#1A1612]"}`}>
+                        <p className="text-sm font-semibold text-[#AAAAAA]">
                           PayFast
                         </p>
-                        {IS_SANDBOX && (
-                          <span className="text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-300 px-1.5 py-0.5 rounded-full uppercase tracking-wide">
-                            Sandbox
-                          </span>
-                        )}
+                        <span className="text-[10px] font-bold bg-gray-200 text-gray-500 border border-gray-300 px-1.5 py-0.5 rounded-full uppercase tracking-wide">
+                          Coming Soon
+                        </span>
                       </div>
-                      <p className="text-xs text-amber-600 font-medium">Payfast payment pending</p>
+                      <p className="text-xs text-gray-400">Currently unavailable</p>
                     </div>
-                    <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 ${selectedMethod === "payfast" ? "border-[#00A0E3] bg-[#00A0E3]" : "border-[#DDD5C8]"}`}>
-                      {selectedMethod === "payfast" && <div className="w-full h-full rounded-full bg-white scale-50" />}
-                    </div>
+                    <div className="w-4 h-4 rounded-full border-2 flex-shrink-0 border-[#DDD5C8]" />
                   </button>
                 </div>
               </div>
