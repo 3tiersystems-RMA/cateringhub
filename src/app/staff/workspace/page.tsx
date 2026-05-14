@@ -725,6 +725,7 @@ export default function StaffWorkspacePage() {
   // Homepage section visibility state
   const [homepageSections, setHomepageSections] = useState<{ id: string; section_key: string; section_label: string; is_visible: boolean }[]>([]);
   const [homepageSectionsSaving, setHomepageSectionsSaving] = useState<Record<string, boolean>>({});
+  const [homepageSectionsLoading, setHomepageSectionsLoading] = useState(false);
   const [showGalleryForm, setShowGalleryForm] = useState(false);
   const [editingGalleryImage, setEditingGalleryImage] = useState<{ id: string; title: string; description: string | null; image_path: string; sort_order: number; is_visible: boolean; imageUrl?: string } | null>(null);
   const [galleryForm, setGalleryForm] = useState({ title: '', description: '', sort_order: '0', is_visible: true });
@@ -1100,13 +1101,6 @@ export default function StaffWorkspacePage() {
       setGallerySectionVisible(settings.section_visible);
       setGallerySettingsId(settings.id);
     }
-    // Load homepage section settings
-    const { data: sectionData } = await supabase.from('homepage_section_settings').select('*').order('section_key');
-    if (sectionData) {
-      const sectionOrder: Record<string, number> = { what_we_do: 0, customer_favourites: 1, the_process: 2, testimonials: 3 };
-      const sorted = [...sectionData].sort((a, b) => (sectionOrder[a.section_key] ?? 99) - (sectionOrder[b.section_key] ?? 99));
-      setHomepageSections(sorted);
-    }
     // Load images
     const { data } = await supabase.from('gallery_images').select('*').order('sort_order');
     if (data) {
@@ -1117,6 +1111,17 @@ export default function StaffWorkspacePage() {
       setGalleryImages(withUrls);
     }
     setGalleryLoading(false);
+  };
+
+  const loadHomepageSections = async () => {
+    setHomepageSectionsLoading(true);
+    const { data: sectionData } = await supabase.from('homepage_section_settings').select('*').order('section_key');
+    if (sectionData) {
+      const sectionOrder: Record<string, number> = { what_we_do: 0, customer_favourites: 1, the_process: 2, testimonials: 3 };
+      const sorted = [...sectionData].sort((a, b) => (sectionOrder[a.section_key] ?? 99) - (sectionOrder[b.section_key] ?? 99));
+      setHomepageSections(sorted);
+    }
+    setHomepageSectionsLoading(false);
   };
 
   const handleToggleGallerySectionVisible = async (visible: boolean) => {
@@ -2239,6 +2244,7 @@ export default function StaffWorkspacePage() {
     if (tab === 'reporting') loadReporting();
     if (tab === 'analytics') loadAnalytics(analyticsPeriod);
     if (tab === 'gallery') loadGallery();
+    if (tab === 'section_visibility') loadHomepageSections();
     if (tab === 'customer_order_history') {
       setCohLookupInput('');
       setCohLookupError('');
@@ -5268,8 +5274,11 @@ export default function StaffWorkspacePage() {
                         </div>
                       </div>
                     ))}
-                    {homepageSections.length === 0 && (
+                    {homepageSectionsLoading && (
                       <p className="text-xs text-[#8C8278]">Loading section settings…</p>
+                    )}
+                    {!homepageSectionsLoading && homepageSections.length === 0 && (
+                      <p className="text-xs text-[#8C8278]">No section settings found.</p>
                     )}
                   </div>
                 </div>
