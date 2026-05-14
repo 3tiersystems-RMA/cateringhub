@@ -95,7 +95,7 @@ export default function ProductModal({ product, onClose, added, onAdd }: Product
           {/* Tags */}
           <div className="flex flex-wrap gap-1.5 mb-3">
             {product.tags.map((tag) => (
-              <span key={tag} className="text-xs text-[#8C8278] bg-[#EDE7DA] px-2 py-0.5 rounded-full border border-[#DDD5C8]">
+              <span key={tag} className="text-xs text-white bg-black px-2 py-0.5 rounded-full border border-black">
                 {tag}
               </span>
             ))}
