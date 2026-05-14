@@ -469,18 +469,25 @@ function ProductsContent() {
         {/* Category Tabs — hidden when voucher is active (products already filtered) */}
         {!appliedVoucher?.package_type || appliedVoucher.package_type === "none" ? (
           <div className="flex flex-wrap gap-2 mb-10">
-            {displayCategories.map((cat) => (
+            {displayCategories.map((cat) => {
+              const count = getCategoryCount(cat);
+              const isZero = cat !== "Weekly Menu" && cat !== "All" && count === 0;
+              return (
               <button
                 key={cat}
                 onClick={() => {
+                  if (isZero) return;
                   if (cat === "Weekly Menu") {
                     router.push("/weekly-menu");
                   } else {
                     setActiveCategory(cat);
                   }
                 }}
+                disabled={isZero}
                 className={`px-5 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-                  activeCategory === cat
+                  isZero
+                    ? "bg-[#F0EDE8] border border-[#DDD5C8] text-[#C0B8B0] cursor-not-allowed opacity-60"
+                    : activeCategory === cat
                     ? "bg-[#C4622D] text-white shadow-terra"
                     : "bg-white border border-[#DDD5C8] text-[#5C5347] hover:border-[#C4622D]/40 hover:text-[#C4622D]"
                 }`}
@@ -488,13 +495,14 @@ function ProductsContent() {
                 {cat}
                 <span
                   className={`ml-2 text-xs ${
-                    activeCategory === cat ? "text-white/70" : "text-[#B5ADA5]"
+                    isZero ? "text-[#C0B8B0]" : activeCategory === cat ? "text-white/70" : "text-[#B5ADA5]"
                   }`}
                 >
-                  {cat !== "Weekly Menu" && `(${getCategoryCount(cat)})`}
+                  {cat !== "Weekly Menu" && `(${count})`}
                 </span>
               </button>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <div className="mb-10 flex items-center gap-2 text-sm text-[#8C8278]">
