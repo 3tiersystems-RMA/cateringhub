@@ -76,11 +76,11 @@ export default function AnnouncementCard() {
           <p className="text-white/55 text-xs mt-1.5 leading-relaxed line-clamp-2">{card.description}</p>
         )}
         {displayImage && (
-          <div className="mt-3 w-full h-20 rounded-xl overflow-hidden">
+          <div className="mt-3 w-full rounded-xl overflow-hidden">
             <img
               src={displayImage}
               alt={`Announcement: ${card.title}`}
-              className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity duration-300"
+              className="w-full h-auto object-contain opacity-80 group-hover:opacity-100 transition-opacity duration-300"
             />
           </div>
         )}
