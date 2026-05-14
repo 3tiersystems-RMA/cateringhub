@@ -15,7 +15,7 @@ import EventManagement from '@/app/staff/workspace/components/EventManagement';
 
 
 type BucketType = 'product-images' | 'event-photos' | 'document-management';
-type WorkspaceTab = 'products' | 'media' | 'media_events' | 'media_products' | 'orders' | 'staff' | 'homepage_cards' | 'categories' | 'weekly_menu' | 'vouchers' | 'discount_vouchers' | 'testimonials' | 'reporting' | 'analytics' | 'social_media' | 'gallery';
+type WorkspaceTab = 'products' | 'media' | 'media_events' | 'media_products' | 'orders' | 'staff' | 'homepage_cards' | 'categories' | 'weekly_menu' | 'vouchers' | 'discount_vouchers' | 'testimonials' | 'reporting' | 'analytics' | 'social_media' | 'gallery' | 'section_visibility';
 
 type ProductCategory = string;
 type StaffRole = 'admin' | 'staff' | 'super_admin';
@@ -1022,7 +1022,11 @@ export default function StaffWorkspacePage() {
     }
     // Load homepage section settings
     const { data: sectionData } = await supabase.from('homepage_section_settings').select('*').order('section_key');
-    if (sectionData) setHomepageSections(sectionData);
+    if (sectionData) {
+      const sectionOrder: Record<string, number> = { what_we_do: 0, customer_favourites: 1, testimonials: 2 };
+      const sorted = [...sectionData].sort((a, b) => (sectionOrder[a.section_key] ?? 99) - (sectionOrder[b.section_key] ?? 99));
+      setHomepageSections(sorted);
+    }
     // Load images
     const { data } = await supabase.from('gallery_images').select('*').order('sort_order');
     if (data) {
@@ -2103,7 +2107,7 @@ export default function StaffWorkspacePage() {
               <button
                 onClick={() => setSiteContentOpen(prev => !prev)}
                 className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
-                  ['staff', 'homepage_cards', 'testimonials', 'social_media'].includes(activeTab) ? 'text-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
+['staff', 'homepage_cards', 'testimonials', 'social_media', 'gallery', 'section_visibility'].includes(activeTab) ? 'text-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
                 }`}
               >
                 <span className="text-base">📁</span>
@@ -2140,6 +2144,15 @@ export default function StaffWorkspacePage() {
                   >
                     <span className="text-base">🖼️</span>
                     <span>Gallery</span>
+                  </button>
+                  <button
+                    onClick={() => { handleTabChange('section_visibility'); }}
+                    className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${
+                      activeTab === 'section_visibility' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'
+                    }`}
+                  >
+                    <span className="text-base">👁️</span>
+                    <span>Section Visibility</span>
                   </button>
                   {userProfile?.role === 'super_admin' && (
                     <button
@@ -4165,35 +4178,6 @@ export default function StaffWorkspacePage() {
                   </div>
                 </div>
 
-                {/* Homepage Section Visibility Controls */}
-                <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5 mb-6">
-                  <h3 className="text-sm font-bold text-[#1A1612] mb-1">Homepage Section Visibility</h3>
-                  <p className="text-xs text-[#8C8278] mb-4">Control which sections are shown on the home page.</p>
-                  <div className="flex flex-col gap-3">
-                    {homepageSections.map(section => (
-                      <div key={section.section_key} className="flex items-center justify-between gap-4 py-2 border-b border-[#F5F0E8] last:border-0">
-                        <span className="text-sm font-medium text-[#5C5347]">{section.section_label}</span>
-                        <div className="flex items-center gap-2">
-                          <span className={`text-xs font-semibold ${section.is_visible ? 'text-green-600' : 'text-[#8C8278]'}`}>
-                            {section.is_visible ? 'Visible' : 'Hidden'}
-                          </span>
-                          <button
-                            onClick={() => handleToggleHomepageSection(section.section_key, !section.is_visible)}
-                            disabled={!!homepageSectionsSaving[section.section_key]}
-                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200 focus:outline-none disabled:opacity-50 ${section.is_visible ? 'bg-[#C4622D]' : 'bg-[#DDD5C8]'}`}
-                            aria-label={`Toggle ${section.section_label} visibility`}
-                          >
-                            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform duration-200 ${section.is_visible ? 'translate-x-4' : 'translate-x-0.5'}`} />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                    {homepageSections.length === 0 && (
-                      <p className="text-xs text-[#8C8278]">Loading section settings…</p>
-                    )}
-                  </div>
-                </div>
-
                 {/* Add / Edit Form */}
                 {showGalleryForm && (
                   <div className="bg-white rounded-2xl border border-[#EDE7DA] p-6 mb-6">
@@ -4343,6 +4327,41 @@ export default function StaffWorkspacePage() {
                     ))}
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* ── SECTION VISIBILITY TAB ── */}
+            {activeTab === 'section_visibility' && (
+              <div className="p-6">
+                <div className="mb-6">
+                  <h2 className="text-xl font-bold text-[#1A1612]">Homepage Section Visibility</h2>
+                  <p className="text-sm text-[#8C8278] mt-0.5">Control which sections are shown on the home page.</p>
+                </div>
+                <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5">
+                  <div className="flex flex-col gap-3">
+                    {homepageSections.map(section => (
+                      <div key={section.section_key} className="flex items-center justify-between gap-4 py-2 border-b border-[#F5F0E8] last:border-0">
+                        <span className="text-sm font-medium text-[#5C5347]">{section.section_label}</span>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs font-semibold ${section.is_visible ? 'text-green-600' : 'text-[#8C8278]'}`}>
+                            {section.is_visible ? 'Visible' : 'Hidden'}
+                          </span>
+                          <button
+                            onClick={() => handleToggleHomepageSection(section.section_key, !section.is_visible)}
+                            disabled={!!homepageSectionsSaving[section.section_key]}
+                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200 focus:outline-none disabled:opacity-50 ${section.is_visible ? 'bg-[#C4622D]' : 'bg-[#DDD5C8]'}`}
+                            aria-label={`Toggle ${section.section_label} visibility`}
+                          >
+                            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform duration-200 ${section.is_visible ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    {homepageSections.length === 0 && (
+                      <p className="text-xs text-[#8C8278]">Loading section settings…</p>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
 
