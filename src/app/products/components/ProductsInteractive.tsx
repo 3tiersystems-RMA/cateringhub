@@ -378,7 +378,7 @@ function ProductsContent() {
   };
 
   const displayCategories = (() => {
-    const desiredOrder = ["All", "Weekly Menu", "Packaged Meals", "Voucher Meals", "Frozen Meals", "Prepared Meals", "À La Carte"];
+    const desiredOrder = ["All", "Weekly Menu", "Packaged Meals", "Voucher Meals", "Frozen Meals", "Prepared Meals", "À La Carte", "Wellness"];
     const available = ["All", "Weekly Menu", ...categories];
     return desiredOrder.filter((c) => available.includes(c));
   })();
