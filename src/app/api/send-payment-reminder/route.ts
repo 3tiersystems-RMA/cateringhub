@@ -14,6 +14,13 @@ export async function POST(req: NextRequest) {
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
+    // Fetch correspondence settings
+    const { data: corrSettings } = await supabase
+      .from('correspondence_settings')
+      .select('form_header_title, logo_url, terms_and_conditions, sales_representative, office_number, comments')
+      .limit(1)
+      .single();
+
     // Fetch the specific order or all outstanding orders
     let query = supabase
       .from('orders')
@@ -65,6 +72,13 @@ export async function POST(req: NextRequest) {
             orderTotal: order.total,
             orderDate,
             items: order.items || [],
+            // Correspondence settings
+            formHeaderTitle: corrSettings?.form_header_title || null,
+            logoUrl: corrSettings?.logo_url || null,
+            termsAndConditions: corrSettings?.terms_and_conditions || null,
+            salesRepresentative: corrSettings?.sales_representative || null,
+            officeNumber: corrSettings?.office_number || null,
+            comments: corrSettings?.comments || null,
           }),
         });
 
