@@ -26,7 +26,7 @@ serve(async (req) => {
       orderTotal,
       orderDate,
       items,
-      // Correspondence settings fields
+      // Correspondence settings fields — null means field is empty and must NOT appear on the email
       formHeaderTitle,
       logoUrl,
       termsAndConditions,
@@ -40,9 +40,14 @@ serve(async (req) => {
       throw new Error("RESEND_API_KEY is not set");
     }
 
+    // Helper: treat empty/whitespace strings as absent
+    const hasValue = (v: string | null | undefined): v is string =>
+      typeof v === "string" && v.trim().length > 0;
+
     const profileUrl = "https://cateringhu2257.builtwithrocket.new/customer-profile";
 
-    const headerTitle = formHeaderTitle || "Cardamom Catering";
+    // Use header title only if set; otherwise fall back to a generic label
+    const headerTitle = hasValue(formHeaderTitle) ? formHeaderTitle : "Payment Reminder";
 
     const itemsHtml = Array.isArray(items) && items.length > 0
       ? items.map((item: { name: string; quantity: number; price: number }) =>
@@ -54,8 +59,9 @@ serve(async (req) => {
         ).join("")
       : `<tr><td colspan="3" style="padding: 8px 12px; color: #888; font-size: 14px;">No items listed</td></tr>`;
 
-    // Build optional sections
-    const logoHtml = logoUrl
+    // ── Conditional sections — only rendered when the field has a value ──
+
+    const logoHtml = hasValue(logoUrl)
       ? `<tr>
           <td style="padding: 12px 32px 0 32px; text-align: center;">
             <img src="${logoUrl}" alt="${headerTitle} logo" style="max-height: 60px; max-width: 200px; object-fit: contain;" />
@@ -63,31 +69,37 @@ serve(async (req) => {
         </tr>`
       : "";
 
-    const salesRepHtml = salesRepresentative
+    const salesRepHtml = hasValue(salesRepresentative)
       ? `<p style="margin: 0 0 4px 0; color: #555; font-size: 13px;">Sales Representative: <strong>${salesRepresentative}</strong></p>`
       : "";
 
-    const officeNumberHtml = officeNumber
+    const officeNumberHtml = hasValue(officeNumber)
       ? `<p style="margin: 0 0 16px 0; color: #555; font-size: 13px;">Office: <strong>${officeNumber}</strong></p>`
       : "";
 
-    const contactLine = officeNumber
+    // Contact line — includes office number only when it has a value
+    const contactLine = hasValue(officeNumber)
       ? `If you have any questions, please don't hesitate to contact us (${officeNumber}). Thank you for choosing ${headerTitle}.`
       : `If you have any questions, please don't hesitate to contact us. Thank you for choosing ${headerTitle}.`;
 
-    const commentsHtml = comments
+    const commentsHtml = hasValue(comments)
       ? `<div style="background-color: #fff8e1; border: 1px solid #ffe082; border-radius: 4px; padding: 12px 16px; margin-bottom: 20px;">
           <p style="margin: 0; color: #7a5c00; font-size: 13px;"><strong>NOTE:</strong> ${comments}</p>
         </div>`
       : "";
 
-    const termsHtml = termsAndConditions
+    const termsHtml = hasValue(termsAndConditions)
       ? `<tr>
           <td style="background-color: #f9f9f9; padding: 16px 32px; border-top: 1px solid #e0e0e0;">
             <p style="margin: 0 0 6px 0; color: #555; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Terms &amp; Conditions</p>
             <p style="margin: 0; color: #888; font-size: 12px; line-height: 1.6; white-space: pre-line;">${termsAndConditions}</p>
           </td>
         </tr>`
+      : "";
+
+    // Only render the sales rep / office block row if at least one has a value
+    const contactBlockHtml = (hasValue(salesRepresentative) || hasValue(officeNumber))
+      ? `${salesRepHtml}${officeNumberHtml}`
       : "";
 
     const emailHtml = `
@@ -111,7 +123,7 @@ serve(async (req) => {
             </td>
           </tr>
 
-          <!-- Logo (if provided) -->
+          <!-- Logo (only shown when logo_url is set) -->
           ${logoHtml}
 
           <!-- Subheader notice -->
@@ -170,11 +182,10 @@ serve(async (req) => {
                 <a href="${profileUrl}" style="color: #1a1a2e; font-weight: 700; font-size: 15px; text-decoration: underline;">View your Profile</a>
               </p>
 
-              <!-- Sales Rep & Office Number -->
-              ${salesRepHtml}
-              ${officeNumberHtml}
+              <!-- Sales Rep & Office Number (only shown when values are set) -->
+              ${contactBlockHtml}
 
-              <!-- Comments / NOTE -->
+              <!-- Comments / NOTE (only shown when comments is set) -->
               ${commentsHtml}
 
               <p style="margin: 0; color: #555; font-size: 14px;">
@@ -183,7 +194,7 @@ serve(async (req) => {
             </td>
           </tr>
 
-          <!-- Terms & Conditions -->
+          <!-- Terms & Conditions (only shown when terms_and_conditions is set) -->
           ${termsHtml}
 
           <!-- Footer -->
@@ -227,7 +238,8 @@ serve(async (req) => {
       },
     });
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
+    const message = error instanceof Error ? error.message : String(error);
+    return new Response(JSON.stringify({ error: message }), {
       status: 500,
       headers: {
         "Content-Type": "application/json",
