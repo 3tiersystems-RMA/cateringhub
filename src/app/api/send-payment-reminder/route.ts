@@ -22,12 +22,14 @@ export async function POST(req: NextRequest) {
       sales_representative?: string | null;
       office_number?: string | null;
       comments?: string | null;
+      info_email?: string | null;
+      admin_email?: string | null;
     } | null = null;
 
     try {
       const { data } = await supabase
         .from('correspondence_settings')
-        .select('form_header_title, logo_url, terms_and_conditions, sales_representative, office_number, comments')
+        .select('form_header_title, logo_url, terms_and_conditions, sales_representative, office_number, comments, info_email, admin_email')
         .limit(1)
         .maybeSingle();
       corrSettings = data;
@@ -48,6 +50,7 @@ export async function POST(req: NextRequest) {
     const salesRepresentative = normalize(corrSettings?.sales_representative) ?? null;
     const officeNumber = normalize(corrSettings?.office_number) ?? null;
     const comments = normalize(corrSettings?.comments) ?? null;
+    const infoEmail = normalize(corrSettings?.info_email) ?? null;
 
     // Fetch the specific order or all outstanding orders
     let query = supabase
@@ -107,6 +110,8 @@ export async function POST(req: NextRequest) {
             salesRepresentative,
             officeNumber,
             comments,
+            // CC info_email on payment reminders if set
+            ccEmails: infoEmail ? [infoEmail] : [],
           }),
         });
 

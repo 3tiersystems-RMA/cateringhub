@@ -7,7 +7,7 @@ declare const Deno: {
 import { serve } from "https://deno.land/std@0.192.0/http/server.ts";
 
 serve(async (req) => {
-  // ✅ CORS preflight
+  // CORS preflight
   if (req.method === "OPTIONS") {
     return new Response("ok", {
       headers: {
@@ -20,21 +20,20 @@ serve(async (req) => {
 
   try {
     const {
+      orderId,
       customerName,
       customerEmail,
-      orderId,
+      customerPhone,
       orderTotal,
       orderDate,
       items,
-      // Correspondence settings fields — null means field is empty and must NOT appear on the email
+      paymentMethod,
+      deliveryAddress,
+      notes,
       formHeaderTitle,
       logoUrl,
-      termsAndConditions,
-      salesRepresentative,
-      officeNumber,
-      comments,
-      // CC addresses (array of email strings)
-      ccEmails,
+      // Array of email addresses to notify (info_email + admin_email)
+      notifyEmails,
     } = await req.json();
 
     const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
@@ -42,14 +41,16 @@ serve(async (req) => {
       throw new Error("RESEND_API_KEY is not set");
     }
 
-    // Helper: treat empty/whitespace strings as absent
+    if (!Array.isArray(notifyEmails) || notifyEmails.length === 0) {
+      return new Response(JSON.stringify({ success: true, message: "No recipients configured" }), {
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      });
+    }
+
     const hasValue = (v: string | null | undefined): v is string =>
       typeof v === "string" && v.trim().length > 0;
 
-    const profileUrl = "https://cateringhu2257.builtwithrocket.new/customer-profile";
-
-    // Use header title only if set; otherwise fall back to a generic label
-    const headerTitle = hasValue(formHeaderTitle) ? formHeaderTitle : "Payment Reminder";
+    const headerTitle = hasValue(formHeaderTitle) ? formHeaderTitle : "Cardamom Catering";
 
     const itemsHtml = Array.isArray(items) && items.length > 0
       ? items.map((item: { name: string; quantity: number; price: number }) =>
@@ -61,8 +62,6 @@ serve(async (req) => {
         ).join("")
       : `<tr><td colspan="3" style="padding: 8px 12px; color: #888; font-size: 14px;">No items listed</td></tr>`;
 
-    // ── Conditional sections — only rendered when the field has a value ──
-
     const logoHtml = hasValue(logoUrl)
       ? `<tr>
           <td style="padding: 12px 32px 0 32px; text-align: center;">
@@ -71,38 +70,7 @@ serve(async (req) => {
         </tr>`
       : "";
 
-    const salesRepHtml = hasValue(salesRepresentative)
-      ? `<p style="margin: 0 0 4px 0; color: #555; font-size: 13px;">Sales Representative: <strong>${salesRepresentative}</strong></p>`
-      : "";
-
-    const officeNumberHtml = hasValue(officeNumber)
-      ? `<p style="margin: 0 0 16px 0; color: #555; font-size: 13px;">Office: <strong>${officeNumber}</strong></p>`
-      : "";
-
-    // Contact line — includes office number only when it has a value
-    const contactLine = hasValue(officeNumber)
-      ? `If you have any questions, please don't hesitate to contact us (${officeNumber}). Thank you for choosing ${headerTitle}.`
-      : `If you have any questions, please don't hesitate to contact us. Thank you for choosing ${headerTitle}.`;
-
-    const commentsHtml = hasValue(comments)
-      ? `<div style="background-color: #fff8e1; border: 1px solid #ffe082; border-radius: 4px; padding: 12px 16px; margin-bottom: 20px;">
-          <p style="margin: 0; color: #7a5c00; font-size: 13px;"><strong>NOTE:</strong> ${comments}</p>
-        </div>`
-      : "";
-
-    const termsHtml = hasValue(termsAndConditions)
-      ? `<tr>
-          <td style="background-color: #f9f9f9; padding: 16px 32px; border-top: 1px solid #e0e0e0;">
-            <p style="margin: 0 0 6px 0; color: #555; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Terms &amp; Conditions</p>
-            <p style="margin: 0; color: #888; font-size: 12px; line-height: 1.6; white-space: pre-line;">${termsAndConditions}</p>
-          </td>
-        </tr>`
-      : "";
-
-    // Only render the sales rep / office block row if at least one has a value
-    const contactBlockHtml = (hasValue(salesRepresentative) || hasValue(officeNumber))
-      ? `${salesRepHtml}${officeNumberHtml}`
-      : "";
+    const staffOrdersUrl = "https://cateringhu2257.builtwithrocket.new/staff/orders";
 
     const emailHtml = `
 <!DOCTYPE html>
@@ -110,7 +78,7 @@ serve(async (req) => {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Payment Reminder</title>
+  <title>New Order Received</title>
 </head>
 <body style="margin: 0; padding: 0; background-color: #f9f9f9; font-family: Arial, sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f9f9f9; padding: 32px 0;">
@@ -125,31 +93,45 @@ serve(async (req) => {
             </td>
           </tr>
 
-          <!-- Logo (only shown when logo_url is set) -->
           ${logoHtml}
 
-          <!-- Subheader notice -->
+          <!-- Alert Banner -->
           <tr>
-            <td style="background-color: #fff8e1; padding: 12px 32px; border-bottom: 1px solid #ffe082; text-align: center;">
-              <p style="margin: 0; color: #7a5c00; font-size: 13px; font-style: italic;">If payment has already been made, please ignore this Payment reminder.</p>
+            <td style="background-color: #e8f5e9; padding: 12px 32px; border-bottom: 1px solid #c8e6c9; text-align: center;">
+              <p style="margin: 0; color: #2e7d32; font-size: 14px; font-weight: 700;">🛒 New Order Received</p>
             </td>
           </tr>
 
           <!-- Body -->
           <tr>
             <td style="padding: 32px 32px 24px 32px;">
-              <h2 style="margin: 0 0 8px 0; color: #1a1a2e; font-size: 18px;">Payment Reminder</h2>
-              <p style="margin: 0 0 20px 0; color: #555; font-size: 15px;">Dear ${customerName},</p>
-              <p style="margin: 0 0 20px 0; color: #555; font-size: 15px;">
-                We noticed that your order placed on <strong>${orderDate}</strong> has an outstanding balance. 
-                Please arrange payment at your earliest convenience to ensure your order is confirmed.
-              </p>
+              <h2 style="margin: 0 0 16px 0; color: #1a1a2e; font-size: 18px;">Order Details</h2>
 
-              <!-- Order Summary Box -->
+              <!-- Customer Info -->
               <table width="100%" cellpadding="0" cellspacing="0" style="border: 1px solid #e0e0e0; border-radius: 4px; margin-bottom: 24px;">
                 <tr>
                   <td style="background-color: #f5f5f5; padding: 10px 12px; border-bottom: 1px solid #e0e0e0;">
-                    <p style="margin: 0; font-size: 13px; font-weight: 700; color: #333; text-transform: uppercase; letter-spacing: 0.5px;">Order Summary</p>
+                    <p style="margin: 0; font-size: 13px; font-weight: 700; color: #333; text-transform: uppercase; letter-spacing: 0.5px;">Customer Information</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 12px;">
+                    <p style="margin: 0 0 6px 0; color: #555; font-size: 14px;"><strong>Name:</strong> ${customerName}</p>
+                    <p style="margin: 0 0 6px 0; color: #555; font-size: 14px;"><strong>Email:</strong> ${customerEmail}</p>
+                    ${hasValue(customerPhone) ? `<p style="margin: 0 0 6px 0; color: #555; font-size: 14px;"><strong>Phone:</strong> ${customerPhone}</p>` : ""}
+                    <p style="margin: 0 0 6px 0; color: #555; font-size: 14px;"><strong>Order Date:</strong> ${orderDate}</p>
+                    <p style="margin: 0 0 6px 0; color: #555; font-size: 14px;"><strong>Payment Method:</strong> ${paymentMethod}</p>
+                    ${hasValue(deliveryAddress) ? `<p style="margin: 0 0 6px 0; color: #555; font-size: 14px;"><strong>Delivery Address:</strong> ${deliveryAddress}</p>` : ""}
+                    ${hasValue(notes) ? `<p style="margin: 0; color: #555; font-size: 14px;"><strong>Notes:</strong> ${notes}</p>` : ""}
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Order Summary -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="border: 1px solid #e0e0e0; border-radius: 4px; margin-bottom: 24px;">
+                <tr>
+                  <td style="background-color: #f5f5f5; padding: 10px 12px; border-bottom: 1px solid #e0e0e0;">
+                    <p style="margin: 0; font-size: 13px; font-weight: 700; color: #333; text-transform: uppercase; letter-spacing: 0.5px;">Order Summary — Ref: ${orderId}</p>
                   </td>
                 </tr>
                 <tr>
@@ -167,7 +149,7 @@ serve(async (req) => {
                       </tbody>
                       <tfoot>
                         <tr>
-                          <td colspan="2" style="padding: 10px 12px; font-size: 14px; font-weight: 700; color: #1a1a2e; border-top: 2px solid #e0e0e0;">Total Outstanding</td>
+                          <td colspan="2" style="padding: 10px 12px; font-size: 14px; font-weight: 700; color: #1a1a2e; border-top: 2px solid #e0e0e0;">Order Total</td>
                           <td style="padding: 10px 12px; font-size: 14px; font-weight: 700; color: #1a1a2e; text-align: right; border-top: 2px solid #e0e0e0;">R ${Number(orderTotal).toFixed(2)}</td>
                         </tr>
                       </tfoot>
@@ -176,33 +158,20 @@ serve(async (req) => {
                 </tr>
               </table>
 
-              <!-- View Profile Link -->
+              <!-- CTA -->
               <p style="margin: 0 0 8px 0; color: #555; font-size: 15px;">
-                You can view your order history and profile details by clicking the link below:
+                View and manage this order in the staff workspace:
               </p>
-              <p style="margin: 0 0 24px 0;">
-                <a href="${profileUrl}" style="color: #1a1a2e; font-weight: 700; font-size: 15px; text-decoration: underline;">View your Profile</a>
-              </p>
-
-              <!-- Sales Rep & Office Number (only shown when values are set) -->
-              ${contactBlockHtml}
-
-              <!-- Comments / NOTE (only shown when comments is set) -->
-              ${commentsHtml}
-
-              <p style="margin: 0; color: #555; font-size: 14px;">
-                ${contactLine}
+              <p style="margin: 0;">
+                <a href="${staffOrdersUrl}" style="color: #1a1a2e; font-weight: 700; font-size: 15px; text-decoration: underline;">Open Orders Workspace</a>
               </p>
             </td>
           </tr>
 
-          <!-- Terms & Conditions (only shown when terms_and_conditions is set) -->
-          ${termsHtml}
-
           <!-- Footer -->
           <tr>
             <td style="background-color: #f5f5f5; padding: 16px 32px; border-top: 1px solid #e0e0e0; text-align: center;">
-              <p style="margin: 0; color: #999; font-size: 12px;">© ${new Date().getFullYear()} ${headerTitle}. All rights reserved.</p>
+              <p style="margin: 0; color: #999; font-size: 12px;">© ${new Date().getFullYear()} ${headerTitle}. This is an automated staff notification.</p>
             </td>
           </tr>
 
@@ -213,20 +182,19 @@ serve(async (req) => {
 </body>
 </html>`;
 
-    // Build CC list — only include valid email strings
-    const validCcEmails: string[] = Array.isArray(ccEmails)
-      ? ccEmails.filter((e: unknown) => typeof e === "string" && e.trim().length > 0)
-      : [];
+    // Send to the first notify email; CC the rest
+    const primaryRecipient = notifyEmails[0];
+    const ccRecipients = notifyEmails.slice(1);
 
     const resendPayload: Record<string, unknown> = {
       from: "onboarding@resend.dev",
-      to: [customerEmail],
-      subject: "Payment Reminder – Outstanding Balance on Your Order",
+      to: [primaryRecipient],
+      subject: `New Order Received – ${customerName} (R ${Number(orderTotal).toFixed(2)})`,
       html: emailHtml,
     };
 
-    if (validCcEmails.length > 0) {
-      resendPayload.cc = validCcEmails;
+    if (ccRecipients.length > 0) {
+      resendPayload.cc = ccRecipients;
     }
 
     const resendResponse = await fetch("https://api.resend.com/emails", {
@@ -241,7 +209,7 @@ serve(async (req) => {
     const resendData = await resendResponse.json();
 
     if (!resendResponse.ok) {
-      throw new Error(resendData.message || "Failed to send email via Resend");
+      throw new Error(resendData.message || "Failed to send notification via Resend");
     }
 
     return new Response(JSON.stringify({ success: true, emailId: resendData.id }), {
