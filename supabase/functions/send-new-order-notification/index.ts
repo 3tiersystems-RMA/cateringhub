@@ -41,6 +41,9 @@ serve(async (req) => {
       throw new Error("RESEND_API_KEY is not set");
     }
 
+    // Use a verified sender domain if configured, otherwise fall back to Resend sandbox sender
+    const RESEND_FROM_EMAIL = Deno.env.get("RESEND_FROM_EMAIL") || "onboarding@resend.dev";
+
     if (!Array.isArray(notifyEmails) || notifyEmails.length === 0) {
       return new Response(JSON.stringify({ success: true, message: "No recipients configured" }), {
         headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
@@ -187,7 +190,7 @@ serve(async (req) => {
     const ccRecipients = notifyEmails.slice(1);
 
     const resendPayload: Record<string, unknown> = {
-      from: "onboarding@resend.dev",
+      from: RESEND_FROM_EMAIL,
       to: [primaryRecipient],
       subject: `New Order Received – ${customerName} (R ${Number(orderTotal).toFixed(2)})`,
       html: emailHtml,

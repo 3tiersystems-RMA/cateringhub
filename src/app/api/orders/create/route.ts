@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
 
       if (notifyEmails.length > 0) {
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-        const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+        const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
         const edgeFunctionUrl = `${supabaseUrl}/functions/v1/send-new-order-notification`;
 
         const orderDate = new Date().toLocaleDateString("en-ZA", {
@@ -71,11 +71,11 @@ export async function POST(req: NextRequest) {
           day: "numeric",
         });
 
-        await fetch(edgeFunctionUrl, {
+        const notifyResponse = await fetch(edgeFunctionUrl, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${anonKey}`,
+            Authorization: `Bearer ${serviceRoleKey}`,
           },
           body: JSON.stringify({
             orderId: data.id,
@@ -94,6 +94,11 @@ export async function POST(req: NextRequest) {
             notifyEmails,
           }),
         });
+
+        if (!notifyResponse.ok) {
+          const errBody = await notifyResponse.text().catch(() => "(unreadable)");
+          console.error(`[orders/create] New order notification failed (${notifyResponse.status}): ${errBody}`);
+        }
       }
     } catch {
       // Notification failure must never block the order creation
