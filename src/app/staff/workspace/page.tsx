@@ -11,11 +11,12 @@ import VoucherErrorModal from '@/components/ui/VoucherErrorModal';
 import { ResponsiveContainer, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend,  } from 'recharts';
 import GoogleDriveDocuments from '@/app/staff/workspace/components/GoogleDriveDocuments';
 import EventManagement from '@/app/staff/workspace/components/EventManagement';
+import CorrespondenceSettings from '@/app/staff/workspace/components/CorrespondenceSettings';
 
 
 
 type BucketType = 'product-images' | 'event-photos' | 'document-management';
-type WorkspaceTab = 'products' | 'media' | 'media_events' | 'media_products' | 'orders' | 'staff' | 'homepage_cards' | 'categories' | 'weekly_menu' | 'vouchers' | 'discount_vouchers' | 'testimonials' | 'reporting' | 'analytics' | 'social_media' | 'gallery' | 'section_visibility' | 'customer_order_history';
+type WorkspaceTab = 'products' | 'media' | 'media_events' | 'media_products' | 'orders' | 'staff' | 'homepage_cards' | 'categories' | 'weekly_menu' | 'vouchers' | 'discount_vouchers' | 'testimonials' | 'reporting' | 'analytics' | 'social_media' | 'gallery' | 'section_visibility' | 'customer_order_history' | 'correspondence_settings';
 
 type ProductCategory = string;
 type StaffRole = 'admin' | 'staff' | 'super_admin';
@@ -2340,7 +2341,7 @@ export default function StaffWorkspacePage() {
               <button
                 onClick={() => setSiteContentOpen(prev => !prev)}
                 className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
-['staff', 'homepage_cards', 'testimonials', 'social_media', 'gallery', 'section_visibility'].includes(activeTab) ? 'text-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
+['staff', 'homepage_cards', 'testimonials', 'social_media', 'gallery', 'section_visibility', 'correspondence_settings'].includes(activeTab) ? 'text-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
                 }`}
               >
                 <span className="text-base">📁</span>
@@ -2386,6 +2387,15 @@ export default function StaffWorkspacePage() {
                   >
                     <span className="text-base">👁️</span>
                     <span>Section Visibility</span>
+                  </button>
+                  <button
+                    onClick={() => { handleTabChange('correspondence_settings'); }}
+                    className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${
+                      activeTab === 'correspondence_settings' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'
+                    }`}
+                  >
+                    <span className="text-base">✉️</span>
+                    <span>Correspondence Settings</span>
                   </button>
                   {userProfile?.role === 'super_admin' && (
                     <button
@@ -5300,6 +5310,11 @@ export default function StaffWorkspacePage() {
                   </div>
                 </div>
               </div>
+            )}
+
+            {/* ── CORRESPONDENCE SETTINGS TAB ── */}
+            {activeTab === 'correspondence_settings' && (
+              <CorrespondenceSettings />
             )}
 
             {/* ── DOCUMENT MANAGEMENT TAB ── */}
