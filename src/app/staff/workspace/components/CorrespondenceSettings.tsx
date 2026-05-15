@@ -11,6 +11,8 @@ interface CorrespondenceSettingsData {
   sales_representative: string | null;
   office_number: string | null;
   comments: string | null;
+  info_email: string | null;
+  admin_email: string | null;
 }
 
 const defaultSettings: Omit<CorrespondenceSettingsData, 'id'> = {
@@ -20,6 +22,8 @@ const defaultSettings: Omit<CorrespondenceSettingsData, 'id'> = {
   sales_representative: null,
   office_number: null,
   comments: null,
+  info_email: null,
+  admin_email: null,
 };
 
 export default function CorrespondenceSettings() {
@@ -58,6 +62,8 @@ export default function CorrespondenceSettings() {
         sales_representative: data.sales_representative || null,
         office_number: data.office_number || null,
         comments: data.comments || null,
+        info_email: data.info_email || null,
+        admin_email: data.admin_email || null,
       });
     }
     setLoading(false);
@@ -118,6 +124,8 @@ export default function CorrespondenceSettings() {
       sales_representative: form.sales_representative || null,
       office_number: form.office_number || null,
       comments: form.comments || null,
+      info_email: form.info_email || null,
+      admin_email: form.admin_email || null,
       updated_at: new Date().toISOString(),
     };
 
@@ -263,6 +271,36 @@ export default function CorrespondenceSettings() {
             accept="image/*"
             className="hidden"
             onChange={handleLogoUpload}
+          />
+        </div>
+
+        {/* Info Email */}
+        <div>
+          <label className="block text-sm font-semibold text-[#1A1612] mb-1.5">Info Email</label>
+          <p className="text-xs text-[#8C8278] mb-2">
+            CC&apos;d on all payment reminders and new order notifications (e.g. info@yourdomain.com).
+          </p>
+          <input
+            type="email"
+            value={form.info_email || ''}
+            onChange={e => handleChange('info_email', e.target.value)}
+            placeholder="e.g. info@cardamomkitchen.co.za"
+            className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30 focus:border-[#C4622D]"
+          />
+        </div>
+
+        {/* Admin Email */}
+        <div>
+          <label className="block text-sm font-semibold text-[#1A1612] mb-1.5">Admin Email</label>
+          <p className="text-xs text-[#8C8278] mb-2">
+            CC&apos;d on new order notifications alongside the info email (e.g. admin@yourdomain.com).
+          </p>
+          <input
+            type="email"
+            value={form.admin_email || ''}
+            onChange={e => handleChange('admin_email', e.target.value)}
+            placeholder="e.g. admin@cardamomkitchen.co.za"
+            className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30 focus:border-[#C4622D]"
           />
         </div>
 
