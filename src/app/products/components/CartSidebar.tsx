@@ -26,6 +26,7 @@ export default function CartSidebar() {
   const [payError, setPayErrorState] = useState("");
   const [phoneError, setPhoneErrorState] = useState("");
   const [orderRef, setOrderRef] = useState("");
+  const [savedOrderTotal, setSavedOrderTotal] = useState(0);
   const voucherOrderInProgress = useRef(false);
 
   // Global error modal
@@ -183,6 +184,7 @@ export default function CartSidebar() {
           .eq("dv_code", dvData.dv_code);
       }
 
+      setSavedOrderTotal(discountedTotal);
       setOrderRef(result.reference ?? orderRef);
       clearCart();
       setStep("eft-success");
@@ -439,7 +441,7 @@ export default function CartSidebar() {
         {step === "eft-success" && (
           <CartStepSuccess
             orderRef={orderRef}
-            orderTotal={discountedTotal}
+            orderTotal={savedOrderTotal}
             form={form}
             voucherApplied={voucherApplied}
             voucherData={voucherData}
