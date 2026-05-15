@@ -14,12 +14,40 @@ export async function POST(req: NextRequest) {
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    // Fetch correspondence settings
-    const { data: corrSettings } = await supabase
-      .from('correspondence_settings')
-      .select('form_header_title, logo_url, terms_and_conditions, sales_representative, office_number, comments')
-      .limit(1)
-      .single();
+    // Fetch correspondence settings — non-fatal: if table missing or empty, proceed without settings
+    let corrSettings: {
+      form_header_title?: string | null;
+      logo_url?: string | null;
+      terms_and_conditions?: string | null;
+      sales_representative?: string | null;
+      office_number?: string | null;
+      comments?: string | null;
+    } | null = null;
+
+    try {
+      const { data } = await supabase
+        .from('correspondence_settings')
+        .select('form_header_title, logo_url, terms_and_conditions, sales_representative, office_number, comments')
+        .limit(1)
+        .maybeSingle();
+      corrSettings = data;
+    } catch {
+      // Table may not exist yet — continue without correspondence settings
+      corrSettings = null;
+    }
+
+    // Normalize: treat empty strings as null so the template skips empty fields
+    const normalize = (val: string | null | undefined): string | null => {
+      if (!val || val.trim() === '') return null;
+      return val.trim();
+    };
+
+    const formHeaderTitle = normalize(corrSettings?.form_header_title) ?? null;
+    const logoUrl = normalize(corrSettings?.logo_url) ?? null;
+    const termsAndConditions = normalize(corrSettings?.terms_and_conditions) ?? null;
+    const salesRepresentative = normalize(corrSettings?.sales_representative) ?? null;
+    const officeNumber = normalize(corrSettings?.office_number) ?? null;
+    const comments = normalize(corrSettings?.comments) ?? null;
 
     // Fetch the specific order or all outstanding orders
     let query = supabase
@@ -72,13 +100,13 @@ export async function POST(req: NextRequest) {
             orderTotal: order.total,
             orderDate,
             items: order.items || [],
-            // Correspondence settings
-            formHeaderTitle: corrSettings?.form_header_title || null,
-            logoUrl: corrSettings?.logo_url || null,
-            termsAndConditions: corrSettings?.terms_and_conditions || null,
-            salesRepresentative: corrSettings?.sales_representative || null,
-            officeNumber: corrSettings?.office_number || null,
-            comments: corrSettings?.comments || null,
+            // Correspondence settings — null means field is empty and will be hidden on the email
+            formHeaderTitle,
+            logoUrl,
+            termsAndConditions,
+            salesRepresentative,
+            officeNumber,
+            comments,
           }),
         });
 
