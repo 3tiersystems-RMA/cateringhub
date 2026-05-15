@@ -14,6 +14,7 @@ const BANK_DETAILS = {
 
 interface CartStepSuccessProps {
   orderRef: string;
+  orderTotal?: number;
   form: { name: string; email: string; date: string };
   voucherApplied: boolean;
   voucherData: VoucherData | null;
@@ -45,6 +46,7 @@ function CopyButton({ value }: { value: string }) {
 
 export default function CartStepSuccess({
   orderRef,
+  orderTotal,
   form,
   voucherApplied,
   voucherData,
@@ -78,29 +80,38 @@ export default function CartStepSuccess({
 
       {/* Bank Details — EFT only */}
       {!voucherApplied && (
-        <div className="bg-white border border-[#DDD5C8] rounded-2xl p-4 space-y-3">
-          <div className="flex items-center gap-2 mb-1">
-            <Icon name="BuildingLibraryIcon" size={15} className="text-[#C4622D]" />
-            <p className="text-xs font-semibold text-[#5C5347] uppercase tracking-wider">Bank Details</p>
-          </div>
-          <div className="space-y-2">
-            {[
-              { label: "Bank", value: BANK_DETAILS.bank },
-              { label: "Account Name", value: BANK_DETAILS.accountName },
-              { label: "Account Number", value: BANK_DETAILS.accountNumber },
-              { label: "Branch Code", value: BANK_DETAILS.branchCode },
-              { label: "Reference", value: orderRef },
-            ].map(({ label, value }) => (
-              <div key={label} className="flex justify-between items-center py-1.5 border-b border-[#F0EBE3] last:border-0">
-                <span className="text-[#8C8278] text-xs">{label}</span>
-                <div className="flex items-center">
-                  <span className="font-semibold text-[#1A1612] font-mono text-xs">{value}</span>
-                  <CopyButton value={value} />
+        <>
+          {orderTotal !== undefined && (
+            <div className="bg-[#C4622D]/10 border border-[#C4622D]/30 rounded-2xl p-4 text-center">
+              <p className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-1">Order Amount</p>
+              <p className="text-2xl font-bold text-[#C4622D]">R {orderTotal.toFixed(2)}</p>
+              <p className="text-xs text-[#8C8278] mt-1">Please use this amount for your EFT payment</p>
+            </div>
+          )}
+          <div className="bg-white border border-[#DDD5C8] rounded-2xl p-4 space-y-3">
+            <div className="flex items-center gap-2 mb-1">
+              <Icon name="BuildingLibraryIcon" size={15} className="text-[#C4622D]" />
+              <p className="text-xs font-semibold text-[#5C5347] uppercase tracking-wider">Bank Details</p>
+            </div>
+            <div className="space-y-2">
+              {[
+                { label: "Bank", value: BANK_DETAILS.bank },
+                { label: "Account Name", value: BANK_DETAILS.accountName },
+                { label: "Account Number", value: BANK_DETAILS.accountNumber },
+                { label: "Branch Code", value: BANK_DETAILS.branchCode },
+                { label: "Reference", value: orderRef },
+              ].map(({ label, value }) => (
+                <div key={label} className="flex justify-between items-center py-1.5 border-b border-[#F0EBE3] last:border-0">
+                  <span className="text-[#8C8278] text-xs">{label}</span>
+                  <div className="flex items-center">
+                    <span className="font-semibold text-[#1A1612] font-mono text-xs">{value}</span>
+                    <CopyButton value={value} />
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
+        </>
       )}
 
       {/* Voucher balance update */}

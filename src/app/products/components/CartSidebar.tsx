@@ -439,6 +439,7 @@ export default function CartSidebar() {
         {step === "eft-success" && (
           <CartStepSuccess
             orderRef={orderRef}
+            orderTotal={discountedTotal}
             form={form}
             voucherApplied={voucherApplied}
             voucherData={voucherData}
