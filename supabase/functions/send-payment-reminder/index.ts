@@ -42,6 +42,9 @@ serve(async (req) => {
       throw new Error("RESEND_API_KEY is not set");
     }
 
+    // Use a verified sender domain if configured, otherwise fall back to Resend sandbox sender
+    const RESEND_FROM_EMAIL = Deno.env.get("RESEND_FROM_EMAIL") || "onboarding@resend.dev";
+
     // Helper: treat empty/whitespace strings as absent
     const hasValue = (v: string | null | undefined): v is string =>
       typeof v === "string" && v.trim().length > 0;
@@ -219,7 +222,7 @@ serve(async (req) => {
       : [];
 
     const resendPayload: Record<string, unknown> = {
-      from: "onboarding@resend.dev",
+      from: RESEND_FROM_EMAIL,
       to: [customerEmail],
       subject: "Payment Reminder – Outstanding Balance on Your Order",
       html: emailHtml,
