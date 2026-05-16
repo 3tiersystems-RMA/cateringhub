@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
 
     // resetPasswordForEmail actually sends the email (generateLink only returns the link)
     const { error } = await supabaseAdmin.auth.resetPasswordForEmail(email, {
-      redirectTo: `https://cateringhu2257.builtwithrocket.new/auth/callback?type=recovery`,
+      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://cardamomkitchen.co.za'}/auth/callback?type=recovery`,
     });
 
     if (error) {
