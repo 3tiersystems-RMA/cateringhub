@@ -154,6 +154,8 @@ export default function CartSidebar() {
 
   const handleEFTConfirm = async () => {
     setProcessing(true);
+    // Capture the total immediately before any async operations or state changes
+    const capturedTotal = discountedTotal;
     try {
       const orderNotes = dvApplied && dvData
         ? `Discount Voucher: ${dvData.dv_code} (R${dvData.dv_amount.toFixed(2)} credit). ${form.notes}`.trim()
@@ -169,7 +171,7 @@ export default function CartSidebar() {
             id: i.product.id, name: i.product.name, quantity: i.quantity,
             price: i.product.price, unit: i.product.unit, category: i.product.category,
           })),
-          subtotal, delivery_fee: delivery, total: discountedTotal,
+          subtotal, delivery_fee: delivery, total: capturedTotal,
           payment_status: "awaiting_payment", payment_method: "eft",
           event_date: form.date || null, delivery_address: form.address, notes: orderNotes,
         }),
@@ -184,7 +186,7 @@ export default function CartSidebar() {
           .eq("dv_code", dvData.dv_code);
       }
 
-      setSavedOrderTotal(discountedTotal);
+      setSavedOrderTotal(capturedTotal);
       setOrderRef(result.reference ?? orderRef);
       clearCart();
       setStep("eft-success");
