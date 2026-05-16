@@ -49,7 +49,7 @@ serve(async (req) => {
     const hasValue = (v: string | null | undefined): v is string =>
       typeof v === "string" && v.trim().length > 0;
 
-    const profileUrl = "https://cateringhu2257.builtwithrocket.new/customer-profile";
+    const profileUrl = "https://cardamomkitchen.co.za/customer-profile";
 
     // Use header title only if set; otherwise fall back to a generic label
     const headerTitle = hasValue(formHeaderTitle) ? formHeaderTitle : "Payment Reminder";

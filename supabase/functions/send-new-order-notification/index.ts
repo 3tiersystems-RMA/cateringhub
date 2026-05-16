@@ -73,7 +73,7 @@ serve(async (req) => {
         </tr>`
       : "";
 
-    const staffOrdersUrl = "https://cateringhu2257.builtwithrocket.new/staff/orders";
+    const staffOrdersUrl = "https://cardamomkitchen.co.za/staff/orders";
 
     const emailHtml = `
 <!DOCTYPE html>
