@@ -686,7 +686,7 @@ export default function StaffWorkspacePage() {
   const [dvLoading, setDvLoading] = useState(false);
   const [showDvForm, setShowDvForm] = useState(false);
   const [editingDv, setEditingDv] = useState<DiscountVoucher | null>(null);
-  const [dvForm, setDvForm] = useState({ dv_code: '', dv_type: 'Discount' as 'Discount' | 'Gift', dv_amount: '', status: 'Active\' as \'Active\' | \'Inactive', expiry_date: '' });
+  const [dvForm, setDvForm] = useState({ dv_code: '', dv_type: 'Discount' as 'Discount' | 'Gift', dv_amount: '', status: 'Active\' as \'Active\' | \'Inactive', expiry_date: '', created_at: '' });
   const [dvFormError, setDvFormError] = useState('');
   const [dvFormSuccess, setDvFormSuccess] = useState('');
   const [savingDv, setSavingDv] = useState(false);
@@ -697,7 +697,7 @@ export default function StaffWorkspacePage() {
   const [mvLoading, setMvLoading] = useState(false);
   const [showMvForm, setShowMvForm] = useState(false);
   const [editingMv, setEditingMv] = useState<Voucher | null>(null);
-  const [mvForm, setMvForm] = useState({ voucher_code: '', customer_name: '', customer_email: '', customer_phone: '', total_meals: '', meals_remaining: '', status: 'unpaid' as Voucher['status'], notes: '', package_type: 'none' as string });
+  const [mvForm, setMvForm] = useState({ voucher_code: '', customer_name: '', customer_email: '', customer_phone: '', total_meals: '', meals_remaining: '', status: 'unpaid' as Voucher['status'], notes: '', package_type: 'none' as string, purchased_at: '' });
   const [mvFormError, setMvFormError] = useState('');
   const [mvFormSuccess, setMvFormSuccess] = useState('');
   const [savingMv, setSavingMv] = useState(false);
@@ -809,6 +809,19 @@ export default function StaffWorkspacePage() {
     if (!dateStr) return '—';
     try {
       return new Date(dateStr).toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' });
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const formatDateDMY = (dateStr: string | null | undefined) => {
+    if (!dateStr) return '—';
+    try {
+      const d = new Date(dateStr);
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      return `${day}/${month}/${year}`;
     } catch {
       return dateStr;
     }
@@ -4374,7 +4387,7 @@ export default function StaffWorkspacePage() {
                     <button
                       onClick={() => {
                         setEditingMv(null);
-                        setMvForm({ voucher_code: '', customer_name: '', customer_email: '', customer_phone: '', total_meals: '', meals_remaining: '', status: 'unpaid', notes: '', package_type: 'none' });
+                        setMvForm({ voucher_code: '', customer_name: '', customer_email: '', customer_phone: '', total_meals: '', meals_remaining: '', status: 'unpaid', notes: '', package_type: 'none', purchased_at: '' });
                         setMvFormError('');
                         setMvFormSuccess('');
                         setShowMvForm(true);
@@ -4440,6 +4453,9 @@ export default function StaffWorkspacePage() {
                         <div className="md:col-span-2">
                           <label className="block text-xs font-semibold text-[#5C5347] mb-1">Generated Voucher Code</label>
                           <div className="w-full border border-[#C4622D] rounded-xl px-3 py-2 text-sm bg-[#FDF8F3] text-[#C4622D] font-mono font-bold tracking-wider">{mvForm.voucher_code}</div>
+                          {mvForm.purchased_at && (
+                            <p className="text-xs text-[#8C8278] mt-1.5">Date purchased: {formatDateDMY(mvForm.purchased_at)}</p>
+                          )}
                         </div>
                       )}
                     </div>
@@ -4515,6 +4531,7 @@ export default function StaffWorkspacePage() {
                           </div>
                           <p className="text-xs text-[#8C8278] mt-0.5">{v.customer_name} · {v.customer_email}</p>
                           <p className="text-xs text-[#8C8278] mt-0.5">{v.meals_remaining}/{v.total_meals} meals remaining{v.package_type !== 'none' ? ` · ${v.package_type}` : ''}</p>
+                          <p className="text-xs text-[#8C8278] mt-0.5">Date purchased: {formatDateDMY(v.purchased_at)}</p>
                         </div>
                         <div className="flex items-center gap-2">
                           <button
@@ -4530,6 +4547,7 @@ export default function StaffWorkspacePage() {
                                 status: v.status,
                                 notes: v.notes || '',
                                 package_type: v.package_type || 'none',
+                                purchased_at: v.purchased_at || '',
                               });
                               setMvFormError('');
                               setMvFormSuccess('');
@@ -4622,6 +4640,9 @@ export default function StaffWorkspacePage() {
                         <div className="md:col-span-2">
                           <label className="block text-xs font-semibold text-[#5C5347] mb-1">Generated Voucher Code</label>
                           <div className="w-full border border-[#C4622D] rounded-xl px-3 py-2 text-sm bg-[#FDF8F3] text-[#C4622D] font-mono font-bold tracking-wider">{dvForm.dv_code}</div>
+                          {dvForm.created_at && (
+                            <p className="text-xs text-[#8C8278] mt-1.5">Date purchased: {formatDateDMY(dvForm.created_at)}</p>
+                          )}
                         </div>
                       )}
                     </div>
@@ -4682,13 +4703,14 @@ export default function StaffWorkspacePage() {
                             )}
                           </div>
                           <p className="text-xs text-[#8C8278] mt-0.5">R{Number(dv.dv_amount).toFixed(2)} · Expires {formatDate(dv.expiry_date)} · Used {dv.times_used ?? 0}×</p>
+                          <p className="text-xs text-[#8C8278] mt-0.5">Date purchased: {formatDateDMY(dv.created_at)}</p>
                         </div>
                         <div className="flex items-center gap-2">
                           <span className={`text-xs px-2.5 py-1 rounded-full font-semibold border ${!isExpiredDv && dv.status === 'Active' ? 'bg-green-100 text-green-700 border-green-200' : 'bg-gray-100 text-gray-500 border-gray-200'}`}>
                             {isExpiredDv ? 'Inactive' : dv.status}
                           </span>
                           <button
-                            onClick={() => { setEditingDv(dv); setDvForm({ dv_code: dv.dv_code, dv_type: dv.dv_code.startsWith('GV-') ? 'Gift' : 'Discount', dv_amount: String(dv.dv_amount), status: dv.status, expiry_date: dv.expiry_date?.split('T')[0] || '' }); setDvFormError(''); setDvFormSuccess(''); setShowDvForm(true); }}
+                            onClick={() => { setEditingDv(dv); setDvForm({ dv_code: dv.dv_code, dv_type: dv.dv_code.startsWith('GV-') ? 'Gift' : 'Discount', dv_amount: String(dv.dv_amount), status: dv.status, expiry_date: dv.expiry_date?.split('T')[0] || '', created_at: dv.created_at || '' }); setDvFormError(''); setDvFormSuccess(''); setShowDvForm(true); }}
                             className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl hover:bg-[#FDF6EE] transition-colors"
                           >
                             Edit
