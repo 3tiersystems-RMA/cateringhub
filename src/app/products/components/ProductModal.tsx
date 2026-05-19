@@ -135,8 +135,18 @@ export default function ProductModal({ product, onClose, added, onAdd }: Product
           {/* Price block */}
           <div className="flex items-end justify-between gap-4">
             <div>
+              {product.savingPercent && product.savingPercent > 0 ? (
+                <span className="inline-block text-xs font-bold bg-[#1A1612] text-white px-2.5 py-0.5 rounded-md mb-1">
+                  Save {product.savingPercent}%
+                </span>
+              ) : null}
               {(product.price && product.price > 0) ? (
-                <p className="text-3xl font-semibold text-[#1A1612]">R{product.price}</p>
+                <p className="text-3xl font-semibold text-[#1A1612]">
+                  R{product.price}
+                  {product.oldPrice && product.oldPrice > 0 ? (
+                    <span className="ml-2 text-lg font-normal text-[#8C8278] line-through">R{product.oldPrice}</span>
+                  ) : null}
+                </p>
               ) : null}
               <p className="text-xs text-[#B5ADA5] font-mono mt-0.5">{product.unit}</p>
               {product.minOrder && (
