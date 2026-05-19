@@ -135,9 +135,17 @@ export default function ProductCard({ product, onOpenModal }: ProductCardProps) 
         {/* Price + Add */}
         <div className="flex items-center justify-between mt-auto">
           <div>
+            {product.savingPercent && product.savingPercent > 0 ? (
+              <span className="inline-block text-xs font-bold bg-[#1A1612] text-white px-2.5 py-0.5 rounded-md mb-1">
+                Save {product.savingPercent}%
+              </span>
+            ) : null}
             {(product.price && product.price > 0) ? (
               <p className="text-xl font-semibold text-[#1A1612]">
                 R{product.price}
+                {product.oldPrice && product.oldPrice > 0 ? (
+                  <span className="ml-2 text-sm font-normal text-[#8C8278] line-through">R{product.oldPrice}</span>
+                ) : null}
               </p>
             ) : null}
             <p className="text-xs text-[#B5ADA5] font-mono">{product.unit}</p>

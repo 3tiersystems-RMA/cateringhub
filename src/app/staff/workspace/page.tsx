@@ -124,6 +124,8 @@ interface Product {
   sort_order: number;
   package_type: string;
   image_fit?: string;
+  old_price?: number | null;
+  saving_percent?: number | null;
   imageUrl?: string;
 }
 
@@ -321,6 +323,8 @@ const emptyForm = {
   sort_order: 0,
   package_type: 'none',
   image_fit: 'fill',
+  old_price: '',
+  saving_percent: '',
 };
 
 const emptyInviteForm = {
@@ -1641,6 +1645,8 @@ export default function StaffWorkspacePage() {
       sort_order: product.sort_order,
       package_type: product.package_type || 'none',
       image_fit: product.image_fit || 'fill',
+      old_price: product.old_price != null ? String(product.old_price) : '',
+      saving_percent: product.saving_percent != null ? String(product.saving_percent) : '',
     });
     setPendingImageFile(null);
     setPendingImagePreview(product.imageUrl || null);
@@ -1679,6 +1685,8 @@ export default function StaffWorkspacePage() {
       package_type: form.package_type,
       image_path,
       image_fit: form.image_fit || 'fill',
+      old_price: form.old_price ? Number(form.old_price) : null,
+      saving_percent: form.saving_percent ? Number(form.saving_percent) : null,
     };
     let saveError: any = null;
     if (editingProduct) {
@@ -2683,6 +2691,14 @@ export default function StaffWorkspacePage() {
                         <input value={form.badge} onChange={e => setForm(f => ({ ...f, badge: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
                       </div>
                       <div>
+                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Old Price (R) <span className="text-[#8C8278] font-normal">(optional)</span></label>
+                        <input type="number" value={form.old_price} onChange={e => setForm(f => ({ ...f, old_price: e.target.value }))} placeholder="e.g. 250" className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Saving % <span className="text-[#8C8278] font-normal">(optional)</span></label>
+                        <input type="number" value={form.saving_percent} onChange={e => setForm(f => ({ ...f, saving_percent: e.target.value }))} placeholder="e.g. 45" className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                      </div>
+                      <div>
                         <label className="block text-xs font-semibold text-[#5C5347] mb-1">Min Order</label>
                         <input type="number" value={form.min_order} onChange={e => setForm(f => ({ ...f, min_order: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
                       </div>
@@ -2813,6 +2829,14 @@ export default function StaffWorkspacePage() {
                         <div>
                           <label className="block text-xs font-semibold text-[#5C5347] mb-1">Badge</label>
                           <input value={form.badge} onChange={e => setForm(f => ({ ...f, badge: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Old Price (R) <span className="text-[#8C8278] font-normal">(optional)</span></label>
+                          <input type="number" value={form.old_price} onChange={e => setForm(f => ({ ...f, old_price: e.target.value }))} placeholder="e.g. 250" className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Saving % <span className="text-[#8C8278] font-normal">(optional)</span></label>
+                          <input type="number" value={form.saving_percent} onChange={e => setForm(f => ({ ...f, saving_percent: e.target.value }))} placeholder="e.g. 45" className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
                         </div>
                         <div>
                           <label className="block text-xs font-semibold text-[#5C5347] mb-1">Min Order</label>

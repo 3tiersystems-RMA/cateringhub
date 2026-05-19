@@ -19,6 +19,8 @@ export interface CartProduct {
   available: boolean;
   packageType?: string;
   imageFit?: string;
+  oldPrice?: number;
+  savingPercent?: number;
 }
 
 export interface CartItem {

@@ -29,6 +29,8 @@ interface Product {
   available: boolean;
   packageType?: string;
   imageFit?: string;
+  oldPrice?: number;
+  savingPercent?: number;
 }
 
 function CartButton() {
@@ -292,6 +294,8 @@ function ProductsContent() {
               available: p.available,
               packageType: p.package_type || 'none',
               imageFit: p.image_fit || 'fill',
+              oldPrice: p.old_price ?? undefined,
+              savingPercent: p.saving_percent ?? undefined,
             } as Product;
           })
         );
