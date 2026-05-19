@@ -615,6 +615,7 @@ export default function StaffWorkspacePage() {
   const [packageTypes, setPackageTypes] = useState<string[]>([]);
   const [productSearchQuery, setProductSearchQuery] = useState('');
   const [staffProductCategory, setStaffProductCategory] = useState<string>('All');
+  const [oldPriceErrorModal, setOldPriceErrorModal] = useState(false);
   // Categories state
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoriesLoading, setCategoriesLoading] = useState(false);
@@ -1659,6 +1660,10 @@ export default function StaffWorkspacePage() {
   const handleSaveProduct = async () => {
     if (!form.name.trim()) { showProductFormError('Product name is required.'); return; }
     if (!form.price || isNaN(Number(form.price))) { showProductFormError('Valid price is required.'); return; }
+    if (form.old_price && Number(form.old_price) <= Number(form.price)) {
+      setOldPriceErrorModal(true);
+      return;
+    }
     setSaving(true);
     let image_path = editingProduct?.image_path || null;
     if (pendingImageFile) {
@@ -2692,11 +2697,20 @@ export default function StaffWorkspacePage() {
                       </div>
                       <div>
                         <label className="block text-xs font-semibold text-[#5C5347] mb-1">Old Price (R) <span className="text-[#8C8278] font-normal">(optional)</span></label>
-                        <input type="number" value={form.old_price} onChange={e => setForm(f => ({ ...f, old_price: e.target.value }))} placeholder="e.g. 250" className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                        <input type="number" value={form.old_price} onChange={e => {
+                          const oldVal = e.target.value;
+                          const newPrice = Number(form.price);
+                          const oldPrice = Number(oldVal);
+                          let saving = '';
+                          if (oldVal && !isNaN(oldPrice) && oldPrice > 0 && newPrice > 0) {
+                            saving = String(Math.round(((oldPrice - newPrice) / oldPrice) * 100));
+                          }
+                          setForm(f => ({ ...f, old_price: oldVal, saving_percent: saving }));
+                        }} placeholder="e.g. 250" className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
                       </div>
                       <div>
-                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Saving % <span className="text-[#8C8278] font-normal">(optional)</span></label>
-                        <input type="number" value={form.saving_percent} onChange={e => setForm(f => ({ ...f, saving_percent: e.target.value }))} placeholder="e.g. 45" className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Saving % <span className="text-[#8C8278] font-normal">(auto-calculated)</span></label>
+                        <input type="text" readOnly value={form.saving_percent ? `${form.saving_percent}%` : ''} placeholder="Auto-calculated" className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm bg-[#F5F0EB] text-[#5C5347] cursor-not-allowed focus:outline-none" />
                       </div>
                       <div>
                         <label className="block text-xs font-semibold text-[#5C5347] mb-1">Min Order</label>
@@ -2832,11 +2846,20 @@ export default function StaffWorkspacePage() {
                         </div>
                         <div>
                           <label className="block text-xs font-semibold text-[#5C5347] mb-1">Old Price (R) <span className="text-[#8C8278] font-normal">(optional)</span></label>
-                          <input type="number" value={form.old_price} onChange={e => setForm(f => ({ ...f, old_price: e.target.value }))} placeholder="e.g. 250" className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                          <input type="number" value={form.old_price} onChange={e => {
+                            const oldVal = e.target.value;
+                            const newPrice = Number(form.price);
+                            const oldPrice = Number(oldVal);
+                            let saving = '';
+                            if (oldVal && !isNaN(oldPrice) && oldPrice > 0 && newPrice > 0) {
+                              saving = String(Math.round(((oldPrice - newPrice) / oldPrice) * 100));
+                            }
+                            setForm(f => ({ ...f, old_price: oldVal, saving_percent: saving }));
+                          }} placeholder="e.g. 250" className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
                         </div>
                         <div>
-                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Saving % <span className="text-[#8C8278] font-normal">(optional)</span></label>
-                          <input type="number" value={form.saving_percent} onChange={e => setForm(f => ({ ...f, saving_percent: e.target.value }))} placeholder="e.g. 45" className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Saving % <span className="text-[#8C8278] font-normal">(auto-calculated)</span></label>
+                          <input type="text" readOnly value={form.saving_percent ? `${form.saving_percent}%` : ''} placeholder="Auto-calculated" className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm bg-[#F5F0EB] text-[#5C5347] cursor-not-allowed focus:outline-none" />
                         </div>
                         <div>
                           <label className="block text-xs font-semibold text-[#5C5347] mb-1">Min Order</label>
@@ -5377,6 +5400,27 @@ export default function StaffWorkspacePage() {
               </div>
             )}
 
+            {oldPriceErrorModal && (
+              <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50">
+                <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full mx-4 text-center">
+                  <div className="flex items-center justify-center w-14 h-14 rounded-full bg-red-100 mx-auto mb-4">
+                    <svg className="w-7 h-7 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-bold text-[#1A1612] mb-2">Invalid Price Entry</h3>
+                  <p className="text-sm text-[#5C5347] mb-6">
+                    The <strong>Old Price</strong> must be greater than the <strong>New Price</strong> for a saving to apply. Please correct the Old Price before saving.
+                  </p>
+                  <button
+                    onClick={() => setOldPriceErrorModal(false)}
+                    className="w-full bg-[#C4622D] hover:bg-[#A8522A] text-white font-semibold py-2.5 rounded-xl transition-colors"
+                  >
+                    OK, I Understand
+                  </button>
+                </div>
+              </div>
+            )}
           </main>
         </div>
       </div>
