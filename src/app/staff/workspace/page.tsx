@@ -156,6 +156,7 @@ interface HomepageCard {
   price: number | null;
   price_unit: string | null;
   badge_label: string | null;
+  product_link: string | null;
   event_date: string | null;
   guest_count: number | null;
   prep_percentage: number | null;
@@ -3212,6 +3213,19 @@ export default function StaffWorkspacePage() {
                           <div>
                             <label className="block text-xs font-semibold text-[#5C5347] mb-1">Badge Label</label>
                             <input value={cardForm.badge_label || ''} onChange={e => setCardForm(f => ({ ...f, badge_label: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-[#5C5347] mb-1">Product Link <span className="text-[#8C8278] font-normal">(opens product popup when card is clicked)</span></label>
+                            <select
+                              value={cardForm.product_link || ''}
+                              onChange={e => setCardForm(f => ({ ...f, product_link: e.target.value || null }))}
+                              className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+                            >
+                              <option value="">— No product link —</option>
+                              {products.filter(p => p.available).map(p => (
+                                <option key={p.id} value={p.id}>{p.name} (R{p.price} / {p.unit})</option>
+                              ))}
+                            </select>
                           </div>
                           <div className="md:col-span-2">
                             <label className="block text-xs font-semibold text-[#5C5347] mb-2">Card Image</label>
