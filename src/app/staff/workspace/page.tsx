@@ -16,7 +16,7 @@ import CorrespondenceSettings from '@/app/staff/workspace/components/Corresponde
 
 
 type BucketType = 'product-images' | 'event-photos' | 'document-management';
-type WorkspaceTab = 'products' | 'media' | 'media_events' | 'media_products' | 'orders' | 'staff' | 'homepage_cards' | 'categories' | 'weekly_menu' | 'vouchers' | 'discount_vouchers' | 'testimonials' | 'reporting' | 'analytics' | 'social_media' | 'gallery' | 'section_visibility' | 'customer_order_history' | 'correspondence_settings';
+type WorkspaceTab = 'products' | 'media' | 'media_events' | 'media_products' | 'orders' | 'staff' | 'homepage_cards' | 'categories' | 'weekly_menu' | 'vouchers' | 'discount_vouchers' | 'testimonials' | 'reporting' | 'analytics' | 'social_media' | 'gallery' | 'section_visibility' | 'customer_order_history' | 'correspondence_settings' | 'abandoned_carts';
 
 type ProductCategory = string;
 type StaffRole = 'admin' | 'staff' | 'super_admin';
@@ -294,6 +294,17 @@ interface DiscountVouchersReportRow {
   deliveredRaw: string;
   clientName: string;
   clientEmail: string;
+}
+
+interface AbandonedCart {
+  id: string;
+  guest_token: string;
+  items: Array<{ product: { id: string; name: string; price: number; category: string }; quantity: number }>;
+  customer_email: string | null;
+  customer_name: string | null;
+  last_activity_at: string;
+  reminder_sent_at: string | null;
+  created_at: string;
 }
 
 const CARD_TYPE_LABELS: Record<HomepageCard['card_type'], string> = {
@@ -762,6 +773,13 @@ export default function StaffWorkspacePage() {
   const [wsSendingAllReminders, setWsSendingAllReminders] = useState(false);
   const [wsAllReminderResult, setWsAllReminderResult] = useState<{ sent: number; total: number } | null>(null);
   const [wsVoucherPriceMap, setWsVoucherPriceMap] = useState<Record<string, number>>({});
+  // ── Abandoned Carts state ──────────────────────────────────────────────────
+  const [abandonedCarts, setAbandonedCarts] = useState<AbandonedCart[]>([]);
+  const [abandonedCartsLoading, setAbandonedCartsLoading] = useState(false);
+  const [abandonedCartsError, setAbandonedCartsError] = useState('');
+  const [triggeringReminders, setTriggeringReminders] = useState(false);
+  const [reminderResult, setReminderResult] = useState<{ processed: number; results: Array<{ token: string; status: string; email?: string }> } | null>(null);
+  // ── End Abandoned Carts state ──────────────────────────────────────────────
   // ── Customer Order History state ──────────────────────────────────────────
   const [cohLookupInput, setCohLookupInput] = useState('');
   const [cohLookupLoading, setCohLookupLoading] = useState(false);
@@ -1290,6 +1308,39 @@ export default function StaffWorkspacePage() {
     }
     setWsOrdersLoading(false);
   };
+
+  // ── Load Abandoned Carts ───────────────────────────────────────────────────
+  const loadAbandonedCarts = async () => {
+    setAbandonedCartsLoading(true);
+    setAbandonedCartsError('');
+    const { data, error } = await supabase
+      .from('guest_carts')
+      .select('*')
+      .order('last_activity_at', { ascending: false });
+    if (error) {
+      setAbandonedCartsError(error.message);
+    } else {
+      setAbandonedCarts((data || []) as AbandonedCart[]);
+    }
+    setAbandonedCartsLoading(false);
+  };
+
+  const handleTriggerReminders = async () => {
+    setTriggeringReminders(true);
+    setReminderResult(null);
+    try {
+      const res = await fetch('/api/abandoned-cart/trigger', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to trigger reminders');
+      setReminderResult(data);
+      await loadAbandonedCarts();
+    } catch (err: any) {
+      setAbandonedCartsError(err?.message || 'Failed to trigger reminders');
+    } finally {
+      setTriggeringReminders(false);
+    }
+  };
+  // ── End Load Abandoned Carts ───────────────────────────────────────────────
 
   const handleWsSendReminder = async (orderId: string) => {
     setWsReminderSending(prev => ({ ...prev, [orderId]: true }));
@@ -2283,6 +2334,7 @@ export default function StaffWorkspacePage() {
     if (tab === 'analytics') loadAnalytics(analyticsPeriod);
     if (tab === 'gallery') loadGallery();
     if (tab === 'section_visibility') loadHomepageSections();
+    if (tab === 'abandoned_carts') loadAbandonedCarts();
     if (tab === 'customer_order_history') {
       setCohLookupInput('');
       setCohLookupError('');
@@ -2500,6 +2552,17 @@ export default function StaffWorkspacePage() {
               >
                 <span className="text-base">🔍</span>
                 <span>Customer Order History</span>
+              </button>
+
+              {/* ── ABANDONED CARTS TAB */}
+              <button
+                onClick={() => { handleTabChange('abandoned_carts'); }}
+                className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
+                  activeTab === 'abandoned_carts' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
+                }`}
+              >
+                <span className="text-base">🛒</span>
+                <span>Abandoned Carts</span>
               </button>
 
               {/* ── Vouchers (collapsible) ── */}
@@ -4584,6 +4647,159 @@ export default function StaffWorkspacePage() {
                         </div>
                       </div>
                     ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── ABANDONED CARTS TAB */}
+            {activeTab === 'abandoned_carts' && (
+              <div className="p-6">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+                  <div>
+                    <h2 className="text-xl font-bold text-[#1A1612]">Abandoned Carts</h2>
+                    <p className="text-sm text-[#8C8278] mt-0.5">
+                      {abandonedCarts.length} cart{abandonedCarts.length !== 1 ? 's' : ''} saved
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {reminderResult && (
+                      <span className="text-xs font-medium text-green-700 bg-green-50 border border-green-200 px-3 py-1.5 rounded-xl">
+                        ✓ {reminderResult.processed} reminder{reminderResult.processed !== 1 ? 's' : ''} sent
+                      </span>
+                    )}
+                    <button
+                      onClick={handleTriggerReminders}
+                      disabled={triggeringReminders}
+                      className="flex items-center gap-2 px-4 py-2 bg-[#C4622D] text-white rounded-xl text-sm font-medium hover:bg-[#A04E22] transition-colors disabled:opacity-50"
+                    >
+                      {triggeringReminders ? (
+                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                      ) : (
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                      )}
+                      Send Reminders Now
+                    </button>
+                    <button
+                      onClick={loadAbandonedCarts}
+                      disabled={abandonedCartsLoading}
+                      className="flex items-center gap-2 px-4 py-2 bg-white border border-[#DDD5C8] rounded-xl text-sm font-medium text-[#5C5347] hover:bg-[#EDE7DA] transition-colors disabled:opacity-50"
+                    >
+                      <svg className={`w-4 h-4 ${abandonedCartsLoading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      Refresh
+                    </button>
+                  </div>
+                </div>
+
+                {abandonedCartsError && (
+                  <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">{abandonedCartsError}</div>
+                )}
+
+                {/* Info banner */}
+                <div className="mb-5 p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
+                  <svg className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div className="text-sm text-amber-800">
+                    <p className="font-semibold mb-0.5">Automated 1-hour reminder</p>
+                    <p>Customers who have added items to their cart and provided their email will automatically receive a reminder email after 1 hour of inactivity. Use <strong>Send Reminders Now</strong> to trigger immediately.</p>
+                  </div>
+                </div>
+
+                {abandonedCartsLoading ? (
+                  <div className="flex items-center justify-center py-16">
+                    <svg className="animate-spin h-8 w-8 text-[#C4622D]" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                  </div>
+                ) : abandonedCarts.length === 0 ? (
+                  <div className="text-center py-16">
+                    <div className="w-16 h-16 rounded-full bg-[#F5F0E8] flex items-center justify-center mx-auto mb-4">
+                      <span className="text-3xl">🛒</span>
+                    </div>
+                    <h3 className="text-base font-semibold text-[#1A1612] mb-1">No saved carts</h3>
+                    <p className="text-sm text-[#8C8278]">Guest carts will appear here when customers add items without completing checkout.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {abandonedCarts.map((cart) => {
+                      const cartSubtotal = cart.items.reduce((s, i) => s + i.product.price * i.quantity, 0);
+                      const cartTotal = cartSubtotal + (cartSubtotal > 0 ? 15 : 0);
+                      const isAbandoned = new Date(cart.last_activity_at) < new Date(Date.now() - 60 * 60 * 1000);
+                      return (
+                        <div key={cart.id} className="border border-[#DDD5C8] rounded-xl overflow-hidden bg-white">
+                          <div className="px-5 py-4 flex items-start justify-between gap-4 flex-wrap">
+                            <div className="flex items-start gap-3">
+                              <div className="w-10 h-10 rounded-full bg-[#F5F0E8] flex items-center justify-center flex-shrink-0">
+                                <span className="text-lg">🛒</span>
+                              </div>
+                              <div>
+                                <p className="text-sm font-semibold text-[#1A1612]">
+                                  {cart.customer_name || <span className="text-[#B5ADA5] font-normal italic">No name captured</span>}
+                                </p>
+                                <p className="text-xs text-[#8C8278]">
+                                  {cart.customer_email || <span className="italic">No email captured</span>}
+                                </p>
+                                <p className="text-xs text-[#B5ADA5] mt-0.5">
+                                  Last active: {new Date(cart.last_activity_at).toLocaleString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {cart.reminder_sent_at ? (
+                                <span className="text-xs font-medium text-green-700 bg-green-50 border border-green-200 px-2.5 py-1 rounded-full">
+                                  ✓ Reminder sent {new Date(cart.reminder_sent_at).toLocaleDateString('en-ZA', { day: '2-digit', month: 'short' })}
+                                </span>
+                              ) : isAbandoned && cart.customer_email ? (
+                                <span className="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full">
+                                  ⏰ Reminder pending
+                                </span>
+                              ) : isAbandoned ? (
+                                <span className="text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 px-2.5 py-1 rounded-full">
+                                  No email — can't remind
+                                </span>
+                              ) : (
+                                <span className="text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-full">
+                                  Active
+                                </span>
+                              )}
+                              <span className="text-sm font-bold text-[#C4622D]">R {cartTotal.toFixed(2)}</span>
+                            </div>
+                          </div>
+
+                          {cart.items.length > 0 && (
+                            <div className="border-t border-[#F0EBE3] px-5 py-3 bg-[#FAF7F3]">
+                              <p className="text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-2">
+                                {cart.items.length} item{cart.items.length !== 1 ? 's' : ''} in cart
+                              </p>
+                              <div className="space-y-1">
+                                {cart.items.map((item, idx) => (
+                                  <div key={idx} className="flex items-center justify-between text-xs">
+                                    <div className="flex items-center gap-2">
+                                      <span className="w-5 h-5 rounded-full bg-[#EDE7DA] text-[#5C5347] text-xs font-bold flex items-center justify-center flex-shrink-0">
+                                        {item.quantity}
+                                      </span>
+                                      <span className="text-[#1A1612] font-medium">{item.product.name}</span>
+                                      <span className="text-[#B5ADA5]">· {item.product.category}</span>
+                                    </div>
+                                    <span className="font-semibold text-[#1A1612]">R {(item.product.price * item.quantity).toFixed(2)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
