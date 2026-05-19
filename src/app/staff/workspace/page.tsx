@@ -3206,6 +3206,10 @@ export default function StaffWorkspacePage() {
                             <input type="number" value={cardForm.price || ''} onChange={e => setCardForm(f => ({ ...f, price: Number(e.target.value) }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
                           </div>
                           <div>
+                            <label className="block text-xs font-semibold text-[#5C5347] mb-1">Unit <span className="text-[#8C8278] font-normal">(e.g. serving, portion, person)</span></label>
+                            <input value={cardForm.price_unit || ''} onChange={e => setCardForm(f => ({ ...f, price_unit: e.target.value || null }))} placeholder="serving" className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                          </div>
+                          <div>
                             <label className="block text-xs font-semibold text-[#5C5347] mb-1">Badge Label</label>
                             <input value={cardForm.badge_label || ''} onChange={e => setCardForm(f => ({ ...f, badge_label: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
                           </div>
