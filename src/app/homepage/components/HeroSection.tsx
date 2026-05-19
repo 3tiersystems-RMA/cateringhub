@@ -6,7 +6,7 @@ import AppImage from "@/components/ui/AppImage";
 import Icon from "@/components/ui/AppIcon";
 import { createClient } from "@/lib/supabase/client";
 import AnnouncementCard from "./AnnouncementCard";
-import ProductModal from "@/app/products/components/ProductModal";
+import { useCart } from "@/app/products/components/CartContext";
 
 import type { CartProduct } from "@/app/products/components/CartContext";
 
@@ -38,9 +38,7 @@ function HeroSectionInner() {
   const [cards, setCards] = useState<HomepageCard[]>([]);
   const [cardsLoaded, setCardsLoaded] = useState(false);
   const [showViewServices, setShowViewServices] = useState(false);
-  const [specialProduct, setSpecialProduct] = useState<CartProduct | null>(null);
-  const [specialModalOpen, setSpecialModalOpen] = useState(false);
-  const [modalAdded, setModalAdded] = useState(false);
+  const { addItem } = useCart();
 
   useEffect(() => {
     // Trigger reveal animations on mount
@@ -133,10 +131,8 @@ function HeroSectionInner() {
       oldPrice: product.old_price ? Number(product.old_price) : undefined,
       savingPercent: product.saving_percent ? Number(product.saving_percent) : undefined,
     };
-    setSpecialProduct(cartProduct);
-    setModalAdded(false);
-    setSpecialModalOpen(true);
-  }, [cards]);
+    addItem(cartProduct, 1);
+  }, [cards, addItem]);
 
   const specialCard = cards.find((c) => c.card_type === 'todays_special');
   const bookingCard = cards.find((c) => c.card_type === 'next_booking');
@@ -348,16 +344,6 @@ function HeroSectionInner() {
         <p className="text-xs text-white/30 uppercase tracking-widest font-mono">Scroll</p>
         <div className="w-px h-12 bg-gradient-to-b from-white/30 to-transparent" />
       </div>
-
-      {/* Product Modal for Today's Special */}
-      {specialModalOpen && specialProduct && (
-        <ProductModal
-          product={specialProduct}
-          onClose={() => { setSpecialModalOpen(false); setSpecialProduct(null); setModalAdded(false); }}
-          added={modalAdded}
-          onAdd={() => { setModalAdded(true); setTimeout(() => setModalAdded(false), 1800); }}
-        />
-      )}
     </section>
   );
 }
