@@ -114,32 +114,18 @@ export default function ProductCard({ product, onOpenModal }: ProductCardProps) 
             : product.description}
         </p>
 
-        {/* Rating */}
-        <div className="flex items-center gap-1.5 mb-4">
-          <div className="flex gap-0.5">
-            {[...Array(5)].map((_, i) => (
-              <Icon
-                key={i}
-                name="StarIcon"
-                size={11}
-                variant={i < Math.floor(product.rating) ? "solid" : "outline"}
-                className={i < Math.floor(product.rating) ? "text-[#D4A853]" : "text-[#DDD5C8]"}
-              />
-            ))}
-          </div>
-          <span className="text-xs text-[#8C8278]">
-            {product.rating} ({product.reviews})
-          </span>
+        {/* Save Badge (replaces Rating) */}
+        <div className="flex items-center mb-4" style={{minHeight: '20px'}}>
+          {product.savingPercent && product.savingPercent > 0 ? (
+            <span className="inline-block text-xs font-bold bg-[#1A1612] text-white px-2.5 py-0.5 rounded-md">
+              Save {product.savingPercent}%
+            </span>
+          ) : null}
         </div>
 
         {/* Price + Add */}
         <div className="flex items-center justify-between mt-auto">
           <div>
-            {product.savingPercent && product.savingPercent > 0 ? (
-              <span className="inline-block text-xs font-bold bg-[#1A1612] text-white px-2.5 py-0.5 rounded-md mb-1">
-                Save {product.savingPercent}%
-              </span>
-            ) : null}
             {(product.price && product.price > 0) ? (
               <p className="text-xl font-semibold text-[#1A1612]">
                 R{product.price}
