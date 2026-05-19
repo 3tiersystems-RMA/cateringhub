@@ -2098,7 +2098,9 @@ export default function StaffWorkspacePage() {
   const filteredProducts = products.filter(p => {
     const matchesSearch = !productSearchQuery || p.name.toLowerCase().includes(productSearchQuery.toLowerCase()) ||
       p.category.toLowerCase().includes(productSearchQuery.toLowerCase());
-    const matchesCategory = staffProductCategory === 'All' || p.category === staffProductCategory;
+    const matchesCategory = staffProductCategory === 'All' || staffProductCategory === 'Available'
+      ? staffProductCategory === 'Available' ? p.available === true : true
+      : p.category === staffProductCategory;
     return matchesSearch && matchesCategory;
   });
 
@@ -2640,22 +2642,46 @@ export default function StaffWorkspacePage() {
                       const displayCats = desiredOrder.filter(c => available.includes(c));
                       const getCatCount = (cat: string) =>
                         cat === 'All' ? products.length : products.filter(p => p.category === cat).length;
-                      return displayCats.map(cat => (
-                        <button
-                          key={cat}
-                          onClick={() => setStaffProductCategory(cat)}
-                          className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-                            staffProductCategory === cat
-                              ? 'bg-[#C4622D] text-white shadow-sm'
-                              : 'bg-white border border-[#DDD5C8] text-[#5C5347] hover:border-[#C4622D]/40 hover:text-[#C4622D]'
-                          }`}
-                        >
-                          {cat}
-                          <span className={`ml-1.5 text-xs ${staffProductCategory === cat ? 'text-white/70' : 'text-[#B5ADA5]'}`}>
-                            ({getCatCount(cat)})
-                          </span>
-                        </button>
-                      ));
+                      const availableCount = products.filter(p => p.available === true).length;
+                      return (
+                        <>
+                          {displayCats.map(cat => (
+                            <button
+                              key={cat}
+                              onClick={() => setStaffProductCategory(cat)}
+                              className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                                staffProductCategory === cat
+                                  ? 'bg-[#C4622D] text-white shadow-sm'
+                                  : 'bg-white border border-[#DDD5C8] text-[#5C5347] hover:border-[#C4622D]/40 hover:text-[#C4622D]'
+                              }`}
+                            >
+                              {cat}
+                              <span className={`ml-1.5 text-xs ${staffProductCategory === cat ? 'text-white/70' : 'text-[#B5ADA5]'}`}>
+                                ({getCatCount(cat)})
+                              </span>
+                            </button>
+                          )).reduce((acc: React.ReactNode[], btn, idx) => {
+                            acc.push(btn);
+                            if (idx === 0) {
+                              acc.push(
+                                <button
+                                  key="Available"
+                                  onClick={() => setStaffProductCategory('Available')}
+                                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                                    staffProductCategory === 'Available' ?'bg-[#C4622D] text-white shadow-sm' :'bg-white border border-[#DDD5C8] text-[#5C5347] hover:border-[#C4622D]/40 hover:text-[#C4622D]'
+                                  }`}
+                                >
+                                  Available
+                                  <span className={`ml-1.5 text-xs ${staffProductCategory === 'Available' ? 'text-white/70' : 'text-[#B5ADA5]'}`}>
+                                    ({availableCount})
+                                  </span>
+                                </button>
+                              );
+                            }
+                            return acc;
+                          }, [])}
+                        </>
+                      );
                     })()}
                   </div>
                 )}
