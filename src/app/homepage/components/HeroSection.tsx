@@ -76,9 +76,9 @@ export default function HeroSection() {
   const reviewCard = cards.find((c) => c.card_type === 'customer_review');
 
   return (
-    <section className="relative min-h-screen flex items-center overflow-hidden bg-[#1A1612]">
+    <section className="relative min-h-screen flex items-center overflow-hidden bg-[#1A1612]" suppressHydrationWarning>
       {/* Background Image — Ken Burns */}
-      <div className="absolute inset-0 z-0">
+      <div className="absolute inset-0 z-0" suppressHydrationWarning>
         <AppImage
           src="https://img.rocket.new/generatedImages/rocket_gen_img_16632d37b-1772253532353.png"
           alt="Elegant catering spread with beautifully plated dishes and garnishes on a long table"
@@ -93,8 +93,8 @@ export default function HeroSection() {
       <div ref={scanRef} className="hero-scan absolute inset-x-0 h-40 z-10 w-full" />
       {/* Grid overlay */}
       <div className="absolute inset-0 grid-warm opacity-30 z-0" />
-      <div className="relative z-20 max-w-7xl mx-auto px-4 md:px-8 pt-24 pb-16 w-full">
-        <div className="grid lg:grid-cols-12 gap-8 items-center">
+      <div className="relative z-20 max-w-7xl mx-auto px-4 md:px-8 pt-24 pb-16 w-full" suppressHydrationWarning>
+        <div className="grid lg:grid-cols-12 gap-8 items-center" suppressHydrationWarning>
           {/* Left: Content */}
           <div className="lg:col-span-7 space-y-8">
             {/* Badge */}
