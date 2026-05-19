@@ -4,7 +4,7 @@ import { type NextRequest } from 'next/server';
 
 const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL ||
-  'https://cateringhub-rk3rj04.public.builtwithrocket.new';
+  'https://cardamomkitchen.co.za';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
