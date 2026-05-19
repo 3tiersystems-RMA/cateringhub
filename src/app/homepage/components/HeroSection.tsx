@@ -33,6 +33,7 @@ export default function HeroSection() {
   const scanRef = useRef<HTMLDivElement>(null);
   const [cards, setCards] = useState<HomepageCard[]>([]);
   const [cardsLoaded, setCardsLoaded] = useState(false);
+  const [showViewServices, setShowViewServices] = useState(false);
 
   useEffect(() => {
     // Trigger reveal animations on mount
@@ -43,6 +44,23 @@ export default function HeroSection() {
         el?.classList?.remove("hidden-init");
       }, 200 + i * 150);
     });
+  }, []);
+
+  useEffect(() => {
+    const checkServicesVisibility = async () => {
+      try {
+        const supabase = createClient();
+        const { data } = await supabase
+          ?.from('homepage_section_settings')
+          ?.select('is_visible')
+          ?.eq('section_key', 'what_we_do')
+          ?.single();
+        setShowViewServices(data ? data?.is_visible : true);
+      } catch {
+        setShowViewServices(true);
+      }
+    };
+    checkServicesVisibility();
   }, []);
 
   useEffect(() => {
@@ -144,12 +162,14 @@ export default function HeroSection() {
                 Explore Our Menu
                 <Icon name="ArrowRightIcon" size={16} />
               </Link>
-              <a
-                href="#services"
-                className="inline-flex items-center gap-2 border border-white/25 text-white/90 px-8 py-4 rounded-full text-sm font-semibold hover:bg-white/10 transition-all duration-300 backdrop-blur-sm">
-                
-                View Services
-              </a>
+              {showViewServices && (
+                <a
+                  href="#services"
+                  className="inline-flex items-center gap-2 border border-white/25 text-white/90 px-8 py-4 rounded-full text-sm font-semibold hover:bg-white/10 transition-all duration-300 backdrop-blur-sm">
+                  
+                  View Services
+                </a>
+              )}
             </div>
           </div>
 
