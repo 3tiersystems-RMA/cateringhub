@@ -13,6 +13,7 @@ interface CorrespondenceSettingsData {
   comments: string | null;
   info_email: string | null;
   admin_email: string | null;
+  banking_details: string | null;
 }
 
 const defaultSettings: Omit<CorrespondenceSettingsData, 'id'> = {
@@ -24,6 +25,7 @@ const defaultSettings: Omit<CorrespondenceSettingsData, 'id'> = {
   comments: null,
   info_email: null,
   admin_email: null,
+  banking_details: null,
 };
 
 export default function CorrespondenceSettings() {
@@ -64,6 +66,7 @@ export default function CorrespondenceSettings() {
         comments: data.comments || null,
         info_email: data.info_email || null,
         admin_email: data.admin_email || null,
+        banking_details: data.banking_details || null,
       });
     }
     setLoading(false);
@@ -126,6 +129,7 @@ export default function CorrespondenceSettings() {
       comments: form.comments || null,
       info_email: form.info_email || null,
       admin_email: form.admin_email || null,
+      banking_details: form.banking_details || null,
       updated_at: new Date().toISOString(),
     };
 
@@ -343,6 +347,21 @@ export default function CorrespondenceSettings() {
             value={form.comments || ''}
             onChange={e => handleChange('comments', e.target.value)}
             placeholder="e.g. Please ensure payment is made via EFT to the account details provided."
+            className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30 focus:border-[#C4622D] resize-none"
+          />
+        </div>
+
+        {/* Banking Details */}
+        <div>
+          <label className="block text-sm font-semibold text-[#1A1612] mb-1.5">Banking Details</label>
+          <p className="text-xs text-[#8C8278] mb-2">
+            Bank account details shown on payment correspondence (e.g. EFT payment reminders).
+          </p>
+          <textarea
+            rows={4}
+            value={form.banking_details || ''}
+            onChange={e => handleChange('banking_details', e.target.value)}
+            placeholder="e.g. Bank: FNB&#10;Account Name: Cardamom Catering&#10;Account No: 123456789&#10;Branch Code: 250655"
             className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30 focus:border-[#C4622D] resize-none"
           />
         </div>
