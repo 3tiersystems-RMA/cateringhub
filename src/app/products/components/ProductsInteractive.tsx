@@ -7,7 +7,7 @@ import Icon from "@/components/ui/AppIcon";
 import ProductCard from "./ProductCard";
 import CartSidebar from "./CartSidebar";
 import ProductModal from "./ProductModal";
-import { CartProvider, useCart } from "./CartContext";
+import { useCart } from "./CartContext";
 import { createClient } from "@/lib/supabase/client";
 import type { VoucherData } from "./CartContext";
 import VoucherErrorModal from "@/components/ui/VoucherErrorModal";
@@ -607,8 +607,6 @@ function ProductsContent() {
 
 export default function ProductsInteractive() {
   return (
-    <CartProvider>
-      <ProductsContent />
-    </CartProvider>
+    <ProductsContent />
   );
 }
