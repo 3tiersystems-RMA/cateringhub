@@ -5160,7 +5160,7 @@ export default function StaffWorkspacePage() {
                                 </svg>
                               )}
                               {s.platform === 'custom' && (
-                                <img src="/favicon.ico" alt="Site favicon" className="w-4 h-4 object-contain" />
+                                <img src="/assets/images/Luv_Cape_Town-1779196261692.png" alt="Luv Cape Town" className="w-4 h-4 object-contain rounded-full" />
                               )}
                             </div>
                             <input
