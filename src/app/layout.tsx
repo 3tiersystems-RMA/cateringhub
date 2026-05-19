@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from 'next';
 import '../styles/index.css';
 import { AuthProvider } from '@/contexts/AuthContext';
 import ChunkErrorHandler from './ChunkErrorHandler';
+import { CartProvider } from '@/app/products/components/CartContext';
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -38,7 +39,9 @@ export default function RootLayout({
       <body>
         <ChunkErrorHandler />
         <AuthProvider>
-          {children}
+          <CartProvider>
+            {children}
+          </CartProvider>
         </AuthProvider>
       </body>
     </html>

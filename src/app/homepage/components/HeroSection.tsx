@@ -7,7 +7,7 @@ import Icon from "@/components/ui/AppIcon";
 import { createClient } from "@/lib/supabase/client";
 import AnnouncementCard from "./AnnouncementCard";
 import ProductModal from "@/app/products/components/ProductModal";
-import { CartProvider } from "@/app/products/components/CartContext";
+
 import type { CartProduct } from "@/app/products/components/CartContext";
 
 
@@ -363,9 +363,5 @@ function HeroSectionInner() {
 }
 
 export default function HeroSection() {
-  return (
-    <CartProvider>
-      <HeroSectionInner />
-    </CartProvider>
-  );
+  return <HeroSectionInner />;
 }
