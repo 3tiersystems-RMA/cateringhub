@@ -41,7 +41,7 @@ const SOCIAL_ICONS: { platform: string; label: string; Icon: React.FC }[] = [
   { platform: 'twitter',   label: 'X / Twitter', Icon: XIcon },
   { platform: 'instagram', label: 'Instagram', Icon: InstagramIcon },
   { platform: 'custom',    label: APP_NAME,    Icon: () => (
-    <img src="/assets/images/Favicon-1778145940787.jpg" alt={APP_NAME} className="w-4 h-4 object-contain rounded-full" />
+    <img src="/assets/images/Luv_Cape_Town-1779196261692.png" alt="Luv Cape Town" className="w-4 h-4 object-contain rounded-full" />
   )},
 ];
 
