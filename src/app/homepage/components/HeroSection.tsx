@@ -1,11 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 import AppImage from "@/components/ui/AppImage";
 import Icon from "@/components/ui/AppIcon";
 import { createClient } from "@/lib/supabase/client";
 import AnnouncementCard from "./AnnouncementCard";
+import ProductModal from "@/app/products/components/ProductModal";
+import { CartProvider } from "@/app/products/components/CartContext";
+import type { CartProduct } from "@/app/products/components/CartContext";
 
 
 interface HomepageCard {
@@ -17,6 +20,7 @@ interface HomepageCard {
   price: number | null;
   price_unit: string | null;
   badge_label: string | null;
+  product_link: string | null;
   event_date: string | null;
   guest_count: number | null;
   prep_percentage: number | null;
@@ -29,11 +33,14 @@ interface HomepageCard {
   imageUrl?: string | null;
 }
 
-export default function HeroSection() {
+function HeroSectionInner() {
   const scanRef = useRef<HTMLDivElement>(null);
   const [cards, setCards] = useState<HomepageCard[]>([]);
   const [cardsLoaded, setCardsLoaded] = useState(false);
   const [showViewServices, setShowViewServices] = useState(false);
+  const [specialProduct, setSpecialProduct] = useState<CartProduct | null>(null);
+  const [specialModalOpen, setSpecialModalOpen] = useState(false);
+  const [modalAdded, setModalAdded] = useState(false);
 
   useEffect(() => {
     // Trigger reveal animations on mount
@@ -89,9 +96,53 @@ export default function HeroSection() {
     fetchCards();
   }, []);
 
+  const handleSpecialCardClick = useCallback(async () => {
+    const specialCard = cards.find((c) => c.card_type === 'todays_special');
+    if (!specialCard?.product_link) return;
+    const supabase = createClient();
+    const { data: product } = await supabase
+      .from('products')
+      .select('*')
+      .eq('id', specialCard.product_link)
+      .single();
+    if (!product) return;
+    let imageUrl = '';
+    if (product.image_path) {
+      const { data: urlData } = await supabase.storage
+        .from('product-images')
+        .createSignedUrl(product.image_path, 3600);
+      imageUrl = urlData?.signedUrl ?? '';
+    }
+    const cartProduct: CartProduct = {
+      id: product.id,
+      name: product.name,
+      category: product.category,
+      price: Number(product.price),
+      unit: product.unit,
+      image: imageUrl,
+      imageAlt: product.name,
+      tags: product.tags ?? [],
+      rating: 4.8,
+      reviews: 0,
+      description: product.description ?? '',
+      minOrder: product.min_order ?? undefined,
+      badge: product.badge ?? undefined,
+      available: product.available,
+      packageType: product.package_type,
+      imageFit: product.image_fit,
+      oldPrice: product.old_price ? Number(product.old_price) : undefined,
+      savingPercent: product.saving_percent ? Number(product.saving_percent) : undefined,
+    };
+    setSpecialProduct(cartProduct);
+    setModalAdded(false);
+    setSpecialModalOpen(true);
+  }, [cards]);
+
   const specialCard = cards.find((c) => c.card_type === 'todays_special');
   const bookingCard = cards.find((c) => c.card_type === 'next_booking');
   const reviewCard = cards.find((c) => c.card_type === 'customer_review');
+
+  const isSpecialClickable = !!(specialCard?.product_link);
 
   return (
     <section className="relative min-h-screen flex items-center overflow-hidden bg-[#1A1612]" suppressHydrationWarning>
@@ -179,7 +230,14 @@ export default function HeroSection() {
 
               {/* Card 1 — Today's Special */}
               {specialCard &&
-            <div className="float-card w-72 bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-5 shadow-glass">
+            <div
+              className={`float-card w-72 bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-5 shadow-glass transition-all duration-300 group${isSpecialClickable ? ' cursor-pointer hover:border-white/40 hover:bg-white/15' : ''}`}
+              onClick={isSpecialClickable ? handleSpecialCardClick : undefined}
+              role={isSpecialClickable ? 'button' : undefined}
+              tabIndex={isSpecialClickable ? 0 : undefined}
+              onKeyDown={isSpecialClickable ? (e) => { if (e.key === 'Enter' || e.key === ' ') handleSpecialCardClick(); } : undefined}
+              aria-label={isSpecialClickable ? `Open product: ${specialCard.title}` : undefined}
+            >
                   <div className="flex items-center gap-3 mb-3">
                     <div className="w-12 h-12 rounded-2xl overflow-hidden flex-shrink-0">
                       {specialCard.imageUrl ?
@@ -199,10 +257,15 @@ export default function HeroSection() {
                     className="object-cover w-full h-full" />
                   }
                     </div>
-                    <div>
+                    <div className="flex-1 min-w-0">
                       <p className="text-xs font-mono text-[#D97B4A] uppercase tracking-wider">Today&apos;s Special</p>
                       <p className="text-sm font-semibold text-white">{specialCard.title}</p>
                     </div>
+                    {isSpecialClickable && (
+                      <div className="ml-auto w-6 h-6 rounded-full bg-white/10 border border-white/20 flex items-center justify-center group-hover:bg-white/25 transition-all duration-300 flex-shrink-0">
+                        <Icon name="ArrowRightIcon" size={12} className="text-white" />
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-lg font-display font-semibold text-white">
@@ -285,6 +348,24 @@ export default function HeroSection() {
         <p className="text-xs text-white/30 uppercase tracking-widest font-mono">Scroll</p>
         <div className="w-px h-12 bg-gradient-to-b from-white/30 to-transparent" />
       </div>
-    </section>);
 
+      {/* Product Modal for Today's Special */}
+      {specialModalOpen && specialProduct && (
+        <ProductModal
+          product={specialProduct}
+          onClose={() => { setSpecialModalOpen(false); setSpecialProduct(null); setModalAdded(false); }}
+          added={modalAdded}
+          onAdd={() => { setModalAdded(true); setTimeout(() => setModalAdded(false), 1800); }}
+        />
+      )}
+    </section>
+  );
+}
+
+export default function HeroSection() {
+  return (
+    <CartProvider>
+      <HeroSectionInner />
+    </CartProvider>
+  );
 }
