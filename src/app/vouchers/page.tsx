@@ -458,7 +458,7 @@ Purchase a Meal Voucher
                   ) : (
                     <>
                       <Icon name="CheckCircleIcon" size={14} />
-                      I Have Made Payment
+                      Confirm my Voucher Purchase
                     </>
                   )}
                 </button>
@@ -471,7 +471,7 @@ Purchase a Meal Voucher
                   }}
                   className="w-full border border-[#DDD5C8] text-[#5C5347] py-3 rounded-full font-semibold text-sm hover:bg-[#F5F0E8] transition-all"
                 >
-                  Purchase Another Voucher
+                  Cancel Voucher
                 </button>
               </div>
             </div>
