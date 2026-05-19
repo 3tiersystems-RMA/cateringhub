@@ -2,6 +2,7 @@
 
 import Icon from "@/components/ui/AppIcon";
 import type { VoucherData } from "./CartContext";
+import { useCart } from "./CartContext";
 
 interface CartStepDetailsProps {
   form: { name: string; email: string; phone: string; date: string; address: string; notes: string };
@@ -28,6 +29,20 @@ export default function CartStepDetails({
   totalItems,
   onSubmit,
 }: CartStepDetailsProps) {
+  const { captureCustomerInfo } = useCart();
+
+  const handleEmailBlur = () => {
+    if (form.email && form.name) {
+      captureCustomerInfo(form.email, form.name);
+    }
+  };
+
+  const handleNameBlur = () => {
+    if (form.email && form.name) {
+      captureCustomerInfo(form.email, form.name);
+    }
+  };
+
   return (
     <form onSubmit={onSubmit} className="flex-1 flex flex-col overflow-hidden">
       <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
@@ -39,6 +54,7 @@ export default function CartStepDetails({
               required
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
+              onBlur={handleNameBlur}
               placeholder="Jennifer Martinez"
               className="w-full bg-white border border-[#DDD5C8] rounded-xl px-4 py-3 text-sm text-[#1A1612] placeholder-[#B5ADA5] focus:outline-none focus:border-[#C4622D] transition-colors"
             />
@@ -50,6 +66,7 @@ export default function CartStepDetails({
               required
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
+              onBlur={handleEmailBlur}
               placeholder="jennifer@email.com"
               className="w-full bg-white border border-[#DDD5C8] rounded-xl px-4 py-3 text-sm text-[#1A1612] placeholder-[#B5ADA5] focus:outline-none focus:border-[#C4622D] transition-colors"
             />
