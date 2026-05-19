@@ -2675,14 +2675,6 @@ export default function StaffWorkspacePage() {
                           {categoryNames.map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
                       </div>
-                      <div>
-                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Price (R) *</label>
-                        <input type="number" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Unit</label>
-                        <input value={form.unit} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
-                      </div>
                       <div className="md:col-span-2">
                         <label className="block text-xs font-semibold text-[#5C5347] mb-1">Description</label>
                         <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={3} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
@@ -2694,6 +2686,14 @@ export default function StaffWorkspacePage() {
                       <div>
                         <label className="block text-xs font-semibold text-[#5C5347] mb-1">Badge</label>
                         <input value={form.badge} onChange={e => setForm(f => ({ ...f, badge: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Price (R) *</label>
+                        <input type="number" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Unit</label>
+                        <input value={form.unit} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
                       </div>
                       <div>
                         <label className="block text-xs font-semibold text-[#5C5347] mb-1">Old Price (R) <span className="text-[#8C8278] font-normal">(optional)</span></label>
@@ -2824,14 +2824,6 @@ export default function StaffWorkspacePage() {
                             {categoryNames.map(c => <option key={c} value={c}>{c}</option>)}
                           </select>
                         </div>
-                        <div>
-                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Price (R) *</label>
-                          <input type="number" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Unit</label>
-                          <input value={form.unit} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
-                        </div>
                         <div className="md:col-span-2">
                           <label className="block text-xs font-semibold text-[#5C5347] mb-1">Description</label>
                           <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={3} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
@@ -2843,6 +2835,14 @@ export default function StaffWorkspacePage() {
                         <div>
                           <label className="block text-xs font-semibold text-[#5C5347] mb-1">Badge</label>
                           <input value={form.badge} onChange={e => setForm(f => ({ ...f, badge: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Price (R) *</label>
+                          <input type="number" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Unit</label>
+                          <input value={form.unit} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
                         </div>
                         <div>
                           <label className="block text-xs font-semibold text-[#5C5347] mb-1">Old Price (R) <span className="text-[#8C8278] font-normal">(optional)</span></label>
