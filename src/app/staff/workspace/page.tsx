@@ -2309,6 +2309,13 @@ export default function StaffWorkspacePage() {
         onConfirm={handleDeleteOrder}
         onCancel={() => setDeleteOrderId(null)}
       />
+      <DeleteConfirmModal
+        isOpen={deleteModal.open}
+        productName=""
+        message={deleteModal.message}
+        onConfirm={deleteModal.onConfirm}
+        onCancel={() => setDeleteModal(prev => ({ ...prev, open: false }))}
+      />
       {showInactivityWarning && (
         <InactivityWarningModal
           countdown={inactivityCountdown}
