@@ -99,43 +99,70 @@ function HeroSectionInner() {
 
   const handleSpecialCardClick = useCallback(async () => {
     const specialCard = cards.find((c) => c.card_type === 'todays_special');
-    if (!specialCard?.product_link) return;
-    const supabase = createClient();
-    const { data: product } = await supabase
-      .from('products')
-      .select('*')
-      .eq('id', specialCard.product_link)
-      .single();
-    if (!product) return;
-    let imageUrl = '';
-    if (product.image_path) {
-      const { data: urlData } = await supabase.storage
-        .from('product-images')
-        .createSignedUrl(product.image_path, 3600);
-      imageUrl = urlData?.signedUrl ?? '';
+    if (!specialCard) return;
+
+    // If there's a linked product, fetch full product details
+    if (specialCard.product_link) {
+      const supabase = createClient();
+      const { data: product } = await supabase
+        .from('products')
+        .select('*')
+        .eq('id', specialCard.product_link)
+        .single();
+
+      if (product) {
+        let imageUrl = '';
+        if (product.image_path) {
+          const { data: urlData } = await supabase.storage
+            .from('product-images')
+            .createSignedUrl(product.image_path, 3600);
+          imageUrl = urlData?.signedUrl ?? '';
+        }
+        const cartProduct: CartProduct = {
+          id: product.id,
+          name: product.name,
+          category: product.category,
+          price: Number(product.price),
+          unit: product.unit,
+          image: imageUrl,
+          imageAlt: product.name,
+          tags: product.tags ?? [],
+          rating: 4.8,
+          reviews: 0,
+          description: product.description ?? '',
+          minOrder: product.min_order ?? undefined,
+          badge: product.badge ?? undefined,
+          available: product.available,
+          packageType: product.package_type,
+          imageFit: product.image_fit,
+          oldPrice: product.old_price ? Number(product.old_price) : undefined,
+          savingPercent: product.saving_percent ? Number(product.saving_percent) : undefined,
+        };
+        setModalAdded(false);
+        setModalProduct(cartProduct);
+        return;
+      }
     }
-    const cartProduct: CartProduct = {
-      id: product.id,
-      name: product.name,
-      category: product.category,
-      price: Number(product.price),
-      unit: product.unit,
-      image: imageUrl,
-      imageAlt: product.name,
-      tags: product.tags ?? [],
+
+    // Fallback: build a CartProduct from the card's own data
+    const fallbackProduct: CartProduct = {
+      id: specialCard.id,
+      name: specialCard.title,
+      category: "Today's Special",
+      price: specialCard.price ?? 0,
+      unit: specialCard.price_unit ?? '',
+      image: specialCard.imageUrl ?? '',
+      imageAlt: `Today's Special: ${specialCard.title}`,
+      tags: specialCard.badge_label ? [specialCard.badge_label] : [],
       rating: 4.8,
       reviews: 0,
-      description: product.description ?? '',
-      minOrder: product.min_order ?? undefined,
-      badge: product.badge ?? undefined,
-      available: product.available,
-      packageType: product.package_type,
-      imageFit: product.image_fit,
-      oldPrice: product.old_price ? Number(product.old_price) : undefined,
-      savingPercent: product.saving_percent ? Number(product.saving_percent) : undefined,
+      description: specialCard.description ?? specialCard.subtitle ?? '',
+      available: true,
+      packageType: undefined,
+      imageFit: undefined,
     };
     setModalAdded(false);
-    setModalProduct(cartProduct);
+    setModalProduct(fallbackProduct);
   }, [cards]);
 
   const handleModalAdd = useCallback(() => {
@@ -158,7 +185,7 @@ function HeroSectionInner() {
   const bookingCard = cards.find((c) => c.card_type === 'next_booking');
   const reviewCard = cards.find((c) => c.card_type === 'customer_review');
 
-  const isSpecialClickable = !!(specialCard?.product_link);
+  const isSpecialClickable = !!specialCard;
 
   return (
     <section className="relative min-h-screen flex items-center overflow-hidden bg-[#1A1612]" suppressHydrationWarning>
