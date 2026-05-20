@@ -247,7 +247,7 @@ export default function CustomerProfilePage() {
             <div className="bg-[#141414] border border-[#2A2A2A] rounded-2xl p-8">
               {/* Icon */}
               <div className="w-14 h-14 rounded-2xl bg-[#C4622D]/15 border border-[#C4622D]/25 flex items-center justify-center mx-auto mb-5">
-                <AppIcon name="UserCircleIcon" size={28} className="text-[#C4622D]" />
+                <img src="/assets/images/Favicon-1778145940787.jpg" alt="Cardamom Kitchen favicon" className="w-8 h-8 rounded-lg object-cover" />
               </div>
 
               <h1 className="text-2xl font-bold text-white text-center mb-1">
