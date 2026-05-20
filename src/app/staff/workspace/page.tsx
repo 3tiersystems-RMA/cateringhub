@@ -663,6 +663,12 @@ export default function StaffWorkspacePage() {
   const [cardImagePreview, setCardImagePreview] = useState<string | null>(null);
   const [uploadingCardImage, setUploadingCardImage] = useState(false);
   const cardImageRef = useRef<HTMLInputElement>(null);
+  // Ticker Banner state
+  const [tickerBannerText, setTickerBannerText] = useState('Now Accepting 2027 Bookings');
+  const [tickerBannerVisible, setTickerBannerVisible] = useState(false);
+  const [tickerBannerLoading, setTickerBannerLoading] = useState(false);
+  const [tickerBannerSaving, setTickerBannerSaving] = useState(false);
+  const [tickerBannerSuccess, setTickerBannerSuccess] = useState('');
   // Weekly Menu state
   const [weeklyMenuEntries, setWeeklyMenuEntries] = useState<WeeklyMenuEntry[]>([]);
   const [weeklyMenuLoading, setWeeklyMenuLoading] = useState(false);
@@ -1075,6 +1081,40 @@ export default function StaffWorkspacePage() {
     const { data } = await supabase.from('homepage_cards').select('*').order('display_order');
     if (data) setHomepageCards(data);
     setCardsLoading(false);
+  };
+
+  const loadTickerBanner = async () => {
+    setTickerBannerLoading(true);
+    const { data } = await supabase
+      .from('homepage_section_settings')
+      .select('is_visible, banner_text')
+      .eq('section_key', 'ticker_banner')
+      .single();
+    if (data) {
+      setTickerBannerVisible(data.is_visible);
+      if (data.banner_text) setTickerBannerText(data.banner_text);
+    }
+    setTickerBannerLoading(false);
+  };
+
+  const handleSaveTickerBanner = async () => {
+    setTickerBannerSaving(true);
+    await supabase
+      .from('homepage_section_settings')
+      .update({ banner_text: tickerBannerText })
+      .eq('section_key', 'ticker_banner');
+    setTickerBannerSuccess('Banner text saved!');
+    setTickerBannerSaving(false);
+    setTimeout(() => setTickerBannerSuccess(''), 3000);
+  };
+
+  const handleToggleTickerBanner = async () => {
+    const newVisible = !tickerBannerVisible;
+    setTickerBannerVisible(newVisible);
+    await supabase
+      .from('homepage_section_settings')
+      .update({ is_visible: newVisible })
+      .eq('section_key', 'ticker_banner');
   };
 
   const loadWeeklyMenu = async () => {
@@ -2322,7 +2362,7 @@ export default function StaffWorkspacePage() {
   const handleTabChange = (tab: WorkspaceTab) => {
     setActiveTab(tab);
     if (tab === 'staff') loadStaff();
-    if (tab === 'homepage_cards') loadHomepageCards();
+    if (tab === 'homepage_cards') { loadHomepageCards(); loadTickerBanner(); }
     if (tab === 'categories') loadCategories();
     if (tab === 'weekly_menu') loadWeeklyMenu();
     if (tab === 'vouchers') loadMealVouchers();
@@ -3463,6 +3503,46 @@ export default function StaffWorkspacePage() {
                     </div>
                   </div>
                 )}
+
+                {/* ── Ticker Banner Control ── */}
+                <div className="bg-white rounded-2xl border border-[#EDE7DA] p-4 mb-6">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">📢</span>
+                      <div>
+                        <p className="font-semibold text-[#1A1612] text-sm">Ticker Banner</p>
+                        <p className="text-xs text-[#8C8278]">Scrolling announcement shown at the top of the homepage</p>
+                      </div>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ml-1 ${tickerBannerVisible ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                        {tickerBannerLoading ? '…' : tickerBannerVisible ? 'Visible' : 'Hidden'}
+                      </span>
+                    </div>
+                    <button
+                      onClick={handleToggleTickerBanner}
+                      disabled={tickerBannerLoading}
+                      className="text-xs border border-[#DDD5C8] text-[#5C5347] px-3 py-1.5 rounded-xl hover:bg-[#F5F0E8] transition-colors disabled:opacity-50"
+                    >
+                      {tickerBannerVisible ? 'Hide' : 'Show'}
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="text"
+                      value={tickerBannerText}
+                      onChange={e => setTickerBannerText(e.target.value)}
+                      placeholder="e.g. Now Accepting 2027 Bookings"
+                      className="flex-1 border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                    />
+                    <button
+                      onClick={handleSaveTickerBanner}
+                      disabled={tickerBannerSaving}
+                      className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50 whitespace-nowrap"
+                    >
+                      {tickerBannerSaving ? 'Saving…' : 'Save Text'}
+                    </button>
+                  </div>
+                  {tickerBannerSuccess && <p className="text-xs text-green-600 mt-2">{tickerBannerSuccess}</p>}
+                </div>
 
                 {cardsLoading ? (
                   <div className="flex items-center justify-center py-16">
