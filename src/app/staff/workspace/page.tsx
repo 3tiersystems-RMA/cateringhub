@@ -1200,7 +1200,9 @@ export default function StaffWorkspacePage() {
     const { data: sectionData } = await supabase.from('homepage_section_settings').select('*').order('section_key');
     if (sectionData) {
       const sectionOrder: Record<string, number> = { what_we_do: 0, customer_favourites: 1, the_process: 2, testimonials: 3 };
-      const sorted = [...sectionData].sort((a, b) => (sectionOrder[a.section_key] ?? 99) - (sectionOrder[b.section_key] ?? 99));
+      const sorted = [...sectionData]
+        .filter(s => s.section_key !== 'ticker_banner')
+        .sort((a, b) => (sectionOrder[a.section_key] ?? 99) - (sectionOrder[b.section_key] ?? 99));
       setHomepageSections(sorted);
     }
     setHomepageSectionsLoading(false);
