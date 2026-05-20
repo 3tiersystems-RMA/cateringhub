@@ -669,6 +669,7 @@ export default function StaffWorkspacePage() {
   const [tickerBannerLoading, setTickerBannerLoading] = useState(false);
   const [tickerBannerSaving, setTickerBannerSaving] = useState(false);
   const [tickerBannerSuccess, setTickerBannerSuccess] = useState('');
+  const [tickerBannerEditing, setTickerBannerEditing] = useState(false);
   // Weekly Menu state
   const [weeklyMenuEntries, setWeeklyMenuEntries] = useState<WeeklyMenuEntry[]>([]);
   const [weeklyMenuLoading, setWeeklyMenuLoading] = useState(false);
@@ -3504,44 +3505,56 @@ export default function StaffWorkspacePage() {
                   </div>
                 )}
 
-                {/* ── Ticker Banner Control ── */}
+                {/* ── Sticker Banner Control ── */}
                 <div className="bg-white rounded-2xl border border-[#EDE7DA] p-4 mb-6">
-                  <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="text-lg">📢</span>
                       <div>
-                        <p className="font-semibold text-[#1A1612] text-sm">Ticker Banner</p>
+                        <p className="font-semibold text-[#1A1612] text-sm">Sticker Banner</p>
                         <p className="text-xs text-[#8C8278]">Scrolling announcement shown at the top of the homepage</p>
                       </div>
                       <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ml-1 ${tickerBannerVisible ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
                         {tickerBannerLoading ? '…' : tickerBannerVisible ? 'Visible' : 'Hidden'}
                       </span>
                     </div>
-                    <button
-                      onClick={handleToggleTickerBanner}
-                      disabled={tickerBannerLoading}
-                      className="text-xs border border-[#DDD5C8] text-[#5C5347] px-3 py-1.5 rounded-xl hover:bg-[#F5F0E8] transition-colors disabled:opacity-50"
-                    >
-                      {tickerBannerVisible ? 'Hide' : 'Show'}
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={handleToggleTickerBanner}
+                        disabled={tickerBannerLoading}
+                        className="text-xs border border-[#DDD5C8] text-[#5C5347] px-3 py-1.5 rounded-xl hover:bg-[#F5F0E8] transition-colors disabled:opacity-50"
+                      >
+                        {tickerBannerVisible ? 'Hide' : 'Show'}
+                      </button>
+                      <button
+                        onClick={() => setTickerBannerEditing(prev => !prev)}
+                        className="text-xs border border-[#C4622D] text-[#C4622D] px-3 py-1.5 rounded-xl hover:bg-[#FDF3EE] transition-colors"
+                      >
+                        Edit
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="text"
-                      value={tickerBannerText}
-                      onChange={e => setTickerBannerText(e.target.value)}
-                      placeholder="e.g. Now Accepting 2027 Bookings"
-                      className="flex-1 border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
-                    />
-                    <button
-                      onClick={handleSaveTickerBanner}
-                      disabled={tickerBannerSaving}
-                      className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50 whitespace-nowrap"
-                    >
-                      {tickerBannerSaving ? 'Saving…' : 'Save Text'}
-                    </button>
-                  </div>
-                  {tickerBannerSuccess && <p className="text-xs text-green-600 mt-2">{tickerBannerSuccess}</p>}
+                  {tickerBannerEditing && (
+                    <div className="mt-3">
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="text"
+                          value={tickerBannerText}
+                          onChange={e => setTickerBannerText(e.target.value)}
+                          placeholder="e.g. Now Accepting 2027 Bookings"
+                          className="flex-1 border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                        />
+                        <button
+                          onClick={handleSaveTickerBanner}
+                          disabled={tickerBannerSaving}
+                          className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50 whitespace-nowrap"
+                        >
+                          {tickerBannerSaving ? 'Saving…' : 'Save Text'}
+                        </button>
+                      </div>
+                      {tickerBannerSuccess && <p className="text-xs text-green-600 mt-2">{tickerBannerSuccess}</p>}
+                    </div>
+                  )}
                 </div>
 
                 {cardsLoading ? (
