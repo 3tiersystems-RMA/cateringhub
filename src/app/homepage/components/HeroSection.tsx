@@ -7,6 +7,7 @@ import Icon from "@/components/ui/AppIcon";
 import { createClient } from "@/lib/supabase/client";
 import AnnouncementCard from "./AnnouncementCard";
 import { useCart } from "@/app/products/components/CartContext";
+import ProductModal from "@/app/products/components/ProductModal";
 
 import type { CartProduct } from "@/app/products/components/CartContext";
 
@@ -38,7 +39,9 @@ function HeroSectionInner() {
   const [cards, setCards] = useState<HomepageCard[]>([]);
   const [cardsLoaded, setCardsLoaded] = useState(false);
   const [showViewServices, setShowViewServices] = useState(false);
-  const { addItem } = useCart();
+  const [modalProduct, setModalProduct] = useState<CartProduct | null>(null);
+  const [modalAdded, setModalAdded] = useState(false);
+  const { addItem, setIsOpen } = useCart();
 
   useEffect(() => {
     // Trigger reveal animations on mount
@@ -131,8 +134,25 @@ function HeroSectionInner() {
       oldPrice: product.old_price ? Number(product.old_price) : undefined,
       savingPercent: product.saving_percent ? Number(product.saving_percent) : undefined,
     };
-    addItem(cartProduct, 1);
-  }, [cards, addItem]);
+    setModalAdded(false);
+    setModalProduct(cartProduct);
+  }, [cards]);
+
+  const handleModalAdd = useCallback(() => {
+    if (!modalProduct) return;
+    addItem(modalProduct, 1);
+    setModalAdded(true);
+    setTimeout(() => {
+      setModalProduct(null);
+      setModalAdded(false);
+      setIsOpen(true);
+    }, 900);
+  }, [modalProduct, addItem, setIsOpen]);
+
+  const handleModalClose = useCallback(() => {
+    setModalProduct(null);
+    setModalAdded(false);
+  }, []);
 
   const specialCard = cards.find((c) => c.card_type === 'todays_special');
   const bookingCard = cards.find((c) => c.card_type === 'next_booking');
@@ -344,6 +364,14 @@ function HeroSectionInner() {
         <p className="text-xs text-white/30 uppercase tracking-widest font-mono">Scroll</p>
         <div className="w-px h-12 bg-gradient-to-b from-white/30 to-transparent" />
       </div>
+
+      {/* Product Modal for Today's Special */}
+      <ProductModal
+        product={modalProduct}
+        onClose={handleModalClose}
+        added={modalAdded}
+        onAdd={handleModalAdd}
+      />
     </section>
   );
 }
