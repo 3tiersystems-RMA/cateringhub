@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { createClient } from "@/lib/supabase/client";
 import Icon from "@/components/ui/AppIcon";
 
@@ -17,6 +18,11 @@ export default function AnnouncementCard() {
   const [card, setCard] = useState<AnnouncementCard | null>(null);
   const [popupOpen, setPopupOpen] = useState(false);
   const [resolvedImageUrl, setResolvedImageUrl] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     const fetchCard = async () => {
@@ -86,10 +92,10 @@ export default function AnnouncementCard() {
         )}
       </div>
 
-      {/* Popup Modal */}
-      {popupOpen && (
+      {/* Popup Modal — rendered via portal to escape any stacking context */}
+      {mounted && popupOpen && createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
           onClick={() => setPopupOpen(false)}
         >
           <div
@@ -130,7 +136,8 @@ export default function AnnouncementCard() {
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );
