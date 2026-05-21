@@ -648,6 +648,7 @@ export default function StaffWorkspacePage() {
   const [inviting, setInviting] = useState(false);
   const [togglingStaffId, setTogglingStaffId] = useState<string | null>(null);
   const [staffSearchQuery, setStaffSearchQuery] = useState('');
+  const [staffStatusFilter, setStaffStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [sendingResetId, setSendingResetId] = useState<string | null>(null);
   const [resetMessages, setResetMessages] = useState<Record<string, { type: 'success' | 'error'; text: string }>>({});
   const [deletingStaffId, setDeletingStaffId] = useState<string | null>(null);
@@ -2253,10 +2254,15 @@ export default function StaffWorkspacePage() {
     return matchesSearch && matchesCategory;
   });
 
-  const filteredStaff = staffMembers.filter(s =>
-    !staffSearchQuery || s.full_name?.toLowerCase().includes(staffSearchQuery.toLowerCase()) ||
-    s.email?.toLowerCase().includes(staffSearchQuery.toLowerCase())
-  );
+  const filteredStaff = staffMembers.filter(s => {
+    const matchesSearch = !staffSearchQuery || s.full_name?.toLowerCase().includes(staffSearchQuery.toLowerCase()) ||
+      s.email?.toLowerCase().includes(staffSearchQuery.toLowerCase());
+    const matchesStatus =
+      staffStatusFilter === 'all' ? true :
+      staffStatusFilter === 'active' ? s.is_active :
+      !s.is_active;
+    return matchesSearch && matchesStatus;
+  });
 
   const filteredCards = homepageCards.filter(c =>
     !homepageCardSearchQuery || c.title.toLowerCase().includes(homepageCardSearchQuery.toLowerCase())
@@ -3301,7 +3307,33 @@ export default function StaffWorkspacePage() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {staffMembers.map(member => (
+                    <div className="flex items-center gap-2 mb-4">
+                      <button
+                        onClick={() => setStaffStatusFilter('active')}
+                        className={`text-xs px-4 py-1.5 rounded-xl border font-semibold transition-colors ${
+                          staffStatusFilter === 'active' ?'bg-green-600 text-white border-green-600' :'border-green-300 text-green-700 hover:bg-green-50'
+                        }`}
+                      >
+                        Active
+                      </button>
+                      <button
+                        onClick={() => setStaffStatusFilter('inactive')}
+                        className={`text-xs px-4 py-1.5 rounded-xl border font-semibold transition-colors ${
+                          staffStatusFilter === 'inactive' ?'bg-gray-500 text-white border-gray-500' :'border-gray-300 text-gray-600 hover:bg-gray-50'
+                        }`}
+                      >
+                        Inactive
+                      </button>
+                      {staffStatusFilter !== 'all' && (
+                        <button
+                          onClick={() => setStaffStatusFilter('all')}
+                          className="text-xs px-3 py-1.5 rounded-xl border border-[#DDD5C8] text-[#8C8278] hover:bg-[#FAF5EE] font-semibold transition-colors"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                    {filteredStaff.map(member => (
                       <div key={member.id} className="bg-white rounded-2xl border border-[#EDE7DA] p-4 flex items-center justify-between">
                         <div>
                           <p className="font-semibold text-[#1A1612] text-sm">{member.full_name}</p>
