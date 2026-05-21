@@ -1491,7 +1491,7 @@ export default function StaffWorkspacePage() {
         const discountVoucher = null;
 
         for (const item of items) {
-          const isPackage = item.category?.toLowerCase().includes('package') || false;
+          const isPackage = item.category?.toLowerCase().includes('package') || item.category?.toLowerCase().includes('voucher') || (item.package_type && item.package_type !== 'none') || false;
           const isFrozen = item.category?.toLowerCase().includes('frozen') || false;
           if (isPackage) {
             packageRows.push({
