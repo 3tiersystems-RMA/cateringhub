@@ -4804,8 +4804,8 @@ export default function StaffWorkspacePage() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   <div className="text-sm text-amber-800">
-                    <p className="font-semibold mb-0.5">Automated 1-hour reminder</p>
-                    <p>Customers who have added items to their cart and provided their email will automatically receive a reminder email after 1 hour of inactivity. Use <strong>Send Reminders Now</strong> to trigger immediately.</p>
+                    <p className="font-semibold mb-0.5">Manual reminder trigger</p>
+                    <p>Customers who have added items to their cart and provided their email can be sent a reminder at any time. Click <strong>Send Reminders Now</strong> to send reminder emails to all customers with an active abandoned cart.</p>
                   </div>
                 </div>
 
