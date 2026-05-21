@@ -39,6 +39,7 @@ function HeroSectionInner() {
   const [cards, setCards] = useState<HomepageCard[]>([]);
   const [cardsLoaded, setCardsLoaded] = useState(false);
   const [showViewServices, setShowViewServices] = useState(false);
+  const [showHeroBadge, setShowHeroBadge] = useState(true);
   const [modalProduct, setModalProduct] = useState<CartProduct | null>(null);
   const [modalAdded, setModalAdded] = useState(false);
   const { addItem, setIsOpen } = useCart();
@@ -69,6 +70,23 @@ function HeroSectionInner() {
       }
     };
     checkServicesVisibility();
+  }, []);
+
+  useEffect(() => {
+    const checkHeroBadgeVisibility = async () => {
+      try {
+        const supabase = createClient();
+        const { data } = await supabase
+          ?.from('homepage_section_settings')
+          ?.select('is_visible')
+          ?.eq('section_key', 'hero_badge')
+          ?.single();
+        setShowHeroBadge(data ? data?.is_visible : true);
+      } catch {
+        setShowHeroBadge(true);
+      }
+    };
+    checkHeroBadgeVisibility();
   }, []);
 
   useEffect(() => {
@@ -210,12 +228,14 @@ function HeroSectionInner() {
           {/* Left: Content */}
           <div className="lg:col-span-7 space-y-8">
             {/* Badge */}
+            {showHeroBadge && (
             <div className="reveal hidden-init hero-reveal inline-flex items-center gap-2 px-4 py-2 bg-[#C4622D]/15 border border-[#C4622D]/30 rounded-full backdrop-blur-sm">
               <span className="w-1.5 h-1.5 rounded-full bg-[#C4622D] pulse-dot" />
               <span className="text-xs font-semibold tracking-widest uppercase text-[#D97B4A]">
                 Now Accepting 2026 Bookings
               </span>
             </div>
+            )}
 
             {/* Headline */}
             <div className="reveal hidden-init hero-reveal space-y-2">
