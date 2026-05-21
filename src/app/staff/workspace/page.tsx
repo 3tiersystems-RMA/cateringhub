@@ -650,6 +650,9 @@ export default function StaffWorkspacePage() {
   const [staffSearchQuery, setStaffSearchQuery] = useState('');
   const [sendingResetId, setSendingResetId] = useState<string | null>(null);
   const [resetMessages, setResetMessages] = useState<Record<string, { type: 'success' | 'error'; text: string }>>({});
+  const [deletingStaffId, setDeletingStaffId] = useState<string | null>(null);
+  const [deleteConfirmMember, setDeleteConfirmMember] = useState<StaffMember | null>(null);
+  const [deleteActiveMember, setDeleteActiveMember] = useState<StaffMember | null>(null);
   // Homepage cards state
   const [homepageCards, setHomepageCards] = useState<HomepageCard[]>([]);
   const [cardsLoading, setCardsLoading] = useState(false);
@@ -1957,6 +1960,26 @@ export default function StaffWorkspacePage() {
     }
   };
 
+  const handleDeleteStaff = async (member: StaffMember) => {
+    if (member.is_active) {
+      setDeleteActiveMember(member);
+      return;
+    }
+    setDeleteConfirmMember(member);
+  };
+
+  const confirmDeleteStaff = async () => {
+    if (!deleteConfirmMember) return;
+    setDeletingStaffId(deleteConfirmMember.id);
+    setDeleteConfirmMember(null);
+    try {
+      await supabase.from('user_profiles').delete().eq('id', deleteConfirmMember.id);
+      await loadStaff();
+    } finally {
+      setDeletingStaffId(null);
+    }
+  };
+
   // ─── Homepage Cards CRUD ──────────────────────────────────────────────────────
   const openEditCardForm = (card: HomepageCard) => {
     setEditingCard(card);
@@ -2443,6 +2466,52 @@ export default function StaffWorkspacePage() {
         onConfirm={deleteModal.onConfirm}
         onCancel={() => setDeleteModal(prev => ({ ...prev, open: false }))}
       />
+
+      {/* Staff delete — active guard popup */}
+      {deleteActiveMember && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full mx-4">
+            <h3 className="text-base font-bold text-[#1A1612] mb-2">Cannot Delete Active Staff</h3>
+            <p className="text-sm text-[#5C4F3D] mb-5">First deactivate a Staff member before deletion</p>
+            <div className="flex justify-end">
+              <button
+                onClick={() => setDeleteActiveMember(null)}
+                className="px-4 py-2 rounded-xl bg-[#C4622D] text-white text-sm font-semibold hover:bg-[#A8501F] transition-colors"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Staff delete — confirm popup */}
+      {deleteConfirmMember && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full mx-4">
+            <h3 className="text-base font-bold text-[#1A1612] mb-2">Delete Staff Member</h3>
+            <p className="text-sm text-[#5C4F3D] mb-1">
+              Are you sure you want to permanently delete <span className="font-semibold">{deleteConfirmMember.full_name}</span>?
+            </p>
+            <p className="text-xs text-red-500 mb-5">This action cannot be undone.</p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setDeleteConfirmMember(null)}
+                className="px-4 py-2 rounded-xl border border-[#DDD5C8] text-sm font-semibold text-[#5C4F3D] hover:bg-[#F5F0E8] transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeleteStaff}
+                className="px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showInactivityWarning && (
         <InactivityWarningModal
           countdown={inactivityCountdown}
@@ -3271,6 +3340,13 @@ export default function StaffWorkspacePage() {
                               className="text-xs px-3 py-1.5 rounded-xl border border-[#C4622D] text-[#C4622D] hover:bg-[#FDF6EE] font-semibold transition-colors disabled:opacity-50"
                             >
                               {sendingResetId === member.id ? 'Sending…' : 'Reset Password'}
+                            </button>
+                            <button
+                              onClick={() => handleDeleteStaff(member)}
+                              disabled={deletingStaffId === member.id}
+                              className="text-xs px-3 py-1.5 rounded-xl border border-red-400 text-red-600 hover:bg-red-50 font-semibold transition-colors disabled:opacity-50"
+                            >
+                              {deletingStaffId === member.id ? 'Deleting…' : 'Delete'}
                             </button>
                             {resetMessages[member.id]?.text && (
                               <span className={`text-xs ${resetMessages[member.id].type === 'success' ? 'text-green-600' : 'text-red-500'}`}>
