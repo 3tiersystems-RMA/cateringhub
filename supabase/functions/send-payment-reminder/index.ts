@@ -1,4 +1,9 @@
 /// <reference types="https://deno.land/x/deno/cli/tsc/dts/lib.deno.ns.d.ts" />
+/// <reference lib="deno.ns" />
+declare const Deno: {
+  serve: (handler: (req: Request) => Promise<Response>) => void;
+  env: { get: (key: string) => string | undefined };
+};
 Deno.serve(async (req) => {
   // ✅ CORS preflight
   if (req.method === "OPTIONS") {
@@ -26,6 +31,7 @@ Deno.serve(async (req) => {
       salesRepresentative,
       officeNumber,
       comments,
+      bankingDetails,
       // CC addresses (array of email strings)
       ccEmails,
     } = await req.json();
@@ -98,6 +104,45 @@ Deno.serve(async (req) => {
     // Only render the sales rep / office block row if at least one has a value
     const contactBlockHtml = (hasValue(salesRepresentative) || hasValue(officeNumber))
       ? `${salesRepHtml}${officeNumberHtml}`
+      : "";
+
+    // Banking details — render each line as its own block for clear line-by-line display
+    const bankingDetailsHtml = hasValue(bankingDetails)
+      ? (() => {
+          const lines = bankingDetails
+            .split("\n")
+            .map((line: string) => line.trim())
+            .filter((line: string) => line.length > 0);
+
+          const linesHtml = lines
+            .map((line: string) => {
+              // Split on first colon to bold the label
+              const colonIdx = line.indexOf(":");
+              if (colonIdx > -1) {
+                const label = line.substring(0, colonIdx).trim();
+                const value = line.substring(colonIdx + 1).trim();
+                return `<p style="margin: 0 0 6px 0; font-size: 14px; color: #333; font-family: monospace;"><strong>${label}:</strong> ${value}</p>`;
+              }
+              return `<p style="margin: 0 0 6px 0; font-size: 14px; color: #333; font-family: monospace;">${line}</p>`;
+            })
+            .join("");
+
+          return `<tr>
+            <td style="background-color: #f9f9f9; padding: 16px 32px; border-top: 1px solid #e0e0e0;">
+              <p style="margin: 0 0 10px 0; color: #555; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Bank Details</p>
+              <table width="100%" cellpadding="0" cellspacing="0" style="border: 1px solid #e0e0e0; border-radius: 4px; overflow: hidden;">
+                <tr>
+                  <td style="padding: 14px 16px; background-color: #ffffff;">
+                    ${linesHtml}
+                    <p style="margin: 10px 0 0 0; font-size: 12px; color: #7a5c00; background-color: #fff8e1; border: 1px solid #ffe082; border-radius: 3px; padding: 8px 10px;">
+                      ⚠️ Please use your <strong>Order Reference</strong> as the payment reference.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>`;
+        })()
       : "";
 
     const emailHtml = `
@@ -195,6 +240,9 @@ Deno.serve(async (req) => {
           <!-- Terms & Conditions (only shown when terms_and_conditions is set) -->
           ${termsHtml}
 
+          <!-- Bank Details (only shown when banking_details is set) -->
+          ${bankingDetailsHtml}
+
           <!-- Footer -->
           <tr>
             <td style="background-color: #f5f5f5; padding: 16px 32px; border-top: 1px solid #e0e0e0; text-align: center;">
@@ -248,7 +296,7 @@ Deno.serve(async (req) => {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return new Response(JSON.stringify({ error: message }), {
+    return new Response(JSON.stringify({ success: false, error: message }), {
       status: 500,
       headers: {
         "Content-Type": "application/json",
