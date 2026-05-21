@@ -1,4 +1,10 @@
 /// <reference types="https://deno.land/x/deno/cli/tsc/dts/lib.deno.ns.d.ts" />
+declare const Deno: {
+  serve: (handler: (req: Request) => Promise<Response>) => void;
+  env: {
+    get: (key: string) => string | undefined;
+  };
+};
 Deno.serve(async (req) => {
   // ✅ CORS preflight
   if (req.method === "OPTIONS") {
@@ -28,6 +34,8 @@ Deno.serve(async (req) => {
       comments,
       // CC addresses (array of email strings)
       ccEmails,
+      // Banking details (free-text from correspondence settings)
+      bankingDetails,
     } = await req.json();
 
     const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
@@ -91,6 +99,30 @@ Deno.serve(async (req) => {
           <td style="background-color: #f9f9f9; padding: 16px 32px; border-top: 1px solid #e0e0e0;">
             <p style="margin: 0 0 6px 0; color: #555; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Terms &amp; Conditions</p>
             <p style="margin: 0; color: #888; font-size: 12px; line-height: 1.6; white-space: pre-line;">${termsAndConditions}</p>
+          </td>
+        </tr>`
+      : "";
+
+    const bankingDetailsHtml = hasValue(bankingDetails)
+      ? `<tr>
+          <td style="background-color: #fff8f4; padding: 16px 32px; border-top: 1px solid #e0e0e0;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="border: 1px solid #ddd5c8; border-radius: 8px; overflow: hidden; background-color: #ffffff;">
+              <tr>
+                <td style="padding: 10px 14px; border-bottom: 1px solid #ede7da;">
+                  <p style="margin: 0; font-size: 11px; font-weight: 700; color: #5c5347; text-transform: uppercase; letter-spacing: 0.6px;">&#127968; Bank Details</p>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 12px 14px;">
+                  <p style="margin: 0; color: #444; font-size: 13px; line-height: 1.8; white-space: pre-line; font-family: monospace;">${bankingDetails}</p>
+                </td>
+              </tr>
+              <tr>
+                <td style="background-color: #f5f0e8; padding: 8px 14px; border-top: 1px solid #ede7da;">
+                  <p style="margin: 0; color: #8c8278; font-size: 11px; line-height: 1.5;">&#9888;&#65039; Use your order reference as the payment reference. Your order will be confirmed once payment is received.</p>
+                </td>
+              </tr>
+            </table>
           </td>
         </tr>`
       : "";
@@ -194,6 +226,9 @@ Deno.serve(async (req) => {
 
           <!-- Terms & Conditions (only shown when terms_and_conditions is set) -->
           ${termsHtml}
+
+          <!-- Banking Details (only shown when banking_details is set) -->
+          ${bankingDetailsHtml}
 
           <!-- Footer -->
           <tr>
