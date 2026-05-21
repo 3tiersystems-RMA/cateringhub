@@ -1,12 +1,5 @@
-declare const Deno: {
-  env: {
-    get(key: string): string | undefined;
-  };
-};
-
-import { serve } from "https://deno.land/std@0.192.0/http/server.ts";
-
-serve(async (req) => {
+/// <reference types="https://deno.land/x/deno/cli/tsc/dts/lib.deno.ns.d.ts" />
+Deno.serve(async (req) => {
   // ✅ CORS preflight
   if (req.method === "OPTIONS") {
     return new Response("ok", {
