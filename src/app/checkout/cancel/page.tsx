@@ -6,15 +6,12 @@ import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import Icon from "@/components/ui/AppIcon";
+import { parseCheckoutReturnParams } from "@/lib/checkout-return";
 
 function CancelContent() {
   const searchParams = useSearchParams();
-  // PayFast returns m_payment_id on cancel; fallback to order_id
-  const orderId =
-    searchParams?.get("m_payment_id") ||
-    searchParams?.get("order_id") ||
-    "";
-  const isPayFast = !!searchParams?.get("m_payment_id");
+  const { orderId, isPayFastReturn: isPayFast } =
+    parseCheckoutReturnParams(searchParams);
 
   return (
     <main className="pt-20 min-h-screen bg-[#F5F0E8] flex items-center justify-center px-4">

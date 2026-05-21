@@ -1,34 +1,67 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import Icon from "@/components/ui/AppIcon";
+import {
+  formatPaymentMethodLabel,
+  parseCheckoutReturnParams,
+} from "@/lib/checkout-return";
 
 function SuccessContent() {
   const searchParams = useSearchParams();
-  // PayFast returns m_payment_id; fallback to order_id for EFT
-  const orderId =
-    searchParams?.get("m_payment_id") ||
-    searchParams?.get("order_id") ||
-    "";
+  const { orderId, isPayFastReturn, paymentStatus } =
+    parseCheckoutReturnParams(searchParams);
 
-  // PayFast passes payment_status in the return URL query string
-  const paymentStatus = searchParams?.get("payment_status") || "";
-  const isPayFast = !!searchParams?.get("m_payment_id");
+  const [paymentMethodLabel, setPaymentMethodLabel] = useState<string | null>(
+    null
+  );
+
+  useEffect(() => {
+    if (isPayFastReturn) {
+      setPaymentMethodLabel("PayFast");
+      return;
+    }
+
+    if (!orderId) {
+      setPaymentMethodLabel("EFT");
+      return;
+    }
+
+    let cancelled = false;
+    fetch(`/api/orders/by-reference?ref=${encodeURIComponent(orderId)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (cancelled) return;
+        if (data?.payment_method) {
+          setPaymentMethodLabel(formatPaymentMethodLabel(data.payment_method));
+        } else {
+          setPaymentMethodLabel("EFT");
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setPaymentMethodLabel("EFT");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [orderId, isPayFastReturn]);
+
+  const displayMethod = paymentMethodLabel ?? (isPayFastReturn ? "PayFast" : "EFT");
+  const showPayFastNote = isPayFastReturn || displayMethod === "PayFast";
 
   return (
     <main className="pt-20 min-h-screen bg-[#F5F0E8] flex items-center justify-center px-4">
       <div className="max-w-md w-full">
         <div className="bg-white rounded-3xl shadow-xl p-8 text-center space-y-6">
-          {/* Success Icon */}
           <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mx-auto">
             <Icon name="CheckIcon" size={40} className="text-green-600" />
           </div>
 
-          {/* Heading */}
           <div>
             <h1 className="font-display text-2xl font-semibold text-[#1A1612] mb-2">
               Payment Successful!
@@ -39,7 +72,6 @@ function SuccessContent() {
             </p>
           </div>
 
-          {/* Order Details */}
           <div className="bg-[#F5F0E8] rounded-2xl p-5 text-left space-y-3">
             {orderId && (
               <div className="flex justify-between items-center">
@@ -59,28 +91,30 @@ function SuccessContent() {
             <div className="flex justify-between items-center">
               <span className="text-sm text-[#8C8278]">Payment Method</span>
               <span className="text-sm font-semibold text-[#1A1612]">
-                {isPayFast ? "PayFast" : "EFT"}
+                {displayMethod}
               </span>
             </div>
           </div>
 
-          {/* PayFast note */}
-          {isPayFast && (
+          {showPayFastNote && (
             <div className="flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-xl p-4 text-left">
-              <Icon name="InformationCircleIcon" size={16} className="text-blue-500 flex-shrink-0 mt-0.5" />
+              <Icon
+                name="InformationCircleIcon"
+                size={16}
+                className="text-blue-500 flex-shrink-0 mt-0.5"
+              />
               <p className="text-xs text-blue-700 leading-relaxed">
-                Your payment is being processed by PayFast. You will receive a confirmation email once the payment is verified.
+                Your payment is being processed by PayFast. You will receive a
+                confirmation email once the payment is verified.
               </p>
             </div>
           )}
 
-          {/* Security Badge */}
           <div className="flex items-center justify-center gap-2 text-xs text-[#B5ADA5]">
             <Icon name="ShieldCheckIcon" size={14} className="text-green-500" />
             <span>Secure Payment · PCI DSS Compliant</span>
           </div>
 
-          {/* Actions */}
           <div className="space-y-3">
             <Link
               href="/products"
