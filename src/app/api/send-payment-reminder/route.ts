@@ -121,6 +121,11 @@ export async function POST(req: NextRequest) {
           results.push({ orderId: order.id, email: order.customer_email, success: false, error: data.error });
         } else {
           results.push({ orderId: order.id, email: order.customer_email, success: true });
+          // Record the date this reminder was sent on the order
+          await supabase
+            .from('orders')
+            .update({ last_reminder_sent_at: new Date().toISOString() })
+            .eq('id', order.id);
         }
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Unknown error';

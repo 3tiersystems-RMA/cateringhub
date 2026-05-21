@@ -52,6 +52,7 @@ interface Order {
   created_at: string;
   updated_at: string;
   delivered_date?: string | null;
+  last_reminder_sent_at?: string | null;
 }
 
 interface OrderUpdateState {
@@ -850,6 +851,23 @@ export default function StaffWorkspacePage() {
       return `${day}/${month}/${year}`;
     } catch {
       return dateStr;
+    }
+  };
+
+  // Formats reminder date as "Day dd/mm/yyyy" e.g. "Thur 21/05/2026"
+  const formatReminderDate = (dateStr: string | null | undefined, paymentStatus: string): string => {
+    if (paymentStatus === 'paid') return 'N/A - Paid';
+    if (!dateStr) return 'No reminder sent';
+    try {
+      const d = new Date(dateStr);
+      const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thur', 'Fri', 'Sat'];
+      const dayName = dayNames[d.getDay()];
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      return `${dayName} ${day}/${month}/${year}`;
+    } catch {
+      return 'No reminder sent';
     }
   };
 
@@ -4493,6 +4511,17 @@ export default function StaffWorkspacePage() {
                                     <span>Delivered on {formatDate(order.delivered_date)}</span>
                                   </div>
                                 )}
+                                {/* Last reminder sent */}
+                                <div className="flex items-center gap-2 text-xs mt-1">
+                                  <svg className="w-3.5 h-3.5 flex-shrink-0 text-[#8C8278]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
+                                  <span className={`font-medium ${
+                                    order.payment_status === 'paid' ?'text-[#8C8278]'
+                                      : order.last_reminder_sent_at
+                                      ? 'text-amber-700' :'text-[#8C8278]'
+                                  }`}>
+                                    Last reminder: {formatReminderDate(order.last_reminder_sent_at, order.payment_status)}
+                                  </span>
+                                </div>
                               </div>
                             </div>
                           )}
