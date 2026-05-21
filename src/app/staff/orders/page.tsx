@@ -7,7 +7,7 @@ import AppLogo from '@/components/ui/AppLogo';
 import AppIcon from '@/components/ui/AppIcon';
 import Link from 'next/link';
 
-type PaymentStatus = 'pending' | 'paid' | 'failed' | 'awaiting_payment' | 'refunded' | 'discounted';
+type PaymentStatus = 'pending' | 'paid' | 'failed' | 'awaiting_payment' | 'refunded' | 'discounted' | 'unpaid';
 type FulfillmentStatus = 'new' | 'confirmed' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
 
 interface OrderItem {
@@ -55,6 +55,7 @@ const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
   awaiting_payment: 'Awaiting Payment',
   refunded: 'Refunded',
   discounted: 'Discounted',
+  unpaid: 'Unpaid',
 };
 
 const PAYMENT_STATUS_COLORS: Record<PaymentStatus, string> = {
@@ -64,6 +65,7 @@ const PAYMENT_STATUS_COLORS: Record<PaymentStatus, string> = {
   awaiting_payment: 'bg-blue-100 text-blue-700 border-blue-200',
   refunded: 'bg-gray-100 text-gray-600 border-gray-200',
   discounted: 'bg-purple-100 text-purple-700 border-purple-200',
+  unpaid: 'bg-red-100 text-red-700 border-red-200',
 };
 
 const FULFILLMENT_STATUS_LABELS: Record<FulfillmentStatus, string> = {
@@ -85,7 +87,7 @@ const FULFILLMENT_STATUS_COLORS: Record<FulfillmentStatus, string> = {
 };
 
 const FULFILLMENT_OPTIONS: FulfillmentStatus[] = ['new', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled'];
-const PAYMENT_OPTIONS: PaymentStatus[] = ['awaiting_payment', 'paid', 'refunded', 'pending', 'failed', 'discounted'];
+const PAYMENT_OPTIONS: PaymentStatus[] = ['awaiting_payment', 'paid', 'refunded', 'pending', 'failed', 'discounted', 'unpaid'];
 
 export default function StaffOrdersPage() {
   const router = useRouter();
@@ -188,7 +190,7 @@ export default function StaffOrdersPage() {
         .from('orders')
         .select('payment_status');
       // Start with the full known list (including 'discounted')
-      const allStatuses: PaymentStatus[] = ['awaiting_payment', 'paid', 'refunded', 'pending', 'failed', 'discounted'];
+      const allStatuses: PaymentStatus[] = ['awaiting_payment', 'paid', 'refunded', 'pending', 'failed', 'discounted', 'unpaid'];
       if (ordersData) {
         // Append any future enum values found in DB that aren't in our list
         ordersData.forEach((o) => {
@@ -356,7 +358,7 @@ export default function StaffOrdersPage() {
         body: JSON.stringify({}),
       });
       const data = await res.json();
-      const outstandingCount = orders.filter((o) => o.payment_status === 'awaiting_payment').length;
+      const outstandingCount = orders.filter((o) => o.payment_status === 'unpaid').length;
       setAllReminderResult({ sent: data.sent ?? 0, total: outstandingCount });
       setTimeout(() => setAllReminderResult(null), 5000);
     } catch {
@@ -445,7 +447,7 @@ export default function StaffOrdersPage() {
           </div>
           <div className="flex items-center gap-2">
             {/* Send All Reminders */}
-            {orders.some((o) => o.payment_status === 'awaiting_payment') && (
+            {orders.some((o) => o.payment_status === 'unpaid') && (
               <button
                 onClick={handleSendAllReminders}
                 disabled={sendingAllReminders}
@@ -817,8 +819,8 @@ export default function StaffOrdersPage() {
                                   </div>
                                 )}
                               </div>
-                              {/* Send Payment Reminder — only for awaiting_payment orders */}
-                              {order.payment_status === 'awaiting_payment' && (
+                              {/* Send Payment Reminder — only for unpaid orders */}
+                              {order.payment_status === 'unpaid' && (
                                 <div className="pt-3 border-t border-[#EDE7DA]">
                                   <button
                                     onClick={(e) => { e.stopPropagation(); handleSendReminder(order.id); }}

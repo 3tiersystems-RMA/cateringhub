@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
     let query = supabase
       .from('orders')
       .select('id, customer_name, customer_email, total, created_at, items, payment_status')
-      .eq('payment_status', 'awaiting_payment');
+      .eq('payment_status', 'unpaid');
 
     if (orderId) {
       query = query.eq('id', orderId);
