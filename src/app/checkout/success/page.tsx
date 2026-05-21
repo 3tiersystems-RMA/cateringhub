@@ -32,17 +32,14 @@ function SuccessContent() {
     }
 
     let cancelled = false;
-    fetch(`/api/orders/by-reference?ref=${encodeURIComponent(orderId)}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
+    fetch(`/api/orders/by-reference?ref=${encodeURIComponent(orderId)}`)?.then((r) => (r?.ok ? r?.json() : null))?.then((data) => {
         if (cancelled) return;
         if (data?.payment_method) {
-          setPaymentMethodLabel(formatPaymentMethodLabel(data.payment_method));
+          setPaymentMethodLabel(formatPaymentMethodLabel(data?.payment_method));
         } else {
           setPaymentMethodLabel("EFT");
         }
-      })
-      .catch(() => {
+      })?.catch(() => {
         if (!cancelled) setPaymentMethodLabel("EFT");
       });
 

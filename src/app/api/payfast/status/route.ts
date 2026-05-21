@@ -10,16 +10,16 @@ import {
 
 /** GET — verify PayFast config loaded on server (no secrets). */
 export async function GET() {
-  const id = pfConfig.merchantId;
+  const id = pfConfig?.merchantId;
   const siteBase = getPayFastBaseUrl();
   const itnBase = getPayFastItnBaseUrl(siteBase);
 
-  return NextResponse.json({
+  return NextResponse?.json({
     env: PAYFAST_MODE,
     isSandbox: IS_TEST,
     gatewayUrl: PAYFAST_GATEWAY_URL,
-    merchantIdMasked: id.length > 4 ? `***${id.slice(-4)}` : "****",
-    passphraseConfigured: Boolean(pfConfig.passphrase),
+    merchantIdMasked: id?.length > 4 ? `***${id?.slice(-4)}` : "****",
+    passphraseConfigured: Boolean(pfConfig?.passphrase),
     merchantEmailGuardConfigured: Boolean(process.env.PAYFAST_MERCHANT_EMAIL?.trim()),
     siteUrlConfigured: Boolean(process.env.NEXT_PUBLIC_SITE_URL?.trim()),
     returnUrl: `${siteBase}/checkout/success`,

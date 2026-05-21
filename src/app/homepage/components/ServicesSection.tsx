@@ -29,7 +29,7 @@ const services = [
   description:
   "Chef-crafted meals portioned for your household, delivered every Sunday. Eat well without the effort.",
   image:
-  "https://img.rocket.new/generatedImages/rocket_gen_img_126780fad-1767071716470.png",
+  "https://img.rocket.new/generatedImages/rocket_gen_img_1be60ee83-1767672039305.png",
   imageAlt: "Neatly arranged meal prep containers with colorful healthy food",
   badge: "New",
   badgeColor: "bg-[#D4A853] text-[#1A1612]",
