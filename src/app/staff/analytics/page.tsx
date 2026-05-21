@@ -151,7 +151,7 @@ export default function StaffAnalyticsPage() {
       // Fetch orders in range
       const { data: orders, error: ordersErr } = await supabase
         .from('orders')
-        .select('id, total, payment_status, fulfillment_status, created_at')
+        .select('id, total, subtotal, delivery_fee, notes, payment_status, fulfillment_status, created_at')
         .gte('created_at', fromISO)
         .lte('created_at', toISO)
         .order('created_at', { ascending: true });
@@ -192,7 +192,12 @@ export default function StaffAnalyticsPage() {
         const label = bucketFn(new Date(o.created_at));
         if (orderMap[label] !== undefined) {
           orderMap[label].orders += 1;
-          orderMap[label].revenue += Number(o.total) || 0;
+          const subtotal = Number(o.subtotal) || 0;
+          const delivery = Number(o.delivery_fee) || 0;
+          const discountMatch = o.notes?.match(/Discount Voucher:.*?\(R([\d.]+)\s*credit\)/i);
+          const discount = discountMatch ? parseFloat(discountMatch[1]) : 0;
+          const calculated = subtotal + delivery - discount;
+          orderMap[label].revenue += calculated > 0 ? calculated : (Number(o.total) || 0);
         }
       });
 
@@ -231,7 +236,14 @@ export default function StaffAnalyticsPage() {
 
       // Summary metrics
       const totalOrders = (orders || []).length;
-      const totalRevenue = (orders || []).reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+      const totalRevenue = (orders || []).reduce((sum, o) => {
+        const subtotal = Number(o.subtotal) || 0;
+        const delivery = Number(o.delivery_fee) || 0;
+        const discountMatch = o.notes?.match(/Discount Voucher:.*?\(R([\d.]+)\s*credit\)/i);
+        const discount = discountMatch ? parseFloat(discountMatch[1]) : 0;
+        const calculated = subtotal + delivery - discount;
+        return sum + (calculated > 0 ? calculated : (Number(o.total) || 0));
+      }, 0);
       const paidOrders = (orders || []).filter(o => o.payment_status === 'paid' || o.payment_status === 'discounted').length;
       const deliveredOrders = (orders || []).filter(o => o.fulfillment_status === 'delivered').length;
       const totalMealRedemptions = (redemptions || []).length;
