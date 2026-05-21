@@ -4,20 +4,29 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 export default function MarqueeBanner() {
-  const [isVisible, setIsVisible] = useState(false);
+  const [isVisible, setIsVisible] = useState<boolean>(false);
   const [bannerText, setBannerText] = useState("Now Accepting 2027 Bookings");
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
-    supabase?.from("homepage_section_settings")?.select("is_visible, banner_text")?.eq("section_key", "ticker_banner")?.single()?.then(({ data }) => {
-        if (data) {
-          setIsVisible(data?.is_visible);
+    supabase
+      ?.from("homepage_section_settings")
+      ?.select("is_visible, banner_text")
+      ?.eq("section_key", "ticker_banner")
+      ?.single()
+      ?.then(({ data, error }) => {
+        if (!error && data) {
+          // Only show when is_visible is explicitly true — never default to showing
+          setIsVisible(data?.is_visible === true);
           if (data?.banner_text) setBannerText(data?.banner_text);
         }
+        setLoaded(true);
       });
   }, []);
 
-  if (!isVisible) return null;
+  // Don't render anything until DB value is confirmed
+  if (!loaded || !isVisible) return null;
 
   const items = Array(8)?.fill(bannerText);
 
