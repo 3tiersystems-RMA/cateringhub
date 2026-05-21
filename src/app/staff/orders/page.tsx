@@ -616,8 +616,8 @@ export default function StaffOrdersPage() {
                           <select
                             value={order.payment_status}
                             onChange={(e) => handlePaymentUpdate(order.id, e.target.value as PaymentStatus)}
-                            disabled={updateState.paymentSaving}
-                            className={`text-xs font-semibold border rounded-full px-2.5 py-1 focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30 transition-colors cursor-pointer disabled:opacity-50 ${PAYMENT_STATUS_COLORS[order.payment_status]}`}
+                            disabled={updateState.paymentSaving || order.payment_status === 'paid' || order.payment_status === 'refunded'}
+                            className={`text-xs font-semibold border rounded-full px-2.5 py-1 focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${PAYMENT_STATUS_COLORS[order.payment_status]}`}
                           >
                             {PAYMENT_OPTIONS.map((s) => (
                               <option key={s} value={s}>{PAYMENT_STATUS_LABELS[s]}</option>
@@ -644,12 +644,12 @@ export default function StaffOrdersPage() {
                       {/* Fulfillment Status — editable dropdown */}
                       <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                         <div className="flex flex-col items-start gap-0.5">
-                          {order.fulfillment_status === 'delivered' && !isSuperAdmin ? (
+                          {(order.fulfillment_status === 'delivered' || order.fulfillment_status === 'cancelled') ? (
                             <div className="flex items-center gap-1.5">
-                              <span className={`text-xs font-semibold border rounded-full px-2.5 py-1 ${FULFILLMENT_STATUS_COLORS['delivered']}`}>
-                                Delivered
+                              <span className={`text-xs font-semibold border rounded-full px-2.5 py-1 ${FULFILLMENT_STATUS_COLORS[order.fulfillment_status]}`}>
+                                {FULFILLMENT_STATUS_LABELS[order.fulfillment_status]}
                               </span>
-                              <span title="Only Super Admin can change a Delivered order's fulfillment status">
+                              <span title={`Order is ${FULFILLMENT_STATUS_LABELS[order.fulfillment_status]} — fulfillment status is locked`}>
                                 <AppIcon name="LockClosedIcon" size={12} className="text-[#B5ADA5]" />
                               </span>
                             </div>
