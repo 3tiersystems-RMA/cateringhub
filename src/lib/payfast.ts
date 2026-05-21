@@ -59,8 +59,7 @@ function sandboxCredentials() {
 
   if (!merchantId || !merchantKey) {
     throw new Error(
-      "PayFast sandbox: set PAYFAST_SANDBOX_MERCHANT_ID and PAYFAST_SANDBOX_MERCHANT_KEY " +
-        "(from https://sandbox.payfast.co.za → Settings → Integration)."
+      "PayFast sandbox: set PAYFAST_SANDBOX_MERCHANT_ID and PAYFAST_SANDBOX_MERCHANT_KEY " + "(from https://sandbox.payfast.co.za → Settings → Integration)."
     );
   }
   return { merchantId, merchantKey, passphrase };
@@ -85,8 +84,7 @@ function liveCredentials() {
 
   if (!merchantId || !merchantKey) {
     throw new Error(
-      "PayFast live: set PAYFAST_LIVE_MERCHANT_ID and PAYFAST_LIVE_MERCHANT_KEY " +
-        "(from https://www.payfast.co.za → Settings → Integration)."
+      "PayFast live: set PAYFAST_LIVE_MERCHANT_ID and PAYFAST_LIVE_MERCHANT_KEY " + "(from https://www.payfast.co.za → Settings → Integration)."
     );
   }
   return { merchantId, merchantKey, passphrase };
@@ -223,8 +221,7 @@ export function validateBuyerEmailForPayFast(buyerEmail: string): string | null 
 
   if (blocked.includes(buyer)) {
     return (
-      "PayFast cannot process a payment when the customer email is the same as your PayFast merchant account. " +
-      "Use a different email in Event Details (e.g. a personal or test address), then try again."
+      "PayFast cannot process a payment when the customer email is the same as your PayFast merchant account. " + "Use a different email in Event Details (e.g. a personal or test address), then try again."
     );
   }
 
@@ -363,7 +360,7 @@ export function validateITNSignature(
   pfData: Record<string, string>,
   receivedSig: string
 ): boolean {
-  const data = { ...pfData };
+  let data = { ...pfData };
   const passPhrase = pfConfig.passphrase || null;
 
   if (passPhrase) {

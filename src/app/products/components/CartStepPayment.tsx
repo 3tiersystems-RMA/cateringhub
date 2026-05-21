@@ -111,11 +111,8 @@ export default function CartStepPayment({
                   <p className="text-sm text-white/60 font-mono tracking-widest">
                     {voucherApplied
                       ? "Meal Voucher"
-                      : selectedMethod === "payfast"
-                      ? "PayFast Secure Checkout"
-                      : selectedMethod === "eft"
-                      ? "Manual EFT"
-                      : "Choose Payment Method"}
+                      : selectedMethod === "payfast" ?"PayFast Secure Checkout"
+                      : selectedMethod === "eft" ?"Manual EFT" :"Choose Payment Method"}
                   </p>
                 </div>
               </div>

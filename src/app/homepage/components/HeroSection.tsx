@@ -59,11 +59,11 @@ function HeroSectionInner() {
     const checkServicesVisibility = async () => {
       try {
         const supabase = createClient();
-        const { data } = await supabase
-          ?.from('homepage_section_settings')
-          ?.select('is_visible')
-          ?.eq('section_key', 'what_we_do')
-          ?.single();
+        const { data } = await supabase?.
+        from('homepage_section_settings')?.
+        select('is_visible')?.
+        eq('section_key', 'what_we_do')?.
+        single();
         setShowViewServices(data ? data?.is_visible : true);
       } catch {
         setShowViewServices(true);
@@ -76,11 +76,11 @@ function HeroSectionInner() {
     const checkHeroBadgeVisibility = async () => {
       try {
         const supabase = createClient();
-        const { data } = await supabase
-          ?.from('homepage_section_settings')
-          ?.select('is_visible')
-          ?.eq('section_key', 'hero_badge')
-          ?.single();
+        const { data } = await supabase?.
+        from('homepage_section_settings')?.
+        select('is_visible')?.
+        eq('section_key', 'hero_badge')?.
+        single();
         setShowHeroBadge(data ? data?.is_visible : true);
       } catch {
         setShowHeroBadge(true);
@@ -122,18 +122,18 @@ function HeroSectionInner() {
     // If there's a linked product, fetch full product details
     if (specialCard.product_link) {
       const supabase = createClient();
-      const { data: product } = await supabase
-        .from('products')
-        .select('*')
-        .eq('id', specialCard.product_link)
-        .single();
+      const { data: product } = await supabase.
+      from('products').
+      select('*').
+      eq('id', specialCard.product_link).
+      single();
 
       if (product) {
         let imageUrl = '';
         if (product.image_path) {
-          const { data: urlData } = await supabase.storage
-            .from('product-images')
-            .createSignedUrl(product.image_path, 3600);
+          const { data: urlData } = await supabase.storage.
+          from('product-images').
+          createSignedUrl(product.image_path, 3600);
           imageUrl = urlData?.signedUrl ?? '';
         }
         const cartProduct: CartProduct = {
@@ -154,7 +154,7 @@ function HeroSectionInner() {
           packageType: product.package_type,
           imageFit: product.image_fit,
           oldPrice: product.old_price ? Number(product.old_price) : undefined,
-          savingPercent: product.saving_percent ? Number(product.saving_percent) : undefined,
+          savingPercent: product.saving_percent ? Number(product.saving_percent) : undefined
         };
         setModalAdded(false);
         setModalProduct(cartProduct);
@@ -177,7 +177,7 @@ function HeroSectionInner() {
       description: specialCard.description ?? specialCard.subtitle ?? '',
       available: true,
       packageType: undefined,
-      imageFit: undefined,
+      imageFit: undefined
     };
     setModalAdded(false);
     setModalProduct(fallbackProduct);
@@ -228,14 +228,14 @@ function HeroSectionInner() {
           {/* Left: Content */}
           <div className="lg:col-span-7 space-y-8">
             {/* Badge */}
-            {showHeroBadge && (
+            {showHeroBadge &&
             <div className="reveal hidden-init hero-reveal inline-flex items-center gap-2 px-4 py-2 bg-[#C4622D]/15 border border-[#C4622D]/30 rounded-full backdrop-blur-sm">
               <span className="w-1.5 h-1.5 rounded-full bg-[#C4622D] pulse-dot" />
               <span className="text-xs font-semibold tracking-widest uppercase text-[#D97B4A]">
                 Now Accepting 2026 Bookings
               </span>
             </div>
-            )}
+            }
 
             {/* Headline */}
             <div className="reveal hidden-init hero-reveal space-y-2">
@@ -276,14 +276,14 @@ function HeroSectionInner() {
                 Explore Our Menu
                 <Icon name="ArrowRightIcon" size={16} />
               </Link>
-              {showViewServices && (
-                <a
-                  href="#services"
-                  className="inline-flex items-center gap-2 border border-white/25 text-white/90 px-8 py-4 rounded-full text-sm font-semibold hover:bg-white/10 transition-all duration-300 backdrop-blur-sm">
+              {showViewServices &&
+              <a
+                href="#services"
+                className="inline-flex items-center gap-2 border border-white/25 text-white/90 px-8 py-4 rounded-full text-sm font-semibold hover:bg-white/10 transition-all duration-300 backdrop-blur-sm">
                   
                   View Services
                 </a>
-              )}
+              }
             </div>
           </div>
 
@@ -298,9 +298,9 @@ function HeroSectionInner() {
               onClick={isSpecialClickable ? handleSpecialCardClick : undefined}
               role={isSpecialClickable ? 'button' : undefined}
               tabIndex={isSpecialClickable ? 0 : undefined}
-              onKeyDown={isSpecialClickable ? (e) => { if (e.key === 'Enter' || e.key === ' ') handleSpecialCardClick(); } : undefined}
-              aria-label={isSpecialClickable ? `Open product: ${specialCard.title}` : undefined}
-            >
+              onKeyDown={isSpecialClickable ? (e) => {if (e.key === 'Enter' || e.key === ' ') handleSpecialCardClick();} : undefined}
+              aria-label={isSpecialClickable ? `Open product: ${specialCard.title}` : undefined}>
+              
                   <div className="flex items-center gap-3 mb-3">
                     <div className="w-12 h-12 rounded-2xl overflow-hidden flex-shrink-0">
                       {specialCard.imageUrl ?
@@ -324,11 +324,11 @@ function HeroSectionInner() {
                       <p className="text-xs font-mono text-[#D97B4A] uppercase tracking-wider">Today&apos;s Special</p>
                       <p className="text-sm font-semibold text-white">{specialCard.title}</p>
                     </div>
-                    {isSpecialClickable && (
-                      <div className="ml-auto w-6 h-6 rounded-full bg-white/10 border border-white/20 flex items-center justify-center group-hover:bg-white/25 transition-all duration-300 flex-shrink-0">
+                    {isSpecialClickable &&
+                <div className="ml-auto w-6 h-6 rounded-full bg-white/10 border border-white/20 flex items-center justify-center group-hover:bg-white/25 transition-all duration-300 flex-shrink-0">
                         <Icon name="ArrowRightIcon" size={12} className="text-white" />
                       </div>
-                    )}
+                }
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-lg font-display font-semibold text-white">
@@ -417,10 +417,10 @@ function HeroSectionInner() {
         product={modalProduct}
         onClose={handleModalClose}
         added={modalAdded}
-        onAdd={handleModalAdd}
-      />
-    </section>
-  );
+        onAdd={handleModalAdd} />
+      
+    </section>);
+
 }
 
 export default function HeroSection() {

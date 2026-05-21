@@ -101,8 +101,7 @@ export async function POST(req: NextRequest) {
     const paymentStatus = pfData.payment_status;
 
     switch (paymentStatus) {
-      case "COMPLETE":
-        console.log("[PayFast ITN] Payment COMPLETE:", paymentId);
+      case "COMPLETE": console.log("[PayFast ITN] Payment COMPLETE:", paymentId);
         await supabaseAdmin
           .from("orders")
           .update({
@@ -113,16 +112,14 @@ export async function POST(req: NextRequest) {
           .eq("m_payment_id", paymentId);
         break;
 
-      case "FAILED":
-        console.warn("[PayFast ITN] Payment FAILED:", paymentId);
+      case "FAILED": console.warn("[PayFast ITN] Payment FAILED:", paymentId);
         await supabaseAdmin
           .from("orders")
           .update({ payment_status: "failed" })
           .eq("m_payment_id", paymentId);
         break;
 
-      case "PENDING":
-        console.warn("[PayFast ITN] Payment PENDING:", paymentId);
+      case "PENDING": console.warn("[PayFast ITN] Payment PENDING:", paymentId);
         break;
 
       default:
