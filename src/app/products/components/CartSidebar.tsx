@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import Icon from "@/components/ui/AppIcon";
 import { useCart } from "./CartContext";
 import type { VoucherData, DiscountVoucherData } from "./CartContext";
@@ -15,12 +15,14 @@ import VoucherErrorModal from "@/components/ui/VoucherErrorModal";
 type CheckoutStep = "cart" | "details" | "payment" | "eft-success" | "confirmation";
 type PaymentMethod = "eft" | "voucher" | "payfast";
 
+const INITIAL_FORM = { name: "", email: "", phone: "", date: "", address: "", notes: "" };
+
 export default function CartSidebar() {
   const { items, subtotal, totalItems, isOpen, setIsOpen, clearCart } = useCart();
   const supabase = createClient();
 
   const [step, setStep] = useState<CheckoutStep>("cart");
-  const [form, setForm] = useState({ name: "", email: "", phone: "", date: "", address: "", notes: "" });
+  const [form, setForm] = useState(INITIAL_FORM);
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>("eft");
   const [processing, setProcessing] = useState(false);
   const [payError, setPayErrorState] = useState("");
@@ -60,6 +62,37 @@ export default function CartSidebar() {
   const delivery = subtotal > 0 ? 15 : 0;
   const total = subtotal + tax + delivery;
   const discountedTotal = dvApplied && dvData ? Math.max(0, total - dvData.dv_amount) : total;
+
+  const getDetailsForm = useCallback(() => {
+    if (voucherApplied && voucherData) {
+      return {
+        ...INITIAL_FORM,
+        name: voucherData.customer_name || "",
+        email: voucherData.customer_email || "",
+        phone: voucherData.customer_phone || "",
+      };
+    }
+    return { ...INITIAL_FORM };
+  }, [voucherApplied, voucherData]);
+
+  const resetCheckoutState = useCallback(() => {
+    setStep("cart");
+    setForm({ ...INITIAL_FORM });
+    setOrderRef("");
+    setSavedOrderTotal(0);
+    setPayErrorState("");
+    setPhoneErrorState("");
+    setProcessing(false);
+    setSelectedMethod("eft");
+  }, []);
+
+  const prevIsOpen = useRef(isOpen);
+  useEffect(() => {
+    if (isOpen && !prevIsOpen.current) {
+      resetCheckoutState();
+    }
+    prevIsOpen.current = isOpen;
+  }, [isOpen, resetCheckoutState]);
 
   const handleDetailsSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -276,10 +309,11 @@ export default function CartSidebar() {
       form_el.action = initiateResult.gatewayUrl;
 
       Object.entries(initiateResult.params as Record<string, string>).forEach(([key, value]) => {
+        if (value === undefined || value === null || String(value).trim() === "") return;
         const input = document.createElement("input");
         input.type = "hidden";
         input.name = key;
-        input.value = value;
+        input.value = String(value);
         form_el.appendChild(input);
       });
 
@@ -291,7 +325,10 @@ export default function CartSidebar() {
     }
   };
 
-  const handleClose = () => { setIsOpen(false); setStep("cart"); };
+  const handleClose = () => {
+    setIsOpen(false);
+    resetCheckoutState();
+  };
 
   if (!isOpen) return null;
 
@@ -383,14 +420,9 @@ export default function CartSidebar() {
             showDvSection={showDvSection}
             setShowDvSection={setShowDvSection}
             onProceed={() => {
-              if (voucherApplied && voucherData) {
-                setForm((prev) => ({
-                  ...prev,
-                  name: prev.name || voucherData.customer_name || "",
-                  email: prev.email || voucherData.customer_email || "",
-                  phone: prev.phone || voucherData.customer_phone || "",
-                }));
-              }
+              setForm(getDetailsForm());
+              setPhoneErrorState("");
+              setPayErrorState("");
               setStep("details");
             }}
             subtotal={subtotal}
@@ -424,6 +456,8 @@ export default function CartSidebar() {
             selectedMethod={selectedMethod}
             setSelectedMethod={setSelectedMethod}
             orderRef={orderRef}
+            subtotal={subtotal}
+            delivery={delivery}
             total={total}
             discountedTotal={discountedTotal}
             totalItems={totalItems}

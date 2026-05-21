@@ -134,7 +134,7 @@ export default function StaffOrdersPage() {
         .from('user_profiles')
         .select('role')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
       if (profile?.role === 'super_admin') {
         setIsSuperAdmin(true);
       }

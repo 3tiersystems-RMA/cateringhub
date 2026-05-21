@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { buildPaymentPayload, IS_TEST, pfConfig } from "@/lib/payfast";
+import {
+  buildPaymentPayload,
+  getPayFastBaseUrl,
+  PAYFAST_MODE,
+  pfConfig,
+  validateBuyerEmailForPayFast,
+} from "@/lib/payfast";
 
 export async function POST(req: NextRequest) {
   try {
@@ -7,27 +13,39 @@ export async function POST(req: NextRequest) {
     const { order, buyer } = body;
 
     // Basic validation
-    if (!order?.paymentId || !order?.amount || !order?.itemName) {
+    if (!order?.paymentId || !order?.itemName) {
       return NextResponse.json({ error: "Missing order fields" }, { status: 400 });
+    }
+    const amount = Number(order.amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return NextResponse.json({ error: "Invalid payment amount" }, { status: 400 });
     }
     if (!buyer?.firstName || !buyer?.email) {
       return NextResponse.json({ error: "Missing buyer fields" }, { status: 400 });
     }
 
-    // Determine base URL from request headers
+    const emailError = validateBuyerEmailForPayFast(buyer.email);
+    if (emailError) {
+      return NextResponse.json({ error: emailError }, { status: 400 });
+    }
+
     const host = req.headers.get("host") || "";
     const proto = req.headers.get("x-forwarded-proto") || "https";
-    const baseUrl = `${proto}://${host}`;
+    const baseUrl = getPayFastBaseUrl({ proto, host });
 
-    const payload = buildPaymentPayload(order, buyer, baseUrl);
+    const payload = buildPaymentPayload(
+      { ...order, amount },
+      buyer,
+      baseUrl
+    );
 
     console.log(
-      `[PayFast initiate] env=${IS_TEST ? "TEST/SANDBOX" : "LIVE"} gateway=${pfConfig.gatewayHost} paymentId=${order.paymentId}`
+      `[PayFast initiate] env=${PAYFAST_MODE} gateway=${pfConfig.gatewayHost} merchant_id=${payload.params.merchant_id} paymentId=${order.paymentId}`
     );
 
     return NextResponse.json({
       success:    true,
-      env:        IS_TEST ? "test" : "live",
+      env:        PAYFAST_MODE,
       gatewayUrl: payload.gatewayUrl,
       params:     payload.params,
     });
