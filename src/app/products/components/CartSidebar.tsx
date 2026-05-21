@@ -141,6 +141,7 @@ export default function CartSidebar() {
           items: items.map((i) => ({
             id: i.product.id, name: i.product.name, quantity: i.quantity,
             price: i.product.price, unit: i.product.unit, category: i.product.category,
+            package_type: i.product.packageType || 'none',
           })),
           subtotal, delivery_fee: delivery, total: 0,
           payment_status: "paid", payment_method: "voucher",
@@ -203,6 +204,7 @@ export default function CartSidebar() {
           items: items.map((i) => ({
             id: i.product.id, name: i.product.name, quantity: i.quantity,
             price: i.product.price, unit: i.product.unit, category: i.product.category,
+            package_type: i.product.packageType || 'none',
           })),
           subtotal, delivery_fee: delivery, total: capturedTotal,
           payment_status: "awaiting_payment", payment_method: "eft",
@@ -249,6 +251,7 @@ export default function CartSidebar() {
           items: items.map((i) => ({
             id: i.product.id, name: i.product.name, quantity: i.quantity,
             price: i.product.price, unit: i.product.unit, category: i.product.category,
+            package_type: i.product.packageType || 'none',
           })),
           subtotal,
           delivery_fee: delivery,
