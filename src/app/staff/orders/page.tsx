@@ -607,7 +607,14 @@ export default function StaffOrdersPage() {
 
                       {/* Total */}
                       <div className="flex items-center">
-                        <span className="text-sm font-bold text-[#1A1612]">{formatCurrency(order.total)}</span>
+                        <span className="text-sm font-bold text-[#1A1612]">{(() => {
+                          const subtotal = Number(order.subtotal) || 0;
+                          const delivery = Number(order.delivery_fee) || 0;
+                          const discountMatch = order.notes?.match(/Discount Voucher:.*?\(R([\d.]+)\s*credit\)/i);
+                          const discount = discountMatch ? parseFloat(discountMatch[1]) : 0;
+                          const calculated = subtotal + delivery - discount;
+                          return formatCurrency(calculated > 0 ? calculated : (Number(order.total) || 0));
+                        })()}</span>
                       </div>
 
                       {/* Payment Status — editable dropdown */}
