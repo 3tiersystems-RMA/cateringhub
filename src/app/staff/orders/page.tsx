@@ -803,7 +803,14 @@ export default function StaffOrdersPage() {
                               </div>
                               <div className="flex justify-between text-sm font-bold border-t border-[#EDE7DA] pt-2">
                                 <span className="text-[#1A1612]">Total</span>
-                                <span className="text-[#C4622D]">{formatCurrency(order.total)}</span>
+                                <span className="text-[#C4622D]">{(() => {
+                                    const subtotal = Number(order.subtotal) || 0;
+                                    const delivery = Number(order.delivery_fee) || 0;
+                                    const discountMatch = order.notes?.match(/Discount Voucher:.*?\(R([\d.]+)\s*credit\)/i);
+                                    const discount = discountMatch ? parseFloat(discountMatch[1]) : 0;
+                                    const calculated = subtotal + delivery - discount;
+                                    return formatCurrency(calculated > 0 ? calculated : (Number(order.total) || 0));
+                                  })()}</span>
                               </div>
                               <div className="pt-2 space-y-1.5">
                                 <div>
