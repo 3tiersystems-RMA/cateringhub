@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { calculateOrderTotal } from '@/lib/order-totals';
 
 export async function POST(req: NextRequest) {
   try {
@@ -102,7 +103,7 @@ export async function POST(req: NextRequest) {
             customerName: order.customer_name || 'Valued Customer',
             customerEmail: order.customer_email,
             orderId: order.id,
-            orderTotal: order.total,
+            orderTotal: calculateOrderTotal(order),
             orderDate,
             items: order.items || [],
             // Correspondence settings — null means field is empty and will be hidden on the email

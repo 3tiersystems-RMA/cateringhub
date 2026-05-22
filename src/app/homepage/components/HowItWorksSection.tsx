@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Icon from "@/components/ui/AppIcon";
-import { createClient } from "@/lib/supabase/client";
+import { getHomepageSectionVisibility } from "@/lib/homepage-sections";
 
 const steps = [
   {
@@ -45,20 +45,7 @@ export default function HowItWorksSection() {
   const [sectionVisible, setSectionVisible] = useState<boolean | null>(null);
 
   useEffect(() => {
-    const checkVisibility = async () => {
-      try {
-        const supabase = createClient();
-        const { data } = await supabase
-          .from("homepage_section_settings")
-          .select("is_visible")
-          .eq("section_key", "the_process")
-          .single();
-        setSectionVisible(data ? data.is_visible : true);
-      } catch {
-        setSectionVisible(true);
-      }
-    };
-    checkVisibility();
+    getHomepageSectionVisibility('the_process', true).then(setSectionVisible);
   }, []);
 
   useEffect(() => {

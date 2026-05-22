@@ -4,6 +4,7 @@ import { useEffect, useCallback } from "react";
 
 import Icon from "@/components/ui/AppIcon";
 import type { CartProduct } from "./CartContext";
+import { shouldShowProductBadge } from "@/lib/product-badge";
 
 
 interface ProductModalProps {
@@ -71,7 +72,7 @@ export default function ProductModal({ product, onClose, added, onAdd }: Product
           />
           {/* Badges */}
           <div className="absolute top-3 left-3 flex flex-col gap-1.5">
-            {product.badge && (
+            {shouldShowProductBadge(product.badge) && (
               <span className="text-xs font-semibold bg-[#C4622D] text-white px-2.5 py-0.5 rounded-full">
                 {product.badge}
               </span>

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import AppImage from "@/components/ui/AppImage";
 import Icon from "@/components/ui/AppIcon";
-import { createClient } from "@/lib/supabase/client";
+import { getHomepageSectionVisibility } from "@/lib/homepage-sections";
 
 // Currency: South African Rand (R)
 const services = [
@@ -60,16 +60,7 @@ export default function ServicesSection() {
   const [sectionVisible, setSectionVisible] = useState<boolean | null>(null);
 
   useEffect(() => {
-    const checkVisibility = async () => {
-      try {
-        const supabase = createClient();
-        const { data } = await supabase?.from('homepage_section_settings')?.select('is_visible')?.eq('section_key', 'what_we_do')?.single();
-        setSectionVisible(data ? data?.is_visible : true);
-      } catch {
-        setSectionVisible(true);
-      }
-    };
-    checkVisibility();
+    getHomepageSectionVisibility('what_we_do', true).then(setSectionVisible);
   }, []);
 
   useEffect(() => {

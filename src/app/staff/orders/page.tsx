@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import AppLogo from '@/components/ui/AppLogo';
 import AppIcon from '@/components/ui/AppIcon';
 import Link from 'next/link';
+import { calculateOrderTotal, isFulfillmentStatusLocked } from '@/lib/order-totals';
 
 type PaymentStatus = 'pending' | 'paid' | 'failed' | 'awaiting_payment' | 'refunded' | 'discounted' | 'unpaid';
 type FulfillmentStatus = 'new' | 'confirmed' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
@@ -273,6 +274,8 @@ export default function StaffOrdersPage() {
   };
 
   const handleFulfillmentUpdate = async (orderId: string, newStatus: FulfillmentStatus) => {
+    const existing = orders.find((o) => o.id === orderId);
+    if (existing && isFulfillmentStatusLocked(existing.fulfillment_status)) return;
     setOrderUpdateField(orderId, { fulfillmentSaving: true, fulfillmentSuccess: false, fulfillmentError: '' });
     try {
       const updatePayload: Record<string, unknown> = { fulfillment_status: newStatus };
@@ -607,14 +610,7 @@ export default function StaffOrdersPage() {
 
                       {/* Total */}
                       <div className="flex items-center">
-                        <span className="text-sm font-bold text-[#1A1612]">{(() => {
-                          const subtotal = Number(order.subtotal) || 0;
-                          const delivery = Number(order.delivery_fee) || 0;
-                          const discountMatch = order.notes?.match(/Discount Voucher:.*?\(R([\d.]+)\s*credit\)/i);
-                          const discount = discountMatch ? parseFloat(discountMatch[1]) : 0;
-                          const calculated = subtotal + delivery - discount;
-                          return formatCurrency(calculated > 0 ? calculated : (Number(order.total) || 0));
-                        })()}</span>
+                        <span className="text-sm font-bold text-[#1A1612]">{formatCurrency(calculateOrderTotal(order))}</span>
                       </div>
 
                       {/* Payment Status — editable dropdown */}
@@ -810,14 +806,7 @@ export default function StaffOrdersPage() {
                               </div>
                               <div className="flex justify-between text-sm font-bold border-t border-[#EDE7DA] pt-2">
                                 <span className="text-[#1A1612]">Total</span>
-                                <span className="text-[#C4622D]">{(() => {
-                                    const subtotal = Number(order.subtotal) || 0;
-                                    const delivery = Number(order.delivery_fee) || 0;
-                                    const discountMatch = order.notes?.match(/Discount Voucher:.*?\(R([\d.]+)\s*credit\)/i);
-                                    const discount = discountMatch ? parseFloat(discountMatch[1]) : 0;
-                                    const calculated = subtotal + delivery - discount;
-                                    return formatCurrency(calculated > 0 ? calculated : (Number(order.total) || 0));
-                                  })()}</span>
+                                <span className="text-[#C4622D]">{formatCurrency(calculateOrderTotal(order))}</span>
                               </div>
                               <div className="pt-2 space-y-1.5">
                                 <div>

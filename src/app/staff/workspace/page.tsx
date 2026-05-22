@@ -12,6 +12,8 @@ import { ResponsiveContainer, LineChart, Line, BarChart, Bar, XAxis, YAxis, Cart
 import GoogleDriveDocuments from '@/app/staff/workspace/components/GoogleDriveDocuments';
 import EventManagement from '@/app/staff/workspace/components/EventManagement';
 import CorrespondenceSettings from '@/app/staff/workspace/components/CorrespondenceSettings';
+import { calculateOrderTotal, isFulfillmentStatusLocked, parseDiscountFromNotes } from '@/lib/order-totals';
+import { shouldShowProductBadge } from '@/lib/product-badge';
 
 
 
@@ -710,7 +712,7 @@ export default function StaffWorkspacePage() {
   const [dvLoading, setDvLoading] = useState(false);
   const [showDvForm, setShowDvForm] = useState(false);
   const [editingDv, setEditingDv] = useState<DiscountVoucher | null>(null);
-  const [dvForm, setDvForm] = useState({ dv_code: '', dv_type: 'Discount' as 'Discount' | 'Gift', dv_amount: '', status: 'Active\' as \'Active\' | \'Inactive', expiry_date: '', created_at: '' });
+  const [dvForm, setDvForm] = useState({ dv_code: '', dv_type: 'Discount' as 'Discount' | 'Gift', dv_amount: '', status: 'Active' as 'Active' | 'Inactive', expiry_date: '', created_at: '' });
   const [dvFormError, setDvFormError] = useState('');
   const [dvFormSuccess, setDvFormSuccess] = useState('');
   const [savingDv, setSavingDv] = useState(false);
@@ -1342,7 +1344,7 @@ export default function StaffWorkspacePage() {
     setWsOrdersError('');
     const { data, error } = await supabase
       .from('orders')
-      .select('*')
+      .select('*') // includes subtotal, delivery_fee, notes, total for calculateOrderTotal
       .order('created_at', { ascending: false });
     if (error) { setWsOrdersError(error.message); }
     else {
@@ -1597,7 +1599,7 @@ export default function StaffWorkspacePage() {
 
       (orders || []).forEach(o => {
         const label = bucketFn(new Date(o.created_at));
-        if (orderMap[label] !== undefined) { orderMap[label].orders += 1; orderMap[label].revenue += Number(o.total) || 0; }
+        if (orderMap[label] !== undefined) { orderMap[label].orders += 1; orderMap[label].revenue += calculateOrderTotal(o); }
       });
       (redemptions || []).forEach(r => {
         const label = bucketFn(new Date(r.redeemed_at));
@@ -1623,7 +1625,7 @@ export default function StaffWorkspacePage() {
       );
 
       const totalOrders = (orders || []).length;
-      const totalRevenue = (orders || []).reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+      const totalRevenue = (orders || []).reduce((sum, o) => sum + calculateOrderTotal(o), 0);
       const paidOrders = (orders || []).filter(o => o.payment_status === 'paid' || o.payment_status === 'discounted').length;
       const deliveredOrders = (orders || []).filter(o => o.fulfillment_status === 'delivered').length;
       const totalMealRedemptions = (redemptions || []).length;
@@ -1710,6 +1712,8 @@ export default function StaffWorkspacePage() {
   };
 
   const handleWsFulfillmentUpdate = async (orderId: string, newStatus: FulfillmentStatus) => {
+    const existing = wsOrders.find((o) => o.id === orderId);
+    if (existing && isFulfillmentStatusLocked(existing.fulfillment_status)) return;
     setWsOrderUpdateField(orderId, 'fulfillmentSaving', true);
     const updateData: any = { fulfillment_status: newStatus };
     if (newStatus === 'delivered') updateData.delivered_date = new Date().toISOString();
@@ -3217,7 +3221,7 @@ export default function StaffWorkspacePage() {
                                 {product.available ? 'Available' : 'Unavailable'}
                               </span>
                               {product.featured && <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Featured</span>}
-                              {product.badge && <span className="text-xs bg-[#FDF6EE] text-[#C4622D] border border-[#EDE7DA] px-2 py-0.5 rounded-full">{product.badge}</span>}
+                              {shouldShowProductBadge(product.badge) && <span className="text-xs bg-[#FDF6EE] text-[#C4622D] border border-[#EDE7DA] px-2 py-0.5 rounded-full">{product.badge}</span>}
                             </div>
                           </div>
                         </div>
@@ -4024,7 +4028,7 @@ export default function StaffWorkspacePage() {
                           <svg className="w-4 h-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                         </div>
                       </div>
-                      <p className="text-2xl font-bold text-[#1A1612]">{formatCurrency(wsOrders.filter(o => o.payment_status === 'paid').reduce((s, o) => s + (Number(o.total) || 0), 0))}</p>
+                      <p className="text-2xl font-bold text-[#1A1612]">{formatCurrency(wsOrders.filter(o => o.payment_status === 'paid').reduce((s, o) => s + calculateOrderTotal(o), 0))}</p>
                       <p className="text-xs text-[#8C8278] mt-0.5">{wsOrders.filter(o => o.payment_status === 'paid').length} paid orders</p>
                     </div>
                     {/* Awaiting Payment */}
@@ -4036,7 +4040,7 @@ export default function StaffWorkspacePage() {
                         </div>
                       </div>
                       <p className="text-2xl font-bold text-[#1A1612]">{wsOrders.filter(o => o.payment_status === 'awaiting_payment').length}</p>
-                      <p className="text-xs text-[#8C8278] mt-0.5">{formatCurrency(wsOrders.filter(o => o.payment_status === 'awaiting_payment').reduce((s, o) => s + (o.total || 0), 0))} outstanding</p>
+                      <p className="text-xs text-[#8C8278] mt-0.5">{formatCurrency(wsOrders.filter(o => o.payment_status === 'awaiting_payment').reduce((s, o) => s + calculateOrderTotal(o), 0))} outstanding</p>
                     </div>
                     {/* Delivered Orders */}
                     <div className="bg-white rounded-2xl border border-[#DDD5C8] p-4">
@@ -4168,7 +4172,7 @@ export default function StaffWorkspacePage() {
                               <span className={`text-xs px-2.5 py-1 rounded-full font-semibold border ${FULFILLMENT_STATUS_COLORS[order.fulfillment_status]}`}>
                                 {FULFILLMENT_STATUS_LABELS[order.fulfillment_status]}
                               </span>
-                              <span className="text-sm font-bold text-[#C4622D] ml-1">{formatCurrency(order.total)}</span>
+                              <span className="text-sm font-bold text-[#C4622D] ml-1">{formatCurrency(calculateOrderTotal(order))}</span>
                               <svg className={`w-4 h-4 text-[#8C8278] transition-transform ml-1 ${expanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                               </svg>
@@ -4248,17 +4252,13 @@ export default function StaffWorkspacePage() {
                                     <div className="flex justify-between">
                                       <span className="text-[#8C8278]">Discount</span>
                                       <span className="text-red-600 font-medium">
-                                        {(() => {
-                                          const match = order.notes?.match(/Discount Voucher:.*?\(R([\d.]+)\s*credit\)/i);
-                                          const amount = match ? parseFloat(match[1]) : 0;
-                                          return `-${formatCurrency(amount)}`;
-                                        })()}
+                                        -{formatCurrency(parseDiscountFromNotes(order.notes))}
                                       </span>
                                     </div>
                                     <div className="flex justify-between"><span className="text-[#8C8278]">Delivery</span><span className="font-medium text-[#1A1612]">{formatCurrency(order.delivery_fee)}</span></div>
                                     <div className="flex justify-between font-bold border-t border-[#EDE7DA] pt-1.5 text-sm">
                                       <span className="text-[#1A1612]">Total</span>
-                                      <span className="text-[#C4622D]">{formatCurrency(order.total)}</span>
+                                      <span className="text-[#C4622D]">{formatCurrency(calculateOrderTotal(order))}</span>
                                     </div>
                                     {order.m_payment_id && (
                                       <div className="pt-1"><p className="text-[#B5ADA5]">Reference</p><p className="font-mono text-[#5C5347] text-[10px]">{order.m_payment_id}</p></div>
@@ -4289,20 +4289,36 @@ export default function StaffWorkspacePage() {
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="bg-[#FDFAF6] rounded-xl border border-[#EDE7DA] p-4">
                                   <p className="text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-3">Update Fulfillment Status</p>
-                                  <div className="flex flex-wrap gap-1.5">
-                                    {FULFILLMENT_OPTIONS.map(s => (
-                                      <button
-                                        key={s}
-                                        onClick={() => handleWsFulfillmentUpdate(order.id, s)}
-                                        disabled={updateState.fulfillmentSaving || order.fulfillment_status === s}
-                                        className={`text-xs px-3 py-1.5 rounded-xl border font-semibold transition-colors disabled:opacity-50 ${
-                                          order.fulfillment_status === s ? FULFILLMENT_STATUS_COLORS[s] : 'border-[#DDD5C8] text-[#5C5347] hover:bg-[#F5F0E8]'
-                                        }`}
+                                  {isFulfillmentStatusLocked(order.fulfillment_status) ? (
+                                    <div className="flex items-center gap-2">
+                                      <span className={`text-xs font-semibold border rounded-full px-2.5 py-1 ${FULFILLMENT_STATUS_COLORS[order.fulfillment_status]}`}>
+                                        {FULFILLMENT_STATUS_LABELS[order.fulfillment_status]}
+                                      </span>
+                                      <span
+                                        className="text-[#B5ADA5]"
+                                        title={`Order is ${FULFILLMENT_STATUS_LABELS[order.fulfillment_status]} — fulfillment status is locked`}
                                       >
-                                        {FULFILLMENT_STATUS_LABELS[s]}
-                                      </button>
-                                    ))}
-                                  </div>
+                                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
+                                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                        </svg>
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <div className="flex flex-wrap gap-1.5">
+                                      {FULFILLMENT_OPTIONS.map(s => (
+                                        <button
+                                          key={s}
+                                          onClick={() => handleWsFulfillmentUpdate(order.id, s)}
+                                          disabled={updateState.fulfillmentSaving || order.fulfillment_status === s}
+                                          className={`text-xs px-3 py-1.5 rounded-xl border font-semibold transition-colors disabled:opacity-50 ${
+                                            order.fulfillment_status === s ? FULFILLMENT_STATUS_COLORS[s] : 'border-[#DDD5C8] text-[#5C5347] hover:bg-[#F5F0E8]'
+                                          }`}
+                                        >
+                                          {FULFILLMENT_STATUS_LABELS[s]}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
                                   {updateState.fulfillmentSaving && <p className="text-xs text-[#8C8278] mt-1.5 flex items-center gap-1"><svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Saving…</p>}
                                   {updateState.fulfillmentSuccess && <p className="text-xs text-green-600 mt-1.5 font-medium">✓ Updated</p>}
                                   {updateState.fulfillmentError && <p className="text-xs text-red-500 mt-1.5">{updateState.fulfillmentError}</p>}
@@ -4483,7 +4499,7 @@ export default function StaffWorkspacePage() {
                       <div className="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-[#EDE7DA]">
                         <div className="text-center">
                           <p className="text-lg font-bold text-[#1A1612]">
-                            {formatCurrency(cohOrders.filter(o => o.payment_status === 'paid').reduce((s, o) => s + (o.total || 0), 0))}
+                            {formatCurrency(cohOrders.filter(o => o.payment_status === 'paid').reduce((s, o) => s + calculateOrderTotal(o), 0))}
                           </p>
                           <p className="text-xs text-[#8C8278]">Total Spent</p>
                         </div>
@@ -4547,7 +4563,7 @@ export default function StaffWorkspacePage() {
 
                             {/* Total & chevron */}
                             <div className="flex items-center gap-3 flex-shrink-0">
-                              <span className="text-sm font-bold text-[#1A1612]">{formatCurrency(order.total)}</span>
+                              <span className="text-sm font-bold text-[#1A1612]">{formatCurrency(calculateOrderTotal(order))}</span>
                               <svg
                                 className={`w-4 h-4 text-[#8C8278] transition-transform ${isExpanded ? 'rotate-180' : ''}`}
                                 fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
@@ -4590,12 +4606,16 @@ export default function StaffWorkspacePage() {
                                   <span>{formatCurrency(order.subtotal)}</span>
                                 </div>
                                 <div className="flex justify-between text-sm text-[#5C5347]">
+                                  <span>Discount</span>
+                                  <span className="text-red-600">-{formatCurrency(parseDiscountFromNotes(order.notes))}</span>
+                                </div>
+                                <div className="flex justify-between text-sm text-[#5C5347]">
                                   <span>Delivery</span>
                                   <span>{order.delivery_fee > 0 ? formatCurrency(order.delivery_fee) : 'Free'}</span>
                                 </div>
                                 <div className="flex justify-between text-sm font-bold text-[#1A1612] border-t border-[#EDE7DA] pt-1.5 mt-1.5">
                                   <span>Total</span>
-                                  <span>{formatCurrency(order.total)}</span>
+                                  <span>{formatCurrency(calculateOrderTotal(order))}</span>
                                 </div>
                               </div>
 
