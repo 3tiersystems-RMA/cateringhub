@@ -9,7 +9,7 @@ export default function MarqueeBanner() {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    getTickerBannerSettings().then(({ isVisible, bannerText }) => {
+    getTickerBannerSettings()?.then(({ isVisible, bannerText }) => {
       setIsVisible(isVisible);
       if (bannerText) setBannerText(bannerText);
       setLoaded(true);

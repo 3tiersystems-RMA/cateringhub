@@ -60,7 +60,7 @@ export default function ServicesSection() {
   const [sectionVisible, setSectionVisible] = useState<boolean | null>(null);
 
   useEffect(() => {
-    getHomepageSectionVisibility('what_we_do', true).then(setSectionVisible);
+    getHomepageSectionVisibility('what_we_do', true)?.then(setSectionVisible);
   }, []);
 
   useEffect(() => {
