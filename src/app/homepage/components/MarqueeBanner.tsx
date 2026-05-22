@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { getTickerBannerSettings } from "@/lib/homepage-sections";
 
 export default function MarqueeBanner() {
   const [isVisible, setIsVisible] = useState<boolean>(false);
@@ -9,20 +9,11 @@ export default function MarqueeBanner() {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    const supabase = createClient();
-    supabase
-      ?.from("homepage_section_settings")
-      ?.select("is_visible, banner_text")
-      ?.eq("section_key", "ticker_banner")
-      ?.single()
-      ?.then(({ data, error }) => {
-        if (!error && data) {
-          // Only show when is_visible is explicitly true — never default to showing
-          setIsVisible(data?.is_visible === true);
-          if (data?.banner_text) setBannerText(data?.banner_text);
-        }
-        setLoaded(true);
-      });
+    getTickerBannerSettings()?.then(({ isVisible, bannerText }) => {
+      setIsVisible(isVisible);
+      if (bannerText) setBannerText(bannerText);
+      setLoaded(true);
+    });
   }, []);
 
   // Don't render anything until DB value is confirmed

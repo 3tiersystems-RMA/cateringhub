@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import AppLogo from '@/components/ui/AppLogo';
 import Link from 'next/link';
+import { calculateOrderTotal } from '@/lib/order-totals';
 import {
   LineChart, Line, BarChart, Bar, AreaChart, Area,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
@@ -37,6 +38,21 @@ interface SummaryMetric {
   sub?: string;
   icon: string;
 }
+
+/** Order fields required for dynamic total (subtotal + delivery − discount from notes). */
+interface AnalyticsOrder {
+  id: string;
+  subtotal: number | null;
+  delivery_fee: number | null;
+  notes: string | null;
+  total: number | null;
+  payment_status: string;
+  fulfillment_status: string;
+  created_at: string;
+}
+
+const ORDERS_ANALYTICS_SELECT =
+  'id, subtotal, delivery_fee, notes, total, payment_status, fulfillment_status, created_at';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function getPeriodRange(period: Period): { from: Date; to: Date; bucketFn: (d: Date) => string } {
@@ -148,15 +164,16 @@ export default function StaffAnalyticsPage() {
       const fromISO = from.toISOString();
       const toISO = to.toISOString();
 
-      // Fetch orders in range
-      const { data: orders, error: ordersErr } = await supabase
+      // Fetch orders in range (subtotal, delivery_fee, notes needed for dynamic revenue)
+      const { data: ordersData, error: ordersErr } = await supabase
         .from('orders')
-        .select('id, total, subtotal, delivery_fee, notes, payment_status, fulfillment_status, created_at')
+        .select(ORDERS_ANALYTICS_SELECT)
         .gte('created_at', fromISO)
         .lte('created_at', toISO)
         .order('created_at', { ascending: true });
 
       if (ordersErr) throw ordersErr;
+      const orders = (ordersData ?? []) as AnalyticsOrder[];
 
       // Fetch voucher redemptions in range
       const { data: redemptions, error: redemptionsErr } = await supabase
@@ -187,17 +204,12 @@ export default function StaffAnalyticsPage() {
         voucherMap[b] = { mealVouchers: 0, discountVouchers: 0 };
       });
 
-      // Populate order trend
-      (orders || []).forEach(o => {
+      // Populate order trend — same dynamic total as /staff/orders (see calculateOrderTotal)
+      orders.forEach((o) => {
         const label = bucketFn(new Date(o.created_at));
         if (orderMap[label] !== undefined) {
           orderMap[label].orders += 1;
-          const subtotal = Number(o.subtotal) || 0;
-          const delivery = Number(o.delivery_fee) || 0;
-          const discountMatch = o.notes?.match(/Discount Voucher:.*?\(R([\d.]+)\s*credit\)/i);
-          const discount = discountMatch ? parseFloat(discountMatch[1]) : 0;
-          const calculated = subtotal + delivery - discount;
-          orderMap[label].revenue += calculated > 0 ? calculated : (Number(o.total) || 0);
+          orderMap[label].revenue += calculateOrderTotal(o);
         }
       });
 
@@ -220,7 +232,7 @@ export default function StaffAnalyticsPage() {
 
       // Fulfillment breakdown
       const fulfillmentCount: Record<string, number> = {};
-      (orders || []).forEach(o => {
+      orders.forEach((o) => {
         fulfillmentCount[o.fulfillment_status] = (fulfillmentCount[o.fulfillment_status] || 0) + 1;
       });
       const fulfillmentOrder = ['new', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled'];
@@ -234,18 +246,13 @@ export default function StaffAnalyticsPage() {
           }))
       );
 
-      // Summary metrics
-      const totalOrders = (orders || []).length;
-      const totalRevenue = (orders || []).reduce((sum, o) => {
-        const subtotal = Number(o.subtotal) || 0;
-        const delivery = Number(o.delivery_fee) || 0;
-        const discountMatch = o.notes?.match(/Discount Voucher:.*?\(R([\d.]+)\s*credit\)/i);
-        const discount = discountMatch ? parseFloat(discountMatch[1]) : 0;
-        const calculated = subtotal + delivery - discount;
-        return sum + (calculated > 0 ? calculated : (Number(o.total) || 0));
-      }, 0);
-      const paidOrders = (orders || []).filter(o => o.payment_status === 'paid' || o.payment_status === 'discounted').length;
-      const deliveredOrders = (orders || []).filter(o => o.fulfillment_status === 'delivered').length;
+      // Summary metrics — totalRevenue: subtotal + delivery_fee − discount from notes; fallback to total if ≤ 0
+      const totalOrders = orders.length;
+      const totalRevenue = orders.reduce((sum, o) => sum + calculateOrderTotal(o), 0);
+      const paidOrders = orders.filter(
+        (o) => o.payment_status === 'paid' || o.payment_status === 'discounted'
+      ).length;
+      const deliveredOrders = orders.filter((o) => o.fulfillment_status === 'delivered').length;
       const totalMealRedemptions = (redemptions || []).length;
       const totalDvUsed = (dvOrders || []).length;
       const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;

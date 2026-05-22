@@ -5,6 +5,7 @@ import Link from "next/link";
 import AppImage from "@/components/ui/AppImage";
 import Icon from "@/components/ui/AppIcon";
 import { createClient } from "@/lib/supabase/client";
+import { getHomepageSectionVisibility } from "@/lib/homepage-sections";
 import AnnouncementCard from "./AnnouncementCard";
 import { useCart } from "@/app/products/components/CartContext";
 import ProductModal from "@/app/products/components/ProductModal";
@@ -56,37 +57,8 @@ function HeroSectionInner() {
   }, []);
 
   useEffect(() => {
-    const checkServicesVisibility = async () => {
-      try {
-        const supabase = createClient();
-        const { data } = await supabase?.
-        from('homepage_section_settings')?.
-        select('is_visible')?.
-        eq('section_key', 'what_we_do')?.
-        single();
-        setShowViewServices(data ? data?.is_visible : true);
-      } catch {
-        setShowViewServices(true);
-      }
-    };
-    checkServicesVisibility();
-  }, []);
-
-  useEffect(() => {
-    const checkHeroBadgeVisibility = async () => {
-      try {
-        const supabase = createClient();
-        const { data } = await supabase?.
-        from('homepage_section_settings')?.
-        select('is_visible')?.
-        eq('section_key', 'hero_badge')?.
-        single();
-        setShowHeroBadge(data ? data?.is_visible : true);
-      } catch {
-        setShowHeroBadge(true);
-      }
-    };
-    checkHeroBadgeVisibility();
+    getHomepageSectionVisibility('what_we_do', true).then(setShowViewServices);
+    getHomepageSectionVisibility('hero_badge', true).then(setShowHeroBadge);
   }, []);
 
   useEffect(() => {

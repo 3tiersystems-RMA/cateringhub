@@ -5,6 +5,7 @@ import AppImage from "@/components/ui/AppImage";
 import Icon from "@/components/ui/AppIcon";
 import type { CartProduct } from "./CartContext";
 import { useCart } from "./CartContext";
+import { shouldShowProductBadge } from "@/lib/product-badge";
 
 interface ProductCardProps {
   product: CartProduct;
@@ -70,7 +71,7 @@ export default function ProductCard({ product, onOpenModal }: ProductCardProps) 
         />
         {/* Badges */}
         <div className="absolute top-3 left-3 flex flex-col gap-1.5">
-          {product.badge && (
+          {shouldShowProductBadge(product.badge) && (
             <span className="text-xs font-semibold bg-[#C4622D] text-white px-2.5 py-0.5 rounded-full">
               {product.badge}
             </span>
