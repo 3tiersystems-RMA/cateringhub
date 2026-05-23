@@ -67,7 +67,7 @@ export default function ProductCard({ product, onOpenModal }: ProductCardProps) 
           src={product.image}
           alt={product.imageAlt}
           fill
-          className={`${product.imageFit === 'fit' ? 'object-contain' : 'object-cover'} grayscale group-hover:grayscale-0 group-hover:scale-105 transition-all duration-700`}
+          className={`${product.imageFit === 'fit' ? 'object-contain' : 'object-cover'} group-hover:scale-105 transition-all duration-700`}
         />
         {/* Badges */}
         <div className="absolute top-3 left-3 flex flex-col gap-1.5">
