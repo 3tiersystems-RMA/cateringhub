@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import HeroSection from "./components/HeroSection";
-import MarqueeBanner from "./components/MarqueeBanner";
 import ServicesSection from "./components/ServicesSection";
 import FeaturedMenu from "./components/FeaturedMenu";
 import TestimonialSection from "./components/TestimonialSection";
@@ -28,7 +27,6 @@ export default function Homepage() {
       <CartSidebarWrapper />
       <main>
         <HeroSection />
-        <MarqueeBanner />
         <ServicesSection />
         <FeaturedMenu />
         <TestimonialSection />
