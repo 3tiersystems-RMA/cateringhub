@@ -136,7 +136,7 @@ function WeeklyMenuContent() {
   return (
     <>
       <CartSidebar />
-      <main className="pt-20 min-h-screen bg-[#F5F0E8]">
+      <main className="pt-20 min-h-screen bg-[#ddd4cb]">
         <div className="max-w-3xl mx-auto px-4 md:px-8 py-12">
           {/* Header */}
           <div className="text-center mb-10">

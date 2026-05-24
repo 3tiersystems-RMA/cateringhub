@@ -15,7 +15,7 @@ export default function ProductsPage() {
   return (
     <>
       <Header />
-      <main className="pt-20 min-h-screen bg-[#F5F0E8]">
+      <main className="pt-20 min-h-screen bg-[#ddd4cb]">
         <ProductsInteractive />
       </main>
       <Footer />
