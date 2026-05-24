@@ -5740,7 +5740,7 @@ export default function StaffWorkspacePage() {
                                 <td className="px-3 py-2 font-medium text-[#1A1612]">{r.productName}</td>
                                 <td className="px-3 py-2 text-[#5C5347]">{r.productType}</td>
                                 <td className="px-3 py-2 text-[#5C5347]">{r.item}</td>
-                                <td className="px-3 py-2 text-[#5C5347]">{r.mealVoucher || '—'}</td>
+                                <td className="px-3 py-2 font-mono font-semibold text-[#C4622D]">{r.mealVoucher || '—'}</td>
                                 <td className="px-3 py-2 font-mono font-semibold text-[#C4622D]">{r.discountVoucher || '—'}</td>
                                 <td className="px-3 py-2 text-[#5C5347] whitespace-nowrap">{r.orderedDate}</td>
                                 <td className="px-3 py-2 text-[#5C5347] whitespace-nowrap">{r.deliveredDt || '—'}</td>
@@ -5794,7 +5794,7 @@ export default function StaffWorkspacePage() {
                                 <td className="px-3 py-2 text-[#5C5347]">{r.productType}</td>
                                 <td className="px-3 py-2 text-[#5C5347]">{r.item}</td>
                                 <td className="px-3 py-2 text-[#5C5347]">{r.packagePurchased}</td>
-                                <td className="px-3 py-2 text-[#5C5347]">{r.mealVoucher || '—'}</td>
+                                <td className="px-3 py-2 font-mono font-semibold text-[#C4622D]">{r.mealVoucher || '—'}</td>
                                 <td className="px-3 py-2 font-mono font-semibold text-[#C4622D]">{r.discountVoucher || '—'}</td>
                                 <td className="px-3 py-2 text-[#5C5347] whitespace-nowrap">{r.orderedDate}</td>
                                 <td className="px-3 py-2 text-[#5C5347] whitespace-nowrap">{r.deliveredDt || '—'}</td>
@@ -5848,7 +5848,7 @@ export default function StaffWorkspacePage() {
                                 <td className="px-3 py-2 text-[#5C5347]">{r.productType}</td>
                                 <td className="px-3 py-2 text-[#5C5347]">{r.item}</td>
                                 <td className="px-3 py-2 text-[#5C5347]">{r.packagePurchased}</td>
-                                <td className="px-3 py-2 text-[#5C5347]">{r.mealVoucher || '—'}</td>
+                                <td className="px-3 py-2 font-mono font-semibold text-[#C4622D]">{r.mealVoucher || '—'}</td>
                                 <td className="px-3 py-2 font-mono font-semibold text-[#C4622D]">{r.discountVoucher || '—'}</td>
                                 <td className="px-3 py-2 text-[#5C5347] whitespace-nowrap">{r.orderedDate}</td>
                                 <td className="px-3 py-2 text-[#5C5347] whitespace-nowrap">{r.deliveredDt || '—'}</td>
