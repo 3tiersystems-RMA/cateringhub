@@ -20,6 +20,18 @@ export async function POST(request: NextRequest) {
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
+    // Check if this email already exists as a staff/admin member in user_profiles
+    const { data: existingProfile } = await supabaseAdmin
+      .from('user_profiles')
+      .select('id, email, role')
+      .eq('email', email)
+      .in('role', ['staff', 'admin'])
+      .maybeSingle();
+
+    if (existingProfile) {
+      return NextResponse.json({ error: 'A staff member with this email already exists.' }, { status: 409 });
+    }
+
     // Invite user via Supabase Auth (sends magic link email)
     const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
       data: {
@@ -30,8 +42,27 @@ export async function POST(request: NextRequest) {
     });
 
     if (error) {
-      // If user already exists, still create/update their profile
+      // If user already exists in auth (e.g. existing customer), look them up and upsert profile
       if (error.message?.includes('already been registered')) {
+        // Find the existing auth user by email
+        const { data: listData } = await supabaseAdmin.auth.admin.listUsers();
+        const existingAuthUser = listData?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase());
+
+        if (existingAuthUser) {
+          // Upsert their profile with the new staff role
+          await supabaseAdmin
+            .from('user_profiles')
+            .upsert({
+              id: existingAuthUser.id,
+              email,
+              full_name,
+              role,
+              is_active: true,
+            }, { onConflict: 'id' });
+
+          return NextResponse.json({ success: true, message: `Staff profile created for ${email}. They can log in with their existing account.` });
+        }
+
         return NextResponse.json({ error: 'A user with this email already exists.' }, { status: 409 });
       }
       return NextResponse.json({ error: error.message }, { status: 400 });

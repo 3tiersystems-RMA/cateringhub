@@ -3338,13 +3338,23 @@ export default function StaffWorkspacePage() {
                     </div>
                   </div>
                   {inviteSuccess && <p className="text-sm text-green-600 mt-3">{inviteSuccess}</p>}
-                  <button
-                    onClick={handleInviteStaff}
-                    disabled={inviting}
-                    className="mt-4 bg-[#C4622D] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
-                  >
-                    {inviting ? 'Sending…' : 'Send Invite'}
-                  </button>
+                  {inviteError && <p className="text-sm text-red-600 mt-3">{inviteError}</p>}
+                  <div className="flex items-center gap-3 mt-4">
+                    <button
+                      onClick={handleInviteStaff}
+                      disabled={inviting}
+                      className="bg-[#C4622D] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
+                    >
+                      {inviting ? 'Sending…' : 'Send Invite'}
+                    </button>
+                    <button
+                      onClick={() => { setInviteForm(emptyInviteForm); setInviteError(''); setInviteSuccess(''); }}
+                      type="button"
+                      className="px-6 py-2.5 rounded-xl text-sm font-semibold border border-[#DDD5C8] text-[#5C5347] hover:bg-[#FAF5EE] transition-colors"
+                    >
+                      Clear
+                    </button>
+                  </div>
                 </div>
 
                 {staffLoading ? (
@@ -3358,6 +3368,14 @@ export default function StaffWorkspacePage() {
                 ) : (
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 mb-4">
+                      <button
+                        onClick={() => setStaffStatusFilter('all')}
+                        className={`text-xs px-4 py-1.5 rounded-xl border font-semibold transition-colors ${
+                          staffStatusFilter === 'all' ? 'bg-[#C4622D] text-white border-[#C4622D]' : 'border-[#DDD5C8] text-[#5C5347] hover:bg-[#FAF5EE]'
+                        }`}
+                      >
+                        All
+                      </button>
                       <button
                         onClick={() => setStaffStatusFilter('active')}
                         className={`text-xs px-4 py-1.5 rounded-xl border font-semibold transition-colors ${
@@ -3374,14 +3392,6 @@ export default function StaffWorkspacePage() {
                       >
                         Inactive
                       </button>
-                      {staffStatusFilter !== 'all' && (
-                        <button
-                          onClick={() => setStaffStatusFilter('all')}
-                          className="text-xs px-3 py-1.5 rounded-xl border border-[#DDD5C8] text-[#8C8278] hover:bg-[#FAF5EE] font-semibold transition-colors"
-                        >
-                          Clear
-                        </button>
-                      )}
                     </div>
                     {filteredStaff.map(member => (
                       <div key={member.id} className="bg-white rounded-2xl border border-[#EDE7DA] p-4 flex items-center justify-between">
