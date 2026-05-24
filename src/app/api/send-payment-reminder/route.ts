@@ -58,11 +58,14 @@ export async function POST(req: NextRequest) {
     // Fetch the specific order or all outstanding orders
     let query = supabase
       .from('orders')
-      .select('id, customer_name, customer_email, total, created_at, items, payment_status')
-      .eq('payment_status', 'unpaid');
+      .select('id, customer_name, customer_email, total, created_at, items, payment_status');
 
     if (orderId) {
+      // Single order: fetch by ID only — no payment_status filter so any order can receive a reminder
       query = query.eq('id', orderId);
+    } else {
+      // Bulk send: only target unpaid orders
+      query = query.eq('payment_status', 'unpaid');
     }
 
     const { data: orders, error: fetchError } = await query;
