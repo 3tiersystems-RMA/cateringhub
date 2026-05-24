@@ -228,7 +228,7 @@ export default function CustomerProfilePage() {
   // ── LOOKUP SCREEN ──────────────────────────────────────────────────────────
   if (viewState === "lookup") {
     return (
-      <div className="min-h-screen bg-[#DDD4CB] text-white">
+      <div className="min-h-screen bg-[#0A0A0A] text-white">
         <Header />
         <main className="pt-24 pb-20 flex items-center justify-center px-4">
           <div className="w-full max-w-md">
@@ -330,7 +330,7 @@ export default function CustomerProfilePage() {
     : (profile.customer_email[0] || "?").toUpperCase();
 
   return (
-    <div className="min-h-screen bg-[#DDD4CB] text-white">
+    <div className="min-h-screen bg-[#0A0A0A] text-white">
       <Header />
 
       <main className="pt-24 pb-20">

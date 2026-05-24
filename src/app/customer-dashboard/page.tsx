@@ -134,7 +134,7 @@ export default function CustomerDashboardPage() {
   // ── LOOKUP SCREEN ──────────────────────────────────────────────────────────
   if (viewState === "lookup") {
     return (
-      <div className="min-h-screen bg-[#DDD4CB] text-white">
+      <div className="min-h-screen bg-[#0A0A0A] text-white">
         <Header />
         <main className="pt-24 pb-20 flex items-center justify-center px-4">
           <div className="w-full max-w-md">
@@ -229,7 +229,7 @@ export default function CustomerDashboardPage() {
     (voucher.total_meals > 0 ? `${voucher.total_meals}-Meal Package` : "Meal Voucher");
 
   return (
-    <div className="min-h-screen bg-[#DDD4CB] text-white">
+    <div className="min-h-screen bg-[#0A0A0A] text-white">
       <Header />
 
       <main className="pt-24 pb-20">

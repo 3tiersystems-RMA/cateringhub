@@ -72,7 +72,7 @@ export default function Footer() {
   const isHomepage = pathname === '/homepage' || pathname === '/';
 
   return (
-    <footer className="border-t border-[#DDD5C8] bg-[#DDD4CB]">
+    <footer className="border-t border-[#DDD5C8] bg-[#F5F0E8]">
       <div className="max-w-7xl mx-auto px-4 md:px-8 py-16">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-8">
           {/* Brand */}
