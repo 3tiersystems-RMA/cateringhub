@@ -728,6 +728,9 @@ export default function StaffWorkspacePage() {
   const [mvFormSuccess, setMvFormSuccess] = useState('');
   const [savingMv, setSavingMv] = useState(false);
   const [mvSearchQuery, setMvSearchQuery] = useState('');
+  const [showMvEditModal, setShowMvEditModal] = useState(false);
+  const [mvOrderItems, setMvOrderItems] = useState<Array<{ name: string; quantity: number; category: string; price: number }>>([]);
+  const [mvOrderItemsLoading, setMvOrderItemsLoading] = useState(false);
   const [mvFilterStatus, setMvFilterStatus] = useState<'all' | 'active' | 'unpaid' | 'paid' | 'redeemed' | 'expired'>('all');
   // Testimonials state
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
@@ -1174,6 +1177,32 @@ export default function StaffWorkspacePage() {
     setMvLoading(false);
   };
 
+  const fetchVoucherOrderItems = async (voucherCode: string) => {
+    setMvOrderItemsLoading(true);
+    setMvOrderItems([]);
+    try {
+      // Orders are linked to vouchers via m_payment_id matching the voucher_code
+      const { data: orderData } = await supabase
+        .from('orders')
+        .select('items')
+        .eq('m_payment_id', voucherCode)
+        .limit(1)
+        .maybeSingle();
+      if (orderData?.items && Array.isArray(orderData.items)) {
+        setMvOrderItems(orderData.items.map((it: any) => ({
+          name: it.name || '',
+          quantity: Number(it.quantity) || 1,
+          category: it.category || '',
+          price: Number(it.price) || 0,
+        })));
+      }
+    } catch {
+      // silently ignore — order items are read-only info
+    } finally {
+      setMvOrderItemsLoading(false);
+    }
+  };
+
   const loadDiscountVouchers = async () => {
     setDvLoading(true);
     const { data } = await supabase.from('discount_vouchers').select('*').order('created_at', { ascending: false });
@@ -1497,37 +1526,44 @@ export default function StaffWorkspacePage() {
           const isPackage = item.category?.toLowerCase().includes('package') || item.category?.toLowerCase().includes('voucher') || (item.package_type && item.package_type !== 'none') || false;
           const isFrozen = item.category?.toLowerCase().includes('frozen') || false;
           if (isPackage) {
-            packageRows.push({
-              orderId: order.id,
-              productName: item.name,
-              productType: item.category || '',
-              item: `${item.quantity}x ${item.name}`,
-              packagePurchased: item.category || '',
-              mealVoucher,
-              discountVoucher,
-              orderedDate,
-              orderedRaw: order.created_at || '',
-              deliveredDt,
-              deliveredRaw: order.delivered_date || '',
-              clientName: order.customer_name,
-              clientEmail: order.customer_email,
-            });
+            // Expand each unit into its own individual row
+            const qty = Number(item.quantity) || 1;
+            for (let qi = 0; qi < qty; qi++) {
+              packageRows.push({
+                orderId: order.id,
+                productName: item.name,
+                productType: item.category || '',
+                item: item.name,
+                packagePurchased: item.category || '',
+                mealVoucher,
+                discountVoucher,
+                orderedDate,
+                orderedRaw: order.created_at || '',
+                deliveredDt,
+                deliveredRaw: order.delivered_date || '',
+                clientName: order.customer_name,
+                clientEmail: order.customer_email,
+              });
+            }
           } else if (isFrozen) {
-            frozenRows.push({
-              orderId: order.id,
-              productName: item.name,
-              productType: item.category || '',
-              item: `${item.quantity}x ${item.name}`,
-              packagePurchased: item.category || '',
-              mealVoucher,
-              discountVoucher,
-              orderedDate,
-              orderedRaw: order.created_at || '',
-              deliveredDt,
-              deliveredRaw: order.delivered_date || '',
-              clientName: order.customer_name,
-              clientEmail: order.customer_email,
-            });
+            const qty = Number(item.quantity) || 1;
+            for (let qi = 0; qi < qty; qi++) {
+              frozenRows.push({
+                orderId: order.id,
+                productName: item.name,
+                productType: item.category || '',
+                item: item.name,
+                packagePurchased: item.category || '',
+                mealVoucher,
+                discountVoucher,
+                orderedDate,
+                orderedRaw: order.created_at || '',
+                deliveredDt,
+                deliveredRaw: order.delivered_date || '',
+                clientName: order.customer_name,
+                clientEmail: order.customer_email,
+              });
+            }
           } else {
             productsRows.push({
               orderId: order.id,
@@ -4833,7 +4869,8 @@ export default function StaffWorkspacePage() {
                               });
                               setMvFormError('');
                               setMvFormSuccess('');
-                              setShowMvForm(true);
+                              setShowMvEditModal(true);
+                              fetchVoucherOrderItems(v.voucher_code);
                             }}
                             className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl hover:bg-[#FDF6EE] transition-colors"
                           >
@@ -4850,6 +4887,179 @@ export default function StaffWorkspacePage() {
                     ))}
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* ── MEAL VOUCHER EDIT MODAL */}
+            {showMvEditModal && editingMv && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                <div className="bg-white rounded-2xl shadow-2xl border border-[#DDD5C8] w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                  <div className="flex items-center justify-between px-6 py-4 border-b border-[#EDE7DA]">
+                    <div>
+                      <h3 className="text-base font-bold text-[#1A1612]">Edit Meal Voucher</h3>
+                      <p className="text-xs text-[#8C8278] mt-0.5 font-mono">{editingMv.voucher_code}</p>
+                    </div>
+                    <button
+                      onClick={() => { setShowMvEditModal(false); setEditingMv(null); setMvOrderItems([]); }}
+                      className="text-[#8C8278] hover:text-[#1A1612] transition-colors text-2xl font-bold leading-none w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#F5F0E8]"
+                    >
+                      ×
+                    </button>
+                  </div>
+
+                  <div className="px-6 py-5 space-y-5">
+                    {/* Read-only: What the customer ordered */}
+                    <div>
+                      <p className="text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-2">What Was Ordered</p>
+                      {mvOrderItemsLoading ? (
+                        <div className="flex items-center gap-2 py-3">
+                          <div className="w-4 h-4 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
+                          <span className="text-xs text-[#8C8278]">Loading order details…</span>
+                        </div>
+                      ) : mvOrderItems.length === 0 ? (
+                        <div className="bg-[#F5F0E8] rounded-xl px-4 py-3 text-xs text-[#8C8278]">
+                          No linked order found for this voucher code.
+                        </div>
+                      ) : (
+                        <div className="bg-[#F5F0E8] rounded-xl overflow-hidden">
+                          <div className="px-4 py-2 border-b border-[#EDE7DA] grid grid-cols-12 gap-2 text-[10px] font-semibold text-[#8C8278] uppercase tracking-wider">
+                            <span className="col-span-5">Item</span>
+                            <span className="col-span-3">Type / Package</span>
+                            <span className="col-span-2 text-right">Price</span>
+                            <span className="col-span-2 text-right">Status</span>
+                          </div>
+                          {mvOrderItems.flatMap((item, idx) =>
+                            Array.from({ length: item.quantity }).map((_, qIdx) => (
+                              <div key={`${idx}-${qIdx}`} className="px-4 py-2.5 border-b border-[#EDE7DA] last:border-0 grid grid-cols-12 gap-2 items-center">
+                                <div className="col-span-5">
+                                  <p className="text-xs font-semibold text-[#1A1612]">{item.name}</p>
+                                  {item.quantity > 1 && (
+                                    <p className="text-[10px] text-[#B5ADA5]">Unit {qIdx + 1} of {item.quantity}</p>
+                                  )}
+                                </div>
+                                <div className="col-span-3">
+                                  <span className="text-xs text-[#5C5347]">{item.category || '—'}</span>
+                                </div>
+                                <div className="col-span-2 text-right">
+                                  <span className="text-xs font-medium text-[#1A1612]">R{item.price.toFixed(2)}</span>
+                                </div>
+                                <div className="col-span-2 text-right">
+                                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-semibold">Ordered</span>
+                                </div>
+                              </div>
+                            ))
+                          )}
+                          <div className="px-4 py-2.5 bg-[#EDE7DA] flex items-center justify-between">
+                            <span className="text-xs font-semibold text-[#5C5347]">
+                              Total items: {mvOrderItems.reduce((s, i) => s + i.quantity, 0)}
+                            </span>
+                            <span className="text-xs font-bold text-[#1A1612]">
+                              R{mvOrderItems.reduce((s, i) => s + i.price * i.quantity, 0).toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Editable fields */}
+                    <div>
+                      <p className="text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-3">Voucher Details</p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Customer Name *</label>
+                          <input value={mvForm.customer_name} onChange={e => setMvForm(f => ({ ...f, customer_name: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Customer Email *</label>
+                          <input type="email" value={mvForm.customer_email} onChange={e => setMvForm(f => ({ ...f, customer_email: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Phone</label>
+                          <input value={mvForm.customer_phone} onChange={e => setMvForm(f => ({ ...f, customer_phone: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Total Meals *</label>
+                          <input type="number" min="1" value={mvForm.total_meals} onChange={e => setMvForm(f => ({ ...f, total_meals: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Meals Remaining</label>
+                          <input type="number" min="0" value={mvForm.meals_remaining} onChange={e => setMvForm(f => ({ ...f, meals_remaining: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Status</label>
+                          <select value={mvForm.status} onChange={e => setMvForm(f => ({ ...f, status: e.target.value as Voucher['status'] }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white">
+                            <option value="unpaid">Unpaid</option>
+                            <option value="paid">Paid</option>
+                            <option value="active">Active</option>
+                            <option value="redeemed">Redeemed</option>
+                            <option value="expired">Expired</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Package Type</label>
+                          <select value={mvForm.package_type} onChange={e => setMvForm(f => ({ ...f, package_type: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white">
+                            <option value="none">None</option>
+                            <option value="package-6">Package 6</option>
+                            <option value="package-10">Package 10</option>
+                            <option value="package-12">Package 12</option>
+                            <option value="package-24">Package 24</option>
+                          </select>
+                        </div>
+                        <div className="md:col-span-2">
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Notes</label>
+                          <textarea value={mvForm.notes} onChange={e => setMvForm(f => ({ ...f, notes: e.target.value }))} rows={2} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                        </div>
+                        {mvForm.purchased_at && (
+                          <div className="md:col-span-2">
+                            <p className="text-xs text-[#8C8278]">Date purchased: {formatDateDMY(mvForm.purchased_at)}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {mvFormError && <p className="text-sm text-red-600">{mvFormError}</p>}
+                    {mvFormSuccess && <p className="text-sm text-green-600">{mvFormSuccess}</p>}
+                  </div>
+
+                  <div className="flex items-center gap-3 px-6 py-4 border-t border-[#EDE7DA]">
+                    <button
+                      onClick={async () => {
+                        if (!mvForm.customer_name.trim() || !mvForm.customer_email.trim() || !mvForm.total_meals) {
+                          setMvFormError('Name, email, and total meals are required.');
+                          return;
+                        }
+                        setSavingMv(true);
+                        const payload = {
+                          voucher_code: mvForm.voucher_code,
+                          customer_name: mvForm.customer_name.trim(),
+                          customer_email: mvForm.customer_email.trim(),
+                          customer_phone: mvForm.customer_phone.trim(),
+                          total_meals: Number(mvForm.total_meals),
+                          meals_remaining: Number(mvForm.meals_remaining),
+                          status: mvForm.status,
+                          notes: mvForm.notes.trim() || null,
+                          package_type: mvForm.package_type,
+                        };
+                        const { error: saveErr } = await supabase.from('vouchers').update(payload).eq('id', editingMv.id);
+                        if (saveErr) { setMvFormError(saveErr.message); setSavingMv(false); return; }
+                        setMvFormSuccess('Voucher updated!');
+                        await loadMealVouchers();
+                        setSavingMv(false);
+                        setTimeout(() => { setShowMvEditModal(false); setEditingMv(null); setMvOrderItems([]); setMvFormSuccess(''); }, 800);
+                      }}
+                      disabled={savingMv}
+                      className="bg-[#C4622D] text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
+                    >
+                      {savingMv ? 'Saving…' : 'Update Voucher'}
+                    </button>
+                    <button
+                      onClick={() => { setShowMvEditModal(false); setEditingMv(null); setMvOrderItems([]); setMvFormError(''); setMvFormSuccess(''); }}
+                      className="text-sm text-[#5C5347] border border-[#DDD5C8] px-4 py-2 rounded-xl hover:bg-[#F5F0E8] transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
 
