@@ -152,7 +152,7 @@ export default function VouchersPage() {
   return (
     <>
       <Header />
-      <main className="pt-20 min-h-screen bg-[#F5F0E8]">
+      <main className="pt-20 min-h-screen bg-[#ddd4cb]">
         {/* Hero */}
         <section className="bg-black py-16 px-4">
           <div className="max-w-3xl mx-auto text-center">
