@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
           id: authUser.id,
           email: authUser.email,
           full_name: full_name || authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || '',
-          phone_number: phone_number || authUser.phone || '',
+          phone: phone_number || authUser.phone || '',
           role,
           is_active: true,
         },
