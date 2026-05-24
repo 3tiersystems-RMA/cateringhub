@@ -2731,17 +2731,6 @@ export default function StaffWorkspacePage() {
                 <span>Customer Order History</span>
               </button>
 
-              {/* ── ABANDONED CARTS TAB */}
-              <button
-                onClick={() => { handleTabChange('abandoned_carts'); }}
-                className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
-                  activeTab === 'abandoned_carts' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
-                }`}
-              >
-                <span className="text-base">🛒</span>
-                <span>Abandoned Carts</span>
-              </button>
-
               {/* ── Vouchers (collapsible) ── */}
               <button
                 onClick={() => setVouchersMenuOpen(prev => !prev)}
@@ -2869,6 +2858,17 @@ export default function StaffWorkspacePage() {
                   </a>
                 </div>
               )}
+
+              {/* ── ABANDONED CARTS TAB */}
+              <button
+                onClick={() => { handleTabChange('abandoned_carts'); }}
+                className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
+                  activeTab === 'abandoned_carts' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
+                }`}
+              >
+                <span className="text-base">🛒</span>
+                <span>Abandoned Carts</span>
+              </button>
 
             </nav>
           </aside>
