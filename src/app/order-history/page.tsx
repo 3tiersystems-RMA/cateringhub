@@ -236,7 +236,7 @@ export default function OrderHistoryPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] text-white">
+    <div className="min-h-screen bg-[#DDD4CB] text-white">
       <Header />
 
       <main className="pt-24 pb-20">
