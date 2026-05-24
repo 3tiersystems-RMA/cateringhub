@@ -145,6 +145,7 @@ interface StaffMember {
   id: string;
   email: string;
   full_name: string;
+  phone_number?: string;
   role: StaffRole;
   is_active: boolean;
   created_at: string;
@@ -657,6 +658,11 @@ export default function StaffWorkspacePage() {
   const [deleteConfirmMember, setDeleteConfirmMember] = useState<StaffMember | null>(null);
   const [deleteActiveMember, setDeleteActiveMember] = useState<StaffMember | null>(null);
   const [editMenuOpenId, setEditMenuOpenId] = useState<string | null>(null);
+  // Edit modal state
+  const [editModalMember, setEditModalMember] = useState<StaffMember | null>(null);
+  const [editModalForm, setEditModalForm] = useState({ full_name: '', phone_number: '', role: 'staff' as StaffRole });
+  const [editModalSaving, setEditModalSaving] = useState(false);
+  const [editModalError, setEditModalError] = useState('');
   // Promote existing user state
   const [promoteForm, setPromoteForm] = useState({ email: '', full_name: '', phone_number: '', role: 'staff' as StaffRole });
   const [promoting, setPromoting] = useState(false);
@@ -719,7 +725,7 @@ export default function StaffWorkspacePage() {
   const [dvLoading, setDvLoading] = useState(false);
   const [showDvForm, setShowDvForm] = useState(false);
   const [editingDv, setEditingDv] = useState<DiscountVoucher | null>(null);
-  const [dvForm, setDvForm] = useState({ dv_code: '', dv_type: 'Discount' as 'Discount' | 'Gift', dv_amount: '', status: 'Active\' as \'Active\' | \'Inactive', expiry_date: '', created_at: '' });
+  const [dvForm, setDvForm] = useState({ dv_code: '', dv_type: 'Discount' as 'Discount' | 'Gift', dv_amount: '', status: 'Active' as 'Active' | 'Inactive', expiry_date: '', created_at: '' });
   const [dvFormError, setDvFormError] = useState('');
   const [dvFormSuccess, setDvFormSuccess] = useState('');
   const [savingDv, setSavingDv] = useState(false);
@@ -2008,32 +2014,40 @@ export default function StaffWorkspacePage() {
     setTogglingStaffId(null);
   };
 
-  const handleResetPassword = async (member: StaffMember) => {
-    setSendingResetId(member.id);
-    setResetMessages(prev => ({ ...prev, [member.id]: { type: 'success', text: '' } }));
-    try {
-      const res = await fetch('/api/staff/reset-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: member.id, email: member.email }),
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        setResetMessages(prev => ({ ...prev, [member.id]: { type: 'error', text: json.error || 'Failed to send reset email.' } }));
-      } else {
-        setResetMessages(prev => ({ ...prev, [member.id]: { type: 'success', text: `Reset email sent to ${member.email}` } }));
-      }
-      setTimeout(() => {
-        setResetMessages(prev => ({ ...prev, [member.id]: { type: 'success', text: '' } }));
-      }, 10000);
-    } catch {
-      setResetMessages(prev => ({ ...prev, [member.id]: { type: 'error', text: 'Network error. Please try again.' } }));
-      setTimeout(() => {
-        setResetMessages(prev => ({ ...prev, [member.id]: { type: 'success', text: '' } }));
-      }, 10000);
-    } finally {
-      setSendingResetId(null);
+  const handleOpenEditModal = (member: StaffMember) => {
+    setEditModalMember(member);
+    setEditModalForm({
+      full_name: member.full_name || '',
+      phone_number: member.phone_number || '',
+      role: member.role,
+    });
+    setEditModalError('');
+  };
+
+  const handleSaveEditModal = async () => {
+    if (!editModalMember) return;
+    if (!editModalForm.full_name.trim()) {
+      setEditModalError('Full name is required.');
+      return;
     }
+    setEditModalSaving(true);
+    setEditModalError('');
+    const { error } = await supabase
+      .from('user_profiles')
+      .update({
+        full_name: editModalForm.full_name.trim(),
+        phone_number: editModalForm.phone_number.trim() || null,
+        role: editModalForm.role,
+      })
+      .eq('id', editModalMember.id);
+    if (error) {
+      setEditModalError('Failed to save changes. Please try again.');
+      setEditModalSaving(false);
+      return;
+    }
+    await loadStaff();
+    setEditModalSaving(false);
+    setEditModalMember(null);
   };
 
   const handleDeleteStaff = async (member: StaffMember) => {
@@ -2053,6 +2067,29 @@ export default function StaffWorkspacePage() {
       await loadStaff();
     } finally {
       setDeletingStaffId(null);
+    }
+  };
+
+  const handleResetPassword = async (member: StaffMember) => {
+    setSendingResetId(member.id);
+    setResetMessages(prev => ({ ...prev, [member.id]: { type: 'success', text: '' } }));
+    try {
+      const res = await fetch('/api/staff/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: member.email }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setResetMessages(prev => ({ ...prev, [member.id]: { type: 'error', text: json.error || 'Failed to send reset email.' } }));
+      } else {
+        setResetMessages(prev => ({ ...prev, [member.id]: { type: 'success', text: 'Reset email sent!' } }));
+        setTimeout(() => setResetMessages(prev => { const n = { ...prev }; delete n[member.id]; return n; }), 4000);
+      }
+    } catch {
+      setResetMessages(prev => ({ ...prev, [member.id]: { type: 'error', text: 'Unexpected error. Try again.' } }));
+    } finally {
+      setSendingResetId(null);
     }
   };
 
@@ -2589,6 +2626,73 @@ export default function StaffWorkspacePage() {
                 className="px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition-colors"
               >
                 Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Staff Modal */}
+      {editModalMember && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-2xl shadow-xl p-6 max-w-lg w-full mx-4">
+            <h3 className="text-base font-bold text-[#1A1612] mb-5">Edit Staff Member</h3>
+            <div className="grid grid-cols-1 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-[#5C5347] mb-1">Email</label>
+                <input
+                  type="email"
+                  value={editModalMember.email}
+                  readOnly
+                  className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm bg-[#FAF5EE] text-[#8C8278] cursor-not-allowed focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-[#5C5347] mb-1">Full Name *</label>
+                <input
+                  type="text"
+                  value={editModalForm.full_name}
+                  onChange={e => setEditModalForm(f => ({ ...f, full_name: e.target.value }))}
+                  className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-[#5C5347] mb-1">Phone Number</label>
+                <input
+                  type="tel"
+                  value={editModalForm.phone_number}
+                  onChange={e => setEditModalForm(f => ({ ...f, phone_number: e.target.value }))}
+                  placeholder="+27..."
+                  className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-[#5C5347] mb-1">Role</label>
+                <select
+                  value={editModalForm.role}
+                  onChange={e => setEditModalForm(f => ({ ...f, role: e.target.value as StaffRole }))}
+                  className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+                >
+                  <option value="staff">Staff</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+            </div>
+            {editModalError && <p className="text-sm text-red-600 mt-3">{editModalError}</p>}
+            <div className="flex items-center gap-3 mt-5">
+              <button
+                onClick={handleSaveEditModal}
+                disabled={editModalSaving}
+                className="bg-[#C4622D] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
+              >
+                {editModalSaving ? 'Saving…' : 'Save Changes'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditModalMember(null)}
+                className="px-6 py-2.5 rounded-xl text-sm font-semibold border border-[#DDD5C8] text-[#5C5347] hover:bg-[#FAF5EE] transition-colors"
+              >
+                Cancel
               </button>
             </div>
           </div>
@@ -3531,42 +3635,25 @@ export default function StaffWorkspacePage() {
                                 {sendingResetId === member.id ? 'Sending…' : 'Reset Password'}
                               </button>
                               {member.role !== 'super_admin' && (
-                                <div className="relative">
+                                <>
                                   <button
-                                    onClick={() => setEditMenuOpenId(editMenuOpenId === member.id ? null : member.id)}
+                                    onClick={() => handleToggleStaffActive(member)}
+                                    disabled={togglingStaffId === member.id || userProfile?.id === member.id}
+                                    title={userProfile?.id === member.id ? 'Cannot change your own status' : undefined}
+                                    className={`text-xs px-3 py-1.5 rounded-xl border font-semibold transition-colors disabled:opacity-50 whitespace-nowrap ${
+                                      member.is_active
+                                        ? 'border-red-400 text-red-600 hover:bg-red-50' :'border-green-500 text-green-700 hover:bg-green-50'
+                                    }`}
+                                  >
+                                    {togglingStaffId === member.id ? 'Updating…' : member.is_active ? 'Deactivate' : 'Activate'}
+                                  </button>
+                                  <button
+                                    onClick={() => handleOpenEditModal(member)}
                                     className="text-xs px-3 py-1.5 rounded-xl border border-[#8C8278] text-[#5C4F3D] hover:bg-[#F5EFE6] font-semibold transition-colors whitespace-nowrap"
                                   >
-                                    Edit ▾
+                                    Edit
                                   </button>
-                                  {editMenuOpenId === member.id && (
-                                    <div className="absolute right-0 top-full mt-1 bg-white border border-[#EDE7DA] rounded-xl shadow-lg z-10 min-w-[140px]">
-                                      {(() => {
-                                        const isSelf = userProfile?.id === member.id;
-                                        const canDeactivate = !isSelf;
-                                        return (
-                                          <button
-                                            onClick={() => {
-                                              if (canDeactivate) {
-                                                handleToggleStaffActive(member);
-                                                setEditMenuOpenId(null);
-                                              }
-                                            }}
-                                            disabled={togglingStaffId === member.id || !canDeactivate}
-                                            title={!canDeactivate ? 'Only Super Admin can deactivate this account' : undefined}
-                                            className={`w-full text-left text-xs px-4 py-2.5 rounded-xl font-semibold transition-colors disabled:opacity-50 ${
-                                              !canDeactivate
-                                                ? 'text-gray-400 cursor-not-allowed'
-                                                : member.is_active
-                                                  ? 'text-red-600 hover:bg-red-50' :'text-green-600 hover:bg-green-50'
-                                            }`}
-                                          >
-                                            {togglingStaffId === member.id ? 'Updating…' : member.is_active ? 'Deactivate' : 'Activate'}
-                                          </button>
-                                        );
-                                      })()}
-                                    </div>
-                                  )}
-                                </div>
+                                </>
                               )}
                               <button
                                 onClick={() => handleDeleteStaff(member)}
