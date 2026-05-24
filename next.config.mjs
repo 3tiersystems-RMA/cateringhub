@@ -20,6 +20,21 @@ const nextConfig = {
         destination: '/homepage',
         permanent: false,
       },
+      {
+        source: '/recipes',
+        destination: '/products',
+        permanent: true,
+      },
+      {
+        source: '/about-us',
+        destination: '/homepage',
+        permanent: true,
+      },
+      {
+        source: '/contact-us',
+        destination: '/contact',
+        permanent: true,
+      },
     ];
   },
   async rewrites() {
