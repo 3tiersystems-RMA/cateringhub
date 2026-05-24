@@ -656,6 +656,7 @@ export default function StaffWorkspacePage() {
   const [deletingStaffId, setDeletingStaffId] = useState<string | null>(null);
   const [deleteConfirmMember, setDeleteConfirmMember] = useState<StaffMember | null>(null);
   const [deleteActiveMember, setDeleteActiveMember] = useState<StaffMember | null>(null);
+  const [editMenuOpenId, setEditMenuOpenId] = useState<string | null>(null);
   // Promote existing user state
   const [promoteForm, setPromoteForm] = useState({ email: '', full_name: '', phone_number: '', role: 'staff' as StaffRole });
   const [promoting, setPromoting] = useState(false);
@@ -2022,8 +2023,14 @@ export default function StaffWorkspacePage() {
       } else {
         setResetMessages(prev => ({ ...prev, [member.id]: { type: 'success', text: `Reset email sent to ${member.email}` } }));
       }
+      setTimeout(() => {
+        setResetMessages(prev => ({ ...prev, [member.id]: { type: 'success', text: '' } }));
+      }, 10000);
     } catch {
       setResetMessages(prev => ({ ...prev, [member.id]: { type: 'error', text: 'Network error. Please try again.' } }));
+      setTimeout(() => {
+        setResetMessages(prev => ({ ...prev, [member.id]: { type: 'success', text: '' } }));
+      }, 10000);
     } finally {
       setSendingResetId(null);
     }
@@ -3513,41 +3520,62 @@ export default function StaffWorkspacePage() {
                             </span>
                           </div>
                         </div>
-                        {member.role !== 'super_admin' && (() => {
-                          const isSelf = userProfile?.id === member.id;
-                          const canDeactivate = userProfile?.role === 'super_admin' || !isSelf;
-                          return (
-                            <button
-                              onClick={() => canDeactivate && handleToggleStaffActive(member)}
-                              disabled={togglingStaffId === member.id || !canDeactivate}
-                              title={!canDeactivate ? 'Only Super Admin can deactivate this account' : undefined}
-                              className={`text-xs px-3 py-1.5 rounded-xl border font-semibold transition-colors disabled:opacity-50 ${
-                                !canDeactivate
-                                  ? 'border-gray-200 text-gray-400 bg-gray-50 cursor-not-allowed'
-                                  : member.is_active
-                                    ? 'border-red-200 text-red-600 hover:bg-red-50' :'border-green-200 text-green-600 hover:bg-green-50'
-                              }`}
-                            >
-                              {member.is_active ? 'Deactivate' : 'Activate'}
-                            </button>
-                          );
-                        })()}
                         {userProfile?.role === 'super_admin' && (
                           <div className="flex flex-col items-end gap-1">
-                            <button
-                              onClick={() => handleResetPassword(member)}
-                              disabled={sendingResetId === member.id}
-                              className="text-xs px-3 py-1.5 rounded-xl border border-[#C4622D] text-[#C4622D] hover:bg-[#FDF6EE] font-semibold transition-colors disabled:opacity-50"
-                            >
-                              {sendingResetId === member.id ? 'Sending…' : 'Reset Password'}
-                            </button>
-                            <button
-                              onClick={() => handleDeleteStaff(member)}
-                              disabled={deletingStaffId === member.id}
-                              className="text-xs px-3 py-1.5 rounded-xl border border-red-400 text-red-600 hover:bg-red-50 font-semibold transition-colors disabled:opacity-50"
-                            >
-                              {deletingStaffId === member.id ? 'Deleting…' : 'Delete'}
-                            </button>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => handleResetPassword(member)}
+                                disabled={sendingResetId === member.id}
+                                className="text-xs px-3 py-1.5 rounded-xl border border-[#C4622D] text-[#C4622D] hover:bg-[#FDF6EE] font-semibold transition-colors disabled:opacity-50 whitespace-nowrap"
+                              >
+                                {sendingResetId === member.id ? 'Sending…' : 'Reset Password'}
+                              </button>
+                              {member.role !== 'super_admin' && (
+                                <div className="relative">
+                                  <button
+                                    onClick={() => setEditMenuOpenId(editMenuOpenId === member.id ? null : member.id)}
+                                    className="text-xs px-3 py-1.5 rounded-xl border border-[#8C8278] text-[#5C4F3D] hover:bg-[#F5EFE6] font-semibold transition-colors whitespace-nowrap"
+                                  >
+                                    Edit ▾
+                                  </button>
+                                  {editMenuOpenId === member.id && (
+                                    <div className="absolute right-0 top-full mt-1 bg-white border border-[#EDE7DA] rounded-xl shadow-lg z-10 min-w-[140px]">
+                                      {(() => {
+                                        const isSelf = userProfile?.id === member.id;
+                                        const canDeactivate = !isSelf;
+                                        return (
+                                          <button
+                                            onClick={() => {
+                                              if (canDeactivate) {
+                                                handleToggleStaffActive(member);
+                                                setEditMenuOpenId(null);
+                                              }
+                                            }}
+                                            disabled={togglingStaffId === member.id || !canDeactivate}
+                                            title={!canDeactivate ? 'Only Super Admin can deactivate this account' : undefined}
+                                            className={`w-full text-left text-xs px-4 py-2.5 rounded-xl font-semibold transition-colors disabled:opacity-50 ${
+                                              !canDeactivate
+                                                ? 'text-gray-400 cursor-not-allowed'
+                                                : member.is_active
+                                                  ? 'text-red-600 hover:bg-red-50' :'text-green-600 hover:bg-green-50'
+                                            }`}
+                                          >
+                                            {togglingStaffId === member.id ? 'Updating…' : member.is_active ? 'Deactivate' : 'Activate'}
+                                          </button>
+                                        );
+                                      })()}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                              <button
+                                onClick={() => handleDeleteStaff(member)}
+                                disabled={deletingStaffId === member.id}
+                                className="text-xs px-3 py-1.5 rounded-xl border border-red-400 text-red-600 hover:bg-red-50 font-semibold transition-colors disabled:opacity-50 whitespace-nowrap"
+                              >
+                                {deletingStaffId === member.id ? 'Deleting…' : 'Delete'}
+                              </button>
+                            </div>
                             {resetMessages[member.id]?.text && (
                               <span className={`text-xs ${resetMessages[member.id].type === 'success' ? 'text-green-600' : 'text-red-500'}`}>
                                 {resetMessages[member.id].text}
