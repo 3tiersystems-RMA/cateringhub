@@ -5362,7 +5362,7 @@ export default function StaffWorkspacePage() {
                             {isExpiredDv ? 'Inactive' : dv.status}
                           </span>
                           <button
-                            onClick={() => { setEditingDv(dv); setDvForm({ dv_code: dv.dv_code, dv_type: dv.dv_code.startsWith('GV-') ? 'Gift' : 'Discount', dv_amount: String(dv.dv_amount), status: dv.status, expiry_date: dv.expiry_date?.split('T')[0] || '', created_at: dv.created_at || '' }); setDvFormError(''); setDvFormSuccess(''); setShowDvForm(true); }}
+                            onClick={() => { if (isExpiredDv && dv.status === 'Inactive') { showGlobalError("Expired/Inactive vouchers cannot be edited", 'Cannot Edit Voucher'); return; } setEditingDv(dv); setDvForm({ dv_code: dv.dv_code, dv_type: dv.dv_code.startsWith('GV-') ? 'Gift' : 'Discount', dv_amount: String(dv.dv_amount), status: dv.status, expiry_date: dv.expiry_date?.split('T')[0] || '', created_at: dv.created_at || '' }); setDvFormError(''); setDvFormSuccess(''); setShowDvForm(true); }}
                             className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl hover:bg-[#FDF6EE] transition-colors"
                           >
                             Edit
