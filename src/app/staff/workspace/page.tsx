@@ -2644,7 +2644,7 @@ export default function StaffWorkspacePage() {
               </button>
               {siteContentOpen && (
                 <div className="pl-4 border-l-2 border-[#E8DDD0] ml-4">
-                  {(userProfile?.role === 'super_admin' || userProfile?.role === 'admin') && (
+                  {(userProfile?.role === 'super_admin') && (
                   <button
                     onClick={() => { handleTabChange('staff'); }}
                     className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${
@@ -3324,7 +3324,7 @@ export default function StaffWorkspacePage() {
             )}
 
             {/* ── STAFF TAB ── */}
-            {activeTab === 'staff' && (userProfile?.role === 'super_admin' || userProfile?.role === 'admin') && (
+            {activeTab === 'staff' && userProfile?.role === 'super_admin' && (
               <div className="p-6">
                 <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
                   <div>
