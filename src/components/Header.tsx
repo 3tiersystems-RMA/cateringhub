@@ -25,6 +25,7 @@ const customerProfileSubLinks = [
 
 export default function Header() {
   const pathname = usePathname();
+  const [mounted, setMounted] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
@@ -33,6 +34,10 @@ export default function Header() {
   const [mobileEventsOpen, setMobileEventsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const eventsDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -54,13 +59,13 @@ export default function Header() {
   }, []);
 
   const isCustomerProfileActive =
-    pathname === "/customer-profile" || pathname === "/order-history" || pathname === "/customer-dashboard";
-  const isEventsActive = pathname === "/events";
+    mounted && (pathname === "/customer-profile" || pathname === "/order-history" || pathname === "/customer-dashboard");
+  const isEventsActive = mounted && pathname === "/events";
 
   return (
     <header
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
-        scrolled
+        mounted && scrolled
           ? "bg-black/95 backdrop-blur-xl shadow-warm border-b border-[#333]"
           : "bg-black"
       }`}
@@ -74,7 +79,7 @@ export default function Header() {
         {/* Desktop Nav */}
         <nav className="hidden md:flex items-center gap-8">
           {navLinks?.map((link) => {
-            const isActive = pathname === link?.href;
+            const isActive = mounted && pathname === link?.href;
             return (
               <Link
                 key={link?.href}
