@@ -2773,6 +2773,13 @@ export default function StaffWorkspacePage() {
                     <span className="text-base">🏷️</span>
                     <span>Discount Vouchers</span>
                   </button>
+                  <a
+                    href="/staff/scanner"
+                    className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]"
+                  >
+                    <span className="text-base">📷</span>
+                    <span>Voucher Scanner</span>
+                  </a>
                 </div>
               )}
 
