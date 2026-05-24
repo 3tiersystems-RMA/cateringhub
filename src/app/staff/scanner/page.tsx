@@ -292,7 +292,7 @@ export default function VoucherScannerPage() {
                 {voucherCode && (
                   <button
                     type="button"
-                    onClick={() => setVoucherCode('')}
+                    onClick={handleReset}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-[#555] hover:text-white transition-colors"
                   >
                     <Icon name="XMarkIcon" size={18} />
