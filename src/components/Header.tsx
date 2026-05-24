@@ -20,6 +20,7 @@ const eventsSubLinks = [
 const customerProfileSubLinks = [
   { label: "View Profile", href: "/customer-profile" },
   { label: "Order History", href: "/order-history" },
+  { label: "Voucher Dashboard", href: "/customer-dashboard" },
 ];
 
 export default function Header() {
@@ -53,7 +54,7 @@ export default function Header() {
   }, []);
 
   const isCustomerProfileActive =
-    pathname === "/customer-profile" || pathname === "/order-history";
+    pathname === "/customer-profile" || pathname === "/order-history" || pathname === "/customer-dashboard";
   const isEventsActive = pathname === "/events";
 
   return (
@@ -181,7 +182,7 @@ export default function Header() {
                       }`}
                     >
                       <Icon
-                        name={sub.label === "View Profile" ? "UserCircleIcon" : "ClipboardDocumentListIcon"}
+                        name={sub.label === "View Profile" ? "UserCircleIcon" : sub.label === "Voucher Dashboard" ? "TicketIcon" : "ClipboardDocumentListIcon"}
                         size={15}
                       />
                       {sub.label}
@@ -300,7 +301,7 @@ export default function Header() {
                       }`}
                     >
                       <Icon
-                        name={sub.label === "View Profile" ? "UserCircleIcon" : "ClipboardDocumentListIcon"}
+                        name={sub.label === "View Profile" ? "UserCircleIcon" : sub.label === "Voucher Dashboard" ? "TicketIcon" : "ClipboardDocumentListIcon"}
                         size={14}
                       />
                       {sub.label}
