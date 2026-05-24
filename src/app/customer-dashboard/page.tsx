@@ -150,11 +150,11 @@ export default function CustomerDashboardPage() {
 
             <div className="bg-[#141414] border border-[#2A2A2A] rounded-2xl p-8">
               <div className="w-14 h-14 rounded-2xl bg-[#C4622D]/15 border border-[#C4622D]/25 flex items-center justify-center mx-auto mb-5">
-                <AppIcon name="TicketIcon" size={26} className="text-[#C4622D]" />
+                <img src="/assets/images/Favicon-1778145940787.jpg" alt="Cardamom Kitchen logo" className="w-10 h-10 rounded-xl object-cover" />
               </div>
 
               <h1 className="text-2xl font-bold text-white text-center mb-1">
-                Voucher Dashboard
+                Meal Voucher Dashboard
               </h1>
               <p className="text-[#A09890] text-sm text-center mb-7 leading-relaxed">
                 Enter your voucher code to view your redemption history, remaining balance, and visit details.
