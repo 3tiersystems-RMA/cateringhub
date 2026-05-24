@@ -2097,7 +2097,7 @@ export default function StaffWorkspacePage() {
       const res = await fetch('/api/staff/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: member.email }),
+        body: JSON.stringify({ userId: member.id, email: member.email }),
       });
       const json = await res.json();
       if (!res.ok) {
