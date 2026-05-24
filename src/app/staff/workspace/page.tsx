@@ -656,6 +656,12 @@ export default function StaffWorkspacePage() {
   const [deletingStaffId, setDeletingStaffId] = useState<string | null>(null);
   const [deleteConfirmMember, setDeleteConfirmMember] = useState<StaffMember | null>(null);
   const [deleteActiveMember, setDeleteActiveMember] = useState<StaffMember | null>(null);
+  // Promote existing user state
+  const [promoteForm, setPromoteForm] = useState({ email: '', full_name: '', phone_number: '', role: 'staff' as StaffRole });
+  const [promoting, setPromoting] = useState(false);
+  const [promoteError, setPromoteError] = useState('');
+  const [promoteSuccess, setPromoteSuccess] = useState('');
+  const [promoteOpen, setPromoteOpen] = useState(false);
   // Homepage cards state
   const [homepageCards, setHomepageCards] = useState<HomepageCard[]>([]);
   const [cardsLoading, setCardsLoading] = useState(false);
@@ -1971,6 +1977,27 @@ export default function StaffWorkspacePage() {
       await loadStaff();
     }
     setInviting(false);
+  };
+
+  const handlePromoteUser = async () => {
+    setPromoteError('');
+    setPromoteSuccess('');
+    if (!promoteForm.email.trim()) { setPromoteError('Email is required.'); return; }
+    setPromoting(true);
+    const res = await fetch('/api/staff/promote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(promoteForm),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      setPromoteError(json.error || 'Promotion failed.');
+    } else {
+      setPromoteSuccess(json.message || 'User promoted successfully.');
+      setPromoteForm({ email: '', full_name: '', phone_number: '', role: 'staff' });
+      await loadStaff();
+    }
+    setPromoting(false);
   };
 
   const handleToggleStaffActive = async (member: StaffMember) => {
@@ -3356,6 +3383,87 @@ export default function StaffWorkspacePage() {
                     </button>
                   </div>
                 </div>
+
+                {/* Promote existing Supabase user — super_admin only */}
+                {userProfile?.role === 'super_admin' && (
+                  <div className="bg-white rounded-2xl border border-[#EDE7DA] mb-6 overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => { setPromoteOpen(o => !o); setPromoteError(''); setPromoteSuccess(''); }}
+                      className="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-[#FAF5EE] transition-colors"
+                    >
+                      <div>
+                        <span className="text-base font-bold text-[#1A1612]">Promote Existing User to Staff</span>
+                        <p className="text-xs text-[#8C8278] mt-0.5">Grant staff access to a user already registered in Supabase — no invite email sent</p>
+                      </div>
+                      <svg className={`w-5 h-5 text-[#8C8278] transition-transform ${promoteOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                    </button>
+                    {promoteOpen && (
+                      <div className="px-6 pb-6 border-t border-[#EDE7DA] pt-4">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                          <div>
+                            <label className="block text-xs font-semibold text-[#5C5347] mb-1">Email *</label>
+                            <input
+                              type="email"
+                              value={promoteForm.email}
+                              onChange={e => setPromoteForm(f => ({ ...f, email: e.target.value }))}
+                              placeholder="existing@email.com"
+                              className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-[#5C5347] mb-1">Full Name</label>
+                            <input
+                              value={promoteForm.full_name}
+                              onChange={e => setPromoteForm(f => ({ ...f, full_name: e.target.value }))}
+                              placeholder="Optional override"
+                              className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-[#5C5347] mb-1">Phone Number</label>
+                            <input
+                              type="tel"
+                              value={promoteForm.phone_number}
+                              onChange={e => setPromoteForm(f => ({ ...f, phone_number: e.target.value }))}
+                              placeholder="+27..."
+                              className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-[#5C5347] mb-1">Role</label>
+                            <select
+                              value={promoteForm.role}
+                              onChange={e => setPromoteForm(f => ({ ...f, role: e.target.value as StaffRole }))}
+                              className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+                            >
+                              <option value="staff">Staff</option>
+                              <option value="admin">Admin</option>
+                            </select>
+                          </div>
+                        </div>
+                        {promoteSuccess && <p className="text-sm text-green-600 mt-3">{promoteSuccess}</p>}
+                        {promoteError && <p className="text-sm text-red-600 mt-3">{promoteError}</p>}
+                        <div className="flex items-center gap-3 mt-4">
+                          <button
+                            onClick={handlePromoteUser}
+                            disabled={promoting}
+                            className="bg-[#C4622D] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
+                          >
+                            {promoting ? 'Promoting…' : 'Promote to Staff'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { setPromoteForm({ email: '', full_name: '', phone_number: '', role: 'staff' }); setPromoteError(''); setPromoteSuccess(''); }}
+                            className="px-6 py-2.5 rounded-xl text-sm font-semibold border border-[#DDD5C8] text-[#5C5347] hover:bg-[#FAF5EE] transition-colors"
+                          >
+                            Clear
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {staffLoading ? (
                   <div className="flex items-center justify-center py-16">
