@@ -145,7 +145,7 @@ interface StaffMember {
   id: string;
   email: string;
   full_name: string;
-  phone_number?: string;
+  phone?: string;
   role: StaffRole;
   is_active: boolean;
   created_at: string;
@@ -661,7 +661,7 @@ export default function StaffWorkspacePage() {
   const [editMenuOpenId, setEditMenuOpenId] = useState<string | null>(null);
   // Edit modal state
   const [editModalMember, setEditModalMember] = useState<StaffMember | null>(null);
-  const [editModalForm, setEditModalForm] = useState({ full_name: '', phone_number: '', role: 'staff' as StaffRole });
+  const [editModalForm, setEditModalForm] = useState({ full_name: '', phone: '', role: 'staff' as StaffRole });
   const [editModalSaving, setEditModalSaving] = useState(false);
   const [editModalError, setEditModalError] = useState('');
   // Promote existing user state
@@ -2020,7 +2020,7 @@ export default function StaffWorkspacePage() {
     setEditModalMember(member);
     setEditModalForm({
       full_name: member.full_name || '',
-      phone_number: member.phone_number || '',
+      phone: member.phone || '',
       role: member.role,
     });
     setEditModalError('');
@@ -2038,7 +2038,7 @@ export default function StaffWorkspacePage() {
       .from('user_profiles')
       .update({
         full_name: editModalForm.full_name.trim(),
-        phone_number: editModalForm.phone_number.trim() || null,
+        phone: editModalForm.phone.trim() || null,
         role: editModalForm.role,
       })
       .eq('id', editModalMember.id);
@@ -2662,8 +2662,8 @@ export default function StaffWorkspacePage() {
                 <label className="block text-xs font-semibold text-[#5C5347] mb-1">Phone Number</label>
                 <input
                   type="tel"
-                  value={editModalForm.phone_number}
-                  onChange={e => setEditModalForm(f => ({ ...f, phone_number: e.target.value }))}
+                  value={editModalForm.phone}
+                  onChange={e => setEditModalForm(f => ({ ...f, phone: e.target.value }))}
                   placeholder="+27..."
                   className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
                 />
