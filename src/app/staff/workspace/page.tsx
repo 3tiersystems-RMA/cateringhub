@@ -2691,7 +2691,7 @@ export default function StaffWorkspacePage() {
                     <span className="text-base">✉️</span>
                     <span>Correspondence Settings</span>
                   </button>
-                  {userProfile?.role === 'super_admin' && (
+                  {['super_admin', 'admin'].includes(userProfile?.role ?? '') && (
                     <button
                       onClick={() => { handleTabChange('testimonials'); }}
                       className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${
