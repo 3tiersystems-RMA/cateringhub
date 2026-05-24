@@ -5741,7 +5741,7 @@ export default function StaffWorkspacePage() {
                                 <td className="px-3 py-2 text-[#5C5347]">{r.productType}</td>
                                 <td className="px-3 py-2 text-[#5C5347]">{r.item}</td>
                                 <td className="px-3 py-2 text-[#5C5347]">{r.mealVoucher || '—'}</td>
-                                <td className="px-3 py-2 text-[#5C5347]">{r.discountVoucher || '—'}</td>
+                                <td className="px-3 py-2 font-mono font-semibold text-[#C4622D]">{r.discountVoucher || '—'}</td>
                                 <td className="px-3 py-2 text-[#5C5347] whitespace-nowrap">{r.orderedDate}</td>
                                 <td className="px-3 py-2 text-[#5C5347] whitespace-nowrap">{r.deliveredDt || '—'}</td>
                                 <td className="px-3 py-2 text-[#5C5347]">{r.clientName}</td>
@@ -5795,7 +5795,7 @@ export default function StaffWorkspacePage() {
                                 <td className="px-3 py-2 text-[#5C5347]">{r.item}</td>
                                 <td className="px-3 py-2 text-[#5C5347]">{r.packagePurchased}</td>
                                 <td className="px-3 py-2 text-[#5C5347]">{r.mealVoucher || '—'}</td>
-                                <td className="px-3 py-2 text-[#5C5347]">{r.discountVoucher || '—'}</td>
+                                <td className="px-3 py-2 font-mono font-semibold text-[#C4622D]">{r.discountVoucher || '—'}</td>
                                 <td className="px-3 py-2 text-[#5C5347] whitespace-nowrap">{r.orderedDate}</td>
                                 <td className="px-3 py-2 text-[#5C5347] whitespace-nowrap">{r.deliveredDt || '—'}</td>
                                 <td className="px-3 py-2 text-[#5C5347]">{r.clientName}</td>
@@ -5849,7 +5849,7 @@ export default function StaffWorkspacePage() {
                                 <td className="px-3 py-2 text-[#5C5347]">{r.item}</td>
                                 <td className="px-3 py-2 text-[#5C5347]">{r.packagePurchased}</td>
                                 <td className="px-3 py-2 text-[#5C5347]">{r.mealVoucher || '—'}</td>
-                                <td className="px-3 py-2 text-[#5C5347]">{r.discountVoucher || '—'}</td>
+                                <td className="px-3 py-2 font-mono font-semibold text-[#C4622D]">{r.discountVoucher || '—'}</td>
                                 <td className="px-3 py-2 text-[#5C5347] whitespace-nowrap">{r.orderedDate}</td>
                                 <td className="px-3 py-2 text-[#5C5347] whitespace-nowrap">{r.deliveredDt || '—'}</td>
                                 <td className="px-3 py-2 text-[#5C5347]">{r.clientName}</td>
@@ -5882,7 +5882,7 @@ export default function StaffWorkspacePage() {
                         <table className="w-full text-xs">
                           <thead className="bg-[#F5F0E8]">
                             <tr>
-                              {['Code', 'Amount', 'Expiry', 'Product', 'Type', 'Item', 'Ordered', 'Delivered', 'Client', 'Email'].map(h => {
+                              {['Voucher Code', 'Amount', 'Expiry', 'Product', 'Type', 'Item', 'Ordered', 'Delivered', 'Client', 'Email'].map(h => {
                                 const sortable = ['Product', 'Ordered', 'Delivered', 'Client'].includes(h);
                                 const isActive = discountVouchersSort.col === h;
                                 return (
