@@ -1135,11 +1135,12 @@ export default function StaffWorkspacePage() {
 
   const handleToggleTickerBanner = async () => {
     const newVisible = !tickerBannerVisible;
-    setTickerBannerVisible(newVisible);
+    setTickerBannerLoading(true);
     await supabase
       .from('homepage_section_settings')
       .update({ is_visible: newVisible })
       .eq('section_key', 'ticker_banner');
+    await loadTickerBanner();
   };
 
   const loadWeeklyMenu = async () => {
