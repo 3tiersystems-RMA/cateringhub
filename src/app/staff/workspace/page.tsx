@@ -811,6 +811,8 @@ export default function StaffWorkspacePage() {
   const [triggeringReminders, setTriggeringReminders] = useState(false);
   const [reminderResult, setReminderResult] = useState<{ processed: number; results: Array<{ token: string; status: string; email?: string }> } | null>(null);
   const [abandonedCartsOpen, setAbandonedCartsOpen] = useState(false);
+  const [deletingCartId, setDeletingCartId] = useState<string | null>(null);
+  const [cartToDelete, setCartToDelete] = useState<AbandonedCart | null>(null);
   // ── End Abandoned Carts state ──────────────────────────────────────────────
   // ── Customer Order History state ──────────────────────────────────────────
   const [cohLookupInput, setCohLookupInput] = useState('');
@@ -1453,6 +1455,22 @@ export default function StaffWorkspacePage() {
     }
   };
   // ── End Load Abandoned Carts ───────────────────────────────────────────────
+
+  const handleDeleteAbandonedCart = async () => {
+    if (!cartToDelete) return;
+    setDeletingCartId(cartToDelete.id);
+    setCartToDelete(null);
+    const { error } = await supabase
+      .from('guest_carts')
+      .delete()
+      .eq('id', cartToDelete.id);
+    if (error) {
+      setAbandonedCartsError(error.message);
+    } else {
+      setAbandonedCarts(prev => prev.filter(c => c.id !== cartToDelete.id));
+    }
+    setDeletingCartId(null);
+  };
 
   const handleWsSendReminder = async (orderId: string) => {
     setWsReminderSending(prev => ({ ...prev, [orderId]: true }));
@@ -2587,6 +2605,14 @@ export default function StaffWorkspacePage() {
         confirmLabel={deleteModal.confirmLabel}
         onConfirm={deleteModal.onConfirm}
         onCancel={() => setDeleteModal(prev => ({ ...prev, open: false }))}
+      />
+      <DeleteConfirmModal
+        isOpen={!!cartToDelete}
+        productName=""
+        title="Delete Abandoned Cart"
+        message={`Are you sure you want to permanently delete this abandoned cart${cartToDelete?.customer_name ? ` for ${cartToDelete.customer_name}` : ''}? This action cannot be undone.`}
+        onConfirm={handleDeleteAbandonedCart}
+        onCancel={() => setCartToDelete(null)}
       />
 
       {/* Staff delete — active guard popup */}
@@ -5459,6 +5485,23 @@ export default function StaffWorkspacePage() {
                                       </span>
                                     )}
                                     <span className="text-sm font-bold text-[#C4622D]">R {cartTotal.toFixed(2)}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => setCartToDelete(cart)}
+                                      disabled={deletingCartId === cart.id}
+                                      className="flex items-center justify-center w-8 h-8 rounded-lg border border-red-200 bg-red-50 text-red-500 hover:bg-red-100 hover:border-red-300 transition-colors disabled:opacity-40"
+                                      title="Delete cart"
+                                    >
+                                      {deletingCartId === cart.id ? (
+                                        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                          <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                        </svg>
+                                      ) : (
+                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                        </svg>
+                                      )}
+                                    </button>
                                   </div>
                                 </div>
 
