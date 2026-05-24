@@ -220,7 +220,7 @@ function EventsContent() {
 
       {/* Tabs */}
       <section className="max-w-5xl mx-auto px-4 md:px-8 w-full mt-8">
-        <div className="flex gap-1 bg-black border border-[#EDE7DA] rounded-2xl p-1 w-fit">
+        <div className="flex gap-1 bg-white border border-[#EDE7DA] rounded-2xl p-1 w-fit">
           <button
             onClick={() => setActiveTab('current')}
             className={`px-6 py-2.5 rounded-xl text-sm font-semibold transition-all ${
