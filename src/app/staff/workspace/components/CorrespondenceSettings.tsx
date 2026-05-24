@@ -31,6 +31,8 @@ const defaultSettings: Omit<CorrespondenceSettingsData, 'id'> = {
 export default function CorrespondenceSettings() {
   const supabase = createClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const bankingDetailsRef = useRef<HTMLTextAreaElement>(null);
+  const termsRef = useRef<HTMLTextAreaElement>(null);
 
   const [settingsId, setSettingsId] = useState<string | null>(null);
   const [form, setForm] = useState(defaultSettings);
@@ -75,6 +77,20 @@ export default function CorrespondenceSettings() {
   const handleChange = (field: keyof typeof defaultSettings, value: string) => {
     setForm(prev => ({ ...prev, [field]: value || null }));
   };
+
+  const autoResize = (el: HTMLTextAreaElement | null) => {
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
+  };
+
+  useEffect(() => {
+    autoResize(bankingDetailsRef.current);
+  }, [form.banking_details]);
+
+  useEffect(() => {
+    autoResize(termsRef.current);
+  }, [form.terms_and_conditions]);
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -358,11 +374,12 @@ export default function CorrespondenceSettings() {
             Bank account details shown on payment correspondence (e.g. EFT payment reminders).
           </p>
           <textarea
-            rows={4}
+            ref={bankingDetailsRef}
             value={form.banking_details || ''}
             onChange={e => handleChange('banking_details', e.target.value)}
             placeholder="e.g. Bank: FNB&#10;Account Name: Cardamom Catering&#10;Account No: 123456789&#10;Branch Code: 250655"
-            className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30 focus:border-[#C4622D] resize-none"
+            className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30 focus:border-[#C4622D] resize-none overflow-hidden"
+            style={{ minHeight: '6rem' }}
           />
         </div>
 
@@ -371,11 +388,12 @@ export default function CorrespondenceSettings() {
           <label className="block text-sm font-semibold text-[#1A1612] mb-1.5">Terms &amp; Conditions</label>
           <p className="text-xs text-[#8C8278] mb-2">Terms and conditions text shown at the bottom of email forms.</p>
           <textarea
-            rows={5}
+            ref={termsRef}
             value={form.terms_and_conditions || ''}
             onChange={e => handleChange('terms_and_conditions', e.target.value)}
             placeholder="Enter your terms and conditions here…"
-            className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30 focus:border-[#C4622D] resize-none"
+            className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30 focus:border-[#C4622D] resize-none overflow-hidden"
+            style={{ minHeight: '6rem' }}
           />
         </div>
 
