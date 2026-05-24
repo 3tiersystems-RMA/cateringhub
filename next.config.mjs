@@ -35,6 +35,26 @@ const nextConfig = {
         destination: '/contact',
         permanent: true,
       },
+      {
+        source: '/dish-a',
+        destination: '/products',
+        permanent: true,
+      },
+      {
+        source: '/dish-b',
+        destination: '/products',
+        permanent: true,
+      },
+      {
+        source: '/dish-c',
+        destination: '/products',
+        permanent: true,
+      },
+      {
+        source: '/dish-d',
+        destination: '/products',
+        permanent: true,
+      },
     ];
   },
   async rewrites() {
