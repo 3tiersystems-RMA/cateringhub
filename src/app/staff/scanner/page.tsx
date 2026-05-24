@@ -384,7 +384,6 @@ export default function VoucherScannerPage() {
                     <p className="text-sm font-semibold text-white">
                       <span className="text-[#C4622D] text-lg">{voucher.meals_remaining}</span>
                       <span className="text-[#555]"> / {voucher.total_meals}</span>
-                      <span className="text-xs text-[#666] ml-1">remaining</span>
                     </p>
                   </div>
                   <div className="w-full bg-[#2A2A2A] rounded-full h-2.5">

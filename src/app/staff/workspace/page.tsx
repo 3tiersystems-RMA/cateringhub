@@ -609,7 +609,7 @@ export default function StaffWorkspacePage() {
   const [globalErrorTitle, setGlobalErrorTitle] = useState('');
 
   // Delete confirm modal
-  const [deleteModal, setDeleteModal] = useState<{ open: boolean; title: string; message: string; onConfirm: () => void }>({
+  const [deleteModal, setDeleteModal] = useState<{ open: boolean; title: string; message: string; confirmLabel?: string; onConfirm: () => void }>({
     open: false, title: '', message: '', onConfirm: () => {},
   });
 
@@ -2509,7 +2509,9 @@ export default function StaffWorkspacePage() {
       <DeleteConfirmModal
         isOpen={deleteModal.open}
         productName=""
+        title={deleteModal.title}
         message={deleteModal.message}
+        confirmLabel={deleteModal.confirmLabel}
         onConfirm={deleteModal.onConfirm}
         onCancel={() => setDeleteModal(prev => ({ ...prev, open: false }))}
       />
@@ -4885,7 +4887,7 @@ export default function StaffWorkspacePage() {
                           </button>
                           {v.status !== 'expired' && (
                             <button
-                              onClick={() => setDeleteModal({ open: true, title: 'Expire Meal Voucher', message: `Mark voucher "${v.voucher_code}" as expired? This cannot be undone.`, onConfirm: async () => { setDeleteModal(prev => ({ ...prev, open: false })); await supabase.from('vouchers').update({ status: 'expired' }).eq('id', v.id); await loadMealVouchers(); } })}
+                              onClick={() => setDeleteModal({ open: true, title: 'Confirm Expiry', message: `Mark voucher "${v.voucher_code}" as expired? This cannot be undone.`, confirmLabel: 'Expire', onConfirm: async () => { setDeleteModal(prev => ({ ...prev, open: false })); await supabase.from('vouchers').update({ status: 'expired' }).eq('id', v.id); await loadMealVouchers(); } })}
                               className="text-xs text-orange-600 border border-orange-300 px-3 py-1.5 rounded-xl hover:bg-orange-50 transition-colors"
                             >
                               Expire
@@ -5370,14 +5372,14 @@ export default function StaffWorkspacePage() {
                             {isExpiredDv ? 'Inactive' : dv.status}
                           </span>
                           <button
-                            onClick={() => { if (isExpiredDv && dv.status === 'Inactive') { showGlobalError("Expired/Inactive vouchers cannot be edited", 'Cannot Edit Voucher'); return; } setEditingDv(dv); setDvForm({ dv_code: dv.dv_code, dv_type: dv.dv_code.startsWith('GV-') ? 'Gift' : 'Discount', dv_amount: String(dv.dv_amount), status: dv.status, expiry_date: dv.expiry_date?.split('T')[0] || '', created_at: dv.created_at || '' }); setDvFormError(''); setDvFormSuccess(''); setShowDvForm(true); }}
+                            onClick={() => { if (isExpiredDv || dv.status === 'Inactive') { showGlobalError("Expired/Inactive vouchers cannot be edited", 'Cannot Edit Voucher'); return; } setEditingDv(dv); setDvForm({ dv_code: dv.dv_code, dv_type: dv.dv_code.startsWith('GV-') ? 'Gift' : 'Discount', dv_amount: String(dv.dv_amount), status: dv.status, expiry_date: dv.expiry_date?.split('T')[0] || '', created_at: dv.created_at || '' }); setDvFormError(''); setDvFormSuccess(''); setShowDvForm(true); }}
                             className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl hover:bg-[#FDF6EE] transition-colors"
                           >
                             Edit
                           </button>
                           {!isExpiredDv && (
                             <button
-                              onClick={() => setDeleteModal({ open: true, title: 'Expire Discount Voucher', message: `Mark voucher "${dv.dv_code}" as expired? This will set it to Inactive and update the expiry date to today.`, onConfirm: async () => { setDeleteModal(prev => ({ ...prev, open: false })); const today = new Date().toISOString().split('T')[0]; await supabase.from('discount_vouchers').update({ status: 'Inactive', expiry_date: today }).eq('id', dv.id); await loadDiscountVouchers(); } })}
+                              onClick={() => setDeleteModal({ open: true, title: 'Confirm Expiry', message: `Mark voucher "${dv.dv_code}" as expired? This will set it to Inactive and update the expiry date to today.`, confirmLabel: 'Expire', onConfirm: async () => { setDeleteModal(prev => ({ ...prev, open: false })); const today = new Date().toISOString().split('T')[0]; await supabase.from('discount_vouchers').update({ status: 'Inactive', expiry_date: today }).eq('id', dv.id); await loadDiscountVouchers(); } })}
                               className="text-xs text-orange-600 border border-orange-300 px-3 py-1.5 rounded-xl hover:bg-orange-50 transition-colors"
                             >
                               Expire
