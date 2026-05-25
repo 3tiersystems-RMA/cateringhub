@@ -11,6 +11,7 @@ import { useCart } from "./CartContext";
 import { createClient } from "@/lib/supabase/client";
 import type { VoucherData } from "./CartContext";
 import VoucherErrorModal from "@/components/ui/VoucherErrorModal";
+import VoucherMealsList from "./VoucherMealsList";
 
 interface Product {
   id: string;
@@ -535,6 +536,16 @@ function ProductsContent() {
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
             </svg>
           </div>
+        ) : activeCategory === "Voucher Meals" ? (
+          <VoucherMealsList products={filtered.map((p) => ({
+            id: p.id,
+            name: p.name,
+            price: p.price,
+            description: p.description,
+            image: p.image,
+            imageAlt: p.imageAlt,
+            available: p.available,
+          }))} />
         ) : (
           <div
             ref={sectionRef}
