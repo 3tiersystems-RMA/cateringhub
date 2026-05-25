@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useMemo, useEffect, useRef, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Icon from "@/components/ui/AppIcon";
 import ProductCard from "./ProductCard";
@@ -232,6 +232,7 @@ function ApplyVoucherBanner() {
 function ProductsContent() {
   const [activeCategory, setActiveCategory] = useState<string>("All");
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<"default" | "price-asc" | "price-desc" | "rating">("default");
   const [products, setProducts] = useState<Product[]>([]);
@@ -301,6 +302,12 @@ function ProductsContent() {
           })
         );
         setProducts(withImages);
+
+        // Apply category from URL query param after products load
+        const categoryParam = searchParams.get("category");
+        if (categoryParam) {
+          setActiveCategory(categoryParam);
+        }
       } catch (err) {
         console.log('Error fetching products:', err);
         setProducts([]);
@@ -615,6 +622,8 @@ function ProductsContent() {
 
 export default function ProductsInteractive() {
   return (
-    <ProductsContent />
+    <Suspense fallback={null}>
+      <ProductsContent />
+    </Suspense>
   );
 }

@@ -130,6 +130,10 @@ interface Product {
   old_price?: number | null;
   saving_percent?: number | null;
   imageUrl?: string;
+  attribute1?: string | null;
+  attribute2?: string | null;
+  attribute3?: string | null;
+  long_description?: string | null;
 }
 
 interface Category {
@@ -341,6 +345,10 @@ const emptyForm = {
   image_fit: 'fill',
   old_price: '',
   saving_percent: '',
+  attribute1: '',
+  attribute2: '',
+  attribute3: '',
+  long_description: '',
 };
 
 const emptyInviteForm = {
@@ -1852,6 +1860,10 @@ export default function StaffWorkspacePage() {
       image_fit: product.image_fit || 'fill',
       old_price: product.old_price != null ? String(product.old_price) : '',
       saving_percent: product.saving_percent != null ? String(product.saving_percent) : '',
+      attribute1: product.attribute1 || '',
+      attribute2: product.attribute2 || '',
+      attribute3: product.attribute3 || '',
+      long_description: product.long_description || '',
     });
     setPendingImageFile(null);
     setPendingImagePreview(product.imageUrl || null);
@@ -1896,6 +1908,10 @@ export default function StaffWorkspacePage() {
       image_fit: form.image_fit || 'fill',
       old_price: form.old_price ? Number(form.old_price) : null,
       saving_percent: form.saving_percent ? Number(form.saving_percent) : null,
+      attribute1: form.attribute1 || null,
+      attribute2: form.attribute2 || null,
+      attribute3: form.attribute3 || null,
+      long_description: form.long_description || null,
     };
     let saveError: any = null;
     if (editingProduct) {
@@ -3142,6 +3158,22 @@ export default function StaffWorkspacePage() {
                         <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={3} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
                       </div>
                       <div>
+                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Attribute 1 <span className="text-[#8C8278] font-normal">(optional)</span></label>
+                        <input value={form.attribute1} onChange={e => setForm(f => ({ ...f, attribute1: e.target.value }))} placeholder="e.g. Gluten-Free" className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Attribute 2 <span className="text-[#8C8278] font-normal">(optional)</span></label>
+                        <input value={form.attribute2} onChange={e => setForm(f => ({ ...f, attribute2: e.target.value }))} placeholder="e.g. Dairy-Free" className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Attribute 3 <span className="text-[#8C8278] font-normal">(optional)</span></label>
+                        <input value={form.attribute3} onChange={e => setForm(f => ({ ...f, attribute3: e.target.value }))} placeholder="e.g. Halaal" className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Long Description <span className="text-[#8C8278] font-normal">(optional)</span></label>
+                        <textarea value={form.long_description} onChange={e => setForm(f => ({ ...f, long_description: e.target.value }))} rows={4} placeholder="Detailed product description..." className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                      </div>
+                      <div>
                         <label className="block text-xs font-semibold text-[#5C5347] mb-1">Tags (comma-separated)</label>
                         <input value={form.tags} onChange={e => setForm(f => ({ ...f, tags: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
                       </div>
@@ -3289,6 +3321,22 @@ export default function StaffWorkspacePage() {
                         <div className="md:col-span-2">
                           <label className="block text-xs font-semibold text-[#5C5347] mb-1">Description</label>
                           <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={3} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Attribute 1 <span className="text-[#8C8278] font-normal">(optional)</span></label>
+                          <input value={form.attribute1} onChange={e => setForm(f => ({ ...f, attribute1: e.target.value }))} placeholder="e.g. Gluten-Free" className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Attribute 2 <span className="text-[#8C8278] font-normal">(optional)</span></label>
+                          <input value={form.attribute2} onChange={e => setForm(f => ({ ...f, attribute2: e.target.value }))} placeholder="e.g. Dairy-Free" className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Attribute 3 <span className="text-[#8C8278] font-normal">(optional)</span></label>
+                          <input value={form.attribute3} onChange={e => setForm(f => ({ ...f, attribute3: e.target.value }))} placeholder="e.g. Halaal" className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                        </div>
+                        <div className="md:col-span-2">
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Long Description <span className="text-[#8C8278] font-normal">(optional)</span></label>
+                          <textarea value={form.long_description} onChange={e => setForm(f => ({ ...f, long_description: e.target.value }))} rows={4} placeholder="Detailed product description..." className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
                         </div>
                         <div>
                           <label className="block text-xs font-semibold text-[#5C5347] mb-1">Tags (comma-separated)</label>
