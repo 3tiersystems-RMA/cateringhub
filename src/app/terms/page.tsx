@@ -22,7 +22,7 @@ export default function TermsPage() {
             <section>
               <h2 className="text-xl font-semibold text-[#3D2B1F] mb-3">1. Introduction</h2>
               <p className="leading-relaxed">
-                Welcome to Cardamom Kitchen (&ldquo;Company&rdquo;, &ldquo;we&rdquo;, &ldquo;us&rdquo;, or &ldquo;our&rdquo;). These Terms and Conditions of Purchase (&ldquo;Terms&rdquo;) govern your purchase of products or services (&ldquo;Products&rdquo;) from our website www.cardamomkitchen.co.za (the &ldquo;Site&rdquo;). By placing an order, you agree to these Terms.
+                Welcome to Cardamom Kitchen (&ldquo;Company&rdquo;, &ldquo;we&rdquo;, &ldquo;us&rdquo;, or &ldquo;our&rdquo;). These Terms and Conditions of Purchase (&ldquo;Terms&rdquo;) govern your purchase of products or services (&ldquo;Products&rdquo;) from our website <span className="text-[#C4622D]">www.cardamomkitchen.co.za</span> (the &ldquo;Site&rdquo;). By placing an order, you agree to these Terms.
               </p>
             </section>
 
