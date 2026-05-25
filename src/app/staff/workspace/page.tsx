@@ -34,6 +34,7 @@ interface OrderItem {
   price: number;
   unit: string;
   category?: string;
+  package_type?: string;
 }
 
 interface Order {
@@ -1569,13 +1570,14 @@ export default function StaffWorkspacePage() {
           if (isPackage) {
             // Expand each unit into its own individual row
             const qty = Number(item.quantity) || 1;
+            const isPackageType = item.package_type && item.package_type.toLowerCase().includes('package');
             for (let qi = 0; qi < qty; qi++) {
               packageRows.push({
                 orderId: order.id,
                 productName: item.name,
-                productType: item.category || '',
+                productType: isPackageType ? (item.package_type || item.category || '') : (item.category || ''),
                 item: item.name,
-                packagePurchased: item.category || '',
+                packagePurchased: isPackageType ? (item.unit || item.category || '') : (item.category || ''),
                 mealVoucher,
                 discountVoucher,
                 orderedDate,
