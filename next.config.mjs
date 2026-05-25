@@ -62,7 +62,7 @@ const nextConfig = {
       },
       {
         source: '/privacy-policy',
-        destination: '/homepage',
+        destination: '/privacy',
         permanent: true,
       },
       {
