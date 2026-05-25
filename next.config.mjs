@@ -55,6 +55,11 @@ const nextConfig = {
         destination: '/products',
         permanent: true,
       },
+      {
+        source: '/order-menu',
+        destination: '/products',
+        permanent: true,
+      },
     ];
   },
   async rewrites() {

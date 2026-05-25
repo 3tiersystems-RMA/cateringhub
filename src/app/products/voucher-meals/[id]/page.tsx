@@ -202,15 +202,24 @@ export default function VoucherMealDetailPage() {
 
                     {/* Attributes */}
                     {(product.attribute1 || product.attribute2 || product.attribute3) && (
-                      <div className="flex flex-col gap-1.5 mb-8">
+                      <div className="flex flex-col gap-2 mb-6 p-4 bg-[#F5F0E8] rounded-2xl">
                         {product.attribute1 && (
-                          <p className="text-sm text-[#5C5347]">{product.attribute1}</p>
+                          <div className="flex items-start gap-2">
+                            <span className="mt-0.5 w-1.5 h-1.5 rounded-full bg-[#C4622D] flex-shrink-0 mt-1.5" />
+                            <p className="text-sm text-[#3A3028] font-medium">{product.attribute1}</p>
+                          </div>
                         )}
                         {product.attribute2 && (
-                          <p className="text-sm text-[#5C5347]">{product.attribute2}</p>
+                          <div className="flex items-start gap-2">
+                            <span className="mt-0.5 w-1.5 h-1.5 rounded-full bg-[#C4622D] flex-shrink-0 mt-1.5" />
+                            <p className="text-sm text-[#3A3028] font-medium">{product.attribute2}</p>
+                          </div>
                         )}
                         {product.attribute3 && (
-                          <p className="text-sm text-[#5C5347]">{product.attribute3}</p>
+                          <div className="flex items-start gap-2">
+                            <span className="mt-0.5 w-1.5 h-1.5 rounded-full bg-[#C4622D] flex-shrink-0 mt-1.5" />
+                            <p className="text-sm text-[#3A3028] font-medium">{product.attribute3}</p>
+                          </div>
                         )}
                       </div>
                     )}
