@@ -8,10 +8,13 @@ interface VoucherMealsProduct {
   id: string;
   name: string;
   price: number;
+  unit?: string;
   description: string;
   image: string;
   imageAlt: string;
   available: boolean;
+  packageType?: string;
+  imageFit?: string;
 }
 
 interface VoucherMealsListProps {
@@ -50,7 +53,7 @@ export default function VoucherMealsList({ products }: VoucherMealsListProps) {
                     alt={product.imageAlt}
                     width={112}
                     height={112}
-                    className="w-full h-full object-cover"
+                    className={`w-full h-full ${product.imageFit === "fit" || (product.packageType && product.packageType.toLowerCase().includes("package")) ? "object-contain" : "object-cover"}`}
                   />
                 </div>
 
@@ -67,6 +70,14 @@ export default function VoucherMealsList({ products }: VoucherMealsListProps) {
                   <p className="text-sm text-[#5C5347] leading-relaxed mb-3 line-clamp-3">
                     {product.description}
                   </p>
+                  {product.packageType &&
+                    product.packageType.toLowerCase().includes("package") &&
+                    (!product.price || product.price === 0) &&
+                    product.unit && (
+                      <p className="text-sm text-[#5C5347] font-medium mb-1">
+                        {product.unit}
+                      </p>
+                    )}
                   <Link
                     href={`/products/voucher-meals/${product.id}`}
                     className="text-sm font-semibold text-[#C4622D] hover:underline inline-flex items-center gap-0.5"
