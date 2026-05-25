@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -58,6 +58,13 @@ const formatPrice = (amount: number): string =>
 
 type Step = "select" | "details" | "confirmation" | "eft-pending";
 
+const PKG_KEY_MAP: Record<number, string> = {
+  6: "package-6",
+  10: "package-10",
+  12: "package-12",
+  24: "package-24",
+};
+
 function generateVoucherCode(): string {
   const year = new Date().getFullYear();
   const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
@@ -77,6 +84,28 @@ export default function VouchersPage() {
   const [copied, setCopied] = useState(false);
   const [eftConfirming, setEftConfirming] = useState(false);
   const [eftConfirmed, setEftConfirmed] = useState(false);
+  const [visiblePackages, setVisiblePackages] = useState<Set<string>>(new Set());
+  const [visibilityLoaded, setVisibilityLoaded] = useState(false);
+
+  useEffect(() => {
+    const loadVisibility = async () => {
+      const { data } = await supabase
+        .from("package_visibility")
+        .select("package_name, is_visible");
+      if (data) {
+        const visible = new Set(
+          data.filter((row) => row.is_visible).map((row) => row.package_name as string)
+        );
+        setVisiblePackages(visible);
+      }
+      setVisibilityLoaded(true);
+    };
+    loadVisibility();
+  }, []);
+
+  const visiblePkgList = visibilityLoaded
+    ? PACKAGES.filter((pkg) => visiblePackages.has(PKG_KEY_MAP[pkg.meals] ?? ""))
+    : [];
 
   const handleSelectPackage = (pkg: VoucherPackage) => {
     setSelectedPackage(pkg);
@@ -182,7 +211,7 @@ Purchase a Meal Voucher
                 All packages include chef-crafted meals. Each portion typically feeds 2 adults.
               </p>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {PACKAGES.map((pkg) => (
+                {visiblePkgList.map((pkg) => (
                   <div
                     key={pkg.meals}
                     className={`relative bg-white rounded-2xl border-2 p-6 flex flex-col gap-4 transition-all hover:-translate-y-1 hover:shadow-lg cursor-pointer ${

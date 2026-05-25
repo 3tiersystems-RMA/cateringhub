@@ -570,7 +570,7 @@ function ProductsContent() {
             const priceIsZeroOrBlank = !p.price || p.price === 0;
             // Only show packages that are flagged as visible; if visibility not yet loaded, hide all
             const pkgType = p.packageType || 'none';
-            const isVisible = !visibilityLoaded || visiblePackages.has(pkgType);
+            const isVisible = visibilityLoaded && visiblePackages.has(pkgType);
             return hasUnit && priceIsZeroOrBlank && isVisible;
           }).map((p) => ({
             id: p.id,
