@@ -60,7 +60,7 @@ function WeeklyMenuContent() {
   const [menuItems, setMenuItems] = useState<WeeklyMenuItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
-  const [categories, setCategories] = useState<string[]>([]);
+  const [categories, setCategories] = useState<{ name: string; count: number }[]>([]);
 
   useEffect(() => {
     const fetchMenu = async () => {
@@ -88,7 +88,23 @@ function WeeklyMenuContent() {
         .select("name")
         .eq("active", true)
         .order("sort_order", { ascending: true });
-      setCategories((catData || []).map((c: any) => c.name as string));
+
+      const catNames: string[] = (catData || []).map((c: any) => c.name as string);
+
+      // Count available products per category (same logic as Products page)
+      const { data: prodData } = await supabase
+        .from("products")
+        .select("category")
+        .eq("available", true);
+
+      const countMap: Record<string, number> = {};
+      (prodData || []).forEach((p: any) => {
+        if (p.category) {
+          countMap[p.category] = (countMap[p.category] || 0) + 1;
+        }
+      });
+
+      setCategories(catNames.map((name) => ({ name, count: countMap[name] ?? 0 })));
     };
 
     fetchMenu();
@@ -147,9 +163,15 @@ function WeeklyMenuContent() {
 
   const monthLabel = formatMonthYear(monday);
 
-  const desiredOrder = ["All", "Weekly Menu", "Packaged Meals", "Voucher Meals", "Frozen Meals", "Prepared Meals", "À La Carte", "Wellness", "Retail POD", "Fadwah Mugs"];
-  const available = ["All", "Weekly Menu", ...categories];
-  const displayCategories = desiredOrder.filter((c) => available.includes(c));
+  const desiredOrder = ["Weekly Menu", "Packaged Meals", "Voucher Meals", "Frozen Meals", "Prepared Meals", "À La Carte", "Wellness", "Retail POD", "Fadwah Mugs"];
+  const categoryNames = categories.map((c) => c.name);
+  const available = ["Weekly Menu", ...categoryNames];
+  const displayCategories = desiredOrder.filter((c) => {
+    if (!available.includes(c)) return false;
+    if (c === "Weekly Menu") return true;
+    const cat = categories.find((x) => x.name === c);
+    return cat ? cat.count > 0 : false;
+  });
 
   return (
     <>
@@ -177,18 +199,13 @@ function WeeklyMenuContent() {
           <div className="flex flex-wrap gap-2 mb-10">
             {displayCategories.map((cat) => {
               const isCurrentPage = cat === "Weekly Menu";
-              const isAll = cat === "All";
               return (
                 <button
                   key={cat}
                   disabled={isCurrentPage}
                   onClick={() => {
                     if (isCurrentPage) return;
-                    if (isAll) {
-                      router.push("/products");
-                    } else {
-                      router.push(`/products?category=${encodeURIComponent(cat)}`);
-                    }
+                    router.push(`/products?category=${encodeURIComponent(cat)}`);
                   }}
                   className={`px-5 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
                     isCurrentPage
