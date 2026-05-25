@@ -8,8 +8,8 @@ export default function TermsPage() {
   return (
     <>
       <Header />
-      <main className="min-h-screen bg-[#FAF8F5]">
-        <div className="max-w-3xl mx-auto px-4 md:px-8 py-16">
+      <main className="min-h-screen bg-[#DDD4CB]">
+        <div className="max-w-3xl mx-auto px-4 md:px-8 pt-28 pb-16">
           {/* Page Title */}
           <div className="mb-10">
             <h1 className="text-3xl md:text-4xl font-bold text-[#3D2B1F] mb-2">Terms &amp; Conditions</h1>
