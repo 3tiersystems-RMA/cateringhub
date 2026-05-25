@@ -127,7 +127,7 @@ export default function ProductCard({ product, onOpenModal }: ProductCardProps) 
         {/* Price + Add */}
         <div className="flex items-center justify-between mt-auto">
           <div>
-            {(product.price && product.price > 0) ? (
+{(product.price && product.price > 0 && !(product.packageType && product.packageType.toLowerCase().includes('package'))) ? (
               <p className="text-xl font-semibold text-[#1A1612]">
                 R{product.price}
                 {product.oldPrice && product.oldPrice > 0 ? (

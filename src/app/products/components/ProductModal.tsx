@@ -141,7 +141,7 @@ export default function ProductModal({ product, onClose, added, onAdd }: Product
                   Save {product.savingPercent}%
                 </span>
               ) : null}
-              {(product.price && product.price > 0) ? (
+{(product.price && product.price > 0 && !(product.packageType && product.packageType.toLowerCase().includes('package'))) ? (
                 <p className="text-3xl font-semibold text-[#1A1612]">
                   R{product.price}
                   {product.oldPrice && product.oldPrice > 0 ? (

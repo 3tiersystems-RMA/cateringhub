@@ -1875,7 +1875,8 @@ export default function StaffWorkspacePage() {
 
   const handleSaveProduct = async () => {
     if (!form.name.trim()) { showProductFormError('Product name is required.'); return; }
-    if (!form.price || isNaN(Number(form.price))) { showProductFormError('Valid price is required.'); return; }
+    const isPackageType = form.package_type && form.package_type.toLowerCase().includes('package');
+    if (!isPackageType && (!form.price || isNaN(Number(form.price)))) { showProductFormError('Valid price is required.'); return; }
     if (form.old_price && Number(form.old_price) <= Number(form.price)) {
       setOldPriceErrorModal(true);
       return;
@@ -3182,7 +3183,7 @@ export default function StaffWorkspacePage() {
                         <input value={form.badge} onChange={e => setForm(f => ({ ...f, badge: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
                       </div>
                       <div>
-                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Price (R) *</label>
+                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Price (R) {form.package_type && form.package_type.toLowerCase().includes('package') ? <span className="text-[#8C8278] font-normal">(optional)</span> : '*'}</label>
                         <input type="number" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
                       </div>
                       <div>
@@ -3347,7 +3348,7 @@ export default function StaffWorkspacePage() {
                           <input value={form.badge} onChange={e => setForm(f => ({ ...f, badge: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
                         </div>
                         <div>
-                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Price (R) *</label>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Price (R) {form.package_type && form.package_type.toLowerCase().includes('package') ? <span className="text-[#8C8278] font-normal">(optional)</span> : '*'}</label>
                           <input type="number" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
                         </div>
                         <div>
@@ -3475,7 +3476,7 @@ export default function StaffWorkspacePage() {
                           )}
                           <div>
                             <p className="font-semibold text-[#1A1612] text-sm">{product.name}</p>
-                            <p className="text-xs text-[#8C8278] mt-0.5">{product.category} · {formatCurrency(product.price)} {product.unit}</p>
+                            <p className="text-xs text-[#8C8278] mt-0.5">{product.category}{!(product.package_type && product.package_type.toLowerCase().includes('package')) ? ` · ${formatCurrency(product.price)} ${product.unit}` : product.unit ? ` · ${product.unit}` : ''}</p>
                             <div className="flex items-center gap-2 mt-1">
                               <span className={`text-xs px-2 py-0.5 rounded-full font-semibold border ${product.available ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
                                 {product.available ? 'Available' : 'Unavailable'}
