@@ -70,6 +70,11 @@ const nextConfig = {
         destination: '/homepage',
         permanent: true,
       },
+      {
+        source: '/terms-and-conditions-of-purchase',
+        destination: '/homepage',
+        permanent: true,
+      },
     ];
   },
   async rewrites() {
