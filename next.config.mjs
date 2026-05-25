@@ -75,6 +75,16 @@ const nextConfig = {
         destination: '/homepage',
         permanent: true,
       },
+      {
+        source: '/fadwah',
+        destination: '/products',
+        permanent: true,
+      },
+      {
+        source: '/pod',
+        destination: '/products',
+        permanent: true,
+      },
     ];
   },
   async rewrites() {
