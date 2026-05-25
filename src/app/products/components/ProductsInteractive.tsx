@@ -242,6 +242,7 @@ function ProductsContent() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [modalAdded, setModalAdded] = useState(false);
   const [visiblePackages, setVisiblePackages] = useState<Set<string>>(new Set());
+  const [visibilityLoaded, setVisibilityLoaded] = useState(false);
   const sectionRef = useRef<HTMLDivElement>(null);
   const { addItem, appliedVoucher } = useCart();
 
@@ -270,6 +271,7 @@ function ProductsContent() {
           );
           setVisiblePackages(visSet);
         }
+        setVisibilityLoaded(true);
 
         const { data, error } = await supabase
           .from('products')
@@ -566,9 +568,9 @@ function ProductsContent() {
           <VoucherMealsList products={filtered.filter((p) => {
             const hasUnit = p.unit && p.unit.trim() !== '';
             const priceIsZeroOrBlank = !p.price || p.price === 0;
-            // Only show packages that are flagged as visible (if visibility data loaded)
+            // Only show packages that are flagged as visible; if visibility not yet loaded, hide all
             const pkgType = p.packageType || 'none';
-            const isVisible = visiblePackages.size === 0 || visiblePackages.has(pkgType);
+            const isVisible = !visibilityLoaded || visiblePackages.has(pkgType);
             return hasUnit && priceIsZeroOrBlank && isVisible;
           }).map((p) => ({
             id: p.id,
