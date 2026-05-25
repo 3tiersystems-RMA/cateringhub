@@ -119,29 +119,28 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Persist cart to Supabase whenever items change (debounced 800ms)
+  // ABANDONED CART PAUSED — not capturing cart details during testing
   useEffect(() => {
     if (!hydrated || !guestToken) return;
-
-    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-
-    saveTimeoutRef.current = setTimeout(async () => {
-      const supabase = createClient();
-      await supabase.from("guest_carts").upsert(
-        {
-          guest_token: guestToken,
-          items: items,
-          customer_email: customerEmailRef.current || null,
-          customer_name: customerNameRef.current || null,
-          last_activity_at: new Date().toISOString(),
-          reminder_sent_at: items.length > 0 ? undefined : null,
-        },
-        { onConflict: "guest_token" }
-      );
-    }, 800);
-
-    return () => {
-      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-    };
+    // Abandoned cart saving is temporarily disabled
+    // if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    // saveTimeoutRef.current = setTimeout(async () => {
+    //   const supabase = createClient();
+    //   await supabase.from("guest_carts").upsert(
+    //     {
+    //       guest_token: guestToken,
+    //       items: items,
+    //       customer_email: customerEmailRef.current || null,
+    //       customer_name: customerNameRef.current || null,
+    //       last_activity_at: new Date().toISOString(),
+    //       reminder_sent_at: items.length > 0 ? undefined : null,
+    //     },
+    //     { onConflict: "guest_token" }
+    //   );
+    // }, 800);
+    // return () => {
+    //   if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    // };
   }, [items, hydrated, guestToken]);
 
   const registerVoucherBannerOpener = useCallback((fn: () => void) => {
@@ -155,20 +154,22 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Called when customer fills in their details — capture email/name for abandoned cart email
+  // ABANDONED CART PAUSED — not capturing customer info during testing
   const captureCustomerInfo = useCallback((email: string, name: string) => {
     customerEmailRef.current = email;
     customerNameRef.current = name;
-    if (!guestToken) return;
-    const supabase = createClient();
-    supabase
-      .from("guest_carts")
-      .update({
-        customer_email: email,
-        customer_name: name,
-        last_activity_at: new Date().toISOString(),
-      })
-      .eq("guest_token", guestToken)
-      .then(() => {});
+    // Abandoned cart customer info saving is temporarily disabled
+    // if (!guestToken) return;
+    // const supabase = createClient();
+    // supabase
+    //   .from("guest_carts")
+    //   .update({
+    //     customer_email: email,
+    //     customer_name: name,
+    //     last_activity_at: new Date().toISOString(),
+    //   })
+    //   .eq("guest_token", guestToken)
+    //   .then(() => {});
   }, [guestToken]);
 
   const addItem = useCallback((product: CartProduct, qty = 1) => {
