@@ -60,6 +60,16 @@ const nextConfig = {
         destination: '/products',
         permanent: true,
       },
+      {
+        source: '/privacy-policy',
+        destination: '/homepage',
+        permanent: true,
+      },
+      {
+        source: '/terms-and-conditions-of-purchases',
+        destination: '/homepage',
+        permanent: true,
+      },
     ];
   },
   async rewrites() {
