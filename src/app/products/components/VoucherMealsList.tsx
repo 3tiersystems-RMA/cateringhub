@@ -30,10 +30,17 @@ export default function VoucherMealsList({ products }: VoucherMealsListProps) {
     );
   }
 
+  // Sort by extracting the numerator from the unit field (e.g. '1' from '1/10')
+  const sorted = [...products].sort((a, b) => {
+    const numA = a.unit ? parseInt(a.unit.split('/')[0], 10) : Infinity;
+    const numB = b.unit ? parseInt(b.unit.split('/')[0], 10) : Infinity;
+    return (isNaN(numA) ? Infinity : numA) - (isNaN(numB) ? Infinity : numB);
+  });
+
   // Split into pairs for 2-column grid
   const rows: VoucherMealsProduct[][] = [];
-  for (let i = 0; i < products.length; i += 2) {
-    rows.push(products.slice(i, i + 2));
+  for (let i = 0; i < sorted.length; i += 2) {
+    rows.push(sorted.slice(i, i + 2));
   }
 
   return (
