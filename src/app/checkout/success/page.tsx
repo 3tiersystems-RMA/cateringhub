@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -20,6 +20,9 @@ function SuccessContent() {
     null
   );
 
+  // Track whether the notification email has already been sent for this page load
+  const notificationSentRef = useRef(false);
+
   useEffect(() => {
     if (isPayFastReturn) {
       setPaymentMethodLabel("PayFast");
@@ -32,14 +35,17 @@ function SuccessContent() {
     }
 
     let cancelled = false;
-    fetch(`/api/orders/by-reference?ref=${encodeURIComponent(orderId)}`)?.then((r) => (r?.ok ? r?.json() : null))?.then((data) => {
+    fetch(`/api/orders/by-reference?ref=${encodeURIComponent(orderId)}`)
+      ?.then((r) => (r?.ok ? r?.json() : null))
+      ?.then((data) => {
         if (cancelled) return;
         if (data?.payment_method) {
           setPaymentMethodLabel(formatPaymentMethodLabel(data?.payment_method));
         } else {
           setPaymentMethodLabel("EFT");
         }
-      })?.catch(() => {
+      })
+      ?.catch(() => {
         if (!cancelled) setPaymentMethodLabel("EFT");
       });
 
@@ -48,8 +54,33 @@ function SuccessContent() {
     };
   }, [orderId, isPayFastReturn]);
 
-  const displayMethod = paymentMethodLabel ?? (isPayFastReturn ? "PayFast" : "EFT");
+  const displayMethod =
+    paymentMethodLabel ?? (isPayFastReturn ? "PayFast" : "EFT");
   const showPayFastNote = isPayFastReturn || displayMethod === "PayFast";
+
+  // Send notification email once paymentMethodLabel is resolved
+  useEffect(() => {
+    if (paymentMethodLabel === null) return; // wait until method is resolved
+    if (notificationSentRef?.current) return; // already sent
+    notificationSentRef.current = true;
+
+    const resolvedMethod =
+      paymentMethodLabel ?? (isPayFastReturn ? "PayFast" : "EFT");
+
+    fetch("/api/checkout/notify-success", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        orderId: orderId || null,
+        paymentStatus: paymentStatus || "CONFIRMED",
+        paymentMethod: resolvedMethod,
+        isPayFastReturn,
+        triggeredAt: new Date()?.toISOString(),
+      }),
+    })?.catch((err) => {
+      console.error("[checkout/success] Failed to send notification email:", err);
+    });
+  }, [paymentMethodLabel, orderId, paymentStatus, isPayFastReturn]);
 
   return (
     <main className="pt-20 min-h-screen bg-[#ddd4cb] flex items-center justify-center px-4">
