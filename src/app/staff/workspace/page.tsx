@@ -305,6 +305,22 @@ interface DiscountVouchersReportRow {
   clientEmail: string;
 }
 
+interface DeliveredOrdersRow {
+  orderId: string;
+  productName: string;
+  productType: string;
+  item: string;
+  packagePurchased: string;
+  mealVoucher: string | null;
+  discountVoucher: string | null;
+  orderedDate: string;
+  orderedRaw: string;
+  deliveredDt: string;
+  deliveredRaw: string;
+  leadTime: string;
+  clientEmail: string;
+}
+
 interface AbandonedCart {
   id: string;
   guest_token: string;
@@ -832,7 +848,7 @@ export default function StaffWorkspacePage() {
   const [cohExpandedOrderId, setCohExpandedOrderId] = useState<string | null>(null);
   // ── End Customer Order History state ─────────────────────────────────────
   // Reporting state
-  const [reportingView, setReportingView] = useState<'cards' | 'products_ordered' | 'package_meals_ordered' | 'frozen_meals_ordered' | 'discount_vouchers_report'>('cards');
+  const [reportingView, setReportingView] = useState<'cards' | 'products_ordered' | 'package_meals_ordered' | 'frozen_meals_ordered' | 'discount_vouchers_report' | 'delivered_orders'>('cards');
   const [productsOrderedRows, setProductsOrderedRows] = useState<ProductsOrderedRow[]>([]);
   const [productsOrderedLoading, setProductsOrderedLoading] = useState(false);
   const [packageMealsRows, setPackageMealsRows] = useState<PackageMealsOrderedRow[]>([]);
@@ -841,6 +857,8 @@ export default function StaffWorkspacePage() {
   const [frozenMealsLoading, setFrozenMealsLoading] = useState(false);
   const [discountVouchersReportRows, setDiscountVouchersReportRows] = useState<DiscountVouchersReportRow[]>([]);
   const [discountVouchersReportLoading, setDiscountVouchersReportLoading] = useState(false);
+  const [deliveredOrdersRows, setDeliveredOrdersRows] = useState<DeliveredOrdersRow[]>([]);
+  const [deliveredOrdersLoading, setDeliveredOrdersLoading] = useState(false);
   // Date range filter state for each report
   const [productsOrderedDateFrom, setProductsOrderedDateFrom] = useState('');
   const [productsOrderedDateTo, setProductsOrderedDateTo] = useState('');
@@ -850,12 +868,15 @@ export default function StaffWorkspacePage() {
   const [frozenMealsDateTo, setFrozenMealsDateTo] = useState('');
   const [discountVouchersDateFrom, setDiscountVouchersDateFrom] = useState('');
   const [discountVouchersDateTo, setDiscountVouchersDateTo] = useState('');
+  const [deliveredOrdersDateFrom, setDeliveredOrdersDateFrom] = useState('');
+  const [deliveredOrdersDateTo, setDeliveredOrdersDateTo] = useState('');
   // Sort state for each report table
   type SortDir = 'asc' | 'desc';
   const [productsOrderedSort, setProductsOrderedSort] = useState<{ col: string; dir: SortDir }>({ col: '', dir: 'asc' });
   const [packageMealsSort, setPackageMealsSort] = useState<{ col: string; dir: SortDir }>({ col: '', dir: 'asc' });
   const [frozenMealsSort, setFrozenMealsSort] = useState<{ col: string; dir: SortDir }>({ col: '', dir: 'asc' });
   const [discountVouchersSort, setDiscountVouchersSort] = useState<{ col: string; dir: SortDir }>({ col: '', dir: 'asc' });
+  const [deliveredOrdersSort, setDeliveredOrdersSort] = useState<{ col: string; dir: SortDir }>({ col: '', dir: 'asc' });
   const [reportingSearchQuery, setReportingSearchQuery] = useState('');
   // Media library state
   const [mediaFiles, setMediaFiles] = useState<StorageFile[]>([]);
@@ -994,6 +1015,23 @@ export default function StaffWorkspacePage() {
       r.clientEmail,
     ]);
     printReportPDF('Discount Vouchers', headers, pdfRows);
+  };
+
+  const downloadDeliveredOrdersPDF = (rows: DeliveredOrdersRow[]) => {
+    const headers = ['Product', 'Type', 'Item', 'Package', 'Meal Voucher', 'Discount Voucher', 'Ordered', 'Delivered', 'Lead Time', 'Email'];
+    const pdfRows = rows.map(r => [
+      r.productName,
+      r.productType,
+      r.item,
+      r.packagePurchased,
+      r.mealVoucher || '',
+      r.discountVoucher || '',
+      r.orderedDate,
+      r.deliveredDt,
+      r.leadTime,
+      r.clientEmail,
+    ]);
+    printReportPDF('Delivered Orders', headers, pdfRows);
   };
 
   // ─── Inactivity timer ─────────────────────────────────────────────────────────
@@ -1529,6 +1567,7 @@ export default function StaffWorkspacePage() {
     setPackageMealsLoading(true);
     setFrozenMealsLoading(true);
     setDiscountVouchersReportLoading(true);
+    setDeliveredOrdersLoading(true);
     try {
       const { data: ordersData } = await supabase
         .from('orders')
@@ -1542,6 +1581,7 @@ export default function StaffWorkspacePage() {
       const productsRows: ProductsOrderedRow[] = [];
       const packageRows: PackageMealsOrderedRow[] = [];
       const frozenRows: PackageMealsOrderedRow[] = [];
+      const deliveredRows: DeliveredOrdersRow[] = [];
       const dvReportRows: DiscountVouchersReportRow[] = (dvData || []).map((dv: any) => ({
         dvCode: dv.dv_code,
         dvAmount: Number(dv.dv_amount),
@@ -1624,12 +1664,46 @@ export default function StaffWorkspacePage() {
             });
           }
         }
+
+        // Populate delivered orders: only orders that have a delivered_date
+        if (order.delivered_date) {
+          const orderedMs = order.created_at ? new Date(order.created_at).getTime() : null;
+          const deliveredMs = new Date(order.delivered_date).getTime();
+          let leadTime = '—';
+          if (orderedMs !== null && !isNaN(deliveredMs) && !isNaN(orderedMs)) {
+            const diffDays = Math.round((deliveredMs - orderedMs) / (1000 * 60 * 60 * 24));
+            leadTime = diffDays === 0 ? 'Same day' : diffDays === 1 ? '1 day' : `${diffDays} days`;
+          }
+          const items2: OrderItem[] = Array.isArray(order.items) ? order.items : [];
+          for (const item of items2) {
+            const isPackageType = item.package_type && item.package_type.toLowerCase().includes('package');
+            const qty = Number(item.quantity) || 1;
+            for (let qi = 0; qi < qty; qi++) {
+              deliveredRows.push({
+                orderId: order.id,
+                productName: item.name,
+                productType: isPackageType ? (item.package_type || item.category || '') : (item.category || ''),
+                item: item.name,
+                packagePurchased: isPackageType ? (item.unit || item.category || '') : (item.category || ''),
+                mealVoucher,
+                discountVoucher,
+                orderedDate,
+                orderedRaw: order.created_at || '',
+                deliveredDt,
+                deliveredRaw: order.delivered_date || '',
+                leadTime,
+                clientEmail: order.customer_email,
+              });
+            }
+          }
+        }
       }
 
       setProductsOrderedRows(productsRows);
       setPackageMealsRows(packageRows);
       setFrozenMealsRows(frozenRows);
       setDiscountVouchersReportRows(dvReportRows);
+      setDeliveredOrdersRows(deliveredRows);
     } catch (err) {
       console.error('Reporting load error:', err);
     } finally {
@@ -1637,6 +1711,7 @@ export default function StaffWorkspacePage() {
       setPackageMealsLoading(false);
       setFrozenMealsLoading(false);
       setDiscountVouchersReportLoading(false);
+      setDeliveredOrdersLoading(false);
     }
   };
 
@@ -2554,6 +2629,33 @@ export default function StaffWorkspacePage() {
         else if (discountVouchersSort.col === 'Client') { av = a.clientName; bv = b.clientName; }
         const cmp = av < bv ? -1 : av > bv ? 1 : 0;
         return discountVouchersSort.dir === 'asc' ? cmp : -cmp;
+      });
+    }
+    return rows;
+  })();
+
+  const filteredDeliveredOrdersRows = (() => {
+    const q = reportingSearchQuery.toLowerCase();
+    const fromTs = deliveredOrdersDateFrom ? new Date(deliveredOrdersDateFrom).getTime() : null;
+    const toTs = deliveredOrdersDateTo ? new Date(deliveredOrdersDateTo + 'T23:59:59').getTime() : null;
+    let rows = deliveredOrdersRows.filter(r => {
+      if (q && !r.productName.toLowerCase().includes(q) && !r.clientEmail.toLowerCase().includes(q)) return false;
+      if (fromTs !== null || toTs !== null) {
+        const rowTs = r.deliveredRaw ? new Date(r.deliveredRaw).getTime() : null;
+        if (rowTs === null) return false;
+        if (fromTs !== null && rowTs < fromTs) return false;
+        if (toTs !== null && rowTs > toTs) return false;
+      }
+      return true;
+    });
+    if (deliveredOrdersSort.col) {
+      rows = [...rows].sort((a, b) => {
+        let av = '', bv = '';
+        if (deliveredOrdersSort.col === 'Product') { av = a.productName; bv = b.productName; }
+        else if (deliveredOrdersSort.col === 'Ordered') { av = a.orderedRaw; bv = b.orderedRaw; }
+        else if (deliveredOrdersSort.col === 'Delivered') { av = a.deliveredRaw; bv = b.deliveredRaw; }
+        const cmp = av < bv ? -1 : av > bv ? 1 : 0;
+        return deliveredOrdersSort.dir === 'asc' ? cmp : -cmp;
       });
     }
     return rows;
@@ -5786,6 +5888,7 @@ export default function StaffWorkspacePage() {
                     { key: 'package_meals_ordered', label: 'Package Meals' },
                     { key: 'frozen_meals_ordered', label: 'Frozen Meals' },
                     { key: 'discount_vouchers_report', label: 'Discount Vouchers' },
+                    { key: 'delivered_orders', label: 'Delivered Orders' },
                   ] as const).map(tab => (
                     <button
                       key={tab.key}
@@ -6005,6 +6108,60 @@ export default function StaffWorkspacePage() {
                                 <td className="px-3 py-2 text-[#5C5347] whitespace-nowrap">{r.orderedDate}</td>
                                 <td className="px-3 py-2 text-[#5C5347] whitespace-nowrap">{r.deliveredDt || '—'}</td>
                                 <td className="px-3 py-2 text-[#5C5347]">{r.clientName}</td>
+                                <td className="px-3 py-2 text-[#5C5347]">{r.clientEmail}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Delivered Orders */}
+                {reportingView === 'delivered_orders' && (
+                  <div>
+                    <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                      <p className="text-sm font-semibold text-[#1A1612]">Delivered Orders ({filteredDeliveredOrdersRows.length})</p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <input type="date" value={deliveredOrdersDateFrom} onChange={e => setDeliveredOrdersDateFrom(e.target.value)} className="border border-[#DDD5C8] rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-[#C4622D] bg-white" />
+                        <span className="text-xs text-[#8C8278]">to</span>
+                        <input type="date" value={deliveredOrdersDateTo} onChange={e => setDeliveredOrdersDateTo(e.target.value)} className="border border-[#DDD5C8] rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-[#C4622D] bg-white" />
+                        <button onClick={() => downloadDeliveredOrdersPDF(filteredDeliveredOrdersRows)} className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl hover:bg-[#FDF6EE] transition-colors">⬇ PDF</button>
+                      </div>
+                    </div>
+                    {deliveredOrdersLoading ? (
+                      <div className="flex items-center justify-center py-12"><div className="w-7 h-7 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>
+                    ) : (
+                      <div className="overflow-x-auto rounded-2xl border border-[#EDE7DA]">
+                        <table className="w-full text-xs">
+                          <thead className="bg-[#F5F0E8]">
+                            <tr>
+                              {['Product', 'Type', 'Item', 'Package', 'Meal Voucher', 'Discount Voucher', 'Ordered', 'Delivered', 'Lead Time', 'Email'].map(h => {
+                                const sortable = ['Product', 'Ordered', 'Delivered'].includes(h);
+                                const isActive = deliveredOrdersSort.col === h;
+                                return (
+                                  <th key={h} onClick={sortable ? () => setDeliveredOrdersSort(prev => ({ col: h, dir: prev.col === h && prev.dir === 'asc' ? 'desc' : 'asc' })) : undefined} className={`px-3 py-2.5 text-left font-semibold text-[#5C5347] whitespace-nowrap${sortable ? ' cursor-pointer select-none hover:text-[#C4622D]' : ''}`}>
+                                    {h}{sortable && <span className="ml-1 text-[10px]">{isActive ? (deliveredOrdersSort.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>}
+                                  </th>
+                                );
+                              })}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filteredDeliveredOrdersRows.length === 0 ? (
+                              <tr><td colSpan={10} className="text-center py-8 text-[#8C8278]">No delivered orders found</td></tr>
+                            ) : filteredDeliveredOrdersRows.map((r, i) => (
+                              <tr key={i} className="border-t border-[#F0EBE3] hover:bg-[#FAF5EE]">
+                                <td className="px-3 py-2 font-medium text-[#1A1612]">{r.productName}</td>
+                                <td className="px-3 py-2 text-[#5C5347]">{r.productType}</td>
+                                <td className="px-3 py-2 text-[#5C5347]">{r.item}</td>
+                                <td className="px-3 py-2 text-[#5C5347]">{r.packagePurchased || '—'}</td>
+                                <td className="px-3 py-2 font-mono font-semibold text-[#C4622D]">{r.mealVoucher || '—'}</td>
+                                <td className="px-3 py-2 font-mono font-semibold text-[#C4622D]">{r.discountVoucher || '—'}</td>
+                                <td className="px-3 py-2 text-[#5C5347] whitespace-nowrap">{r.orderedDate}</td>
+                                <td className="px-3 py-2 text-[#5C5347] whitespace-nowrap">{r.deliveredDt}</td>
+                                <td className="px-3 py-2 text-[#5C5347] whitespace-nowrap font-medium">{r.leadTime}</td>
                                 <td className="px-3 py-2 text-[#5C5347]">{r.clientEmail}</td>
                               </tr>
                             ))}
