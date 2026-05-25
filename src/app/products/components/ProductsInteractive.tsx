@@ -548,10 +548,13 @@ function ProductsContent() {
             id: p.id,
             name: p.name,
             price: p.price,
+            unit: p.unit,
             description: p.description,
             image: p.image,
             imageAlt: p.imageAlt,
             available: p.available,
+            packageType: p.packageType,
+            imageFit: p.imageFit,
           }))} />
         ) : (
           <div
