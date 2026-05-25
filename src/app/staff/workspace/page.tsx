@@ -951,7 +951,7 @@ export default function StaffWorkspacePage() {
   };
 
   const downloadProductsOrderedPDF = (rows: ProductsOrderedRow[]) => {
-    const headers = ['Product', 'Type', 'Item', 'Meal Voucher', 'Discount Voucher', 'Ordered', 'Delivered', 'Client', 'eMail'];
+    const headers = ['Product', 'Type', 'Item', 'Meal Voucher', 'Discount Voucher', 'Ordered', 'Client', 'eMail'];
     const pdfRows = rows.map(r => [
       r.productName,
       r.productType,
@@ -959,7 +959,6 @@ export default function StaffWorkspacePage() {
       r.mealVoucher || '',
       r.discountVoucher || '',
       r.orderedDate,
-      r.deliveredDt,
       r.clientName,
       r.clientEmail,
     ]);
@@ -5922,8 +5921,8 @@ export default function StaffWorkspacePage() {
                         <table className="w-full text-xs">
                           <thead className="bg-[#F5F0E8]">
                             <tr>
-                              {['Product', 'Type', 'Item', 'Meal Voucher', 'Discount Voucher', 'Ordered', 'Delivered', 'Client', 'Email'].map(h => {
-                                const sortable = ['Product', 'Ordered', 'Delivered', 'Client'].includes(h);
+                              {['Product', 'Type', 'Item', 'Meal Voucher', 'Discount Voucher', 'Ordered', 'Client', 'Email'].map(h => {
+                                const sortable = ['Product', 'Ordered', 'Client'].includes(h);
                                 const isActive = productsOrderedSort.col === h;
                                 return (
                                   <th key={h} onClick={sortable ? () => setProductsOrderedSort(prev => ({ col: h, dir: prev.col === h && prev.dir === 'asc' ? 'desc' : 'asc' })) : undefined} className={`px-3 py-2.5 text-left font-semibold text-[#5C5347] whitespace-nowrap${sortable ? ' cursor-pointer select-none hover:text-[#C4622D]' : ''}`}>
@@ -5935,7 +5934,7 @@ export default function StaffWorkspacePage() {
                           </thead>
                           <tbody>
                             {filteredProductsOrderedRows.length === 0 ? (
-                              <tr><td colSpan={9} className="text-center py-8 text-[#8C8278]">No data</td></tr>
+                              <tr><td colSpan={8} className="text-center py-8 text-[#8C8278]">No data</td></tr>
                             ) : filteredProductsOrderedRows.map((r, i) => (
                               <tr key={i} className="border-t border-[#F0EBE3] hover:bg-[#FAF5EE]">
                                 <td className="px-3 py-2 font-medium text-[#1A1612]">{r.productName}</td>
@@ -5944,7 +5943,6 @@ export default function StaffWorkspacePage() {
                                 <td className="px-3 py-2 font-mono font-semibold text-[#C4622D]">{r.mealVoucher || '—'}</td>
                                 <td className="px-3 py-2 font-mono font-semibold text-[#C4622D]">{r.discountVoucher || '—'}</td>
                                 <td className="px-3 py-2 text-[#5C5347] whitespace-nowrap">{r.orderedDate}</td>
-                                <td className="px-3 py-2 text-[#5C5347] whitespace-nowrap">{r.deliveredDt || '—'}</td>
                                 <td className="px-3 py-2 text-[#5C5347]">{r.clientName}</td>
                                 <td className="px-3 py-2 text-[#5C5347]">{r.clientEmail}</td>
                               </tr>
