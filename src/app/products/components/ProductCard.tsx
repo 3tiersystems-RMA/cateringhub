@@ -31,6 +31,7 @@ export default function ProductCard({ product, onOpenModal }: ProductCardProps) 
 
   const isSoldOut = !product.available || product.badge === "Sold Out";
   const isPackageProduct = product.packageType && product.packageType !== "none";
+  const isMacro = product.visualType === "Macro";
 
   // Determine if this package product is unlocked by the applied voucher
   const voucherPackageType = appliedVoucher?.package_type;
@@ -142,7 +143,7 @@ export default function ProductCard({ product, onOpenModal }: ProductCardProps) 
               </p>
             )}
           </div>
-          {isVoucherRequired ? (
+          {isMacro ? null : isVoucherRequired ? (
             <button
               onClick={handleAdd}
               disabled={isSoldOut}
@@ -195,13 +196,20 @@ export default function ProductCard({ product, onOpenModal }: ProductCardProps) 
           )}
         </div>
 
+        {/* Macro type info */}
+        {isMacro && (
+          <p className="text-xs text-[#8C8278] mt-2 text-center italic">
+            View sub-items to order
+          </p>
+        )}
+
         {/* Voucher hint for package products */}
-        {isVoucherRequired && (
+        {!isMacro && isVoucherRequired && (
           <p className="text-xs text-amber-600 mt-2 text-center">
             Requires a valid {PACKAGE_LABEL[product.packageType!] || "package"} voucher
           </p>
         )}
-        {isUnlockedByVoucher && (
+        {!isMacro && isUnlockedByVoucher && (
           <p className="text-xs text-green-600 mt-2 text-center flex items-center justify-center gap-1">
             <Icon name="CheckIcon" size={11} /> Voucher applied — ready to order
           </p>

@@ -135,6 +135,7 @@ interface Product {
   attribute2?: string | null;
   attribute3?: string | null;
   long_description?: string | null;
+  visual_type?: string | null;
 }
 
 interface Category {
@@ -366,6 +367,7 @@ const emptyForm = {
   attribute2: '',
   attribute3: '',
   long_description: '',
+  visual_type: '',
 };
 
 const emptyInviteForm = {
@@ -1940,6 +1942,7 @@ export default function StaffWorkspacePage() {
       attribute2: product.attribute2 || '',
       attribute3: product.attribute3 || '',
       long_description: product.long_description || '',
+      visual_type: product.visual_type || '',
     });
     setPendingImageFile(null);
     setPendingImagePreview(product.imageUrl || null);
@@ -1989,6 +1992,7 @@ export default function StaffWorkspacePage() {
       attribute2: form.attribute2 || null,
       attribute3: form.attribute3 || null,
       long_description: form.long_description || null,
+      visual_type: form.visual_type || null,
     };
     let saveError: any = null;
     if (editingProduct) {
@@ -3320,9 +3324,29 @@ export default function StaffWorkspacePage() {
                       </div>
                       <div>
                         <label className="block text-xs font-semibold text-[#5C5347] mb-1">Package Type</label>
-                        <select value={form.package_type} onChange={e => setForm(f => ({ ...f, package_type: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white">
+                        <select value={form.package_type} onChange={e => {
+                          const newPkgType = e.target.value;
+                          const isPackage = newPkgType.toLowerCase().includes('package');
+                          setForm(f => ({
+                            ...f,
+                            package_type: newPkgType,
+                            visual_type: isPackage ? 'Micro' : f.visual_type,
+                          }));
+                        }} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white">
                           {packageTypes.map(pt => <option key={pt} value={pt}>{pt === 'wellness-range' ? 'Wellness Range' : pt}</option>)}
                         </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Visual Type</label>
+                        {form.package_type.toLowerCase().includes('package') ? (
+                          <input type="text" readOnly value="Micro" className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm bg-[#F5F0EB] text-[#5C5347] cursor-not-allowed focus:outline-none" />
+                        ) : (
+                          <select value={form.visual_type} onChange={e => setForm(f => ({ ...f, visual_type: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white">
+                            <option value="">— Not set —</option>
+                            <option value="Macro">Macro</option>
+                            <option value="Micro">Micro</option>
+                          </select>
+                        )}
                       </div>
                       <div className="flex items-center gap-4">
                         <label className="flex items-center gap-2 text-sm text-[#5C5347] cursor-pointer">
@@ -3485,9 +3509,29 @@ export default function StaffWorkspacePage() {
                         </div>
                         <div>
                           <label className="block text-xs font-semibold text-[#5C5347] mb-1">Package Type</label>
-                          <select value={form.package_type} onChange={e => setForm(f => ({ ...f, package_type: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white">
+                          <select value={form.package_type} onChange={e => {
+                            const newPkgType = e.target.value;
+                            const isPackage = newPkgType.toLowerCase().includes('package');
+                            setForm(f => ({
+                              ...f,
+                              package_type: newPkgType,
+                              visual_type: isPackage ? 'Micro' : f.visual_type,
+                            }));
+                          }} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white">
                             {packageTypes.map(pt => <option key={pt} value={pt}>{pt === 'wellness-range' ? 'Wellness Range' : pt}</option>)}
                           </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Visual Type</label>
+                          {form.package_type.toLowerCase().includes('package') ? (
+                            <input type="text" readOnly value="Micro" className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm bg-[#F5F0EB] text-[#5C5347] cursor-not-allowed focus:outline-none" />
+                          ) : (
+                            <select value={form.visual_type} onChange={e => setForm(f => ({ ...f, visual_type: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white">
+                              <option value="">— Not set —</option>
+                              <option value="Macro">Macro</option>
+                              <option value="Micro">Micro</option>
+                            </select>
+                          )}
                         </div>
                         <div className="flex items-center gap-4">
                           <label className="flex items-center gap-2 text-sm text-[#5C5347] cursor-pointer">
@@ -3586,6 +3630,7 @@ export default function StaffWorkspacePage() {
                               </span>
                               {product.featured && <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Featured</span>}
                               {shouldShowProductBadge(product.badge) && <span className="text-xs bg-[#FDF6EE] text-[#C4622D] border border-[#EDE7DA] px-2 py-0.5 rounded-full">{product.badge}</span>}
+                              {product.visual_type && <span className={`text-xs px-2 py-0.5 rounded-full font-semibold border ${product.visual_type === 'Macro' ? 'bg-purple-100 text-purple-700 border-purple-200' : 'bg-blue-100 text-blue-700 border-blue-200'}`}>{product.visual_type}</span>}
                             </div>
                           </div>
                         </div>

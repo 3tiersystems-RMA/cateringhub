@@ -157,31 +157,37 @@ export default function ProductModal({ product, onClose, added, onAdd }: Product
               )}
             </div>
 
-            {/* Add to Cart */}
-            <button
-              onClick={onAdd}
-              disabled={!product.available}
-              className={`flex items-center gap-2 px-6 py-3 rounded-full text-sm font-semibold transition-all duration-300 ${
-                added
-                  ? "bg-green-500 text-white scale-95"
-                  : product.available
-                  ? "bg-[#C4622D] text-white hover:bg-[#A04E22] hover:shadow-lg"
-                  : "bg-[#EDE7DA] text-[#B5ADA5] cursor-not-allowed"
-              }`}
-              aria-label={`Add ${product.name} to cart`}
-            >
-              {added ? (
-                <>
-                  <Icon name="CheckIcon" size={16} />
-                  Added!
-                </>
-              ) : (
-                <>
-                  <Icon name="PlusIcon" size={16} />
-                  Add to Cart
-                </>
-              )}
-            </button>
+            {/* Add to Cart — hidden for Macro visual type */}
+            {product.visualType !== "Macro" ? (
+              <button
+                onClick={onAdd}
+                disabled={!product.available}
+                className={`flex items-center gap-2 px-6 py-3 rounded-full text-sm font-semibold transition-all duration-300 ${
+                  added
+                    ? "bg-green-500 text-white scale-95"
+                    : product.available
+                    ? "bg-[#C4622D] text-white hover:bg-[#A04E22] hover:shadow-lg"
+                    : "bg-[#EDE7DA] text-[#B5ADA5] cursor-not-allowed"
+                }`}
+                aria-label={`Add ${product.name} to cart`}
+              >
+                {added ? (
+                  <>
+                    <Icon name="CheckIcon" size={16} />
+                    Added!
+                  </>
+                ) : (
+                  <>
+                    <Icon name="PlusIcon" size={16} />
+                    Add to Cart
+                  </>
+                )}
+              </button>
+            ) : (
+              <p className="text-xs text-[#8C8278] italic text-right max-w-[140px]">
+                Order sub-items of this package individually
+              </p>
+            )}
           </div>
         </div>
       </div>
