@@ -3184,7 +3184,7 @@ export default function StaffWorkspacePage() {
                       </div>
                       <div>
                         <label className="block text-xs font-semibold text-[#5C5347] mb-1">Price (R) {form.package_type && form.package_type.toLowerCase().includes('package') ? <span className="text-[#8C8278] font-normal">(optional)</span> : '*'}</label>
-                        <input type="number" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                        <input type="number" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} readOnly={!!(form.package_type && form.package_type.toLowerCase().includes('package'))} className={`w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] ${form.package_type && form.package_type.toLowerCase().includes('package') ? 'bg-[#F5F0EB] text-[#5C5347] cursor-not-allowed' : ''}`} />
                       </div>
                       <div>
                         <label className="block text-xs font-semibold text-[#5C5347] mb-1">Unit</label>
@@ -3201,7 +3201,7 @@ export default function StaffWorkspacePage() {
                             saving = String(Math.round(((oldPrice - newPrice) / oldPrice) * 100));
                           }
                           setForm(f => ({ ...f, old_price: oldVal, saving_percent: saving }));
-                        }} placeholder="e.g. 250" className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                        }} readOnly={!!(form.package_type && form.package_type.toLowerCase().includes('package'))} placeholder="e.g. 250" className={`w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] ${form.package_type && form.package_type.toLowerCase().includes('package') ? 'bg-[#F5F0EB] text-[#5C5347] cursor-not-allowed' : ''}`} />
                       </div>
                       <div>
                         <label className="block text-xs font-semibold text-[#5C5347] mb-1">Saving % <span className="text-[#8C8278] font-normal">(auto-calculated)</span></label>
@@ -3349,7 +3349,7 @@ export default function StaffWorkspacePage() {
                         </div>
                         <div>
                           <label className="block text-xs font-semibold text-[#5C5347] mb-1">Price (R) {form.package_type && form.package_type.toLowerCase().includes('package') ? <span className="text-[#8C8278] font-normal">(optional)</span> : '*'}</label>
-                          <input type="number" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                          <input type="number" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} readOnly={!!(form.package_type && form.package_type.toLowerCase().includes('package'))} className={`w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] ${form.package_type && form.package_type.toLowerCase().includes('package') ? 'bg-[#F5F0EB] text-[#5C5347] cursor-not-allowed' : ''}`} />
                         </div>
                         <div>
                           <label className="block text-xs font-semibold text-[#5C5347] mb-1">Unit</label>
@@ -3366,7 +3366,7 @@ export default function StaffWorkspacePage() {
                               saving = String(Math.round(((oldPrice - newPrice) / oldPrice) * 100));
                             }
                             setForm(f => ({ ...f, old_price: oldVal, saving_percent: saving }));
-                          }} placeholder="e.g. 250" className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                          }} readOnly={!!(form.package_type && form.package_type.toLowerCase().includes('package'))} placeholder="e.g. 250" className={`w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] ${form.package_type && form.package_type.toLowerCase().includes('package') ? 'bg-[#F5F0EB] text-[#5C5347] cursor-not-allowed' : ''}`} />
                         </div>
                         <div>
                           <label className="block text-xs font-semibold text-[#5C5347] mb-1">Saving % <span className="text-[#8C8278] font-normal">(auto-calculated)</span></label>
