@@ -32,6 +32,7 @@ interface Product {
   imageFit?: string;
   oldPrice?: number;
   savingPercent?: number;
+  visualType?: string | null;
 }
 
 function CartButton() {
@@ -298,6 +299,7 @@ function ProductsContent() {
               imageFit: p.image_fit || 'fill',
               oldPrice: p.old_price ?? undefined,
               savingPercent: p.saving_percent ?? undefined,
+              visualType: p.visual_type ?? null,
             } as Product;
           })
         );

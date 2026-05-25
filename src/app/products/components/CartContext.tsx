@@ -22,6 +22,7 @@ export interface CartProduct {
   imageFit?: string;
   oldPrice?: number;
   savingPercent?: number;
+  visualType?: string | null;
 }
 
 export interface CartItem {
