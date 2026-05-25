@@ -544,7 +544,11 @@ function ProductsContent() {
             </svg>
           </div>
         ) : activeCategory === "Voucher Meals" ? (
-          <VoucherMealsList products={filtered.map((p) => ({
+          <VoucherMealsList products={filtered.filter((p) => {
+            const hasUnit = p.unit && p.unit.trim() !== '';
+            const priceIsZeroOrBlank = !p.price || p.price === 0;
+            return hasUnit && priceIsZeroOrBlank;
+          }).map((p) => ({
             id: p.id,
             name: p.name,
             price: p.price,
