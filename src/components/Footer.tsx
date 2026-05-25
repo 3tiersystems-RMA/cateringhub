@@ -125,7 +125,7 @@ export default function Footer() {
               ))}
             </div>
             <p className="text-xs text-[#B5ADA5]">
-              © {currentYear} {APP_NAME} · Privacy · Terms | Powered by SERiTi Digital Studio
+              © {currentYear} {APP_NAME} · <Link href="/privacy-policy" className="hover:text-[#C4622D] transition-colors">Privacy</Link> · Terms | Powered by SERiTi Digital Studio
             </p>
           </div>
         </div>
