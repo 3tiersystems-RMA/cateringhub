@@ -166,7 +166,7 @@ export default function VoucherMealDetailPage() {
                 <div className="flex flex-col md:flex-row">
                   {/* Left: Image */}
                   <div className="md:w-5/12 flex-shrink-0">
-                    <div className="relative w-full h-72 md:h-full min-h-[320px] bg-[#EDE7DA]">
+                    <div className="relative w-full h-72 md:h-96 bg-[#EDE7DA]">
                       <AppImage
                         src={product.image}
                         alt={product.imageAlt}
@@ -201,17 +201,19 @@ export default function VoucherMealDetailPage() {
                     )}
 
                     {/* Attributes */}
-                    <div className="flex flex-col gap-1.5 mb-8">
-                      {product.attribute1 && (
-                        <p className="text-sm text-[#5C5347]">{product.attribute1}</p>
-                      )}
-                      {product.attribute2 && (
-                        <p className="text-sm text-[#5C5347]">{product.attribute2}</p>
-                      )}
-                      {product.attribute3 && (
-                        <p className="text-sm text-[#5C5347]">{product.attribute3}</p>
-                      )}
-                    </div>
+                    {(product.attribute1 || product.attribute2 || product.attribute3) && (
+                      <div className="flex flex-col gap-1.5 mb-8">
+                        {product.attribute1 && (
+                          <p className="text-sm text-[#5C5347]">{product.attribute1}</p>
+                        )}
+                        {product.attribute2 && (
+                          <p className="text-sm text-[#5C5347]">{product.attribute2}</p>
+                        )}
+                        {product.attribute3 && (
+                          <p className="text-sm text-[#5C5347]">{product.attribute3}</p>
+                        )}
+                      </div>
+                    )}
 
                     {/* Add to Cart button */}
                     <button
@@ -235,7 +237,7 @@ export default function VoucherMealDetailPage() {
               {product.longDescription && (
                 <div className="mt-8 bg-white rounded-3xl p-8 md:p-12 shadow-sm">
                   <h2 className="text-base font-bold text-[#1A1612] mb-3">Additional description</h2>
-                  <p className="text-sm text-[#5C5347] leading-relaxed">
+                  <p className="text-sm text-[#5C5347] leading-relaxed whitespace-pre-line">
                     {product.longDescription}
                   </p>
                 </div>
