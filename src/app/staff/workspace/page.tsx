@@ -18,7 +18,7 @@ import { shouldShowProductBadge } from '@/lib/product-badge';
 
 
 type BucketType = 'product-images' | 'event-photos' | 'document-management';
-type WorkspaceTab = 'products' | 'media' | 'media_events' | 'media_products' | 'orders' | 'staff' | 'homepage_cards' | 'categories' | 'weekly_menu' | 'vouchers' | 'discount_vouchers' | 'testimonials' | 'reporting' | 'analytics' | 'social_media' | 'gallery' | 'section_visibility' | 'customer_order_history' | 'correspondence_settings' | 'abandoned_carts';
+type WorkspaceTab = 'products' | 'media' | 'media_events' | 'media_products' | 'orders' | 'staff' | 'homepage_cards' | 'categories' | 'weekly_menu' | 'vouchers' | 'discount_vouchers' | 'testimonials' | 'reporting' | 'analytics' | 'social_media' | 'gallery' | 'section_visibility' | 'customer_order_history' | 'correspondence_settings' | 'abandoned_carts' | 'package_visibility';
 
 type ProductCategory = string;
 type StaffRole = 'admin' | 'staff' | 'super_admin';
@@ -616,6 +616,12 @@ export default function StaffWorkspacePage() {
   const [vouchersMenuOpen, setVouchersMenuOpen] = useState(false);
   const [mediaMenuOpen, setMediaMenuOpen] = useState(false);
 
+  // ── Package Visibility state ──────────────────────────────────────────────
+  const [packageVisibility, setPackageVisibility] = useState<{ id: string; package_name: string; is_visible: boolean }[]>([]);
+  const [packageVisibilityLoading, setPackageVisibilityLoading] = useState(false);
+  const [packageVisibilitySaving, setPackageVisibilitySaving] = useState<Record<string, boolean>>({});
+  // ── End Package Visibility state ──────────────────────────────────────────
+
   // ── Analytics state ──────────────────────────────────────────────────────
   const [analyticsPeriod, setAnalyticsPeriod] = useState<AnalyticsPeriod>('30d');
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
@@ -1145,6 +1151,9 @@ export default function StaffWorkspacePage() {
     if (!error && data) {
       const withUrls = await Promise.all(data.map(async (p: Product) => {
         if (p.image_path) {
+          if (p.image_path.startsWith('/')) {
+            return { ...p, imageUrl: p.image_path };
+          }
           const { data: urlData } = await supabase.storage.from('product-images').createSignedUrl(p.image_path, 3600);
           return { ...p, imageUrl: urlData?.signedUrl };
         }
@@ -1503,6 +1512,30 @@ export default function StaffWorkspacePage() {
     }
   };
   // ── End Load Abandoned Carts ───────────────────────────────────────────────
+
+  // ── Package Visibility ─────────────────────────────────────────────────────
+  const loadPackageVisibility = async () => {
+    setPackageVisibilityLoading(true);
+    const { data } = await supabase
+      .from('package_visibility')
+      .select('*')
+      .order('package_name');
+    if (data) setPackageVisibility(data);
+    setPackageVisibilityLoading(false);
+  };
+
+  const handleTogglePackageVisibility = async (id: string, newValue: boolean) => {
+    setPackageVisibilitySaving(prev => ({ ...prev, [id]: true }));
+    await supabase
+      .from('package_visibility')
+      .update({ is_visible: newValue, updated_at: new Date().toISOString() })
+      .eq('id', id);
+    setPackageVisibility(prev =>
+      prev.map(p => p.id === id ? { ...p, is_visible: newValue } : p)
+    );
+    setPackageVisibilitySaving(prev => ({ ...prev, [id]: false }));
+  };
+  // ── End Package Visibility ─────────────────────────────────────────────────
 
   const handleDeleteAbandonedCart = async () => {
     if (!cartToDelete) return;
@@ -2681,6 +2714,7 @@ export default function StaffWorkspacePage() {
     if (tab === 'gallery') loadGallery();
     if (tab === 'section_visibility') loadHomepageSections();
     if (tab === 'abandoned_carts') loadAbandonedCarts();
+    if (tab === 'package_visibility') loadPackageVisibility();
     if (tab === 'customer_order_history') {
       setCohLookupInput('');
       setCohLookupError('');
@@ -2898,7 +2932,7 @@ export default function StaffWorkspacePage() {
               <button
                 onClick={() => setSiteContentOpen(prev => !prev)}
                 className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
-['staff', 'homepage_cards', 'testimonials', 'social_media', 'gallery', 'section_visibility', 'correspondence_settings'].includes(activeTab) ? 'text-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
+['staff', 'homepage_cards', 'testimonials', 'social_media', 'gallery', 'section_visibility', 'correspondence_settings', 'package_visibility'].includes(activeTab) ? 'text-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
                 }`}
               >
                 <span className="text-base">📁</span>
@@ -2953,6 +2987,15 @@ export default function StaffWorkspacePage() {
                   >
                     <span className="text-base">✉️</span>
                     <span>Correspondence Settings</span>
+                  </button>
+                  <button
+                    onClick={() => { handleTabChange('package_visibility'); }}
+                    className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${
+                      activeTab === 'package_visibility' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'
+                    }`}
+                  >
+                    <span className="text-base">📦</span>
+                    <span>Package Visibility</span>
                   </button>
                   {['super_admin', 'admin'].includes(userProfile?.role ?? '') && (
                     <button
@@ -6646,6 +6689,58 @@ export default function StaffWorkspacePage() {
             {/* ── CORRESPONDENCE SETTINGS TAB ── */}
             {activeTab === 'correspondence_settings' && (
               <CorrespondenceSettings />
+            )}
+
+            {/* ── PACKAGE VISIBILITY TAB ── */}
+            {activeTab === 'package_visibility' && (
+              <div className="p-6">
+                <div className="mb-6">
+                  <h2 className="text-xl font-bold text-[#1A1612]">Package Visibility</h2>
+                  <p className="text-sm text-[#8C8278] mt-0.5">Control which meal packages are shown on the Meal Vouchers page. Only packages toggled as visible will appear to customers.</p>
+                </div>
+                <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5">
+                  {packageVisibilityLoading ? (
+                    <p className="text-xs text-[#8C8278]">Loading packages…</p>
+                  ) : packageVisibility.length === 0 ? (
+                    <p className="text-xs text-[#8C8278]">No packages found. Please ensure the package_visibility table has been seeded.</p>
+                  ) : (
+                    <div className="flex flex-col gap-3">
+                      {packageVisibility.map(pkg => {
+                        const labelMap: Record<string, string> = {
+                          'package-6': '6-Meal Package',
+                          'package-10': '10-Meal Package',
+                          'package-12': '12-Meal Package',
+                          'package-24': '24-Meal Package',
+                          'wellness-range': 'Wellness Range',
+                          'month-end-special': 'Month-end Special',
+                        };
+                        const label = labelMap[pkg.package_name] || pkg.package_name;
+                        return (
+                          <div key={pkg.id} className="flex items-center justify-between gap-4 py-2.5 border-b border-[#F5F0E8] last:border-0">
+                            <div>
+                              <span className="text-sm font-medium text-[#1A1612]">{label}</span>
+                              <span className="ml-2 text-xs font-mono text-[#B5ADA5]">{pkg.package_name}</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className={`text-xs font-semibold ${pkg.is_visible ? 'text-green-600' : 'text-[#8C8278]'}`}>
+                                {pkg.is_visible ? 'Visible' : 'Hidden'}
+                              </span>
+                              <button
+                                onClick={() => handleTogglePackageVisibility(pkg.id, !pkg.is_visible)}
+                                disabled={!!packageVisibilitySaving[pkg.id]}
+                                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200 focus:outline-none disabled:opacity-50 ${pkg.is_visible ? 'bg-[#C4622D]' : 'bg-[#DDD5C8]'}`}
+                                aria-label={`Toggle ${label} visibility`}
+                              >
+                                <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform duration-200 ${pkg.is_visible ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
             )}
 
             {/* ── DOCUMENT MANAGEMENT TAB ── */}

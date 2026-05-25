@@ -241,6 +241,7 @@ function ProductsContent() {
   const [loading, setLoading] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [modalAdded, setModalAdded] = useState(false);
+  const [visiblePackages, setVisiblePackages] = useState<Set<string>>(new Set());
   const sectionRef = useRef<HTMLDivElement>(null);
   const { addItem, appliedVoucher } = useCart();
 
@@ -259,6 +260,17 @@ function ProductsContent() {
         const activeCategories = (catData || []).map((c: any) => c.name as string);
         setCategories(activeCategories);
 
+        // Load package visibility flags
+        const { data: pvData } = await supabase
+          .from('package_visibility')
+          .select('package_name, is_visible');
+        if (pvData) {
+          const visSet = new Set<string>(
+            pvData.filter((p: any) => p.is_visible).map((p: any) => p.package_name as string)
+          );
+          setVisiblePackages(visSet);
+        }
+
         const { data, error } = await supabase
           .from('products')
           .select('*')
@@ -275,10 +287,15 @@ function ProductsContent() {
           data.map(async (p) => {
             let imageUrl = '/assets/images/no_image.png';
             if (p.image_path) {
-              const { data: urlData } = supabase.storage
-                .from('product-images')
-                .getPublicUrl(p.image_path);
-              imageUrl = urlData?.publicUrl || imageUrl;
+              if (p.image_path.startsWith('/')) {
+                // Static asset path
+                imageUrl = p.image_path;
+              } else {
+                const { data: urlData } = supabase.storage
+                  .from('product-images')
+                  .getPublicUrl(p.image_path);
+                imageUrl = urlData?.publicUrl || imageUrl;
+              }
             }
             return {
               id: p.id,
@@ -549,7 +566,10 @@ function ProductsContent() {
           <VoucherMealsList products={filtered.filter((p) => {
             const hasUnit = p.unit && p.unit.trim() !== '';
             const priceIsZeroOrBlank = !p.price || p.price === 0;
-            return hasUnit && priceIsZeroOrBlank;
+            // Only show packages that are flagged as visible (if visibility data loaded)
+            const pkgType = p.packageType || 'none';
+            const isVisible = visiblePackages.size === 0 || visiblePackages.has(pkgType);
+            return hasUnit && priceIsZeroOrBlank && isVisible;
           }).map((p) => ({
             id: p.id,
             name: p.name,

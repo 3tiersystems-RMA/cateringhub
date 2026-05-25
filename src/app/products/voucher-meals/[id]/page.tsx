@@ -62,10 +62,14 @@ export default function VoucherMealDetailPage() {
 
         let imageUrl = "/assets/images/no_image.png";
         if (data.image_path) {
-          const { data: urlData } = supabase.storage
-            .from("product-images")
-            .getPublicUrl(data.image_path);
-          imageUrl = urlData?.publicUrl || imageUrl;
+          if (data.image_path.startsWith('/')) {
+            imageUrl = data.image_path;
+          } else {
+            const { data: urlData } = supabase.storage
+              .from("product-images")
+              .getPublicUrl(data.image_path);
+            imageUrl = urlData?.publicUrl || imageUrl;
+          }
         }
 
         setProduct({
