@@ -6,6 +6,7 @@ import Footer from "@/components/Footer";
 import { createClient } from "@/lib/supabase/client";
 import { CartProvider, useCart } from "@/app/products/components/CartContext";
 import CartSidebar from "@/app/products/components/CartSidebar";
+import { useRouter } from "next/navigation";
 
 interface WeeklyMenuItem {
   id: string;
@@ -48,6 +49,7 @@ const DAY_FULL = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 function WeeklyMenuContent() {
   const supabase = createClient();
   const { addItem, setIsOpen } = useCart();
+  const router = useRouter();
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -58,6 +60,7 @@ function WeeklyMenuContent() {
   const [menuItems, setMenuItems] = useState<WeeklyMenuItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
+  const [categories, setCategories] = useState<string[]>([]);
 
   useEffect(() => {
     const fetchMenu = async () => {
@@ -78,7 +81,18 @@ function WeeklyMenuContent() {
       }
       setLoading(false);
     };
+
+    const fetchCategories = async () => {
+      const { data: catData } = await supabase
+        .from("categories")
+        .select("name")
+        .eq("active", true)
+        .order("sort_order", { ascending: true });
+      setCategories((catData || []).map((c: any) => c.name as string));
+    };
+
     fetchMenu();
+    fetchCategories();
   }, []);
 
   // Build week days with all items grouped per day
@@ -133,6 +147,10 @@ function WeeklyMenuContent() {
 
   const monthLabel = formatMonthYear(monday);
 
+  const desiredOrder = ["All", "Weekly Menu", "Packaged Meals", "Voucher Meals", "Frozen Meals", "Prepared Meals", "À La Carte", "Wellness", "Retail POD", "Fadwah Mugs"];
+  const available = ["All", "Weekly Menu", ...categories];
+  const displayCategories = desiredOrder.filter((c) => available.includes(c));
+
   return (
     <>
       <CartSidebar />
@@ -153,6 +171,35 @@ function WeeklyMenuContent() {
             <p className="text-[#8C8278] text-sm mt-1">
               All Portions Typically Feed 2 Adults · Delivery Fee Applies or Collect (Mon-Fri)
             </p>
+          </div>
+
+          {/* Category Filter Tabs */}
+          <div className="flex flex-wrap gap-2 mb-10">
+            {displayCategories.map((cat) => {
+              const isCurrentPage = cat === "Weekly Menu";
+              const isAll = cat === "All";
+              return (
+                <button
+                  key={cat}
+                  disabled={isCurrentPage}
+                  onClick={() => {
+                    if (isCurrentPage) return;
+                    if (isAll) {
+                      router.push("/products");
+                    } else {
+                      router.push(`/products?category=${encodeURIComponent(cat)}`);
+                    }
+                  }}
+                  className={`px-5 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                    isCurrentPage
+                      ? "bg-white border border-[#DDD5C8] text-[#B5ADA5] cursor-default opacity-60"
+                      : "bg-white border border-[#DDD5C8] text-[#5C5347] hover:border-[#C4622D]/40 hover:text-[#C4622D] cursor-pointer"
+                  }`}
+                >
+                  {cat}
+                </button>
+              );
+            })}
           </div>
 
           {/* Menu List */}
