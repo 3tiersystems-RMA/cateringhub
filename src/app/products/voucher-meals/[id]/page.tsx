@@ -162,11 +162,11 @@ export default function VoucherMealDetailPage() {
           ) : (
             <>
               {/* Main detail section */}
-              <div className="bg-white rounded-3xl overflow-hidden shadow-sm">
+              <div className="bg-white rounded-3xl shadow-sm">
                 <div className="flex flex-col md:flex-row">
                   {/* Left: Image */}
                   <div className="md:w-5/12 flex-shrink-0">
-                    <div className="relative w-full h-72 md:h-96 bg-[#EDE7DA]">
+                    <div className="relative w-full h-72 md:h-full min-h-[320px] bg-[#EDE7DA] rounded-t-3xl md:rounded-l-3xl md:rounded-tr-none overflow-hidden">
                       <AppImage
                         src={product.image}
                         alt={product.imageAlt}
