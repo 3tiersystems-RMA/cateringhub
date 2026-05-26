@@ -139,24 +139,45 @@ async function getOAuthAccessToken(): Promise<string> {
     );
   }
 
+  const params = new URLSearchParams({
+    client_id: clientId,
+    client_secret: clientSecret,
+    refresh_token: refreshToken,
+    grant_type: 'refresh_token',
+  });
+
   const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      client_id: clientId,
-      client_secret: clientSecret,
-      refresh_token: refreshToken,
-      grant_type: 'refresh_token',
-    }),
+    body: params.toString(),
   });
 
   const tokenData = await tokenRes.json();
 
   if (!tokenData.access_token) {
+    // Build a detailed error message so we can diagnose the exact cause
+    const googleError = tokenData.error || 'unknown_error';
+    const googleDesc = tokenData.error_description || '';
+    const hint = getTokenErrorHint(googleError);
     throw new Error(
-      `Failed to get Google access token: ${tokenData.error_description || tokenData.error || JSON.stringify(tokenData)}`
+      `Failed to get Google access token: ${googleError}${googleDesc ? ` – ${googleDesc}` : ''}. ${hint}`
     );
   }
 
   return tokenData.access_token;
+}
+
+function getTokenErrorHint(error: string): string {
+  switch (error) {
+    case 'invalid_client':
+      return 'The GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET is incorrect. Re-check the values in your Google Cloud Console → Credentials.';
+    case 'invalid_grant':
+      return 'The GOOGLE_REFRESH_TOKEN has expired or been revoked. Go to OAuth Playground (developers.google.com/oauthplayground), re-authorise with your own credentials enabled, and copy the new refresh token.';
+    case 'unauthorized_client':
+      return 'The OAuth client is not authorised for this grant type. Make sure the OAuth consent screen is published and the client type is "Web application".';
+    case 'access_denied':
+      return 'Access was denied. Make sure the Google account used in OAuth Playground has access to the Google Sheet and that the Sheets API scope was selected.';
+    default:
+      return 'Verify that GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_REFRESH_TOKEN are all correctly copied from Google Cloud Console and OAuth Playground.';
+  }
 }
