@@ -491,8 +491,18 @@ export default function StaffOrdersPage() {
                 placeholder="Search by customer name, email, or order ID..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-2.5 border border-[#DDD5C8] rounded-xl text-sm text-[#1A1612] placeholder-[#B5ADA5] focus:outline-none focus:border-[#C4622D] transition-colors"
+                className="w-full pl-9 pr-10 py-2.5 border border-[#DDD5C8] rounded-xl text-sm text-[#1A1612] placeholder-[#B5ADA5] focus:outline-none focus:border-[#C4622D] transition-colors"
               />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#B5ADA5] hover:text-[#5C5347] transition-colors"
+                  aria-label="Clear search"
+                >
+                  <AppIcon name="XMarkIcon" size={16} />
+                </button>
+              )}
             </div>
             {/* Payment Filter */}
             <select

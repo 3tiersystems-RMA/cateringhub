@@ -3220,13 +3220,25 @@ export default function StaffWorkspacePage() {
                     <p className="text-sm text-[#8C8278] mt-0.5">{products.length} products</p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <input
-                      type="text"
-                      placeholder="Search products…"
-                      value={productSearchQuery}
-                      onChange={e => setProductSearchQuery(e.target.value)}
-                      className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
-                    />
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Search products…"
+                        value={productSearchQuery}
+                        onChange={e => setProductSearchQuery(e.target.value)}
+                        className="border border-[#DDD5C8] rounded-xl px-3 py-2 pr-8 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+                      />
+                      {productSearchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setProductSearchQuery('')}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-[#B5ADA5] hover:text-[#5C5347] transition-colors"
+                          aria-label="Clear search"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4"><path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" /></svg>
+                        </button>
+                      )}
+                    </div>
                     <button
                       onClick={openAddForm}
                       className="bg-[#C4622D] text-white py-3 rounded-xl font-semibold text-sm hover:bg-[#A04E22] transition-colors disabled:opacity-50"
@@ -3710,13 +3722,25 @@ export default function StaffWorkspacePage() {
                     <h2 className="text-xl font-bold text-[#1A1612]">Staff Management</h2>
                     <p className="text-sm text-[#8C8278] mt-0.5">{staffMembers.length} members</p>
                   </div>
-                  <input
-                    type="text"
-                    placeholder="Search staff…"
-                    value={staffSearchQuery}
-                    onChange={e => setStaffSearchQuery(e.target.value)}
-                    className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
-                  />
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Search staff…"
+                      value={staffSearchQuery}
+                      onChange={e => setStaffSearchQuery(e.target.value)}
+                      className="border border-[#DDD5C8] rounded-xl px-3 py-2 pr-8 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+                    />
+                    {staffSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setStaffSearchQuery('')}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-[#B5ADA5] hover:text-[#5C5347] transition-colors"
+                        aria-label="Clear search"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4"><path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" /></svg>
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Invite form */}
@@ -3972,13 +3996,25 @@ export default function StaffWorkspacePage() {
                     <h2 className="text-xl font-bold text-[#1A1612]">Home Page Cards</h2>
                     <p className="text-sm text-[#8C8278] mt-0.5">Manage the cards displayed on the homepage</p>
                   </div>
-                  <input
-                    type="text"
-                    placeholder="Search cards…"
-                    value={homepageCardSearchQuery}
-                    onChange={e => setHomepageCardSearchQuery(e.target.value)}
-                    className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
-                  />
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Search cards…"
+                      value={homepageCardSearchQuery}
+                      onChange={e => setHomepageCardSearchQuery(e.target.value)}
+                      className="border border-[#DDD5C8] rounded-xl px-3 py-2 pr-8 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+                    />
+                    {homepageCardSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setHomepageCardSearchQuery('')}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-[#B5ADA5] hover:text-[#5C5347] transition-colors"
+                        aria-label="Clear search"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4"><path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" /></svg>
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {editingCard && (
@@ -4251,13 +4287,25 @@ export default function StaffWorkspacePage() {
                     <p className="text-sm text-[#8C8278] mt-0.5">{testimonials.length} testimonials</p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <input
-                      type="text"
-                      placeholder="Search testimonials…"
-                      value={testimonialSearchQuery}
-                      onChange={e => setTestimonialSearchQuery(e.target.value)}
-                      className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
-                    />
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Search testimonials…"
+                        value={testimonialSearchQuery}
+                        onChange={e => setTestimonialSearchQuery(e.target.value)}
+                        className="border border-[#DDD5C8] rounded-xl px-3 py-2 pr-8 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+                      />
+                      {testimonialSearchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setTestimonialSearchQuery('')}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-[#B5ADA5] hover:text-[#5C5347] transition-colors"
+                          aria-label="Clear search"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4"><path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" /></svg>
+                        </button>
+                      )}
+                    </div>
                     <button onClick={openAddTestimonialForm} className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors">
                       + Add Testimonial
                     </button>
@@ -5201,13 +5249,25 @@ export default function StaffWorkspacePage() {
                     <p className="text-sm text-[#8C8278] mt-0.5">{vouchers.length} vouchers</p>
                   </div>
                   <div className="flex items-center gap-3 flex-wrap">
-                    <input
-                      type="text"
-                      placeholder="Search meal vouchers…"
-                      value={mvSearchQuery}
-                      onChange={e => setMvSearchQuery(e.target.value)}
-                      className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
-                    />
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Search meal vouchers…"
+                        value={mvSearchQuery}
+                        onChange={e => setMvSearchQuery(e.target.value)}
+                        className="border border-[#DDD5C8] rounded-xl px-3 py-2 pr-8 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+                      />
+                      {mvSearchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setMvSearchQuery('')}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-[#B5ADA5] hover:text-[#5C5347] transition-colors"
+                          aria-label="Clear search"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4"><path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" /></svg>
+                        </button>
+                      )}
+                    </div>
                     <div className="flex items-center gap-1 bg-[#F5EFE7] rounded-xl p-1">
                       {(['all', 'active', 'unpaid', 'paid', 'redeemed', 'expired'] as const).map(s => (
                         <button
@@ -5790,13 +5850,25 @@ export default function StaffWorkspacePage() {
                     <p className="text-sm text-[#8C8278] mt-0.5">{discountVouchers.length} vouchers</p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <input
-                      type="text"
-                      placeholder="Search discount vouchers…"
-                      value={dvSearchQuery}
-                      onChange={e => setDvSearchQuery(e.target.value)}
-                      className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
-                    />
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Search discount vouchers…"
+                        value={dvSearchQuery}
+                        onChange={e => setDvSearchQuery(e.target.value)}
+                        className="border border-[#DDD5C8] rounded-xl px-3 py-2 pr-8 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+                      />
+                      {dvSearchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setDvSearchQuery('')}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-[#B5ADA5] hover:text-[#5C5347] transition-colors"
+                          aria-label="Clear search"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4"><path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" /></svg>
+                        </button>
+                      )}
+                    </div>
                     <div className="flex items-center gap-1 bg-[#F5EFE7] rounded-xl p-1">
                       <button
                         onClick={() => setDvFilterExpired('all')}
@@ -5957,13 +6029,25 @@ export default function StaffWorkspacePage() {
                     <p className="text-sm text-[#8C8278] mt-0.5">Detailed order and voucher reports</p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <input
-                      type="text"
-                      placeholder="Search reports…"
-                      value={reportingSearchQuery}
-                      onChange={e => setReportingSearchQuery(e.target.value)}
-                      className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
-                    />
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Search reports…"
+                        value={reportingSearchQuery}
+                        onChange={e => setReportingSearchQuery(e.target.value)}
+                        className="border border-[#DDD5C8] rounded-xl px-3 py-2 pr-8 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+                      />
+                      {reportingSearchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setReportingSearchQuery('')}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-[#B5ADA5] hover:text-[#5C5347] transition-colors"
+                          aria-label="Clear search"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4"><path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" /></svg>
+                        </button>
+                      )}
+                    </div>
                     <button onClick={loadReporting} className="text-sm border border-[#DDD5C8] text-[#5C5347] px-4 py-2 rounded-xl hover:bg-[#F5F0E8] transition-colors">↻ Refresh</button>
                   </div>
                 </div>

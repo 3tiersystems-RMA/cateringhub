@@ -397,13 +397,27 @@ export default function EventManagement() {
           <div className="border-t border-[#EDE7DA] px-6 pb-6 pt-4">
             {/* Actions row */}
             <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-              <input
-                type="text"
-                placeholder="Search events by title or location..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white flex-1 min-w-[200px]"
-              />
+              <div className="relative flex-1 min-w-[200px]">
+                <input
+                  type="text"
+                  placeholder="Search events by title or location..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="border border-[#DDD5C8] rounded-xl px-3 py-2 pr-8 text-sm focus:outline-none focus:border-[#C4622D] bg-white w-full"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-[#B5ADA5] hover:text-[#5C5347] transition-colors"
+                    aria-label="Clear search"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                      <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
+                    </svg>
+                  </button>
+                )}
+              </div>
               <button
                 onClick={handleOpenCreate}
                 className="flex items-center gap-2 bg-[#C4622D] text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors"
