@@ -114,6 +114,10 @@ export default function CookingClassSettings() {
   const [savingEventDates, setSavingEventDates] = useState<Record<string, boolean>>({});
   const [eventDatesMsg, setEventDatesMsg] = useState<Record<string, string>>({});
 
+  // Collapsible state for event blocks and individual sessions
+  const [collapsedEventBlocks, setCollapsedEventBlocks] = useState<Record<string, boolean>>({});
+  const [collapsedSessions, setCollapsedSessions] = useState<Record<string, boolean>>({});
+
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [loadingRegs, setLoadingRegs] = useState(false);
   const [regsError, setRegsError] = useState('');
@@ -515,94 +519,112 @@ export default function CookingClassSettings() {
   function renderSessionCard(
     row: EventDateRow,
     index: number,
-    onChange: (field: keyof Omit<EventDateRow, 'id'>, value: string | number) => void
+    onChange: (field: keyof Omit<EventDateRow, 'id'>, value: string | number) => void,
+    sessionKey?: string
   ) {
+    const key = sessionKey || `general-${index}`;
+    const isCollapsed = collapsedSessions[key] ?? false;
+
     return (
-      <div key={index} className="bg-[#FAF5EE] rounded-xl p-3 border border-[#EDE7DA]">
-        <p className="text-xs font-semibold text-[#5C5347] mb-2">Session {index + 1}</p>
-        <div className="grid grid-cols-2 gap-2 mb-2">
-          <div>
-            <label className="block text-xs text-[#8C8278] mb-1">Date</label>
-            <input
-              type="date"
-              value={row.event_date || ''}
-              onChange={e => onChange('event_date', e.target.value)}
-              className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="block text-xs text-[#8C8278] mb-1">Start Time</label>
+      <div key={index} className="bg-[#FAF5EE] rounded-xl border border-[#EDE7DA] overflow-hidden">
+        {/* Session header — always visible, click to toggle */}
+        <button
+          type="button"
+          onClick={() => setCollapsedSessions(prev => ({ ...prev, [key]: !prev[key] }))}
+          className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-[#F0EAE0] transition-colors"
+        >
+          <p className="text-xs font-semibold text-[#5C5347]">Session {index + 1}</p>
+          <span className="text-[#8C8278] text-xs">{isCollapsed ? '▶' : '▼'}</span>
+        </button>
+
+        {/* Session body — collapsible */}
+        {!isCollapsed && (
+          <div className="px-3 pb-3 pt-1">
+            <div className="grid grid-cols-2 gap-2 mb-2">
+              <div>
+                <label className="block text-xs text-[#8C8278] mb-1">Date</label>
+                <input
+                  type="date"
+                  value={row.event_date || ''}
+                  onChange={e => onChange('event_date', e.target.value)}
+                  className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs text-[#8C8278] mb-1">Start Time</label>
+                  <input
+                    type="time"
+                    value={row.start_time || ''}
+                    onChange={e => onChange('start_time', e.target.value)}
+                    className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-[#8C8278] mb-1">End Time</label>
+                  <input
+                    type="time"
+                    value={row.end_time || ''}
+                    onChange={e => onChange('end_time', e.target.value)}
+                    className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="mb-2">
+              <label className="block text-xs text-[#8C8278] mb-1">Location</label>
               <input
-                type="time"
-                value={row.start_time || ''}
-                onChange={e => onChange('start_time', e.target.value)}
+                type="text"
+                value={row.location || DEFAULT_LOCATION}
+                onChange={e => onChange('location', e.target.value)}
+                placeholder={DEFAULT_LOCATION}
                 className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
               />
             </div>
-            <div>
-              <label className="block text-xs text-[#8C8278] mb-1">End Time</label>
-              <input
-                type="time"
-                value={row.end_time || ''}
-                onChange={e => onChange('end_time', e.target.value)}
-                className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
-              />
+            {/* (5) Class Fee inside each session card */}
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="block text-xs text-[#8C8278] mb-1">Seating Capacity</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={row.seating || 0}
+                  onChange={e => onChange('seating', parseInt(e.target.value) || 0)}
+                  placeholder="0"
+                  className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-[#8C8278] mb-1">Status</label>
+                <select
+                  value={row.status_id || ''}
+                  onChange={e => onChange('status_id', e.target.value)}
+                  className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+                >
+                  <option value="">— Status —</option>
+                  {sessionStatuses.map(st => (
+                    <option key={st.id} value={st.id}>{st.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-[#8C8278] mb-1">Class Fee (ZAR)</label>
+                <div className="flex items-center gap-1">
+                  <span className="text-xs font-semibold text-[#5C5347]">R</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={row.class_fee || ''}
+                    onChange={e => onChange('class_fee', e.target.value)}
+                    placeholder="0.00"
+                    className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+                  />
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-        <div className="mb-2">
-          <label className="block text-xs text-[#8C8278] mb-1">Location</label>
-          <input
-            type="text"
-            value={row.location || DEFAULT_LOCATION}
-            onChange={e => onChange('location', e.target.value)}
-            placeholder={DEFAULT_LOCATION}
-            className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
-          />
-        </div>
-        {/* (5) Class Fee inside each session card */}
-        <div className="grid grid-cols-3 gap-2">
-          <div>
-            <label className="block text-xs text-[#8C8278] mb-1">Seating Capacity</label>
-            <input
-              type="number"
-              min="0"
-              value={row.seating || 0}
-              onChange={e => onChange('seating', parseInt(e.target.value) || 0)}
-              placeholder="0"
-              className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-[#8C8278] mb-1">Status</label>
-            <select
-              value={row.status_id || ''}
-              onChange={e => onChange('status_id', e.target.value)}
-              className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
-            >
-              <option value="">— Status —</option>
-              {sessionStatuses.map(st => (
-                <option key={st.id} value={st.id}>{st.label}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs text-[#8C8278] mb-1">Class Fee (ZAR)</label>
-            <div className="flex items-center gap-1">
-              <span className="text-xs font-semibold text-[#5C5347]">R</span>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={row.class_fee || ''}
-                onChange={e => onChange('class_fee', e.target.value)}
-                placeholder="0.00"
-                className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
-              />
-            </div>
-          </div>
-        </div>
+        )}
       </div>
     );
   }
@@ -836,7 +858,7 @@ export default function CookingClassSettings() {
 
             <div className="space-y-3">
               {generalDateRows.map((row, i) =>
-                renderSessionCard(row, i, (field, value) => updateGeneralDateRow(i, field, value))
+                renderSessionCard(row, i, (field, value) => updateGeneralDateRow(i, field, value), `general-${i}`)
               )}
             </div>
 
@@ -853,35 +875,53 @@ export default function CookingClassSettings() {
             </button>
           </div>
 
-          {/* (6) Per-event Event Details blocks — one per event */}
-          {events.map(ev => (
-            <div key={ev.id} className="bg-white rounded-2xl border border-[#EDE7DA] p-5">
-              <h3 className="text-base font-semibold text-[#1A1612] mb-1">
-                Event Details — <span className="text-[#C4622D]">{ev.name}</span>
-              </h3>
-              <p className="text-xs text-[#8C8278] mb-4">
-                Enter up to 5 sessions specific to <strong>{ev.name}</strong>. When a customer selects this event, only these dates will appear under "Select Attendance".
-              </p>
+          {/* (6) Per-event Event Details blocks — one per event, each collapsible */}
+          {events.map(ev => {
+            const isBlockCollapsed = collapsedEventBlocks[ev.id] ?? false;
+            return (
+              <div key={ev.id} className="bg-white rounded-2xl border border-[#EDE7DA] overflow-hidden">
+                {/* Event block header — always visible, click to collapse */}
+                <button
+                  type="button"
+                  onClick={() => setCollapsedEventBlocks(prev => ({ ...prev, [ev.id]: !prev[ev.id] }))}
+                  className="w-full flex items-center justify-between px-5 py-4 hover:bg-[#FAF5EE] transition-colors"
+                >
+                  <div className="text-left">
+                    <h3 className="text-base font-semibold text-[#1A1612]">
+                      Event Details — <span className="text-[#C4622D]">{ev.name}</span>
+                    </h3>
+                    <p className="text-xs text-[#8C8278] mt-0.5">
+                      Enter up to 5 sessions specific to <strong>{ev.name}</strong>. When a customer selects this event, only these dates will appear under "Select Attendance".
+                    </p>
+                  </div>
+                  <span className="text-[#8C8278] text-sm ml-4 flex-shrink-0">{isBlockCollapsed ? '▶' : '▼'}</span>
+                </button>
 
-              <div className="space-y-3">
-                {(eventDateRows[ev.id] || Array.from({ length: 5 }, (_, i) => ({ ...EMPTY_DATE_ROW(ev.id, i) }))).map((row, i) =>
-                  renderSessionCard(row, i, (field, value) => updateEventDateRow(ev.id, i, field, value))
+                {/* Event block body — collapsible */}
+                {!isBlockCollapsed && (
+                  <div className="px-5 pb-5">
+                    <div className="space-y-3">
+                      {(eventDateRows[ev.id] || Array.from({ length: 5 }, (_, i) => ({ ...EMPTY_DATE_ROW(ev.id, i) }))).map((row, i) =>
+                        renderSessionCard(row, i, (field, value) => updateEventDateRow(ev.id, i, field, value), `${ev.id}-session-${i}`)
+                      )}
+                    </div>
+
+                    {eventDatesMsg[ev.id] && (
+                      <p className={`text-xs mt-3 ${eventDatesMsg[ev.id].includes('Failed') ? 'text-red-500' : 'text-green-600'}`}>{eventDatesMsg[ev.id]}</p>
+                    )}
+
+                    <button
+                      onClick={() => handleSaveEventDates(ev.id)}
+                      disabled={savingEventDates[ev.id]}
+                      className="mt-4 bg-[#C4622D] text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
+                    >
+                      {savingEventDates[ev.id] ? 'Saving...' : `Save ${ev.name} Dates`}
+                    </button>
+                  </div>
                 )}
               </div>
-
-              {eventDatesMsg[ev.id] && (
-                <p className={`text-xs mt-3 ${eventDatesMsg[ev.id].includes('Failed') ? 'text-red-500' : 'text-green-600'}`}>{eventDatesMsg[ev.id]}</p>
-              )}
-
-              <button
-                onClick={() => handleSaveEventDates(ev.id)}
-                disabled={savingEventDates[ev.id]}
-                className="mt-4 bg-[#C4622D] text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
-              >
-                {savingEventDates[ev.id] ? 'Saving...' : `Save ${ev.name} Dates`}
-              </button>
-            </div>
-          ))}
+            );
+          })}
 
         </div>
       )}
