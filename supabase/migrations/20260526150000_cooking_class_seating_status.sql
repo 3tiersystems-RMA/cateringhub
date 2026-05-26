@@ -21,10 +21,20 @@ DROP POLICY IF EXISTS "authenticated_manage_session_statuses" ON public.cooking_
 CREATE POLICY "authenticated_manage_session_statuses"
 ON public.cooking_class_session_statuses FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
--- Add foreign key for status_id after table is created
-ALTER TABLE public.cooking_class_event_dates
-ADD CONSTRAINT fk_event_date_status
-FOREIGN KEY (status_id) REFERENCES public.cooking_class_session_statuses(id) ON DELETE SET NULL;
+-- Add foreign key for status_id after table is created (idempotent)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'fk_event_date_status'
+      AND conrelid = 'public.cooking_class_event_dates'::regclass
+  ) THEN
+    ALTER TABLE public.cooking_class_event_dates
+      ADD CONSTRAINT fk_event_date_status
+      FOREIGN KEY (status_id) REFERENCES public.cooking_class_session_statuses(id) ON DELETE SET NULL;
+  END IF;
+END;
+$$;
 
 -- Booking counts per session (tracks how many people booked each session date)
 CREATE TABLE IF NOT EXISTS public.cooking_class_booking_counts (
