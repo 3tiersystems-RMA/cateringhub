@@ -29,17 +29,23 @@ interface Registration {
   proof_of_payment_url: string | null;
 }
 
-const EVENT_LABELS: Record<string, string> = {
-  kids_cooking_baking: 'Kids Cooking & Baking',
-  adult_classes: 'Adult Classes',
-  luncheon: 'Luncheon',
-  other: 'Other',
-};
+interface ClassEvent {
+  id: string;
+  name: string;
+  sort_order: number;
+  is_active: boolean;
+}
 
-const DATE_LABELS: Record<string, string> = {
-  wed_13_may: 'Wed 13 May',
-  sun_31_may: 'Sun 31 May',
-};
+interface EventDateRow {
+  id: string;
+  event_date: string;
+  start_time: string;
+  end_time: string;
+  location: string;
+  sort_order: number;
+}
+
+const DEFAULT_LOCATION = '12 Cardamom Street, Cape Town, 7441';
 
 const PAYMENT_STATUS_COLORS: Record<string, string> = {
   pending: 'bg-amber-100 text-amber-700',
@@ -47,6 +53,14 @@ const PAYMENT_STATUS_COLORS: Record<string, string> = {
   failed: 'bg-red-100 text-red-700',
   awaiting_confirmation: 'bg-blue-100 text-blue-700',
 };
+
+const EMPTY_DATE_ROW = (): Omit<EventDateRow, 'id'> => ({
+  event_date: '',
+  start_time: '',
+  end_time: '',
+  location: DEFAULT_LOCATION,
+  sort_order: 0,
+});
 
 export default function CookingClassSettings() {
   const supabase = createClient();
@@ -62,6 +76,23 @@ export default function CookingClassSettings() {
   const [sheetName, setSheetName] = useState('');
   const [classFee, setClassFee] = useState('');
 
+  // Events management
+  const [events, setEvents] = useState<ClassEvent[]>([]);
+  const [newEventName, setNewEventName] = useState('');
+  const [savingEvent, setSavingEvent] = useState(false);
+  const [eventMsg, setEventMsg] = useState('');
+
+  // Event date rows (up to 5)
+  const [dateRows, setDateRows] = useState<(EventDateRow | Omit<EventDateRow, 'id'> & { id?: string })[]>([
+    { ...EMPTY_DATE_ROW(), sort_order: 0 },
+    { ...EMPTY_DATE_ROW(), sort_order: 1 },
+    { ...EMPTY_DATE_ROW(), sort_order: 2 },
+    { ...EMPTY_DATE_ROW(), sort_order: 3 },
+    { ...EMPTY_DATE_ROW(), sort_order: 4 },
+  ]);
+  const [savingDates, setSavingDates] = useState(false);
+  const [datesMsg, setDatesMsg] = useState('');
+
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [loadingRegs, setLoadingRegs] = useState(false);
   const [regsError, setRegsError] = useState('');
@@ -72,6 +103,8 @@ export default function CookingClassSettings() {
 
   useEffect(() => {
     loadSettings();
+    loadEvents();
+    loadDateRows();
   }, []);
 
   useEffect(() => {
@@ -97,6 +130,38 @@ export default function CookingClassSettings() {
       // no settings yet
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadEvents() {
+    try {
+      const { data } = await supabase
+        .from('cooking_class_events')
+        .select('*')
+        .order('sort_order', { ascending: true });
+      if (data) setEvents(data);
+    } catch {
+      // ignore
+    }
+  }
+
+  async function loadDateRows() {
+    try {
+      const { data } = await supabase
+        .from('cooking_class_event_dates')
+        .select('*')
+        .order('sort_order', { ascending: true })
+        .limit(5);
+      if (data && data.length > 0) {
+        // Fill up to 5 rows, padding with empty rows
+        const filled = [...data];
+        while (filled.length < 5) {
+          filled.push({ ...EMPTY_DATE_ROW(), sort_order: filled.length } as any);
+        }
+        setDateRows(filled.slice(0, 5));
+      }
+    } catch {
+      // ignore, keep defaults
     }
   }
 
@@ -173,6 +238,87 @@ export default function CookingClassSettings() {
     }
   }
 
+  async function handleAddEvent() {
+    if (!newEventName.trim()) return;
+    setSavingEvent(true);
+    setEventMsg('');
+    try {
+      const { error } = await supabase.from('cooking_class_events').insert({
+        name: newEventName.trim(),
+        sort_order: events.length,
+        is_active: true,
+      });
+      if (error) throw error;
+      setNewEventName('');
+      setEventMsg('Event added!');
+      await loadEvents();
+    } catch (err: any) {
+      setEventMsg(err?.message || 'Failed to add event');
+    } finally {
+      setSavingEvent(false);
+    }
+  }
+
+  async function handleDeleteEvent(id: string) {
+    try {
+      await supabase.from('cooking_class_events').delete().eq('id', id);
+      await loadEvents();
+    } catch {
+      // ignore
+    }
+  }
+
+  async function handleToggleEventActive(ev: ClassEvent) {
+    try {
+      await supabase
+        .from('cooking_class_events')
+        .update({ is_active: !ev.is_active })
+        .eq('id', ev.id);
+      await loadEvents();
+    } catch {
+      // ignore
+    }
+  }
+
+  function updateDateRow(index: number, field: keyof Omit<EventDateRow, 'id'>, value: string) {
+    setDateRows(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
+  }
+
+  async function handleSaveDateRows() {
+    setSavingDates(true);
+    setDatesMsg('');
+    try {
+      // Delete all existing rows and re-insert
+      await supabase.from('cooking_class_event_dates').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+
+      const rowsToInsert = dateRows
+        .filter(r => r.event_date || r.start_time || r.end_time)
+        .map((r, i) => ({
+          event_date: r.event_date || null,
+          start_time: r.start_time || null,
+          end_time: r.end_time || null,
+          location: r.location || DEFAULT_LOCATION,
+          sort_order: i,
+        }));
+
+      if (rowsToInsert.length > 0) {
+        const { error } = await supabase.from('cooking_class_event_dates').insert(rowsToInsert);
+        if (error) throw error;
+      }
+
+      setDatesMsg('Event dates saved!');
+      await loadDateRows();
+    } catch (err: any) {
+      setDatesMsg(err?.message || 'Failed to save event dates');
+    } finally {
+      setSavingDates(false);
+    }
+  }
+
   async function handleSyncToSheet(regId: string) {
     setSyncingId(regId);
     setSyncMsg('');
@@ -213,7 +359,7 @@ export default function CookingClassSettings() {
     <div className="p-6">
       <div className="mb-6">
         <h2 className="text-xl font-bold text-[#1A1612]">Cooking &amp; Baking Classes</h2>
-        <p className="text-sm text-[#8C8278] mt-0.5">Manage class settings, flyer, and registrations</p>
+        <p className="text-sm text-[#8C8278] mt-0.5">Manage class settings, flyer, events, and registrations</p>
       </div>
 
       {/* Sub-tabs */}
@@ -235,6 +381,125 @@ export default function CookingClassSettings() {
       {/* SETTINGS TAB */}
       {activeSubTab === 'settings' && (
         <div className="space-y-6 max-w-2xl">
+
+          {/* ── Events Management ── */}
+          <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5">
+            <h3 className="text-base font-semibold text-[#1A1612] mb-1">Events</h3>
+            <p className="text-xs text-[#8C8278] mb-4">Add the events that will appear on the registration form (e.g. Kids Event, Adults Event, Leadership Workshop).</p>
+
+            {/* Existing events */}
+            {events.length > 0 && (
+              <div className="space-y-2 mb-4">
+                {events.map(ev => (
+                  <div key={ev.id} className="flex items-center gap-3 bg-[#FAF5EE] rounded-xl px-3 py-2">
+                    <span className={`flex-1 text-sm ${ev.is_active ? 'text-[#1A1612]' : 'text-[#8C8278] line-through'}`}>{ev.name}</span>
+                    <button
+                      onClick={() => handleToggleEventActive(ev)}
+                      className={`text-xs px-2 py-1 rounded-lg font-medium transition-colors ${ev.is_active ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                    >
+                      {ev.is_active ? 'Active' : 'Inactive'}
+                    </button>
+                    <button
+                      onClick={() => handleDeleteEvent(ev.id)}
+                      className="text-xs text-red-500 hover:text-red-700 px-2 py-1 rounded-lg hover:bg-red-50 transition-colors"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Add new event */}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newEventName}
+                onChange={e => setNewEventName(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleAddEvent(); }}
+                placeholder="e.g. Kids Event, Leadership Workshop..."
+                className="flex-1 border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+              />
+              <button
+                onClick={handleAddEvent}
+                disabled={savingEvent || !newEventName.trim()}
+                className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
+              >
+                {savingEvent ? 'Adding...' : '+ Add'}
+              </button>
+            </div>
+            {eventMsg && (
+              <p className={`text-xs mt-2 ${eventMsg.includes('Failed') ? 'text-red-500' : 'text-green-600'}`}>{eventMsg}</p>
+            )}
+          </div>
+
+          {/* ── Event Details (Date Rows) ── */}
+          <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5">
+            <h3 className="text-base font-semibold text-[#1A1612] mb-1">Event Details</h3>
+            <p className="text-xs text-[#8C8278] mb-4">Enter up to 5 event sessions. These dates will appear on the registration form under "Select Attendance".</p>
+
+            <div className="space-y-3">
+              {dateRows.map((row, i) => (
+                <div key={i} className="bg-[#FAF5EE] rounded-xl p-3 border border-[#EDE7DA]">
+                  <p className="text-xs font-semibold text-[#5C5347] mb-2">Session {i + 1}</p>
+                  <div className="grid grid-cols-2 gap-2 mb-2">
+                    <div>
+                      <label className="block text-xs text-[#8C8278] mb-1">Date</label>
+                      <input
+                        type="date"
+                        value={row.event_date || ''}
+                        onChange={e => updateDateRow(i, 'event_date', e.target.value)}
+                        className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-xs text-[#8C8278] mb-1">Start Time</label>
+                        <input
+                          type="time"
+                          value={row.start_time || ''}
+                          onChange={e => updateDateRow(i, 'start_time', e.target.value)}
+                          className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-[#8C8278] mb-1">End Time</label>
+                        <input
+                          type="time"
+                          value={row.end_time || ''}
+                          onChange={e => updateDateRow(i, 'end_time', e.target.value)}
+                          className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-[#8C8278] mb-1">Location</label>
+                    <input
+                      type="text"
+                      value={row.location || DEFAULT_LOCATION}
+                      onChange={e => updateDateRow(i, 'location', e.target.value)}
+                      placeholder={DEFAULT_LOCATION}
+                      className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {datesMsg && (
+              <p className={`text-xs mt-3 ${datesMsg.includes('Failed') ? 'text-red-500' : 'text-green-600'}`}>{datesMsg}</p>
+            )}
+
+            <button
+              onClick={handleSaveDateRows}
+              disabled={savingDates}
+              className="mt-4 bg-[#C4622D] text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
+            >
+              {savingDates ? 'Saving...' : 'Save Event Dates'}
+            </button>
+          </div>
+
           {/* Flyer Image */}
           <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5">
             <h3 className="text-base font-semibold text-[#1A1612] mb-4">Class Flyer Image</h3>
@@ -394,11 +659,11 @@ export default function CookingClassSettings() {
                       </div>
                       <p className="text-xs text-[#5C5347]">{reg.email} · {reg.cellphone}</p>
                       <p className="text-xs text-[#8C8278] mt-1">
-                        Events: {(reg.selected_events || []).map(e => EVENT_LABELS[e] || e).join(', ')}
+                        Events: {(reg.selected_events || []).join(', ')}
                       </p>
                       {reg.adult_class_dates?.length > 0 && (
                         <p className="text-xs text-[#8C8278]">
-                          Dates: {reg.adult_class_dates.map(d => DATE_LABELS[d] || d).join(', ')}
+                          Dates: {reg.adult_class_dates.join(', ')}
                         </p>
                       )}
                       <p className="text-xs text-[#8C8278] mt-1">
