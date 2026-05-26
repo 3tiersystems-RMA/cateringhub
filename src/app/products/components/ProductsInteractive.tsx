@@ -475,8 +475,18 @@ function ProductsContent() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search menu..."
-              className="w-full bg-white border border-[#DDD5C8] rounded-full pl-10 pr-4 py-2.5 text-sm text-[#1A1612] placeholder-[#B5ADA5] focus:outline-none focus:border-[#C4622D] transition-colors"
+              className="w-full bg-white border border-[#DDD5C8] rounded-full pl-10 pr-10 py-2.5 text-sm text-[#1A1612] placeholder-[#B5ADA5] focus:outline-none focus:border-[#C4622D] transition-colors"
             />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#B5ADA5] hover:text-[#5C5347] transition-colors"
+                aria-label="Clear search"
+              >
+                <Icon name="XMarkIcon" size={16} />
+              </button>
+            )}
           </div>
 
           {/* Sort */}
