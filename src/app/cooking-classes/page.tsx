@@ -585,7 +585,7 @@ export default function CookingClassesPage() {
                 <label className="block text-sm font-semibold text-[#1A1612] mb-2">
                   Upload Proof of Payment <span className="text-red-500">*</span>
                 </label>
-                <div className={`border-2 border-dashed rounded-xl p-6 text-center transition-colors ${page2Errors.proof ? 'border-red-400' : 'border-[#DDD5C8] hover:border-[#C4622D]/50'}`}>
+                <div className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-colors ${page2Errors.proof ? 'border-red-400' : 'border-[#DDD5C8] hover:border-[#C4622D]/50'}`}>
                   {page2.proofPreview ? (
                     <div>
                       {page2.proofFile?.type?.startsWith('image/') ? (
