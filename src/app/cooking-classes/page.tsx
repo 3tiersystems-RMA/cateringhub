@@ -37,6 +37,11 @@ interface ClassEvent {
   is_active: boolean;
 }
 
+interface SessionStatus {
+  id: string;
+  label: string;
+}
+
 interface EventDateRow {
   id: string;
   event_date: string | null;
@@ -44,6 +49,13 @@ interface EventDateRow {
   end_time: string | null;
   location: string | null;
   sort_order: number;
+  seating: number | null;
+  status_id: string | null;
+}
+
+interface BookingCount {
+  event_date_id: string;
+  count: number;
 }
 
 const TITLE_OPTIONS = ['Ms', 'Mr', 'Mrs', 'Other'];
@@ -85,6 +97,8 @@ export default function CookingClassesPage() {
 
   const [classEvents, setClassEvents] = useState<ClassEvent[]>([]);
   const [eventDates, setEventDates] = useState<EventDateRow[]>([]);
+  const [sessionStatuses, setSessionStatuses] = useState<SessionStatus[]>([]);
+  const [bookingCounts, setBookingCounts] = useState<BookingCount[]>([]);
 
   const [page1, setPage1] = useState<FormPage1>({
     title: '',
@@ -110,6 +124,7 @@ export default function CookingClassesPage() {
     loadSettings();
     loadClassEvents();
     loadEventDates();
+    loadSessionStatuses();
   }, []);
 
   async function loadSettings() {
@@ -141,16 +156,112 @@ export default function CookingClassesPage() {
     }
   }
 
+  async function loadSessionStatuses() {
+    try {
+      const { data } = await supabase
+        .from('cooking_class_session_statuses')
+        .select('id, label')
+        .order('sort_order', { ascending: true });
+      if (data) setSessionStatuses(data);
+    } catch {
+      // ignore
+    }
+  }
+
   async function loadEventDates() {
     try {
       const { data } = await supabase
         .from('cooking_class_event_dates')
         .select('*')
         .order('sort_order', { ascending: true });
-      if (data) setEventDates(data.filter((r: EventDateRow) => r.event_date));
+      if (data) {
+        const filtered = data.filter((r: EventDateRow) => r.event_date);
+        setEventDates(filtered);
+        // Load booking counts for these dates
+        if (filtered.length > 0) {
+          await loadBookingCounts(filtered.map((r: EventDateRow) => r.id));
+        }
+      }
     } catch {
       // ignore
     }
+  }
+
+  async function loadBookingCounts(dateIds: string[]) {
+    try {
+      const { data } = await supabase
+        .from('cooking_class_booking_counts')
+        .select('event_date_id')
+        .in('event_date_id', dateIds);
+      if (data) {
+        const counts: Record<string, number> = {};
+        data.forEach((row: { event_date_id: string }) => {
+          counts[row.event_date_id] = (counts[row.event_date_id] || 0) + 1;
+        });
+        setBookingCounts(
+          Object.entries(counts).map(([event_date_id, count]) => ({ event_date_id, count }))
+        );
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  function getStatusLabel(statusId: string | null): string | null {
+    if (!statusId) return null;
+    const st = sessionStatuses.find(s => s.id === statusId);
+    return st ? st.label : null;
+  }
+
+  function getBookingCount(dateId: string): number {
+    return bookingCounts.find(b => b.event_date_id === dateId)?.count || 0;
+  }
+
+  function getAvailabilityText(row: EventDateRow): { text: string; color: string } {
+    const statusLabel = getStatusLabel(row.status_id);
+
+    // If status is explicitly set to something other than Active, show that
+    if (statusLabel && statusLabel.toLowerCase() !== 'active') {
+      const colorMap: Record<string, string> = {
+        'fully booked': 'text-red-600',
+        'cancelled': 'text-red-500',
+        'venue change': 'text-amber-600',
+      };
+      const color = colorMap[statusLabel.toLowerCase()] || 'text-[#8C8278]';
+      return { text: statusLabel, color };
+    }
+
+    // Calculate available seats
+    const seating = row.seating || 0;
+    if (seating > 0) {
+      const booked = getBookingCount(row.id);
+      const available = Math.max(0, seating - booked);
+      if (available === 0) {
+        return { text: 'Fully Booked', color: 'text-red-600' };
+      }
+      return { text: `${available} seat${available === 1 ? '' : 's'} available`, color: 'text-green-700' };
+    }
+
+    // No seating set, show status label if any
+    if (statusLabel) {
+      return { text: statusLabel, color: 'text-[#5C5347]' };
+    }
+
+    return { text: '', color: '' };
+  }
+
+  function isDateSelectable(row: EventDateRow): boolean {
+    const statusLabel = getStatusLabel(row.status_id);
+    if (statusLabel) {
+      const lower = statusLabel.toLowerCase();
+      if (lower === 'cancelled' || lower === 'fully booked') return false;
+    }
+    const seating = row.seating || 0;
+    if (seating > 0) {
+      const booked = getBookingCount(row.id);
+      if (booked >= seating) return false;
+    }
+    return true;
   }
 
   function getFlyerUrl(): string | null {
@@ -239,6 +350,28 @@ export default function CookingClassesPage() {
     reader.readAsDataURL(file);
   }
 
+  async function recordBookingCounts(regId: string, selectedDateLabels: string[]) {
+    try {
+      // Find event_date rows matching the selected labels
+      const matchedDateIds = eventDates
+        .filter(row => selectedDateLabels.includes(formatEventDate(row)))
+        .map(row => row.id);
+
+      if (matchedDateIds.length === 0) return;
+
+      const inserts = matchedDateIds.map(event_date_id => ({
+        event_date_id,
+        registration_id: regId,
+      }));
+
+      await supabase
+        .from('cooking_class_booking_counts')
+        .insert(inserts);
+    } catch {
+      // Non-blocking
+    }
+  }
+
   async function handleSubmit() {
     if (!validatePage2()) return;
     setSubmitting(true);
@@ -283,6 +416,9 @@ export default function CookingClassesPage() {
 
       if (regErr || !reg) throw new Error(regErr?.message || 'Failed to save registration');
       setRegistrationId(reg.id);
+
+      // Record booking counts for selected dates
+      await recordBookingCounts(reg.id, page1.selectedDates);
 
       if (page2.paymentMethod === 'eft') {
         await syncToSheet(reg.id);
@@ -541,7 +677,7 @@ export default function CookingClassesPage() {
               )}
             </div>
 
-            {/* Select Attendance — always shown, dynamic dates from DB */}
+            {/* Select Attendance — always shown, dynamic dates from DB with availability */}
             <div className="mb-5">
               <label className="block text-sm font-semibold text-[#1A1612] mb-2">
                 Select Attendance <span className="text-red-500">*</span>
@@ -549,19 +685,29 @@ export default function CookingClassesPage() {
               {eventDates.length === 0 ? (
                 <p className="text-xs text-[#8C8278] italic">No dates available at this time.</p>
               ) : (
-                <div className="space-y-2.5">
+                <div className="space-y-3">
                   {eventDates.map(row => {
                     const label = formatEventDate(row);
+                    const selectable = isDateSelectable(row);
+                    const availability = getAvailabilityText(row);
                     return (
-                      <label key={row.id} className="flex items-center gap-3 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={page1.selectedDates.includes(label)}
-                          onChange={() => toggleDate(label)}
-                          className="w-4 h-4 rounded border-[#DDD5C8] text-[#C4622D] focus:ring-[#C4622D]"
-                        />
-                        <span className="text-sm text-[#1A1612]">{label}</span>
-                      </label>
+                      <div key={row.id}>
+                        <label className={`flex items-center gap-3 ${selectable ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}>
+                          <input
+                            type="checkbox"
+                            checked={page1.selectedDates.includes(label)}
+                            onChange={() => selectable && toggleDate(label)}
+                            disabled={!selectable}
+                            className="w-4 h-4 rounded border-[#DDD5C8] text-[#C4622D] focus:ring-[#C4622D] disabled:opacity-50"
+                          />
+                          <span className={`text-sm ${selectable ? 'text-[#1A1612]' : 'text-[#8C8278]'}`}>{label}</span>
+                        </label>
+                        {availability.text && (
+                          <p className={`text-xs mt-0.5 ml-7 font-medium ${availability.color}`}>
+                            {availability.text}
+                          </p>
+                        )}
+                      </div>
                     );
                   })}
                 </div>

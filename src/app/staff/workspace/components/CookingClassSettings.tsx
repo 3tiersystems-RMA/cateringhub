@@ -36,13 +36,21 @@ interface ClassEvent {
   is_active: boolean;
 }
 
-interface EventDateRow {
+interface SessionStatus {
   id: string;
+  label: string;
+  sort_order: number;
+}
+
+interface EventDateRow {
+  id?: string;
   event_date: string;
   start_time: string;
   end_time: string;
   location: string;
   sort_order: number;
+  seating: number;
+  status_id: string;
 }
 
 const DEFAULT_LOCATION = '12 Cardamom Street, Cape Town, 7441';
@@ -60,6 +68,8 @@ const EMPTY_DATE_ROW = (): Omit<EventDateRow, 'id'> => ({
   end_time: '',
   location: DEFAULT_LOCATION,
   sort_order: 0,
+  seating: 0,
+  status_id: '',
 });
 
 export default function CookingClassSettings() {
@@ -82,8 +92,14 @@ export default function CookingClassSettings() {
   const [savingEvent, setSavingEvent] = useState(false);
   const [eventMsg, setEventMsg] = useState('');
 
+  // Session statuses management
+  const [sessionStatuses, setSessionStatuses] = useState<SessionStatus[]>([]);
+  const [newStatusLabel, setNewStatusLabel] = useState('');
+  const [savingStatus, setSavingStatus] = useState(false);
+  const [statusMsg, setStatusMsg] = useState('');
+
   // Event date rows (up to 5)
-  const [dateRows, setDateRows] = useState<(EventDateRow | Omit<EventDateRow, 'id'> & { id?: string })[]>([
+  const [dateRows, setDateRows] = useState<EventDateRow[]>([
     { ...EMPTY_DATE_ROW(), sort_order: 0 },
     { ...EMPTY_DATE_ROW(), sort_order: 1 },
     { ...EMPTY_DATE_ROW(), sort_order: 2 },
@@ -104,6 +120,7 @@ export default function CookingClassSettings() {
   useEffect(() => {
     loadSettings();
     loadEvents();
+    loadSessionStatuses();
     loadDateRows();
   }, []);
 
@@ -145,6 +162,18 @@ export default function CookingClassSettings() {
     }
   }
 
+  async function loadSessionStatuses() {
+    try {
+      const { data } = await supabase
+        .from('cooking_class_session_statuses')
+        .select('*')
+        .order('sort_order', { ascending: true });
+      if (data) setSessionStatuses(data);
+    } catch {
+      // ignore
+    }
+  }
+
   async function loadDateRows() {
     try {
       const { data } = await supabase
@@ -153,10 +182,18 @@ export default function CookingClassSettings() {
         .order('sort_order', { ascending: true })
         .limit(5);
       if (data && data.length > 0) {
-        // Fill up to 5 rows, padding with empty rows
-        const filled = [...data];
+        const filled: EventDateRow[] = [...data.map((r: any) => ({
+          id: r.id,
+          event_date: r.event_date || '',
+          start_time: r.start_time || '',
+          end_time: r.end_time || '',
+          location: r.location || DEFAULT_LOCATION,
+          sort_order: r.sort_order || 0,
+          seating: r.seating || 0,
+          status_id: r.status_id || '',
+        }))];
         while (filled.length < 5) {
-          filled.push({ ...EMPTY_DATE_ROW(), sort_order: filled.length } as any);
+          filled.push({ ...EMPTY_DATE_ROW(), sort_order: filled.length });
         }
         setDateRows(filled.slice(0, 5));
       }
@@ -280,7 +317,36 @@ export default function CookingClassSettings() {
     }
   }
 
-  function updateDateRow(index: number, field: keyof Omit<EventDateRow, 'id'>, value: string) {
+  async function handleAddStatus() {
+    if (!newStatusLabel.trim()) return;
+    setSavingStatus(true);
+    setStatusMsg('');
+    try {
+      const { error } = await supabase.from('cooking_class_session_statuses').insert({
+        label: newStatusLabel.trim(),
+        sort_order: sessionStatuses.length,
+      });
+      if (error) throw error;
+      setNewStatusLabel('');
+      setStatusMsg('Status added!');
+      await loadSessionStatuses();
+    } catch (err: any) {
+      setStatusMsg(err?.message || 'Failed to add status');
+    } finally {
+      setSavingStatus(false);
+    }
+  }
+
+  async function handleDeleteStatus(id: string) {
+    try {
+      await supabase.from('cooking_class_session_statuses').delete().eq('id', id);
+      await loadSessionStatuses();
+    } catch {
+      // ignore
+    }
+  }
+
+  function updateDateRow(index: number, field: keyof Omit<EventDateRow, 'id'>, value: string | number) {
     setDateRows(prev => {
       const updated = [...prev];
       updated[index] = { ...updated[index], [field]: value };
@@ -303,6 +369,8 @@ export default function CookingClassSettings() {
           end_time: r.end_time || null,
           location: r.location || DEFAULT_LOCATION,
           sort_order: i,
+          seating: r.seating || 0,
+          status_id: r.status_id || null,
         }));
 
       if (rowsToInsert.length > 0) {
@@ -387,7 +455,6 @@ export default function CookingClassSettings() {
             <h3 className="text-base font-semibold text-[#1A1612] mb-1">Events</h3>
             <p className="text-xs text-[#8C8278] mb-4">Add the events that will appear on the registration form (e.g. Kids Event, Adults Event, Leadership Workshop).</p>
 
-            {/* Existing events */}
             {events.length > 0 && (
               <div className="space-y-2 mb-4">
                 {events.map(ev => (
@@ -410,7 +477,6 @@ export default function CookingClassSettings() {
               </div>
             )}
 
-            {/* Add new event */}
             <div className="flex gap-2">
               <input
                 type="text"
@@ -430,6 +496,49 @@ export default function CookingClassSettings() {
             </div>
             {eventMsg && (
               <p className={`text-xs mt-2 ${eventMsg.includes('Failed') ? 'text-red-500' : 'text-green-600'}`}>{eventMsg}</p>
+            )}
+          </div>
+
+          {/* ── Session Status Options ── */}
+          <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5">
+            <h3 className="text-base font-semibold text-[#1A1612] mb-1">Session Status Options</h3>
+            <p className="text-xs text-[#8C8278] mb-4">Manage the status labels available for each session (e.g. Active, Fully Booked, Cancelled, Venue Change).</p>
+
+            {sessionStatuses.length > 0 && (
+              <div className="space-y-2 mb-4">
+                {sessionStatuses.map(st => (
+                  <div key={st.id} className="flex items-center gap-3 bg-[#FAF5EE] rounded-xl px-3 py-2">
+                    <span className="flex-1 text-sm text-[#1A1612]">{st.label}</span>
+                    <button
+                      onClick={() => handleDeleteStatus(st.id)}
+                      className="text-xs text-red-500 hover:text-red-700 px-2 py-1 rounded-lg hover:bg-red-50 transition-colors"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newStatusLabel}
+                onChange={e => setNewStatusLabel(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleAddStatus(); }}
+                placeholder="e.g. Active, Fully Booked, Cancelled..."
+                className="flex-1 border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+              />
+              <button
+                onClick={handleAddStatus}
+                disabled={savingStatus || !newStatusLabel.trim()}
+                className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
+              >
+                {savingStatus ? 'Adding...' : '+ Add'}
+              </button>
+            </div>
+            {statusMsg && (
+              <p className={`text-xs mt-2 ${statusMsg.includes('Failed') ? 'text-red-500' : 'text-green-600'}`}>{statusMsg}</p>
             )}
           </div>
 
@@ -473,7 +582,7 @@ export default function CookingClassSettings() {
                       </div>
                     </div>
                   </div>
-                  <div>
+                  <div className="mb-2">
                     <label className="block text-xs text-[#8C8278] mb-1">Location</label>
                     <input
                       type="text"
@@ -482,6 +591,32 @@ export default function CookingClassSettings() {
                       placeholder={DEFAULT_LOCATION}
                       className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
                     />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs text-[#8C8278] mb-1">Seating Capacity</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={row.seating || 0}
+                        onChange={e => updateDateRow(i, 'seating', parseInt(e.target.value) || 0)}
+                        placeholder="0"
+                        className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-[#8C8278] mb-1">Status</label>
+                      <select
+                        value={row.status_id || ''}
+                        onChange={e => updateDateRow(i, 'status_id', e.target.value)}
+                        className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+                      >
+                        <option value="">— Select Status —</option>
+                        {sessionStatuses.map(st => (
+                          <option key={st.id} value={st.id}>{st.label}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                 </div>
               ))}
