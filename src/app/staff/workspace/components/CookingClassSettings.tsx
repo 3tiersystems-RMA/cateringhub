@@ -27,6 +27,7 @@ interface Registration {
   synced_to_sheet: boolean;
   created_at: string;
   proof_of_payment_url: string | null;
+  proof_of_payment_path: string | null;
 }
 
 interface ClassEvent {
@@ -811,15 +812,31 @@ export default function CookingClassSettings() {
                         {reg.amount ? ` · R${Number(reg.amount).toFixed(2)}` : ''}
                         {' · '}{new Date(reg.created_at).toLocaleDateString('en-ZA')}
                       </p>
-                      {reg.proof_of_payment_url && (
-                        <a
-                          href={reg.proof_of_payment_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs text-[#C4622D] hover:underline mt-1 inline-block"
+                      {(reg.proof_of_payment_path || reg.proof_of_payment_url) && (
+                        <button
+                          onClick={async () => {
+                            const supabase = createClient();
+                            const filePath = reg.proof_of_payment_path || (() => {
+                              try {
+                                const url = new URL(reg.proof_of_payment_url!);
+                                const parts = url.pathname.split('/cooking-class-proofs/');
+                                return parts[1] || null;
+                              } catch { return null; }
+                            })();
+                            if (!filePath) return;
+                            const { data, error } = await supabase.storage
+                              .from('cooking-class-proofs')
+                              .createSignedUrl(filePath, 60);
+                            if (error || !data?.signedUrl) {
+                              alert('Could not generate proof of payment link. Please try again.');
+                              return;
+                            }
+                            window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+                          }}
+                          className="text-xs text-[#C4622D] hover:underline mt-1 inline-block cursor-pointer bg-transparent border-none p-0"
                         >
                           View Proof of Payment ↗
-                        </a>
+                        </button>
                       )}
                     </div>
                     <div className="flex flex-col gap-2 flex-shrink-0">

@@ -390,8 +390,8 @@ export default function CookingClassesPage() {
           .upload(path, page2.proofFile);
         if (uploadErr) throw new Error('Failed to upload proof of payment');
         proofPath = path;
-        const { data: urlData } = supabase.storage.from('cooking-class-proofs').getPublicUrl(path);
-        proofUrl = urlData?.publicUrl || null;
+        // Store the path only — signed URLs are generated on demand (bucket is private)
+        proofUrl = null;
       }
 
       // Create registration record
