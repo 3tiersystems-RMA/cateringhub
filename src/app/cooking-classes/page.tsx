@@ -77,6 +77,7 @@ interface SessionStatus {
 
 interface EventDateRow {
   id: string;
+  event_id: string | null;
   event_date: string | null;
   start_time: string | null;
   end_time: string | null;
@@ -91,7 +92,8 @@ interface BookingCount {
   count: number;
 }
 
-const TITLE_OPTIONS = ['Ms', 'Mr', 'Mrs', 'Other'];
+// (1) Updated: added 'Dr', removed 'Other'
+const TITLE_OPTIONS = ['Dr', 'Ms', 'Mr', 'Mrs'];
 const RELATIONSHIP_OPTIONS = ['Father', 'Mother', 'Grandparent', 'Guardian', 'Au pair', 'Other'];
 const RELATIONSHIP_TO_CHILD_OPTIONS = ['Father', 'Mother', 'Grandparent', 'Guardian', 'Au pair', 'Other', 'Sibling', 'Friend'];
 const DIETARY_OPTIONS = ['None', 'Vegetarian', 'Vegan', 'Gluten-free', 'Lactose Intolerant', 'Peanut Allergy', 'Other'];
@@ -330,6 +332,20 @@ export default function CookingClassesPage() {
     return null;
   }
 
+  // (7) Get dates filtered by selected events
+  function getFilteredDates(): EventDateRow[] {
+    if (page1.selectedEvents.length === 0) return [];
+    // Find event IDs for selected event names
+    const selectedEventIds = classEvents
+      .filter(ev => page1.selectedEvents.includes(ev.name))
+      .map(ev => ev.id);
+    // Show dates that either match a selected event_id, or have no event_id (general dates)
+    return eventDates.filter(row => {
+      if (!row.event_id) return true; // general dates always show
+      return selectedEventIds.includes(row.event_id);
+    });
+  }
+
   // ── Validation ──────────────────────────────────────────────────────────────
 
   function validatePage1(): boolean {
@@ -355,7 +371,8 @@ export default function CookingClassesPage() {
     if (page1.selectedEvents.length === 0) {
       errors.selectedEvents = 'Please select at least one event';
     }
-    if (eventDates.length > 0 && page1.selectedDates.length === 0) {
+    const filteredDates = getFilteredDates();
+    if (filteredDates.length > 0 && page1.selectedDates.length === 0) {
       errors.selectedDates = 'Please select at least one date';
     }
     setPage1Errors(errors);
@@ -383,15 +400,19 @@ export default function CookingClassesPage() {
     }
     if (!c1.relationshipToChild) errors.contact1Relationship = 'Please select relationship to child';
 
+    // (3) 2nd contact is optional — only validate if any field is filled
     const c2 = page3.contact2;
-    if (!c2.firstName.trim()) errors.contact2FirstName = 'First name is required';
-    if (!c2.surname.trim()) errors.contact2Surname = 'Surname is required';
-    if (!c2.cellNo.trim()) {
-      errors.contact2CellNo = 'Cell number is required';
-    } else if (!/^[0-9+\s\-()]{7,15}$/.test(c2.cellNo.trim())) {
-      errors.contact2CellNo = 'Please enter a valid cellphone number';
+    const c2HasData = c2.firstName.trim() || c2.surname.trim() || c2.cellNo.trim() || c2.relationshipToChild;
+    if (c2HasData) {
+      if (!c2.firstName.trim()) errors.contact2FirstName = 'First name is required';
+      if (!c2.surname.trim()) errors.contact2Surname = 'Surname is required';
+      if (!c2.cellNo.trim()) {
+        errors.contact2CellNo = 'Cell number is required';
+      } else if (!/^[0-9+\s\-()]{7,15}$/.test(c2.cellNo.trim())) {
+        errors.contact2CellNo = 'Please enter a valid cellphone number';
+      }
+      if (!c2.relationshipToChild) errors.contact2Relationship = 'Please select relationship to child';
     }
-    if (!c2.relationshipToChild) errors.contact2Relationship = 'Please select relationship to child';
 
     setPage3Errors(errors);
     return Object.keys(errors).length === 0;
@@ -452,7 +473,8 @@ export default function CookingClassesPage() {
       const updated = exists
         ? prev.selectedEvents.filter(e => e !== eventName)
         : [...prev.selectedEvents, eventName];
-      return { ...prev, selectedEvents: updated };
+      // Clear selected dates when events change so stale dates are removed
+      return { ...prev, selectedEvents: updated, selectedDates: [] };
     });
   }
 
@@ -649,6 +671,8 @@ export default function CookingClassesPage() {
   }
 
   const totalSteps = 5;
+  // (7) Dates filtered by selected events
+  const filteredDates = getFilteredDates();
 
   return (
     <div className="min-h-screen bg-[#FAF5EE]">
@@ -704,12 +728,13 @@ export default function CookingClassesPage() {
               </label>
               <div className="grid grid-cols-3 gap-3">
                 <div>
+                  {/* (2) Title dropdown: Dr, Ms, Mr, Mrs — no Other */}
                   <select
                     value={page1.title}
                     onChange={e => setPage1(p => ({ ...p, title: e.target.value }))}
                     className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white ${page1Errors.title ? 'border-red-400' : 'border-[#DDD5C8]'}`}
                   >
-                    <option value="">Ms | Mr | Mrs | Other ...</option>
+                    <option value="">Title...</option>
                     {TITLE_OPTIONS.map(t => (
                       <option key={t} value={t}>{t}</option>
                     ))}
@@ -742,7 +767,7 @@ export default function CookingClassesPage() {
               </div>
             </div>
 
-            {/* Email */}
+            {/* Email — (1) confirmation field masked as password */}
             <div className="mb-5">
               <label className="block text-sm font-semibold text-[#1A1612] mb-2">
                 Email <span className="text-red-500">*</span>
@@ -755,11 +780,13 @@ export default function CookingClassesPage() {
                 className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] mb-3 ${page1Errors.email ? 'border-red-400' : 'border-[#DDD5C8]'}`}
               />
               {page1Errors.email && <p className="text-xs text-red-500 mb-2">{page1Errors.email}</p>}
+              {/* (1) Confirmation field uses type="password" to mask input as asterisks */}
               <input
-                type="email"
+                type="password"
+                autoComplete="off"
                 value={page1.emailConfirm}
                 onChange={e => setPage1(p => ({ ...p, emailConfirm: e.target.value }))}
-                placeholder="Please confirm your email address"
+                placeholder="Re-enter your email address to confirm"
                 className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] ${page1Errors.emailConfirm ? 'border-red-400' : 'border-[#DDD5C8]'}`}
               />
               {page1Errors.emailConfirm && <p className="text-xs text-red-500 mt-1">{page1Errors.emailConfirm}</p>}
@@ -811,16 +838,18 @@ export default function CookingClassesPage() {
               )}
             </div>
 
-            {/* Select Attendance */}
+            {/* (7) Select Attendance — only show dates for selected events */}
             <div className="mb-5">
               <label className="block text-sm font-semibold text-[#1A1612] mb-2">
                 Select Attendance <span className="text-red-500">*</span>
               </label>
-              {eventDates.length === 0 ? (
-                <p className="text-xs text-[#8C8278] italic">No dates available at this time.</p>
+              {page1.selectedEvents.length === 0 ? (
+                <p className="text-xs text-[#8C8278] italic">Please select an event above to see available dates.</p>
+              ) : filteredDates.length === 0 ? (
+                <p className="text-xs text-[#8C8278] italic">No dates available for the selected event(s).</p>
               ) : (
                 <div className="space-y-3">
-                  {eventDates.map(row => {
+                  {filteredDates.map(row => {
                     const label = formatEventDate(row);
                     const selectable = isDateSelectable(row);
                     const availability = getAvailabilityText(row);
@@ -1010,12 +1039,17 @@ export default function CookingClassesPage() {
                     </label>
                     <div className="grid grid-cols-3 gap-3">
                       <div>
-                        <input
-                          type="text"
+                        {/* (2) Title as dropdown for contact1 */}
+                        <select
                           value={page3.contact1.title}
                           onChange={e => updateContact('contact1', 'title', e.target.value)}
-                          className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D]"
-                        />
+                          className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+                        >
+                          <option value="">Title...</option>
+                          {TITLE_OPTIONS.map(t => (
+                            <option key={t} value={t}>{t}</option>
+                          ))}
+                        </select>
                         <p className="text-xs text-[#8C8278] mt-1">Title</p>
                       </div>
                       <div>
@@ -1077,24 +1111,30 @@ export default function CookingClassesPage() {
                   </div>
                 </div>
 
-                {/* 2nd Contact */}
+                {/* (3) 2nd Contact — optional */}
                 <div className="mb-4">
-                  <h3 className="text-lg font-bold text-[#1A1612] pb-2 border-b border-[#EDE7DA] mb-4">
+                  <h3 className="text-lg font-bold text-[#1A1612] pb-2 border-b border-[#EDE7DA] mb-1">
                     Provide the Details of a 2nd Contact person
                   </h3>
+                  <p className="text-xs text-[#8C8278] mb-4">Optional — leave blank if not applicable</p>
 
                   <div className="mb-4">
                     <label className="block text-sm font-medium text-[#1A1612] mb-2">
-                      Full Name <span className="text-red-500">*</span>
+                      Full Name
                     </label>
                     <div className="grid grid-cols-3 gap-3">
                       <div>
-                        <input
-                          type="text"
+                        {/* (2) Title as dropdown for contact2 */}
+                        <select
                           value={page3.contact2.title}
                           onChange={e => updateContact('contact2', 'title', e.target.value)}
-                          className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D]"
-                        />
+                          className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+                        >
+                          <option value="">Title...</option>
+                          {TITLE_OPTIONS.map(t => (
+                            <option key={t} value={t}>{t}</option>
+                          ))}
+                        </select>
                         <p className="text-xs text-[#8C8278] mt-1">Title</p>
                       </div>
                       <div>
@@ -1123,7 +1163,7 @@ export default function CookingClassesPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-[#1A1612] mb-2">
-                        Cell no <span className="text-red-500">*</span>
+                        Cell no
                       </label>
                       <input
                         type="tel"
@@ -1139,7 +1179,7 @@ export default function CookingClassesPage() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-[#1A1612] mb-2">
-                        Relationship to child <span className="text-red-500">*</span>
+                        Relationship to child
                       </label>
                       <select
                         value={page3.contact2.relationshipToChild}
