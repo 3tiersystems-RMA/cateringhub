@@ -17,6 +17,39 @@ interface FormPage1 {
 }
 
 interface FormPage2 {
+  relationship: string;
+  firstTimePortal: string;
+  allergiesIllness: string;
+  rsaIdPassport: string;
+}
+
+interface ContactPerson {
+  title: string;
+  firstName: string;
+  surname: string;
+  cellNo: string;
+  relationshipToChild: string;
+}
+
+interface FormPage3 {
+  contact1: ContactPerson;
+  contact2: ContactPerson;
+}
+
+interface ChildRow {
+  fullName: string;
+  age: string;
+  gender: string;
+  grade: string;
+}
+
+interface FormPage4 {
+  children: ChildRow[];
+  dietaryRestrictions: string;
+  attendSchoolHoliday: string;
+}
+
+interface FormPage5 {
   paymentMethod: 'eft' | 'payfast';
   proofFile: File | null;
   proofPreview: string;
@@ -59,6 +92,12 @@ interface BookingCount {
 }
 
 const TITLE_OPTIONS = ['Ms', 'Mr', 'Mrs', 'Other'];
+const RELATIONSHIP_OPTIONS = ['Father', 'Mother', 'Grandparent', 'Guardian', 'Au pair', 'Other'];
+const RELATIONSHIP_TO_CHILD_OPTIONS = ['Father', 'Mother', 'Grandparent', 'Guardian', 'Au pair', 'Other', 'Sibling', 'Friend'];
+const DIETARY_OPTIONS = ['None', 'Vegetarian', 'Vegan', 'Gluten-free', 'Lactose Intolerant', 'Peanut Allergy', 'Other'];
+
+const EMPTY_CHILD: ChildRow = { fullName: '', age: '', gender: '', grade: '' };
+const EMPTY_CONTACT: ContactPerson = { title: '', firstName: '', surname: '', cellNo: '', relationshipToChild: '' };
 
 function formatEventDate(row: EventDateRow): string {
   if (!row.event_date) return '';
@@ -100,6 +139,11 @@ export default function CookingClassesPage() {
   const [sessionStatuses, setSessionStatuses] = useState<SessionStatus[]>([]);
   const [bookingCounts, setBookingCounts] = useState<BookingCount[]>([]);
 
+  // Collapsible states
+  const [importantInfoOpen, setImportantInfoOpen] = useState(true);
+  const [emergencyContactOpen, setEmergencyContactOpen] = useState(true);
+  const [cookingClassesOpen, setCookingClassesOpen] = useState(true);
+
   const [page1, setPage1] = useState<FormPage1>({
     title: '',
     firstName: '',
@@ -112,6 +156,24 @@ export default function CookingClassesPage() {
   });
 
   const [page2, setPage2] = useState<FormPage2>({
+    relationship: '',
+    firstTimePortal: '',
+    allergiesIllness: '',
+    rsaIdPassport: '',
+  });
+
+  const [page3, setPage3] = useState<FormPage3>({
+    contact1: { ...EMPTY_CONTACT },
+    contact2: { ...EMPTY_CONTACT },
+  });
+
+  const [page4, setPage4] = useState<FormPage4>({
+    children: Array.from({ length: 10 }, () => ({ ...EMPTY_CHILD })),
+    dietaryRestrictions: '',
+    attendSchoolHoliday: '',
+  });
+
+  const [page5, setPage5] = useState<FormPage5>({
     paymentMethod: 'payfast',
     proofFile: null,
     proofPreview: '',
@@ -119,6 +181,9 @@ export default function CookingClassesPage() {
 
   const [page1Errors, setPage1Errors] = useState<Partial<Record<keyof FormPage1, string>>>({});
   const [page2Errors, setPage2Errors] = useState<Partial<Record<string, string>>>({});
+  const [page3Errors, setPage3Errors] = useState<Partial<Record<string, string>>>({});
+  const [page4Errors, setPage4Errors] = useState<Partial<Record<string, string>>>({});
+  const [page5Errors, setPage5Errors] = useState<Partial<Record<string, string>>>({});
 
   useEffect(() => {
     loadSettings();
@@ -177,7 +242,6 @@ export default function CookingClassesPage() {
       if (data) {
         const filtered = data.filter((r: EventDateRow) => r.event_date);
         setEventDates(filtered);
-        // Load booking counts for these dates
         if (filtered.length > 0) {
           await loadBookingCounts(filtered.map((r: EventDateRow) => r.id));
         }
@@ -219,8 +283,6 @@ export default function CookingClassesPage() {
 
   function getAvailabilityText(row: EventDateRow): { text: string; color: string } {
     const statusLabel = getStatusLabel(row.status_id);
-
-    // If status is explicitly set to something other than Active, show that
     if (statusLabel && statusLabel.toLowerCase() !== 'active') {
       const colorMap: Record<string, string> = {
         'fully booked': 'text-red-600',
@@ -230,8 +292,6 @@ export default function CookingClassesPage() {
       const color = colorMap[statusLabel.toLowerCase()] || 'text-[#8C8278]';
       return { text: statusLabel, color };
     }
-
-    // Calculate available seats
     const seating = row.seating || 0;
     if (seating > 0) {
       const booked = getBookingCount(row.id);
@@ -241,12 +301,9 @@ export default function CookingClassesPage() {
       }
       return { text: `${available} seat${available === 1 ? '' : 's'} available`, color: 'text-green-700' };
     }
-
-    // No seating set, show status label if any
     if (statusLabel) {
       return { text: statusLabel, color: 'text-[#5C5347]' };
     }
-
     return { text: '', color: '' };
   }
 
@@ -272,6 +329,8 @@ export default function CookingClassesPage() {
     }
     return null;
   }
+
+  // ── Validation ──────────────────────────────────────────────────────────────
 
   function validatePage1(): boolean {
     const errors: Partial<Record<keyof FormPage1, string>> = {};
@@ -305,16 +364,84 @@ export default function CookingClassesPage() {
 
   function validatePage2(): boolean {
     const errors: Record<string, string> = {};
-    if (page2.paymentMethod === 'eft' && !page2.proofFile) {
-      errors.proof = 'Please upload proof of payment for EFT';
-    }
+    if (!page2.relationship) errors.relationship = 'Please select your relationship';
+    if (!page2.firstTimePortal) errors.firstTimePortal = 'Please answer this question';
+    if (!page2.rsaIdPassport.trim()) errors.rsaIdPassport = 'RSA ID / Passport No is required';
     setPage2Errors(errors);
     return Object.keys(errors).length === 0;
   }
 
+  function validatePage3(): boolean {
+    const errors: Record<string, string> = {};
+    const c1 = page3.contact1;
+    if (!c1.firstName.trim()) errors.contact1FirstName = 'First name is required';
+    if (!c1.surname.trim()) errors.contact1Surname = 'Surname is required';
+    if (!c1.cellNo.trim()) {
+      errors.contact1CellNo = 'Cell number is required';
+    } else if (!/^[0-9+\s\-()]{7,15}$/.test(c1.cellNo.trim())) {
+      errors.contact1CellNo = 'Please enter a valid cellphone number';
+    }
+    if (!c1.relationshipToChild) errors.contact1Relationship = 'Please select relationship to child';
+
+    const c2 = page3.contact2;
+    if (!c2.firstName.trim()) errors.contact2FirstName = 'First name is required';
+    if (!c2.surname.trim()) errors.contact2Surname = 'Surname is required';
+    if (!c2.cellNo.trim()) {
+      errors.contact2CellNo = 'Cell number is required';
+    } else if (!/^[0-9+\s\-()]{7,15}$/.test(c2.cellNo.trim())) {
+      errors.contact2CellNo = 'Please enter a valid cellphone number';
+    }
+    if (!c2.relationshipToChild) errors.contact2Relationship = 'Please select relationship to child';
+
+    setPage3Errors(errors);
+    return Object.keys(errors).length === 0;
+  }
+
+  function validatePage4(): boolean {
+    const errors: Record<string, string> = {};
+    const filledChildren = page4.children.filter(c => c.fullName.trim());
+    if (filledChildren.length === 0) errors.children = "Please enter at least one child's details";
+    if (!page4.dietaryRestrictions) errors.dietaryRestrictions = 'Please select a dietary restriction option';
+    if (!page4.attendSchoolHoliday) errors.attendSchoolHoliday = 'Please answer this question';
+    setPage4Errors(errors);
+    return Object.keys(errors).length === 0;
+  }
+
+  function validatePage5(): boolean {
+    const errors: Record<string, string> = {};
+    if (page5.paymentMethod === 'eft' && !page5.proofFile) {
+      errors.proof = 'Please upload proof of payment for EFT';
+    }
+    setPage5Errors(errors);
+    return Object.keys(errors).length === 0;
+  }
+
+  // ── Navigation ───────────────────────────────────────────────────────────────
+
   function handlePage1Next() {
     if (validatePage1()) {
       setCurrentPage(2);
+      window.scrollTo(0, 0);
+    }
+  }
+
+  function handlePage2Next() {
+    if (validatePage2()) {
+      setCurrentPage(3);
+      window.scrollTo(0, 0);
+    }
+  }
+
+  function handlePage3Next() {
+    if (validatePage3()) {
+      setCurrentPage(4);
+      window.scrollTo(0, 0);
+    }
+  }
+
+  function handlePage4Next() {
+    if (validatePage4()) {
+      setCurrentPage(5);
       window.scrollTo(0, 0);
     }
   }
@@ -339,41 +466,50 @@ export default function CookingClassesPage() {
     });
   }
 
+  function updateChild(index: number, field: keyof ChildRow, value: string) {
+    setPage4(prev => {
+      const updated = [...prev.children];
+      updated[index] = { ...updated[index], [field]: value };
+      return { ...prev, children: updated };
+    });
+  }
+
+  function updateContact(which: 'contact1' | 'contact2', field: keyof ContactPerson, value: string) {
+    setPage3(prev => ({
+      ...prev,
+      [which]: { ...prev[which], [field]: value },
+    }));
+  }
+
   function handleProofUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    setPage2(prev => ({ ...prev, proofFile: file }));
+    setPage5(prev => ({ ...prev, proofFile: file }));
     const reader = new FileReader();
     reader.onload = (ev) => {
-      setPage2(prev => ({ ...prev, proofPreview: ev.target?.result as string }));
+      setPage5(prev => ({ ...prev, proofPreview: ev.target?.result as string }));
     };
     reader.readAsDataURL(file);
   }
 
   async function recordBookingCounts(regId: string, selectedDateLabels: string[]) {
     try {
-      // Find event_date rows matching the selected labels
       const matchedDateIds = eventDates
         .filter(row => selectedDateLabels.includes(formatEventDate(row)))
         .map(row => row.id);
-
       if (matchedDateIds.length === 0) return;
-
       const inserts = matchedDateIds.map(event_date_id => ({
         event_date_id,
         registration_id: regId,
       }));
-
-      await supabase
-        .from('cooking_class_booking_counts')
-        .insert(inserts);
+      await supabase.from('cooking_class_booking_counts').insert(inserts);
     } catch {
       // Non-blocking
     }
   }
 
   async function handleSubmit() {
-    if (!validatePage2()) return;
+    if (!validatePage5()) return;
     setSubmitting(true);
     setSubmitError('');
 
@@ -381,20 +517,17 @@ export default function CookingClassesPage() {
       let proofUrl: string | null = null;
       let proofPath: string | null = null;
 
-      // Upload proof of payment if EFT
-      if (page2.paymentMethod === 'eft' && page2.proofFile) {
-        const ext = page2.proofFile.name.split('.').pop();
+      if (page5.paymentMethod === 'eft' && page5.proofFile) {
+        const ext = page5.proofFile.name.split('.').pop();
         const path = `proof-${Date.now()}.${ext}`;
         const { error: uploadErr } = await supabase.storage
           .from('cooking-class-proofs')
-          .upload(path, page2.proofFile);
+          .upload(path, page5.proofFile);
         if (uploadErr) throw new Error('Failed to upload proof of payment');
         proofPath = path;
-        // Store the path only — signed URLs are generated on demand (bucket is private)
         proofUrl = null;
       }
 
-      // Create registration record
       const { data: reg, error: regErr } = await supabase
         .from('cooking_class_registrations')
         .insert({
@@ -405,8 +538,8 @@ export default function CookingClassesPage() {
           cellphone: page1.cellphone,
           selected_events: page1.selectedEvents,
           adult_class_dates: page1.selectedDates,
-          payment_method: page2.paymentMethod,
-          payment_status: page2.paymentMethod === 'eft' ? 'awaiting_confirmation' : 'pending',
+          payment_method: page5.paymentMethod,
+          payment_status: page5.paymentMethod === 'eft' ? 'awaiting_confirmation' : 'pending',
           proof_of_payment_url: proofUrl,
           proof_of_payment_path: proofPath,
           amount: settings?.class_fee || 0,
@@ -417,17 +550,17 @@ export default function CookingClassesPage() {
       if (regErr || !reg) throw new Error(regErr?.message || 'Failed to save registration');
       setRegistrationId(reg.id);
 
-      // Record booking counts for selected dates
       await recordBookingCounts(reg.id, page1.selectedDates);
 
-      if (page2.paymentMethod === 'eft') {
+      if (page5.paymentMethod === 'eft') {
         await syncToSheet(reg.id);
-        setCurrentPage(4);
+        setCurrentPage(6);
       } else {
         await initiatePayFast(reg.id);
       }
-    } catch (err: any) {
-      setSubmitError(err?.message || 'An error occurred. Please try again.');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'An error occurred. Please try again.';
+      setSubmitError(message);
     } finally {
       setSubmitting(false);
     }
@@ -453,7 +586,7 @@ export default function CookingClassesPage() {
         .update({ payment_status: 'paid' })
         .eq('id', regId);
       await syncToSheet(regId);
-      setCurrentPage(4);
+      setCurrentPage(6);
       return;
     }
 
@@ -515,6 +648,8 @@ export default function CookingClassesPage() {
     );
   }
 
+  const totalSteps = 5;
+
   return (
     <div className="min-h-screen bg-[#FAF5EE]">
       {/* Header */}
@@ -530,16 +665,16 @@ export default function CookingClassesPage() {
 
       <div className="max-w-2xl mx-auto px-4 py-8">
         {/* Progress indicator */}
-        {currentPage < 4 && (
+        {currentPage < 6 && (
           <div className="flex items-center gap-2 mb-8">
-            {[1, 2, 3].map(step => (
+            {Array.from({ length: totalSteps }, (_, i) => i + 1).map(step => (
               <div key={step} className="flex items-center gap-2 flex-1">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${
                   currentPage >= step ? 'bg-[#C4622D] text-white' : 'bg-[#DDD5C8] text-[#8C8278]'
                 }`}>
                   {step}
                 </div>
-                {step < 3 && (
+                {step < totalSteps && (
                   <div className={`flex-1 h-1 rounded ${currentPage > step ? 'bg-[#C4622D]' : 'bg-[#DDD5C8]'}`} />
                 )}
               </div>
@@ -547,10 +682,9 @@ export default function CookingClassesPage() {
           </div>
         )}
 
-        {/* PAGE 1 — Personal Details */}
+        {/* ── PAGE 1 — Personal Details ─────────────────────────────────────── */}
         {currentPage === 1 && (
           <div className="bg-white rounded-2xl border border-[#EDE7DA] p-6 shadow-sm">
-            {/* Flyer image */}
             {flyerUrl && (
               <div className="mb-6 rounded-xl overflow-hidden">
                 <img
@@ -650,7 +784,7 @@ export default function CookingClassesPage() {
               }
             </div>
 
-            {/* Select an Event — always shown, dynamic from DB */}
+            {/* Select an Event */}
             <div className="mb-5">
               <label className="block text-sm font-semibold text-[#1A1612] mb-2">
                 Select an Event <span className="text-red-500">*</span>
@@ -677,7 +811,7 @@ export default function CookingClassesPage() {
               )}
             </div>
 
-            {/* Select Attendance — always shown, dynamic dates from DB with availability */}
+            {/* Select Attendance */}
             <div className="mb-5">
               <label className="block text-sm font-semibold text-[#1A1612] mb-2">
                 Select Attendance <span className="text-red-500">*</span>
@@ -721,13 +855,474 @@ export default function CookingClassesPage() {
               onClick={handlePage1Next}
               className="w-full bg-[#C4622D] text-white py-3 rounded-xl font-semibold text-sm hover:bg-[#A04E22] transition-colors mt-2"
             >
-              Continue to Payment →
+              Continue →
             </button>
           </div>
         )}
 
-        {/* PAGE 2 — Payment */}
+        {/* ── PAGE 2 — Relationship & Important Information ─────────────────── */}
         {currentPage === 2 && (
+          <div className="bg-white rounded-2xl border border-[#EDE7DA] p-6 shadow-sm">
+            <h2 className="text-2xl font-bold text-[#1A1612] mb-8">Relationship &amp; Important Information</h2>
+
+            {/* Relationship */}
+            <div className="mb-8">
+              <label className="block text-sm font-medium text-[#1A1612] mb-3">
+                Relationship <span className="text-red-500">*</span>
+              </label>
+              <div className="grid grid-cols-2 gap-x-8 gap-y-3">
+                {RELATIONSHIP_OPTIONS.map(rel => (
+                  <label key={rel} className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="relationship"
+                      value={rel}
+                      checked={page2.relationship === rel}
+                      onChange={() => setPage2(p => ({ ...p, relationship: rel }))}
+                      className="w-5 h-5 border-2 border-[#DDD5C8] text-[#C4622D] focus:ring-[#C4622D]"
+                    />
+                    <span className="text-sm text-[#1A1612]">{rel}</span>
+                  </label>
+                ))}
+              </div>
+              {page2Errors.relationship && <p className="text-xs text-red-500 mt-2">{page2Errors.relationship}</p>}
+            </div>
+
+            {/* First Time using portal */}
+            <div className="mb-8">
+              <label className="block text-sm font-medium text-[#1A1612] mb-3">
+                First Time using this online Registration Portal ? <span className="text-red-500">*</span>
+              </label>
+              <div className="grid grid-cols-2 gap-x-8">
+                {['Yes', 'No'].map(opt => (
+                  <label key={opt} className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="firstTimePortal"
+                      value={opt}
+                      checked={page2.firstTimePortal === opt}
+                      onChange={() => setPage2(p => ({ ...p, firstTimePortal: opt }))}
+                      className="w-5 h-5 border-2 border-[#DDD5C8] text-[#C4622D] focus:ring-[#C4622D]"
+                    />
+                    <span className="text-sm text-[#1A1612]">{opt}</span>
+                  </label>
+                ))}
+              </div>
+              {page2Errors.firstTimePortal && <p className="text-xs text-red-500 mt-2">{page2Errors.firstTimePortal}</p>}
+            </div>
+
+            {/* Important Information collapsible */}
+            <div className="mb-6">
+              <button
+                type="button"
+                onClick={() => setImportantInfoOpen(o => !o)}
+                className="w-full flex items-center justify-between bg-[#4A4540] text-white px-5 py-4 rounded-xl font-medium text-sm"
+              >
+                <span>Important Information</span>
+                <svg
+                  className={`w-6 h-6 transition-transform ${importantInfoOpen ? 'rotate-180' : ''}`}
+                  fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {importantInfoOpen && (
+                <div className="pt-6">
+                  {/* Allergies / illness */}
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium text-[#1A1612] mb-2">
+                      Details of any allergies or known illness
+                    </label>
+                    <input
+                      type="text"
+                      value={page2.allergiesIllness}
+                      onChange={e => setPage2(p => ({ ...p, allergiesIllness: e.target.value }))}
+                      className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D]"
+                    />
+                    <p className="text-xs text-[#8C8278] mt-1.5">List any information about the attendee that might impact their well-being</p>
+                  </div>
+
+                  {/* RSA ID / Passport No */}
+                  <div className="mb-2">
+                    <label className="block text-sm font-medium text-[#1A1612] mb-2">
+                      RSA ID / Passport No <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={page2.rsaIdPassport}
+                      onChange={e => setPage2(p => ({ ...p, rsaIdPassport: e.target.value }))}
+                      placeholder="Your RSA Id no or other form of Identification"
+                      className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] ${page2Errors.rsaIdPassport ? 'border-red-400' : 'border-[#DDD5C8]'}`}
+                    />
+                    <p className="text-xs text-[#8C8278] mt-1.5">South African resident must enter their 13-DIGIT ID NUMBER</p>
+                    {page2Errors.rsaIdPassport && <p className="text-xs text-red-500 mt-1">{page2Errors.rsaIdPassport}</p>}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => { setCurrentPage(1); window.scrollTo(0, 0); }}
+                className="flex-1 border border-[#DDD5C8] text-[#5C5347] py-3 rounded-xl font-semibold text-sm hover:bg-[#FAF5EE] transition-colors"
+              >
+                ← Back
+              </button>
+              <button
+                onClick={handlePage2Next}
+                className="flex-1 bg-[#C4622D] text-white py-3 rounded-xl font-semibold text-sm hover:bg-[#A04E22] transition-colors"
+              >
+                Continue →
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── PAGE 3 — Emergency Contact Details ───────────────────────────── */}
+        {currentPage === 3 && (
+          <div className="bg-white rounded-2xl border border-[#EDE7DA] p-6 shadow-sm">
+            <button
+              type="button"
+              onClick={() => setEmergencyContactOpen(o => !o)}
+              className="w-full flex items-center justify-between bg-[#4A4540] text-white px-5 py-4 rounded-xl font-medium text-sm mb-6"
+            >
+              <span>Emergency Contact Details</span>
+              <svg
+                className={`w-6 h-6 transition-transform ${emergencyContactOpen ? 'rotate-180' : ''}`}
+                fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            {emergencyContactOpen && (
+              <div>
+                {/* 1st Contact */}
+                <div className="mb-8">
+                  <h3 className="text-lg font-bold text-[#1A1612] pb-2 border-b border-[#EDE7DA] mb-4">
+                    Provide the Details of the 1st Contact person
+                  </h3>
+
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-[#1A1612] mb-2">
+                      Full Name <span className="text-red-500">*</span>
+                    </label>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div>
+                        <input
+                          type="text"
+                          value={page3.contact1.title}
+                          onChange={e => updateContact('contact1', 'title', e.target.value)}
+                          className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D]"
+                        />
+                        <p className="text-xs text-[#8C8278] mt-1">Title</p>
+                      </div>
+                      <div>
+                        <input
+                          type="text"
+                          value={page3.contact1.firstName}
+                          onChange={e => updateContact('contact1', 'firstName', e.target.value)}
+                          className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] ${page3Errors.contact1FirstName ? 'border-red-400' : 'border-[#DDD5C8]'}`}
+                        />
+                        <p className="text-xs text-[#8C8278] mt-1">First Name</p>
+                        {page3Errors.contact1FirstName && <p className="text-xs text-red-500 mt-1">{page3Errors.contact1FirstName}</p>}
+                      </div>
+                      <div>
+                        <input
+                          type="text"
+                          value={page3.contact1.surname}
+                          onChange={e => updateContact('contact1', 'surname', e.target.value)}
+                          className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] ${page3Errors.contact1Surname ? 'border-red-400' : 'border-[#DDD5C8]'}`}
+                        />
+                        <p className="text-xs text-[#8C8278] mt-1">Surname</p>
+                        {page3Errors.contact1Surname && <p className="text-xs text-red-500 mt-1">{page3Errors.contact1Surname}</p>}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-[#1A1612] mb-2">
+                        Cell no <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="tel"
+                        value={page3.contact1.cellNo}
+                        onChange={e => updateContact('contact1', 'cellNo', e.target.value)}
+                        placeholder="(000) 000-0000"
+                        className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] ${page3Errors.contact1CellNo ? 'border-red-400' : 'border-[#DDD5C8]'}`}
+                      />
+                      {page3Errors.contact1CellNo
+                        ? <p className="text-xs text-red-500 mt-1">{page3Errors.contact1CellNo}</p>
+                        : <p className="text-xs text-[#8C8278] mt-1">Please enter a valid cellphone number</p>
+                      }
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-[#1A1612] mb-2">
+                        Relationship to child <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={page3.contact1.relationshipToChild}
+                        onChange={e => updateContact('contact1', 'relationshipToChild', e.target.value)}
+                        className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white ${page3Errors.contact1Relationship ? 'border-red-400' : 'border-[#DDD5C8]'}`}
+                      >
+                        <option value="">Please Select</option>
+                        {RELATIONSHIP_TO_CHILD_OPTIONS.map(r => (
+                          <option key={r} value={r}>{r}</option>
+                        ))}
+                      </select>
+                      {page3Errors.contact1Relationship && <p className="text-xs text-red-500 mt-1">{page3Errors.contact1Relationship}</p>}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2nd Contact */}
+                <div className="mb-4">
+                  <h3 className="text-lg font-bold text-[#1A1612] pb-2 border-b border-[#EDE7DA] mb-4">
+                    Provide the Details of a 2nd Contact person
+                  </h3>
+
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-[#1A1612] mb-2">
+                      Full Name <span className="text-red-500">*</span>
+                    </label>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div>
+                        <input
+                          type="text"
+                          value={page3.contact2.title}
+                          onChange={e => updateContact('contact2', 'title', e.target.value)}
+                          className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D]"
+                        />
+                        <p className="text-xs text-[#8C8278] mt-1">Title</p>
+                      </div>
+                      <div>
+                        <input
+                          type="text"
+                          value={page3.contact2.firstName}
+                          onChange={e => updateContact('contact2', 'firstName', e.target.value)}
+                          className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] ${page3Errors.contact2FirstName ? 'border-red-400' : 'border-[#DDD5C8]'}`}
+                        />
+                        <p className="text-xs text-[#8C8278] mt-1">First Name</p>
+                        {page3Errors.contact2FirstName && <p className="text-xs text-red-500 mt-1">{page3Errors.contact2FirstName}</p>}
+                      </div>
+                      <div>
+                        <input
+                          type="text"
+                          value={page3.contact2.surname}
+                          onChange={e => updateContact('contact2', 'surname', e.target.value)}
+                          className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] ${page3Errors.contact2Surname ? 'border-red-400' : 'border-[#DDD5C8]'}`}
+                        />
+                        <p className="text-xs text-[#8C8278] mt-1">Surname</p>
+                        {page3Errors.contact2Surname && <p className="text-xs text-red-500 mt-1">{page3Errors.contact2Surname}</p>}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-[#1A1612] mb-2">
+                        Cell no <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="tel"
+                        value={page3.contact2.cellNo}
+                        onChange={e => updateContact('contact2', 'cellNo', e.target.value)}
+                        placeholder="(000) 000-0000"
+                        className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] ${page3Errors.contact2CellNo ? 'border-red-400' : 'border-[#DDD5C8]'}`}
+                      />
+                      {page3Errors.contact2CellNo
+                        ? <p className="text-xs text-red-500 mt-1">{page3Errors.contact2CellNo}</p>
+                        : <p className="text-xs text-[#8C8278] mt-1">Please enter a valid cellphone number</p>
+                      }
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-[#1A1612] mb-2">
+                        Relationship to child <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={page3.contact2.relationshipToChild}
+                        onChange={e => updateContact('contact2', 'relationshipToChild', e.target.value)}
+                        className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white ${page3Errors.contact2Relationship ? 'border-red-400' : 'border-[#DDD5C8]'}`}
+                      >
+                        <option value="">Please Select</option>
+                        {RELATIONSHIP_TO_CHILD_OPTIONS.map(r => (
+                          <option key={r} value={r}>{r}</option>
+                        ))}
+                      </select>
+                      {page3Errors.contact2Relationship && <p className="text-xs text-red-500 mt-1">{page3Errors.contact2Relationship}</p>}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => { setCurrentPage(2); window.scrollTo(0, 0); }}
+                className="flex-1 border border-[#DDD5C8] text-[#5C5347] py-3 rounded-xl font-semibold text-sm hover:bg-[#FAF5EE] transition-colors"
+              >
+                ← Back
+              </button>
+              <button
+                onClick={handlePage3Next}
+                className="flex-1 bg-[#C4622D] text-white py-3 rounded-xl font-semibold text-sm hover:bg-[#A04E22] transition-colors"
+              >
+                Continue →
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── PAGE 4 — Register to attend Cooking Classes ───────────────────── */}
+        {currentPage === 4 && (
+          <div className="bg-white rounded-2xl border border-[#EDE7DA] p-6 shadow-sm">
+            <button
+              type="button"
+              onClick={() => setCookingClassesOpen(o => !o)}
+              className="w-full flex items-center justify-between bg-[#4A4540] text-white px-5 py-4 rounded-xl font-medium text-sm mb-6"
+            >
+              <span>Register to attend Cooking Classes on offer</span>
+              <svg
+                className={`w-6 h-6 transition-transform ${cookingClassesOpen ? 'rotate-180' : ''}`}
+                fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            {cookingClassesOpen && (
+              <div>
+                {/* Register table */}
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-[#1A1612] mb-3">
+                    Register <span className="text-red-500">*</span>
+                  </label>
+                  <div className="overflow-x-auto rounded-xl border border-[#DDD5C8]">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-[#EDE7DA]">
+                          <th className="w-28 px-3 py-2.5 text-center font-medium text-[#5C5347]"></th>
+                          <th className="px-3 py-2.5 text-center font-medium text-[#5C5347]">Full Name</th>
+                          <th className="px-3 py-2.5 text-center font-medium text-[#5C5347]">Age</th>
+                          <th className="px-3 py-2.5 text-center font-medium text-[#5C5347]">Gender</th>
+                          <th className="px-3 py-2.5 text-center font-medium text-[#5C5347]">Grade</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {page4.children.map((child, idx) => (
+                          <tr key={idx} className="border-t border-[#EDE7DA]">
+                            <td className="px-3 py-2 bg-[#F5F0E8] text-[#5C5347] text-sm font-medium whitespace-nowrap">
+                              Child ({idx + 1})
+                            </td>
+                            <td className="px-2 py-1.5">
+                              <input
+                                type="text"
+                                value={child.fullName}
+                                onChange={e => updateChild(idx, 'fullName', e.target.value)}
+                                className="w-full border-0 bg-transparent text-sm focus:outline-none focus:ring-1 focus:ring-[#C4622D] rounded px-1 py-1"
+                              />
+                            </td>
+                            <td className="px-2 py-1.5">
+                              <input
+                                type="text"
+                                value={child.age}
+                                onChange={e => updateChild(idx, 'age', e.target.value)}
+                                className="w-full border-0 bg-transparent text-sm focus:outline-none focus:ring-1 focus:ring-[#C4622D] rounded px-1 py-1"
+                              />
+                            </td>
+                            <td className="px-2 py-1.5">
+                              <input
+                                type="text"
+                                value={child.gender}
+                                onChange={e => updateChild(idx, 'gender', e.target.value)}
+                                className="w-full border-0 bg-transparent text-sm focus:outline-none focus:ring-1 focus:ring-[#C4622D] rounded px-1 py-1"
+                              />
+                            </td>
+                            <td className="px-2 py-1.5">
+                              <input
+                                type="text"
+                                value={child.grade}
+                                onChange={e => updateChild(idx, 'grade', e.target.value)}
+                                className="w-full border-0 bg-transparent text-sm focus:outline-none focus:ring-1 focus:ring-[#C4622D] rounded px-1 py-1"
+                              />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {page4Errors.children && <p className="text-xs text-red-500 mt-2">{page4Errors.children}</p>}
+                </div>
+
+                {/* Dietary restrictions */}
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-[#1A1612] mb-3">
+                    Dietary restrictions <span className="text-red-500">*</span>
+                  </label>
+                  <div className="grid grid-cols-2 gap-x-8 gap-y-3">
+                    {DIETARY_OPTIONS.map(opt => (
+                      <label key={opt} className="flex items-center gap-3 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="dietaryRestrictions"
+                          value={opt}
+                          checked={page4.dietaryRestrictions === opt}
+                          onChange={() => setPage4(p => ({ ...p, dietaryRestrictions: opt }))}
+                          className="w-5 h-5 border-2 border-[#DDD5C8] text-[#C4622D] focus:ring-[#C4622D]"
+                        />
+                        <span className="text-sm text-[#1A1612]">{opt}</span>
+                      </label>
+                    ))}
+                  </div>
+                  {page4Errors.dietaryRestrictions && <p className="text-xs text-red-500 mt-2">{page4Errors.dietaryRestrictions}</p>}
+                </div>
+
+                {/* Attend School Holiday programme */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-[#8C8278] mb-3">
+                    Attend our School Holiday programme <span className="text-red-500">*</span>
+                  </label>
+                  <div className="grid grid-cols-2 gap-x-8">
+                    {['Yes', 'No'].map(opt => (
+                      <label key={opt} className="flex items-center gap-3 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="attendSchoolHoliday"
+                          value={opt}
+                          checked={page4.attendSchoolHoliday === opt}
+                          onChange={() => setPage4(p => ({ ...p, attendSchoolHoliday: opt }))}
+                          className="w-5 h-5 border-2 border-[#DDD5C8] text-[#C4622D] focus:ring-[#C4622D]"
+                        />
+                        <span className="text-sm text-[#1A1612]">{opt}</span>
+                      </label>
+                    ))}
+                  </div>
+                  {page4Errors.attendSchoolHoliday && <p className="text-xs text-red-500 mt-2">{page4Errors.attendSchoolHoliday}</p>}
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => { setCurrentPage(3); window.scrollTo(0, 0); }}
+                className="flex-1 border border-[#DDD5C8] text-[#5C5347] py-3 rounded-xl font-semibold text-sm hover:bg-[#FAF5EE] transition-colors"
+              >
+                ← Back
+              </button>
+              <button
+                onClick={handlePage4Next}
+                className="flex-1 bg-[#C4622D] text-white py-3 rounded-xl font-semibold text-sm hover:bg-[#A04E22] transition-colors"
+              >
+                Continue to Payment →
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── PAGE 5 — Payment ─────────────────────────────────────────────── */}
+        {currentPage === 5 && (
           <div className="bg-white rounded-2xl border border-[#EDE7DA] p-6 shadow-sm">
             <h2 className="text-xl font-bold text-[#1A1612] mb-2">Payment</h2>
             {settings?.class_fee && settings.class_fee > 0 && (
@@ -742,28 +1337,23 @@ export default function CookingClassesPage() {
               <p className="text-[#5C5347]">{page1.email}</p>
               <p className="text-[#5C5347]">{page1.cellphone}</p>
               {page1.selectedEvents.length > 0 && (
-                <p className="text-[#5C5347] mt-1">
-                  Events: {page1.selectedEvents.join(', ')}
-                </p>
+                <p className="text-[#5C5347] mt-1">Events: {page1.selectedEvents.join(', ')}</p>
               )}
               {page1.selectedDates.length > 0 && (
-                <p className="text-[#5C5347]">
-                  Dates: {page1.selectedDates.join(', ')}
-                </p>
+                <p className="text-[#5C5347]">Dates: {page1.selectedDates.join(', ')}</p>
               )}
             </div>
 
             <h3 className="text-sm font-semibold text-[#1A1612] mb-3">Select Payment Method</h3>
 
-            {/* Payment method selection */}
             <div className="space-y-3 mb-6">
-              <label className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-colors ${page2.paymentMethod === 'payfast' ? 'border-[#C4622D] bg-[#FDF6EE]' : 'border-[#DDD5C8] hover:border-[#C4622D]/50'}`}>
+              <label className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-colors ${page5.paymentMethod === 'payfast' ? 'border-[#C4622D] bg-[#FDF6EE]' : 'border-[#DDD5C8] hover:border-[#C4622D]/50'}`}>
                 <input
                   type="radio"
                   name="paymentMethod"
                   value="payfast"
-                  checked={page2.paymentMethod === 'payfast'}
-                  onChange={() => setPage2(p => ({ ...p, paymentMethod: 'payfast', proofFile: null, proofPreview: '' }))}
+                  checked={page5.paymentMethod === 'payfast'}
+                  onChange={() => setPage5(p => ({ ...p, paymentMethod: 'payfast', proofFile: null, proofPreview: '' }))}
                   className="mt-0.5 text-[#C4622D]"
                 />
                 <div>
@@ -772,13 +1362,13 @@ export default function CookingClassesPage() {
                 </div>
               </label>
 
-              <label className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-colors ${page2.paymentMethod === 'eft' ? 'border-[#C4622D] bg-[#FDF6EE]' : 'border-[#DDD5C8] hover:border-[#C4622D]/50'}`}>
+              <label className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-colors ${page5.paymentMethod === 'eft' ? 'border-[#C4622D] bg-[#FDF6EE]' : 'border-[#DDD5C8] hover:border-[#C4622D]/50'}`}>
                 <input
                   type="radio"
                   name="paymentMethod"
                   value="eft"
-                  checked={page2.paymentMethod === 'eft'}
-                  onChange={() => setPage2(p => ({ ...p, paymentMethod: 'eft' }))}
+                  checked={page5.paymentMethod === 'eft'}
+                  onChange={() => setPage5(p => ({ ...p, paymentMethod: 'eft' }))}
                   className="mt-0.5 text-[#C4622D]"
                 />
                 <div>
@@ -789,22 +1379,22 @@ export default function CookingClassesPage() {
             </div>
 
             {/* EFT proof upload */}
-            {page2.paymentMethod === 'eft' && (
+            {page5.paymentMethod === 'eft' && (
               <div className="mb-6">
                 <label className="block text-sm font-semibold text-[#1A1612] mb-2">
                   Upload Proof of Payment <span className="text-red-500">*</span>
                 </label>
-                <div className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-colors ${page2Errors.proof ? 'border-red-400' : 'border-[#DDD5C8] hover:border-[#C4622D]/50'}`}>
-                  {page2.proofPreview ? (
+                <div className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-colors ${page5Errors.proof ? 'border-red-400' : 'border-[#DDD5C8] hover:border-[#C4622D]/50'}`}>
+                  {page5.proofPreview ? (
                     <div>
-                      {page2.proofFile?.type?.startsWith('image/') ? (
-                        <img src={page2.proofPreview} alt="Proof of payment preview" className="max-h-40 mx-auto rounded-lg mb-3 object-contain" />
+                      {page5.proofFile?.type?.startsWith('image/') ? (
+                        <img src={page5.proofPreview} alt="Proof of payment preview" className="max-h-40 mx-auto rounded-lg mb-3 object-contain" />
                       ) : (
                         <div className="text-4xl mb-3">📄</div>
                       )}
-                      <p className="text-sm text-[#5C5347] font-medium">{page2.proofFile?.name}</p>
+                      <p className="text-sm text-[#5C5347] font-medium">{page5.proofFile?.name}</p>
                       <button
-                        onClick={() => setPage2(p => ({ ...p, proofFile: null, proofPreview: '' }))}
+                        onClick={() => setPage5(p => ({ ...p, proofFile: null, proofPreview: '' }))}
                         className="text-xs text-red-500 hover:underline mt-1"
                       >
                         Remove
@@ -825,7 +1415,7 @@ export default function CookingClassesPage() {
                     style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer' }}
                   />
                 </div>
-                {page2Errors.proof && <p className="text-xs text-red-500 mt-1">{page2Errors.proof}</p>}
+                {page5Errors.proof && <p className="text-xs text-red-500 mt-1">{page5Errors.proof}</p>}
               </div>
             )}
 
@@ -837,7 +1427,7 @@ export default function CookingClassesPage() {
 
             <div className="flex gap-3">
               <button
-                onClick={() => setCurrentPage(1)}
+                onClick={() => { setCurrentPage(4); window.scrollTo(0, 0); }}
                 className="flex-1 border border-[#DDD5C8] text-[#5C5347] py-3 rounded-xl font-semibold text-sm hover:bg-[#FAF5EE] transition-colors"
               >
                 ← Back
@@ -847,14 +1437,14 @@ export default function CookingClassesPage() {
                 disabled={submitting || paymentLaunched}
                 className="flex-1 bg-[#C4622D] text-white py-3 rounded-xl font-semibold text-sm hover:bg-[#A04E22] transition-colors disabled:opacity-50"
               >
-                {submitting ? 'Processing...' : page2.paymentMethod === 'payfast' ? 'Pay Now →' : 'Submit Registration →'}
+                {submitting ? 'Processing...' : page5.paymentMethod === 'payfast' ? 'Pay Now →' : 'Submit Registration →'}
               </button>
             </div>
           </div>
         )}
 
-        {/* PAGE 4 — Success */}
-        {currentPage === 4 && (
+        {/* ── PAGE 6 — Success ─────────────────────────────────────────────── */}
+        {currentPage === 6 && (
           <div className="bg-white rounded-2xl border border-[#EDE7DA] p-8 shadow-sm text-center">
             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <svg className="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -862,7 +1452,7 @@ export default function CookingClassesPage() {
               </svg>
             </div>
             <h2 className="text-xl font-bold text-[#1A1612] mb-2">Registration Submitted!</h2>
-            {page2.paymentMethod === 'eft' ? (
+            {page5.paymentMethod === 'eft' ? (
               <p className="text-sm text-[#5C5347] mb-6">
                 Thank you, {page1.title} {page1.firstName}! Your registration has been received. Our accounts team will confirm your EFT payment and you will be notified by email.
               </p>
