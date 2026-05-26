@@ -13,7 +13,7 @@ interface FormPage1 {
   emailConfirm: string;
   cellphone: string;
   selectedEvents: string[];
-  adultClassDates: string[];
+  selectedDates: string[];
 }
 
 interface FormPage2 {
@@ -30,19 +30,48 @@ interface ClassSettings {
   class_fee: number;
 }
 
-const EVENT_OPTIONS = [
-  { id: 'kids_cooking_baking', label: 'Kids Cooking and Baking Classes' },
-  { id: 'adult_classes', label: 'Adult Classes' },
-  { id: 'luncheon', label: 'Luncheon' },
-  { id: 'other', label: 'Other' },
-];
+interface ClassEvent {
+  id: string;
+  name: string;
+  sort_order: number;
+  is_active: boolean;
+}
 
-const ADULT_CLASS_DATES = [
-  { id: 'wed_13_may', label: 'Wed 13 May' },
-  { id: 'sun_31_may', label: 'Sun 31 May' },
-];
+interface EventDateRow {
+  id: string;
+  event_date: string | null;
+  start_time: string | null;
+  end_time: string | null;
+  location: string | null;
+  sort_order: number;
+}
 
 const TITLE_OPTIONS = ['Ms', 'Mr', 'Mrs', 'Other'];
+
+function formatEventDate(row: EventDateRow): string {
+  if (!row.event_date) return '';
+  const date = new Date(row.event_date + 'T00:00:00');
+  const day = date.getDate();
+  const month = date.toLocaleString('en-GB', { month: 'long' });
+  const year = date.getFullYear();
+
+  let timeStr = '';
+  if (row.start_time || row.end_time) {
+    const fmt = (t: string | null) => {
+      if (!t) return '';
+      const [h, m] = t.split(':').map(Number);
+      const suffix = h >= 12 ? 'pm' : 'am';
+      const hour = h % 12 || 12;
+      return m === 0 ? `${hour}${suffix}` : `${hour}:${String(m).padStart(2, '0')}${suffix}`;
+    };
+    if (row.start_time && row.end_time) {
+      timeStr = ` (${fmt(row.start_time)} - ${fmt(row.end_time)})`;
+    } else if (row.start_time) {
+      timeStr = ` (${fmt(row.start_time)})`;
+    }
+  }
+  return `${day} ${month} ${year}${timeStr}`;
+}
 
 export default function CookingClassesPage() {
   const supabase = createClient();
@@ -54,6 +83,9 @@ export default function CookingClassesPage() {
   const [registrationId, setRegistrationId] = useState<string | null>(null);
   const [paymentLaunched, setPaymentLaunched] = useState(false);
 
+  const [classEvents, setClassEvents] = useState<ClassEvent[]>([]);
+  const [eventDates, setEventDates] = useState<EventDateRow[]>([]);
+
   const [page1, setPage1] = useState<FormPage1>({
     title: '',
     firstName: '',
@@ -62,7 +94,7 @@ export default function CookingClassesPage() {
     emailConfirm: '',
     cellphone: '',
     selectedEvents: [],
-    adultClassDates: [],
+    selectedDates: [],
   });
 
   const [page2, setPage2] = useState<FormPage2>({
@@ -76,6 +108,8 @@ export default function CookingClassesPage() {
 
   useEffect(() => {
     loadSettings();
+    loadClassEvents();
+    loadEventDates();
   }, []);
 
   async function loadSettings() {
@@ -91,6 +125,31 @@ export default function CookingClassesPage() {
       // settings not found, use defaults
     } finally {
       setLoadingSettings(false);
+    }
+  }
+
+  async function loadClassEvents() {
+    try {
+      const { data } = await supabase
+        .from('cooking_class_events')
+        .select('*')
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true });
+      if (data) setClassEvents(data);
+    } catch {
+      // ignore
+    }
+  }
+
+  async function loadEventDates() {
+    try {
+      const { data } = await supabase
+        .from('cooking_class_event_dates')
+        .select('*')
+        .order('sort_order', { ascending: true });
+      if (data) setEventDates(data.filter((r: EventDateRow) => r.event_date));
+    } catch {
+      // ignore
     }
   }
 
@@ -126,8 +185,8 @@ export default function CookingClassesPage() {
     if (page1.selectedEvents.length === 0) {
       errors.selectedEvents = 'Please select at least one event';
     }
-    if (page1.selectedEvents.includes('adult_classes') && page1.adultClassDates.length === 0) {
-      errors.adultClassDates = 'Please select at least one Adult Classes date';
+    if (eventDates.length > 0 && page1.selectedDates.length === 0) {
+      errors.selectedDates = 'Please select at least one date';
     }
     setPage1Errors(errors);
     return Object.keys(errors).length === 0;
@@ -149,25 +208,23 @@ export default function CookingClassesPage() {
     }
   }
 
-  function toggleEvent(eventId: string) {
+  function toggleEvent(eventName: string) {
     setPage1(prev => {
-      const exists = prev.selectedEvents.includes(eventId);
+      const exists = prev.selectedEvents.includes(eventName);
       const updated = exists
-        ? prev.selectedEvents.filter(e => e !== eventId)
-        : [...prev.selectedEvents, eventId];
-      // Clear adult dates if adult_classes deselected
-      const adultClassDates = updated.includes('adult_classes') ? prev.adultClassDates : [];
-      return { ...prev, selectedEvents: updated, adultClassDates };
+        ? prev.selectedEvents.filter(e => e !== eventName)
+        : [...prev.selectedEvents, eventName];
+      return { ...prev, selectedEvents: updated };
     });
   }
 
-  function toggleAdultDate(dateId: string) {
+  function toggleDate(dateLabel: string) {
     setPage1(prev => {
-      const exists = prev.adultClassDates.includes(dateId);
+      const exists = prev.selectedDates.includes(dateLabel);
       const updated = exists
-        ? prev.adultClassDates.filter(d => d !== dateId)
-        : [...prev.adultClassDates, dateId];
-      return { ...prev, adultClassDates: updated };
+        ? prev.selectedDates.filter(d => d !== dateLabel)
+        : [...prev.selectedDates, dateLabel];
+      return { ...prev, selectedDates: updated };
     });
   }
 
@@ -214,7 +271,7 @@ export default function CookingClassesPage() {
           email: page1.email,
           cellphone: page1.cellphone,
           selected_events: page1.selectedEvents,
-          adult_class_dates: page1.adultClassDates,
+          adult_class_dates: page1.selectedDates,
           payment_method: page2.paymentMethod,
           payment_status: page2.paymentMethod === 'eft' ? 'awaiting_confirmation' : 'pending',
           proof_of_payment_url: proofUrl,
@@ -228,11 +285,9 @@ export default function CookingClassesPage() {
       setRegistrationId(reg.id);
 
       if (page2.paymentMethod === 'eft') {
-        // EFT: sync to sheet and show success
         await syncToSheet(reg.id);
-        setCurrentPage(4); // success page
+        setCurrentPage(4);
       } else {
-        // PayFast: initiate payment
         await initiatePayFast(reg.id);
       }
     } catch (err: any) {
@@ -250,14 +305,13 @@ export default function CookingClassesPage() {
         body: JSON.stringify({ registrationId: regId }),
       });
     } catch {
-      // Non-blocking — sheet sync failure shouldn't block user
+      // Non-blocking
     }
   }
 
   async function initiatePayFast(regId: string) {
     const amount = settings?.class_fee || 0;
     if (amount <= 0) {
-      // No fee — mark as paid and go to success
       await supabase
         .from('cooking_class_registrations')
         .update({ payment_status: 'paid' })
@@ -292,13 +346,11 @@ export default function CookingClassesPage() {
     const data = await res.json();
     if (!res.ok || !data.success) throw new Error(data.error || 'Failed to initiate payment');
 
-    // Update registration with payment ID
     await supabase
       .from('cooking_class_registrations')
       .update({ payfast_payment_id: data.params.m_payment_id })
       .eq('id', regId);
 
-    // Build PayFast form and submit
     const form = document.createElement('form');
     form.method = 'POST';
     form.action = data.gatewayUrl;
@@ -462,53 +514,62 @@ export default function CookingClassesPage() {
               }
             </div>
 
-            {/* Select an Event */}
+            {/* Select an Event — always shown, dynamic from DB */}
             <div className="mb-5">
               <label className="block text-sm font-semibold text-[#1A1612] mb-2">
                 Select an Event <span className="text-red-500">*</span>
               </label>
-              <div className="space-y-2.5">
-                {EVENT_OPTIONS.map(ev => (
-                  <label key={ev.id} className="flex items-center gap-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={page1.selectedEvents.includes(ev.id)}
-                      onChange={() => toggleEvent(ev.id)}
-                      className="w-4 h-4 rounded border-[#DDD5C8] text-[#C4622D] focus:ring-[#C4622D]"
-                    />
-                    <span className="text-sm text-[#1A1612]">{ev.label}</span>
-                  </label>
-                ))}
-              </div>
+              {classEvents.length === 0 ? (
+                <p className="text-xs text-[#8C8278] italic">No events available at this time.</p>
+              ) : (
+                <div className="space-y-2.5">
+                  {classEvents.map(ev => (
+                    <label key={ev.id} className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={page1.selectedEvents.includes(ev.name)}
+                        onChange={() => toggleEvent(ev.name)}
+                        className="w-4 h-4 rounded border-[#DDD5C8] text-[#C4622D] focus:ring-[#C4622D]"
+                      />
+                      <span className="text-sm text-[#1A1612]">{ev.name}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
               {page1Errors.selectedEvents && (
                 <p className="text-xs text-red-500 mt-1">{page1Errors.selectedEvents}</p>
               )}
             </div>
 
-            {/* Adult Classes dates — shown only if Adult Classes selected */}
-            {page1.selectedEvents.includes('adult_classes') && (
-              <div className="mb-5">
-                <label className="block text-sm font-semibold text-[#1A1612] mb-2">
-                  Adult Classes <span className="text-red-500">*</span>
-                </label>
+            {/* Select Attendance — always shown, dynamic dates from DB */}
+            <div className="mb-5">
+              <label className="block text-sm font-semibold text-[#1A1612] mb-2">
+                Select Attendance <span className="text-red-500">*</span>
+              </label>
+              {eventDates.length === 0 ? (
+                <p className="text-xs text-[#8C8278] italic">No dates available at this time.</p>
+              ) : (
                 <div className="space-y-2.5">
-                  {ADULT_CLASS_DATES.map(d => (
-                    <label key={d.id} className="flex items-center gap-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={page1.adultClassDates.includes(d.id)}
-                        onChange={() => toggleAdultDate(d.id)}
-                        className="w-4 h-4 rounded border-[#DDD5C8] text-[#C4622D] focus:ring-[#C4622D]"
-                      />
-                      <span className="text-sm text-[#1A1612]">{d.label}</span>
-                    </label>
-                  ))}
+                  {eventDates.map(row => {
+                    const label = formatEventDate(row);
+                    return (
+                      <label key={row.id} className="flex items-center gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={page1.selectedDates.includes(label)}
+                          onChange={() => toggleDate(label)}
+                          className="w-4 h-4 rounded border-[#DDD5C8] text-[#C4622D] focus:ring-[#C4622D]"
+                        />
+                        <span className="text-sm text-[#1A1612]">{label}</span>
+                      </label>
+                    );
+                  })}
                 </div>
-                {page1Errors.adultClassDates && (
-                  <p className="text-xs text-red-500 mt-1">{page1Errors.adultClassDates}</p>
-                )}
-              </div>
-            )}
+              )}
+              {page1Errors.selectedDates && (
+                <p className="text-xs text-red-500 mt-1">{page1Errors.selectedDates}</p>
+              )}
+            </div>
 
             <button
               onClick={handlePage1Next}
@@ -534,12 +595,14 @@ export default function CookingClassesPage() {
               <p className="font-semibold text-[#1A1612] mb-1">{page1.title} {page1.firstName} {page1.surname}</p>
               <p className="text-[#5C5347]">{page1.email}</p>
               <p className="text-[#5C5347]">{page1.cellphone}</p>
-              <p className="text-[#5C5347] mt-1">
-                Events: {page1.selectedEvents.map(e => EVENT_OPTIONS.find(o => o.id === e)?.label).filter(Boolean).join(', ')}
-              </p>
-              {page1.adultClassDates.length > 0 && (
+              {page1.selectedEvents.length > 0 && (
+                <p className="text-[#5C5347] mt-1">
+                  Events: {page1.selectedEvents.join(', ')}
+                </p>
+              )}
+              {page1.selectedDates.length > 0 && (
                 <p className="text-[#5C5347]">
-                  Dates: {page1.adultClassDates.map(d => ADULT_CLASS_DATES.find(o => o.id === d)?.label).filter(Boolean).join(', ')}
+                  Dates: {page1.selectedDates.join(', ')}
                 </p>
               )}
             </div>
