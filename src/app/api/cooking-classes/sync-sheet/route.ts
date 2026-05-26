@@ -1,18 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-const EVENT_LABELS: Record<string, string> = {
-  kids_cooking_baking: 'Kids Cooking and Baking Classes',
-  adult_classes: 'Adult Classes',
-  luncheon: 'Luncheon',
-  other: 'Other',
-};
-
-const DATE_LABELS: Record<string, string> = {
-  wed_13_may: 'Wed 13 May',
-  sun_31_may: 'Sun 31 May',
-};
-
 export async function POST(req: NextRequest) {
   try {
     const { registrationId } = await req.json();
@@ -45,26 +33,61 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (!settings?.sheet_id || !settings?.sheet_name) {
-      return NextResponse.json({ error: 'Google Sheet not configured' }, { status: 400 });
+      return NextResponse.json({ error: 'Google Sheet not configured in settings' }, { status: 400 });
     }
 
+    // Get OAuth access token
+    const accessToken = await getOAuthAccessToken();
+
+    // Load event names from DB for better labels
+    const { data: eventsData } = await supabaseAdmin
+      .from('cooking_class_events')
+      .select('id, name');
+    const eventMap: Record<string, string> = {};
+    (eventsData || []).forEach((e: { id: string; name: string }) => {
+      eventMap[e.id] = e.name;
+    });
+
+    // Load event date labels from DB
+    const { data: datesData } = await supabaseAdmin
+      .from('cooking_class_event_dates')
+      .select('id, event_date, start_time, end_time');
+    const dateMap: Record<string, string> = {};
+    (datesData || []).forEach((d: { id: string; event_date: string; start_time: string; end_time: string }) => {
+      const dateStr = new Date(d.event_date).toLocaleDateString('en-ZA', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+        timeZone: 'Africa/Johannesburg',
+      });
+      const startH = d.start_time ? d.start_time.slice(0, 5) : '';
+      const endH = d.end_time ? d.end_time.slice(0, 5) : '';
+      dateMap[d.id] = `${dateStr} (${startH} - ${endH})`;
+    });
+
     // Build row data
-    const events = (reg.selected_events || []).map((e: string) => EVENT_LABELS[e] || e).join(', ');
-    const dates = (reg.adult_class_dates || []).map((d: string) => DATE_LABELS[d] || d).join(', ');
-    const submittedAt = new Date(reg.created_at).toLocaleString('en-ZA', { timeZone: 'Africa/Johannesburg' });
+    const events = (reg.selected_events || [])
+      .map((e: string) => eventMap[e] || e)
+      .join(', ');
+    const dates = (reg.adult_class_dates || [])
+      .map((d: string) => dateMap[d] || d)
+      .join(', ');
+    const submittedAt = new Date(reg.created_at).toLocaleString('en-ZA', {
+      timeZone: 'Africa/Johannesburg',
+    });
 
     const rowValues = [
       [
         submittedAt,
-        reg.title,
-        reg.first_name,
-        reg.surname,
-        reg.email,
-        reg.cellphone,
+        reg.title || '',
+        reg.first_name || '',
+        reg.surname || '',
+        reg.email || '',
+        reg.cellphone || '',
         events,
         dates,
         reg.payment_method === 'payfast' ? 'PayFast' : 'EFT',
-        reg.payment_status,
+        reg.payment_status || '',
         reg.amount ? `R${Number(reg.amount).toFixed(2)}` : '',
         reg.id,
       ],
@@ -77,17 +100,18 @@ export async function POST(req: NextRequest) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${await getAccessToken()}`,
+        Authorization: `Bearer ${accessToken}`,
       },
-      body: JSON.stringify({
-        values: rowValues,
-      }),
+      body: JSON.stringify({ values: rowValues }),
     });
 
     if (!sheetsRes.ok) {
       const errText = await sheetsRes.text();
       console.error('[Sheets sync] API error:', errText);
-      return NextResponse.json({ error: 'Failed to write to Google Sheet', details: errText }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Failed to write to Google Sheet', details: errText },
+        { status: 500 }
+      );
     }
 
     // Mark as synced
@@ -104,51 +128,34 @@ export async function POST(req: NextRequest) {
   }
 }
 
-async function getAccessToken(): Promise<string> {
-  // Use service account credentials from environment
-  const serviceAccountKey = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
-  if (!serviceAccountKey) {
-    throw new Error('GOOGLE_SERVICE_ACCOUNT_KEY not configured');
+async function getOAuthAccessToken(): Promise<string> {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  const refreshToken = process.env.GOOGLE_REFRESH_TOKEN;
+
+  if (!clientId || !clientSecret || !refreshToken) {
+    throw new Error(
+      'Google OAuth not configured. Please set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_REFRESH_TOKEN environment variables.'
+    );
   }
 
-  const credentials = JSON.parse(serviceAccountKey);
-  const now = Math.floor(Date.now() / 1000);
-
-  const header = { alg: 'RS256', typ: 'JWT' };
-  const payload = {
-    iss: credentials.client_email,
-    scope: 'https://www.googleapis.com/auth/spreadsheets',
-    aud: 'https://oauth2.googleapis.com/token',
-    exp: now + 3600,
-    iat: now,
-  };
-
-  const base64url = (obj: object) =>
-    Buffer.from(JSON.stringify(obj)).toString('base64url');
-
-  const signingInput = `${base64url(header)}.${base64url(payload)}`;
-
-  // Sign with private key
-  const { createSign } = await import('crypto');
-  const sign = createSign('RSA-SHA256');
-  sign.update(signingInput);
-  const signature = sign.sign(credentials.private_key, 'base64url');
-
-  const jwt = `${signingInput}.${signature}`;
-
-  // Exchange JWT for access token
   const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
-      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-      assertion: jwt,
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
+      grant_type: 'refresh_token',
     }),
   });
 
   const tokenData = await tokenRes.json();
+
   if (!tokenData.access_token) {
-    throw new Error(`Failed to get access token: ${JSON.stringify(tokenData)}`);
+    throw new Error(
+      `Failed to get Google access token: ${tokenData.error_description || tokenData.error || JSON.stringify(tokenData)}`
+    );
   }
 
   return tokenData.access_token;

@@ -757,8 +757,13 @@ export default function CookingClassSettings() {
       {activeSubTab === 'registrations' && (
         <div>
           {syncMsg && (
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-4">
-              <p className="text-sm text-blue-700">{syncMsg}</p>
+            <div className={`border rounded-xl p-3 mb-4 ${syncMsg.toLowerCase().includes('synced') || syncMsg === 'Synced to sheet!' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+              <p className={`text-sm ${syncMsg.toLowerCase().includes('synced') || syncMsg === 'Synced to sheet!' ? 'text-green-700' : 'text-red-700'}`}>{syncMsg}</p>
+              {(syncMsg.toLowerCase().includes('oauth') || syncMsg.toLowerCase().includes('google_client') || syncMsg.toLowerCase().includes('refresh_token')) && (
+                <p className="text-xs text-red-600 mt-1">
+                  To enable Google Sheets sync, add <strong>GOOGLE_CLIENT_ID</strong>, <strong>GOOGLE_CLIENT_SECRET</strong>, and <strong>GOOGLE_REFRESH_TOKEN</strong> to your environment variables.
+                </p>
+              )}
             </div>
           )}
 
