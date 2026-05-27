@@ -125,6 +125,8 @@ export default function CookingClassSettings() {
 
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const [syncMsg, setSyncMsg] = useState('');
+  const [settingHeaders, setSettingHeaders] = useState(false);
+  const [headersMsg, setHeadersMsg] = useState('');
 
   useEffect(() => {
     loadSettings();
@@ -507,6 +509,25 @@ export default function CookingClassSettings() {
     }
   }
 
+  async function handleSetSheetHeaders() {
+    setSettingHeaders(true);
+    setHeadersMsg('');
+    try {
+      const res = await fetch('/api/cooking-classes/sync-sheet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'setHeaders' }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to update headers');
+      setHeadersMsg(`Sheet headers updated successfully (${data.columnCount} columns).`);
+    } catch (err: any) {
+      setHeadersMsg(err?.message || 'Failed to update sheet headers');
+    } finally {
+      setSettingHeaders(false);
+    }
+  }
+
   async function handleMarkPaid(regId: string) {
     await supabase
       .from('cooking_class_registrations')
@@ -737,6 +758,25 @@ export default function CookingClassSettings() {
                   className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
                 />
               </div>
+            </div>
+
+            {/* Update Sheet Headers button */}
+            <div className="mt-4 pt-4 border-t border-[#EDE7DA]">
+              <p className="text-xs text-[#8C8278] mb-2">
+                Click below to write the correct column header row to row 1 of your Google Sheet, matching the exact sequence of fields on the registration form.
+              </p>
+              <button
+                onClick={handleSetSheetHeaders}
+                disabled={settingHeaders || !sheetId}
+                className="bg-[#4A4540] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#2E2A26] transition-colors disabled:opacity-50"
+              >
+                {settingHeaders ? 'Updating Headers…' : 'Update Sheet Headers'}
+              </button>
+              {headersMsg && (
+                <p className={`text-xs mt-2 ${headersMsg.includes('successfully') ? 'text-green-700' : 'text-red-600'}`}>
+                  {headersMsg}
+                </p>
+              )}
             </div>
           </div>
 
