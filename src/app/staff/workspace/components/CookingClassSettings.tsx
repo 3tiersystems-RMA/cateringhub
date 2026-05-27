@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal';
 
 interface ClassSettings {
   id: string;
@@ -128,6 +129,8 @@ export default function CookingClassSettings({ isSuperAdmin = false }: { isSuper
   const [settingHeaders, setSettingHeaders] = useState(false);
   const [headersMsg, setHeadersMsg] = useState('');
   const [deletingRegId, setDeletingRegId] = useState<string | null>(null);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
     loadSettings();
@@ -538,7 +541,6 @@ export default function CookingClassSettings({ isSuperAdmin = false }: { isSuper
   }
 
   async function handleDeleteRegistration(regId: string) {
-    if (!confirm('Are you sure you want to permanently delete this registration? This cannot be undone.')) return;
     setDeletingRegId(regId);
     try {
       await supabase.from('cooking_class_registrations').delete().eq('id', regId);
@@ -674,6 +676,24 @@ export default function CookingClassSettings({ isSuperAdmin = false }: { isSuper
 
   return (
     <div className="p-6">
+      <DeleteConfirmModal
+        isOpen={deleteModalOpen}
+        productName=""
+        title="Delete Registration"
+        message="Are you sure you want to permanently delete this registration? This cannot be undone."
+        confirmLabel="Delete"
+        onConfirm={async () => {
+          setDeleteModalOpen(false);
+          if (pendingDeleteId) {
+            await handleDeleteRegistration(pendingDeleteId);
+            setPendingDeleteId(null);
+          }
+        }}
+        onCancel={() => {
+          setDeleteModalOpen(false);
+          setPendingDeleteId(null);
+        }}
+      />
       <div className="mb-6">
         <h2 className="text-xl font-bold text-[#1A1612]">Cooking &amp; Baking Classes</h2>
         <p className="text-sm text-[#8C8278] mt-0.5">Manage class settings, flyer, events, and registrations</p>
@@ -1085,7 +1105,10 @@ export default function CookingClassSettings({ isSuperAdmin = false }: { isSuper
                       )}
                       {isSuperAdmin && (
                         <button
-                          onClick={() => handleDeleteRegistration(reg.id)}
+                          onClick={() => {
+                            setPendingDeleteId(reg.id);
+                            setDeleteModalOpen(true);
+                          }}
                           disabled={deletingRegId === reg.id}
                           className="text-xs bg-red-50 border border-red-200 text-red-600 px-3 py-1.5 rounded-lg hover:bg-red-100 transition-colors font-medium disabled:opacity-50"
                         >
