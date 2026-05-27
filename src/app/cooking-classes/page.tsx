@@ -38,14 +38,15 @@ interface FormPage3 {
 
 interface ChildRow {
   fullName: string;
+  dob: string;
   age: string;
   gender: string;
   grade: string;
+  dietaryRestrictions: string;
 }
 
 interface FormPage4 {
   children: ChildRow[];
-  dietaryRestrictions: string;
   attendSchoolHoliday: string;
 }
 
@@ -98,7 +99,7 @@ const RELATIONSHIP_OPTIONS = ['Father', 'Mother', 'Grandparent', 'Guardian', 'Au
 const RELATIONSHIP_TO_CHILD_OPTIONS = ['Father', 'Mother', 'Grandparent', 'Guardian', 'Au pair', 'Other', 'Sibling', 'Friend'];
 const DIETARY_OPTIONS = ['None', 'Vegetarian', 'Vegan', 'Gluten-free', 'Lactose Intolerant', 'Peanut Allergy', 'Other'];
 
-const EMPTY_CHILD: ChildRow = { fullName: '', age: '', gender: '', grade: '' };
+const EMPTY_CHILD: ChildRow = { fullName: '', dob: '', age: '', gender: '', grade: '', dietaryRestrictions: '' };
 const EMPTY_CONTACT: ContactPerson = { title: '', firstName: '', surname: '', cellNo: '', relationshipToChild: '' };
 
 function formatEventDate(row: EventDateRow): string {
@@ -145,6 +146,9 @@ export default function CookingClassesPage() {
   const [importantInfoOpen, setImportantInfoOpen] = useState(true);
   const [emergencyContactOpen, setEmergencyContactOpen] = useState(true);
   const [cookingClassesOpen, setCookingClassesOpen] = useState(true);
+  const [collapsedChildren, setCollapsedChildren] = useState<Record<number, boolean>>(
+    Object.fromEntries(Array.from({ length: 10 }, (_, i) => [i, true]))
+  );
 
   const [page1, setPage1] = useState<FormPage1>({
     title: '',
@@ -171,7 +175,6 @@ export default function CookingClassesPage() {
 
   const [page4, setPage4] = useState<FormPage4>({
     children: Array.from({ length: 10 }, () => ({ ...EMPTY_CHILD })),
-    dietaryRestrictions: '',
     attendSchoolHoliday: '',
   });
 
@@ -422,7 +425,6 @@ export default function CookingClassesPage() {
     const errors: Record<string, string> = {};
     const filledChildren = page4.children.filter(c => c.fullName.trim());
     if (filledChildren.length === 0) errors.children = "Please enter at least one child's details";
-    if (!page4.dietaryRestrictions) errors.dietaryRestrictions = 'Please select a dietary restriction option';
     if (!page4.attendSchoolHoliday) errors.attendSchoolHoliday = 'Please answer this question';
     setPage4Errors(errors);
     return Object.keys(errors).length === 0;
@@ -1223,7 +1225,7 @@ export default function CookingClassesPage() {
               onClick={() => setCookingClassesOpen(o => !o)}
               className="w-full flex items-center justify-between bg-[#4A4540] text-white px-5 py-4 rounded-xl font-medium text-sm mb-6"
             >
-              <span>Register to attend Cooking Classes on offer</span>
+              <span>Participant to attend the Event on offer</span>
               <svg
                 className={`w-6 h-6 transition-transform ${cookingClassesOpen ? 'rotate-180' : ''}`}
                 fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
@@ -1234,89 +1236,108 @@ export default function CookingClassesPage() {
 
             {cookingClassesOpen && (
               <div>
-                {/* Register table */}
-                <div className="mb-6">
-                  <label className="block text-sm font-medium text-[#1A1612] mb-3">
-                    Register <span className="text-red-500">*</span>
-                  </label>
-                  <div className="overflow-x-auto rounded-xl border border-[#DDD5C8]">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="bg-[#EDE7DA]">
-                          <th className="w-28 px-3 py-2.5 text-center font-medium text-[#5C5347]"></th>
-                          <th className="px-3 py-2.5 text-center font-medium text-[#5C5347]">Full Name</th>
-                          <th className="px-3 py-2.5 text-center font-medium text-[#5C5347]">Age</th>
-                          <th className="px-3 py-2.5 text-center font-medium text-[#5C5347]">Gender</th>
-                          <th className="px-3 py-2.5 text-center font-medium text-[#5C5347]">Grade</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {page4.children.map((child, idx) => (
-                          <tr key={idx} className="border-t border-[#EDE7DA]">
-                            <td className="px-3 py-2 bg-[#F5F0E8] text-[#5C5347] text-sm font-medium whitespace-nowrap">
-                              Child ({idx + 1})
-                            </td>
-                            <td className="px-2 py-1.5">
-                              <input
-                                type="text"
-                                value={child.fullName}
-                                onChange={e => updateChild(idx, 'fullName', e.target.value)}
-                                className="w-full border-0 bg-transparent text-sm focus:outline-none focus:ring-1 focus:ring-[#C4622D] rounded px-1 py-1"
-                              />
-                            </td>
-                            <td className="px-2 py-1.5">
-                              <input
-                                type="text"
-                                value={child.age}
-                                onChange={e => updateChild(idx, 'age', e.target.value)}
-                                className="w-full border-0 bg-transparent text-sm focus:outline-none focus:ring-1 focus:ring-[#C4622D] rounded px-1 py-1"
-                              />
-                            </td>
-                            <td className="px-2 py-1.5">
-                              <input
-                                type="text"
-                                value={child.gender}
-                                onChange={e => updateChild(idx, 'gender', e.target.value)}
-                                className="w-full border-0 bg-transparent text-sm focus:outline-none focus:ring-1 focus:ring-[#C4622D] rounded px-1 py-1"
-                              />
-                            </td>
-                            <td className="px-2 py-1.5">
-                              <input
-                                type="text"
-                                value={child.grade}
-                                onChange={e => updateChild(idx, 'grade', e.target.value)}
-                                className="w-full border-0 bg-transparent text-sm focus:outline-none focus:ring-1 focus:ring-[#C4622D] rounded px-1 py-1"
-                              />
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  {page4Errors.children && <p className="text-xs text-red-500 mt-2">{page4Errors.children}</p>}
-                </div>
+                <p className="text-sm font-medium text-[#1A1612] mb-4">
+                  Register <span className="text-red-500">*</span>
+                </p>
+                {page4Errors.children && <p className="text-xs text-red-500 mb-3">{page4Errors.children}</p>}
 
-                {/* Dietary restrictions */}
-                <div className="mb-6">
-                  <label className="block text-sm font-medium text-[#1A1612] mb-3">
-                    Dietary restrictions <span className="text-red-500">*</span>
-                  </label>
-                  <div className="grid grid-cols-2 gap-x-8 gap-y-3">
-                    {DIETARY_OPTIONS.map(opt => (
-                      <label key={opt} className="flex items-center gap-3 cursor-pointer">
-                        <input
-                          type="radio"
-                          name="dietaryRestrictions"
-                          value={opt}
-                          checked={page4.dietaryRestrictions === opt}
-                          onChange={() => setPage4(p => ({ ...p, dietaryRestrictions: opt }))}
-                          className="w-5 h-5 border-2 border-[#DDD5C8] text-[#C4622D] focus:ring-[#C4622D]"
-                        />
-                        <span className="text-sm text-[#1A1612]">{opt}</span>
-                      </label>
-                    ))}
-                  </div>
-                  {page4Errors.dietaryRestrictions && <p className="text-xs text-red-500 mt-2">{page4Errors.dietaryRestrictions}</p>}
+                {/* Child cards — each collapsible */}
+                <div className="space-y-3 mb-6">
+                  {page4.children.map((child, idx) => {
+                    const isOpen = !collapsedChildren[idx];
+                    return (
+                      <div key={idx} className="border border-[#DDD5C8] rounded-xl overflow-hidden">
+                        {/* Card header */}
+                        <button
+                          type="button"
+                          onClick={() => setCollapsedChildren(prev => ({ ...prev, [idx]: !prev[idx] }))}
+                          className="w-full flex items-center justify-between px-4 py-3 bg-[#F5F0E8] hover:bg-[#EDE7DA] transition-colors"
+                        >
+                          <span className="text-sm font-semibold text-[#1A1612]">Child ({idx + 1})</span>
+                          <svg
+                            className={`w-4 h-4 text-[#8C8278] transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+
+                        {/* Card body */}
+                        {isOpen && (
+                          <div className="px-4 py-4 space-y-3">
+                            {/* Row 1: Full Name + DOB */}
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-xs font-medium text-[#5C5347] mb-1">Full Name</label>
+                                <input
+                                  type="text"
+                                  value={child.fullName}
+                                  onChange={e => updateChild(idx, 'fullName', e.target.value)}
+                                  className="w-full border border-[#DDD5C8] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-[#5C5347] mb-1">DOB</label>
+                                <input
+                                  type="date"
+                                  value={child.dob}
+                                  onChange={e => updateChild(idx, 'dob', e.target.value)}
+                                  className="w-full border border-[#DDD5C8] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                                />
+                              </div>
+                            </div>
+                            {/* Row 2: Age + Gender + Grade */}
+                            <div className="grid grid-cols-3 gap-3">
+                              <div>
+                                <label className="block text-xs font-medium text-[#5C5347] mb-1">Age</label>
+                                <input
+                                  type="text"
+                                  value={child.age}
+                                  onChange={e => updateChild(idx, 'age', e.target.value)}
+                                  className="w-full border border-[#DDD5C8] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-[#5C5347] mb-1">Gender</label>
+                                <select
+                                  value={child.gender}
+                                  onChange={e => updateChild(idx, 'gender', e.target.value)}
+                                  className="w-full border border-[#DDD5C8] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+                                >
+                                  <option value="">Select...</option>
+                                  <option value="Female">Female</option>
+                                  <option value="Male">Male</option>
+                                </select>
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-[#5C5347] mb-1">Grade</label>
+                                <input
+                                  type="text"
+                                  value={child.grade}
+                                  onChange={e => updateChild(idx, 'grade', e.target.value)}
+                                  className="w-full border border-[#DDD5C8] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                                />
+                              </div>
+                            </div>
+                            {/* Row 3: Dietary Restrictions */}
+                            <div>
+                              <label className="block text-xs font-medium text-[#5C5347] mb-1">Dietary Restrictions</label>
+                              <select
+                                value={child.dietaryRestrictions}
+                                onChange={e => updateChild(idx, 'dietaryRestrictions', e.target.value)}
+                                className="w-full border border-[#DDD5C8] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+                              >
+                                <option value="">Select...</option>
+                                {DIETARY_OPTIONS.map(opt => (
+                                  <option key={opt} value={opt}>{opt}</option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
 
                 {/* Attend School Holiday programme */}
