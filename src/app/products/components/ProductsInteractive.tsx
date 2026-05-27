@@ -411,9 +411,17 @@ function ProductsContent() {
   };
 
   const displayCategories = (() => {
-    const desiredOrder = ["All", "Weekly Menu", "Packaged Meals", "Voucher Meals", "Frozen Meals", "Prepared Meals", "À La Carte", "Wellness", "Retail POD", "Fadwah Mugs"];
+    const desiredOrder = ["All", "Weekly Menu", "Packaged Meals", "Voucher Meals", "Frozen Meals", "Prepared Meals", "À La Carte", "Wellness", "Retail POD", "Fadwah Mugs", "Catering Packages"];
     const available = ["All", "Weekly Menu", ...categories];
-    return desiredOrder.filter((c) => available.includes(c));
+    // Sort by desiredOrder; any category not in desiredOrder is appended at the end
+    return available.sort((a, b) => {
+      const ai = desiredOrder.indexOf(a);
+      const bi = desiredOrder.indexOf(b);
+      if (ai === -1 && bi === -1) return 0;
+      if (ai === -1) return 1;
+      if (bi === -1) return -1;
+      return ai - bi;
+    });
   })();
 
   // When voucher is active, count products for the active category from filtered set
