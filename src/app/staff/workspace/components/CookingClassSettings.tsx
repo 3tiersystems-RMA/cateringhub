@@ -523,7 +523,7 @@ export default function CookingClassSettings() {
     sessionKey?: string
   ) {
     const key = sessionKey || `general-${index}`;
-    const isCollapsed = collapsedSessions[key] ?? false;
+    const isCollapsed = collapsedSessions[key] ?? true;
 
     return (
       <div key={index} className="bg-[#FAF5EE] rounded-xl border border-[#EDE7DA] overflow-hidden">
@@ -877,7 +877,7 @@ export default function CookingClassSettings() {
 
           {/* (6) Per-event Event Details blocks — one per event, each collapsible */}
           {events.map(ev => {
-            const isBlockCollapsed = collapsedEventBlocks[ev.id] ?? false;
+            const isBlockCollapsed = collapsedEventBlocks[ev.id] ?? true;
             return (
               <div key={ev.id} className="bg-white rounded-2xl border border-[#EDE7DA] overflow-hidden">
                 {/* Event block header — always visible, click to collapse */}
