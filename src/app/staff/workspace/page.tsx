@@ -2847,19 +2847,6 @@ export default function StaffWorkspacePage() {
                     <button onClick={openAddForm} className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors">+ Add Product</button>
                   </div>
                 </div>
-                {/* Category filter bar */}
-                <div className="mb-4 flex flex-wrap gap-2">
-                  {['All', ...categoryNames].map(cat => (
-                    <button
-                      key={cat}
-                      type="button"
-                      onClick={() => setStaffProductCategory(cat)}
-                      className={`px-3 py-1.5 rounded-xl text-sm font-medium transition-colors border ${staffProductCategory === cat ? 'bg-[#C4622D] text-white border-[#C4622D]' : 'bg-white text-[#5C5347] border-[#DDD5C8] hover:border-[#C4622D] hover:text-[#C4622D]'}`}
-                    >
-                      {cat}
-                    </button>
-                  ))}
-                </div>
                 {productsLoading ? (
                   <div className="flex items-center justify-center py-12"><div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>
                 ) : (
@@ -2876,7 +2863,7 @@ export default function StaffWorkspacePage() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-[#F0EBE3]">
-                          {products.filter(p => (staffProductCategory === 'All' || p.category === staffProductCategory) && (!productSearchQuery || p.name.toLowerCase().includes(productSearchQuery.toLowerCase()) || p.category.toLowerCase().includes(productSearchQuery.toLowerCase()))).map(product => (
+                          {products.filter(p => !productSearchQuery || p.name.toLowerCase().includes(productSearchQuery.toLowerCase()) || p.category.toLowerCase().includes(productSearchQuery.toLowerCase())).map(product => (
                             <tr key={product.id} className="hover:bg-[#FAF5EE] transition-colors">
                               <td className="px-4 py-3">
                                 <div className="flex items-center gap-3">
