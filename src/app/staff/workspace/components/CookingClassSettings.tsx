@@ -60,7 +60,7 @@ const DEFAULT_LOCATION = '12 Cardamom Street, Cape Town, 7441';
 
 const PAYMENT_STATUS_COLORS: Record<string, string> = {
   pending: 'bg-amber-100 text-amber-700',
-  paid: 'bg-green-100 text-green-700',
+  paid: 'bg-[#C4622D] text-black',
   failed: 'bg-red-100 text-red-700',
   awaiting_confirmation: 'bg-blue-100 text-blue-700',
 };
@@ -77,7 +77,7 @@ const EMPTY_DATE_ROW = (eventId = '', sortOrder = 0): Omit<EventDateRow, 'id'> =
   class_fee: '',
 });
 
-export default function CookingClassSettings() {
+export default function CookingClassSettings({ isSuperAdmin = false }: { isSuperAdmin?: boolean }) {
   const supabase = createClient();
   const [settings, setSettings] = useState<ClassSettings | null>(null);
   const [loading, setLoading] = useState(true);
@@ -127,6 +127,7 @@ export default function CookingClassSettings() {
   const [syncMsg, setSyncMsg] = useState('');
   const [settingHeaders, setSettingHeaders] = useState(false);
   const [headersMsg, setHeadersMsg] = useState('');
+  const [deletingRegId, setDeletingRegId] = useState<string | null>(null);
 
   useEffect(() => {
     loadSettings();
@@ -534,6 +535,19 @@ export default function CookingClassSettings() {
       .update({ payment_status: 'paid' })
       .eq('id', regId);
     await loadRegistrations();
+  }
+
+  async function handleDeleteRegistration(regId: string) {
+    if (!confirm('Are you sure you want to permanently delete this registration? This cannot be undone.')) return;
+    setDeletingRegId(regId);
+    try {
+      await supabase.from('cooking_class_registrations').delete().eq('id', regId);
+      await loadRegistrations();
+    } catch {
+      // ignore
+    } finally {
+      setDeletingRegId(null);
+    }
   }
 
   // Reusable session card renderer
@@ -1067,6 +1081,15 @@ export default function CookingClassSettings() {
                           className="text-xs bg-[#F5F0E8] border border-[#DDD5C8] text-[#5C5347] px-3 py-1.5 rounded-lg hover:bg-[#EDE7DA] transition-colors font-medium disabled:opacity-50"
                         >
                           {syncingId === reg.id ? 'Syncing...' : 'Sync to Sheet'}
+                        </button>
+                      )}
+                      {isSuperAdmin && (
+                        <button
+                          onClick={() => handleDeleteRegistration(reg.id)}
+                          disabled={deletingRegId === reg.id}
+                          className="text-xs bg-red-50 border border-red-200 text-red-600 px-3 py-1.5 rounded-lg hover:bg-red-100 transition-colors font-medium disabled:opacity-50"
+                        >
+                          {deletingRegId === reg.id ? 'Deleting...' : 'Delete'}
                         </button>
                       )}
                     </div>
