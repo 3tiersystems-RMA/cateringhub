@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
       dateMap[d.id] = `${dateStr} (${startH} - ${endH})`;
     });
 
-    // Build row data
+    // Build base fields
     const events = (reg.selected_events || [])
       .map((e: string) => eventMap[e] || e)
       .join(', ');
@@ -76,20 +76,72 @@ export async function POST(req: NextRequest) {
       timeZone: 'Africa/Johannesburg',
     });
 
+    // Emergency contact helpers
+    const c1 = reg.emergency_contact1 || {};
+    const c2 = reg.emergency_contact2 || {};
+    const formatContact = (c: Record<string, string>) => {
+      if (!c.firstName && !c.surname) return '';
+      const parts = [
+        c.title || '',
+        c.firstName || '',
+        c.surname || '',
+        c.cellNo ? `(${c.cellNo})` : '',
+        c.relationshipToChild ? `[${c.relationshipToChild}]` : '',
+      ].filter(Boolean);
+      return parts.join(' ');
+    };
+
+    // Children details — each child gets its own set of columns
+    const children: Array<Record<string, string>> = Array.isArray(reg.children) ? reg.children : [];
+
+    // Build child columns (up to 10 children)
+    const childColumns: string[] = [];
+    for (let i = 0; i < 10; i++) {
+      const child = children[i];
+      if (child && child.fullName) {
+        childColumns.push(
+          child.fullName || '',
+          child.dob || '',
+          child.age || '',
+          child.gender || '',
+          child.grade || '',
+          child.dietaryRestrictions || '',
+        );
+      } else {
+        childColumns.push('', '', '', '', '', '');
+      }
+    }
+
     const rowValues = [
       [
+        // ── Basic registration info ──────────────────────────────────────────
         submittedAt,
         reg.title || '',
         reg.first_name || '',
         reg.surname || '',
         reg.email || '',
         reg.cellphone || '',
+        // ── Event & date selection ───────────────────────────────────────────
         events,
         dates,
+        // ── Page 2: Personal details ─────────────────────────────────────────
+        reg.relationship || '',
+        reg.first_time_portal || '',
+        reg.allergies_illness || '',
+        reg.rsa_id_passport || '',
+        // ── Page 3: Emergency contacts ───────────────────────────────────────
+        formatContact(c1),
+        formatContact(c2),
+        // ── Page 4: School holiday attendance ───────────────────────────────
+        reg.attend_school_holiday || '',
+        // ── Payment ──────────────────────────────────────────────────────────
         reg.payment_method === 'payfast' ? 'PayFast' : 'EFT',
         reg.payment_status || '',
         reg.amount ? `R${Number(reg.amount).toFixed(2)}` : '',
+        // ── Internal ID ──────────────────────────────────────────────────────
         reg.id,
+        // ── Children (up to 10, 6 columns each) ─────────────────────────────
+        ...childColumns,
       ],
     ];
 
@@ -155,7 +207,6 @@ async function getOAuthAccessToken(): Promise<string> {
   const tokenData = await tokenRes.json();
 
   if (!tokenData.access_token) {
-    // Build a detailed error message so we can diagnose the exact cause
     const googleError = tokenData.error || 'unknown_error';
     const googleDesc = tokenData.error_description || '';
     const hint = getTokenErrorHint(googleError);
