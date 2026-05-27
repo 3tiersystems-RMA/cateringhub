@@ -425,6 +425,25 @@ export default function CookingClassesPage() {
     const errors: Record<string, string> = {};
     const filledChildren = page4.children.filter(c => c.fullName.trim());
     if (filledChildren.length === 0) errors.children = "Please enter at least one child's details";
+
+    // For each child with a name entered, validate DOB, Gender, Dietary as mandatory and age range
+    page4.children.forEach((child, idx) => {
+      if (!child.fullName.trim()) return;
+      if (!child.dob) {
+        errors[`child_${idx}_dob`] = 'Date of Birth is required';
+      } else {
+        const dob = new Date(child.dob);
+        const today = new Date();
+        let age = today.getFullYear() - dob.getFullYear();
+        const m = today.getMonth() - dob.getMonth();
+        if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--;
+        if (age < 5) errors[`child_${idx}_age`] = 'Minimum participant age is 5';
+        else if (age > 16) errors[`child_${idx}_age`] = 'Maximum participant age is 16';
+      }
+      if (!child.gender) errors[`child_${idx}_gender`] = 'Gender is required';
+      if (!child.dietaryRestrictions) errors[`child_${idx}_dietary`] = 'Dietary Restrictions is required';
+    });
+
     if (!page4.attendSchoolHoliday) errors.attendSchoolHoliday = 'Please answer this question';
     setPage4Errors(errors);
     return Object.keys(errors).length === 0;
@@ -494,6 +513,17 @@ export default function CookingClassesPage() {
     setPage4(prev => {
       const updated = [...prev.children];
       updated[index] = { ...updated[index], [field]: value };
+      // Auto-calculate age when DOB changes
+      if (field === 'dob' && value) {
+        const dob = new Date(value);
+        const today = new Date();
+        let age = today.getFullYear() - dob.getFullYear();
+        const m = today.getMonth() - dob.getMonth();
+        if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--;
+        updated[index] = { ...updated[index], dob: value, age: age >= 0 ? String(age) : '' };
+      } else if (field === 'dob' && !value) {
+        updated[index] = { ...updated[index], dob: '', age: '' };
+      }
       return { ...prev, children: updated };
     });
   }
@@ -1253,6 +1283,7 @@ export default function CookingClassesPage() {
                 <div className="space-y-3 mb-6">
                   {page4.children.map((child, idx) => {
                     const isOpen = !collapsedChildren[idx];
+                    const hasName = !!child.fullName.trim();
                     return (
                       <div key={idx} className="border border-[#DDD5C8] rounded-xl overflow-hidden">
                         {/* Card header */}
@@ -1285,13 +1316,18 @@ export default function CookingClassesPage() {
                                 />
                               </div>
                               <div>
-                                <label className="block text-xs font-medium text-[#5C5347] mb-1">DOB</label>
+                                <label className="block text-xs font-medium text-[#5C5347] mb-1">
+                                  DOB {hasName && <span className="text-red-500">*</span>}
+                                </label>
                                 <input
                                   type="date"
                                   value={child.dob}
                                   onChange={e => updateChild(idx, 'dob', e.target.value)}
-                                  className="w-full border border-[#DDD5C8] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                                  className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] ${page4Errors[`child_${idx}_dob`] ? 'border-red-400' : 'border-[#DDD5C8]'}`}
                                 />
+                                {page4Errors[`child_${idx}_dob`] && (
+                                  <p className="text-xs text-red-500 mt-1">{page4Errors[`child_${idx}_dob`]}</p>
+                                )}
                               </div>
                             </div>
                             {/* Row 2: Age + Gender + Grade */}
@@ -1301,21 +1337,29 @@ export default function CookingClassesPage() {
                                 <input
                                   type="text"
                                   value={child.age}
-                                  onChange={e => updateChild(idx, 'age', e.target.value)}
-                                  className="w-full border border-[#DDD5C8] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                                  readOnly
+                                  className="w-full border border-[#DDD5C8] rounded-lg px-3 py-2 text-sm bg-[#F5F0E8] text-[#5C5347] cursor-not-allowed"
                                 />
+                                {page4Errors[`child_${idx}_age`] && (
+                                  <p className="text-xs text-red-500 mt-1">{page4Errors[`child_${idx}_age`]}</p>
+                                )}
                               </div>
                               <div>
-                                <label className="block text-xs font-medium text-[#5C5347] mb-1">Gender</label>
+                                <label className="block text-xs font-medium text-[#5C5347] mb-1">
+                                  Gender {hasName && <span className="text-red-500">*</span>}
+                                </label>
                                 <select
                                   value={child.gender}
                                   onChange={e => updateChild(idx, 'gender', e.target.value)}
-                                  className="w-full border border-[#DDD5C8] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+                                  className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white ${page4Errors[`child_${idx}_gender`] ? 'border-red-400' : 'border-[#DDD5C8]'}`}
                                 >
                                   <option value="">Select...</option>
                                   <option value="Female">Female</option>
                                   <option value="Male">Male</option>
                                 </select>
+                                {page4Errors[`child_${idx}_gender`] && (
+                                  <p className="text-xs text-red-500 mt-1">{page4Errors[`child_${idx}_gender`]}</p>
+                                )}
                               </div>
                               <div>
                                 <label className="block text-xs font-medium text-[#5C5347] mb-1">Grade</label>
@@ -1329,17 +1373,22 @@ export default function CookingClassesPage() {
                             </div>
                             {/* Row 3: Dietary Restrictions */}
                             <div>
-                              <label className="block text-xs font-medium text-[#5C5347] mb-1">Dietary Restrictions</label>
+                              <label className="block text-xs font-medium text-[#5C5347] mb-1">
+                                Dietary Restrictions {hasName && <span className="text-red-500">*</span>}
+                              </label>
                               <select
                                 value={child.dietaryRestrictions}
                                 onChange={e => updateChild(idx, 'dietaryRestrictions', e.target.value)}
-                                className="w-full border border-[#DDD5C8] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+                                className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white ${page4Errors[`child_${idx}_dietary`] ? 'border-red-400' : 'border-[#DDD5C8]'}`}
                               >
                                 <option value="">Select...</option>
                                 {DIETARY_OPTIONS.map(opt => (
                                   <option key={opt} value={opt}>{opt}</option>
                                 ))}
                               </select>
+                              {page4Errors[`child_${idx}_dietary`] && (
+                                <p className="text-xs text-red-500 mt-1">{page4Errors[`child_${idx}_dietary`]}</p>
+                              )}
                             </div>
                           </div>
                         )}
