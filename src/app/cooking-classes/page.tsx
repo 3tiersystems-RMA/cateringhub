@@ -342,9 +342,9 @@ export default function CookingClassesPage() {
     const selectedEventIds = classEvents
       .filter(ev => page1.selectedEvents.includes(ev.name))
       .map(ev => ev.id);
-    // Show dates that either match a selected event_id, or have no event_id (general dates)
+    // Only show dates that are explicitly linked to a selected event
     return eventDates.filter(row => {
-      if (!row.event_id) return true; // general dates always show
+      if (!row.event_id) return false; // exclude unlinked/general dates
       return selectedEventIds.includes(row.event_id);
     });
   }
