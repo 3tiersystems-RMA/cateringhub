@@ -59,7 +59,7 @@ export default function CartSidebar() {
   const [showDvSection, setShowDvSection] = useState(false);
 
   const tax = subtotal * 0;
-  const delivery = subtotal > 0 ? 15 : 0;
+  const delivery = subtotal > 0 ? 50 : 0;
   const total = subtotal + tax + delivery;
   const discountedTotal = dvApplied && dvData ? Math.max(0, total - dvData.dv_amount) : total;
 
