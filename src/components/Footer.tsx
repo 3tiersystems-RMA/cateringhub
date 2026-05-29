@@ -104,6 +104,9 @@ export default function Footer() {
             <Link href="/contact" className="hover:text-[#C4622D] transition-colors">
               Contact
             </Link>
+            <Link href="/staff/login" className="hover:text-[#C4622D] transition-colors">
+              Admin Portal
+            </Link>
           </nav>
 
           {/* Social + Copyright */}
