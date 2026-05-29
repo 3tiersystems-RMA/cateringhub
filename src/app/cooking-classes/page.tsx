@@ -62,6 +62,7 @@ interface ClassSettings {
   sheet_id: string | null;
   sheet_name: string | null;
   class_fee: number;
+  online_form_status: string | null;
 }
 
 interface ClassEvent {
@@ -136,6 +137,7 @@ export default function CookingClassesPage() {
   const [submitError, setSubmitError] = useState('');
   const [registrationId, setRegistrationId] = useState<string | null>(null);
   const [paymentLaunched, setPaymentLaunched] = useState(false);
+  const [showInactivePopup, setShowInactivePopup] = useState(false);
 
   const [classEvents, setClassEvents] = useState<ClassEvent[]>([]);
   const [eventDates, setEventDates] = useState<EventDateRow[]>([]);
@@ -179,7 +181,7 @@ export default function CookingClassesPage() {
   });
 
   const [page5, setPage5] = useState<FormPage5>({
-    paymentMethod: 'payfast',
+    paymentMethod: 'eft',
     proofFile: null,
     proofPreview: '',
   });
@@ -205,7 +207,12 @@ export default function CookingClassesPage() {
         .select('*')
         .limit(1)
         .single();
-      if (data) setSettings(data);
+      if (data) {
+        setSettings(data);
+        if (data.online_form_status === 'inactive') {
+          setShowInactivePopup(true);
+        }
+      }
     } catch {
       // settings not found, use defaults
     } finally {
@@ -678,6 +685,29 @@ export default function CookingClassesPage() {
 
   return (
     <div className="min-h-screen bg-[#FAF5EE]">
+      {/* Inactive Form Popup */}
+      {showInactivePopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 text-center">
+            <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-6 h-6 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h3 className="text-base font-bold text-[#1A1612] mb-3">Booking Form Unavailable</h3>
+            <p className="text-sm text-[#5C5347] leading-relaxed mb-6">
+              We will publish a new schedule for the Next available Baking &amp; Cooking classes soon - please contact our office for more information.
+            </p>
+            <Link
+              href="/homepage"
+              className="inline-block w-full bg-[#C4622D] text-white py-3 rounded-xl font-semibold text-sm hover:bg-[#A04E22] transition-colors"
+            >
+              OK
+            </Link>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <header className="bg-white border-b border-[#DDD5C8] px-6 py-4">
         <div className="max-w-2xl mx-auto flex items-center justify-between">
@@ -1408,21 +1438,6 @@ export default function CookingClassesPage() {
             <h3 className="text-sm font-semibold text-[#1A1612] mb-3">Select Payment Method</h3>
 
             <div className="space-y-3 mb-6">
-              <label className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-colors ${page5.paymentMethod === 'payfast' ? 'border-[#C4622D] bg-[#FDF6EE]' : 'border-[#DDD5C8] hover:border-[#C4622D]/50'}`}>
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  value="payfast"
-                  checked={page5.paymentMethod === 'payfast'}
-                  onChange={() => setPage5(p => ({ ...p, paymentMethod: 'payfast', proofFile: null, proofPreview: '' }))}
-                  className="mt-0.5 text-[#C4622D]"
-                />
-                <div>
-                  <p className="text-sm font-semibold text-[#1A1612]">Pay Online via PayFast</p>
-                  <p className="text-xs text-[#8C8278] mt-0.5">Secure online payment — card, EFT, or SnapScan</p>
-                </div>
-              </label>
-
               <label className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-colors ${page5.paymentMethod === 'eft' ? 'border-[#C4622D] bg-[#FDF6EE]' : 'border-[#DDD5C8] hover:border-[#C4622D]/50'}`}>
                 <input
                   type="radio"

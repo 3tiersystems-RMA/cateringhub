@@ -10,6 +10,7 @@ interface ClassSettings {
   sheet_id: string | null;
   sheet_name: string | null;
   class_fee: number;
+  online_form_status: string | null;
 }
 
 interface Registration {
@@ -89,6 +90,7 @@ export default function CookingClassSettings() {
   const [flyerUrl, setFlyerUrl] = useState('');
   const [sheetId, setSheetId] = useState('');
   const [sheetName, setSheetName] = useState('');
+  const [onlineFormStatus, setOnlineFormStatus] = useState<'active' | 'inactive'>('active');
 
   // Events management
   const [events, setEvents] = useState<ClassEvent[]>([]);
@@ -157,6 +159,7 @@ export default function CookingClassSettings() {
         setFlyerUrl(data.flyer_image_url || '');
         setSheetId(data.sheet_id || '');
         setSheetName(data.sheet_name || 'Registrations');
+        setOnlineFormStatus((data.online_form_status === 'inactive') ? 'inactive' : 'active');
       }
     } catch {
       // no settings yet
@@ -305,6 +308,7 @@ export default function CookingClassSettings() {
         flyer_image_url: flyerUrl || null,
         sheet_id: sheetId || null,
         sheet_name: sheetName || 'Registrations',
+        online_form_status: onlineFormStatus,
         updated_at: new Date().toISOString(),
       };
 
@@ -663,6 +667,41 @@ export default function CookingClassSettings() {
       {/* SETTINGS TAB */}
       {activeSubTab === 'settings' && (
         <div className="space-y-6 max-w-2xl">
+
+          {/* Online Form Status — shown at the very top of settings */}
+          <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5">
+            <h3 className="text-base font-semibold text-[#1A1612] mb-1">Online Form Status</h3>
+            <p className="text-xs text-[#8C8278] mb-4">
+              Controls whether customers can access the online booking form for in-person classes.
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setOnlineFormStatus('active')}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl border-2 text-sm font-semibold transition-colors ${
+                  onlineFormStatus === 'active' ?'border-green-500 bg-green-50 text-green-700' :'border-[#DDD5C8] text-[#8C8278] hover:border-green-400'
+                }`}
+              >
+                <span className={`w-2.5 h-2.5 rounded-full ${onlineFormStatus === 'active' ? 'bg-green-500' : 'bg-[#DDD5C8]'}`} />
+                Active
+              </button>
+              <button
+                type="button"
+                onClick={() => setOnlineFormStatus('inactive')}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl border-2 text-sm font-semibold transition-colors ${
+                  onlineFormStatus === 'inactive' ?'border-red-400 bg-red-50 text-red-600' :'border-[#DDD5C8] text-[#8C8278] hover:border-red-300'
+                }`}
+              >
+                <span className={`w-2.5 h-2.5 rounded-full ${onlineFormStatus === 'inactive' ? 'bg-red-500' : 'bg-[#DDD5C8]'}`} />
+                Inactive
+              </button>
+            </div>
+            {onlineFormStatus === 'inactive' && (
+              <p className="text-xs text-amber-600 mt-3 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                ⚠️ The booking form is currently <strong>inactive</strong>. Customers will see a notice instead of the registration form.
+              </p>
+            )}
+          </div>
 
           {/* (4) Class Flyer Image — moved to top */}
           <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5">
