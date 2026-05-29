@@ -14,16 +14,15 @@ export async function createClient() {
         },
         setAll(cookiesToSet) {
           try {
-            cookiesToSet?.forEach(({ name, value, options }) => {
+            cookiesToSet.forEach(({ name, value, options }) =>
               cookieStore.set(name, value, {
                 ...options,
-                sameSite: 'none' as const,
+                sameSite: 'none',
                 secure: true,
-                path: options?.path || '/',
-              });
-            });
+              })
+            );
           } catch {
-            // Handle server component context
+            // Server Component read-only context — expected
           }
         },
       },
