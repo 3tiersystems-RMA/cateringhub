@@ -2824,7 +2824,7 @@ export default function StaffWorkspacePage() {
 
             {/* ── COOKING CLASSES TAB ── */}
             {activeTab === 'cooking_classes' && (
-              <CookingClassSettings isSuperAdmin={userProfile?.role === 'super_admin'} />
+              <CookingClassSettings />
             )}
 
             {/* ── PRODUCTS TAB ── */}

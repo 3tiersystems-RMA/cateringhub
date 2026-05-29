@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal';
 
 interface ClassSettings {
   id: string;
@@ -61,7 +60,7 @@ const DEFAULT_LOCATION = '12 Cardamom Street, Cape Town, 7441';
 
 const PAYMENT_STATUS_COLORS: Record<string, string> = {
   pending: 'bg-amber-100 text-amber-700',
-  paid: 'bg-[#C4622D] text-black',
+  paid: 'bg-green-100 text-green-700',
   failed: 'bg-red-100 text-red-700',
   awaiting_confirmation: 'bg-blue-100 text-blue-700',
 };
@@ -78,7 +77,7 @@ const EMPTY_DATE_ROW = (eventId = '', sortOrder = 0): Omit<EventDateRow, 'id'> =
   class_fee: '',
 });
 
-export default function CookingClassSettings({ isSuperAdmin = false }: { isSuperAdmin?: boolean }) {
+export default function CookingClassSettings() {
   const supabase = createClient();
   const [settings, setSettings] = useState<ClassSettings | null>(null);
   const [loading, setLoading] = useState(true);
@@ -126,11 +125,6 @@ export default function CookingClassSettings({ isSuperAdmin = false }: { isSuper
 
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const [syncMsg, setSyncMsg] = useState('');
-  const [settingHeaders, setSettingHeaders] = useState(false);
-  const [headersMsg, setHeadersMsg] = useState('');
-  const [deletingRegId, setDeletingRegId] = useState<string | null>(null);
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
     loadSettings();
@@ -513,43 +507,12 @@ export default function CookingClassSettings({ isSuperAdmin = false }: { isSuper
     }
   }
 
-  async function handleSetSheetHeaders() {
-    setSettingHeaders(true);
-    setHeadersMsg('');
-    try {
-      const res = await fetch('/api/cooking-classes/sync-sheet', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'setHeaders' }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to update headers');
-      setHeadersMsg(`Sheet headers updated successfully (${data.columnCount} columns).`);
-    } catch (err: any) {
-      setHeadersMsg(err?.message || 'Failed to update sheet headers');
-    } finally {
-      setSettingHeaders(false);
-    }
-  }
-
   async function handleMarkPaid(regId: string) {
     await supabase
       .from('cooking_class_registrations')
       .update({ payment_status: 'paid' })
       .eq('id', regId);
     await loadRegistrations();
-  }
-
-  async function handleDeleteRegistration(regId: string) {
-    setDeletingRegId(regId);
-    try {
-      await supabase.from('cooking_class_registrations').delete().eq('id', regId);
-      await loadRegistrations();
-    } catch {
-      // ignore
-    } finally {
-      setDeletingRegId(null);
-    }
   }
 
   // Reusable session card renderer
@@ -676,24 +639,6 @@ export default function CookingClassSettings({ isSuperAdmin = false }: { isSuper
 
   return (
     <div className="p-6">
-      <DeleteConfirmModal
-        isOpen={deleteModalOpen}
-        productName=""
-        title="Delete Registration"
-        message="Are you sure you want to permanently delete this registration? This cannot be undone."
-        confirmLabel="Delete"
-        onConfirm={async () => {
-          setDeleteModalOpen(false);
-          if (pendingDeleteId) {
-            await handleDeleteRegistration(pendingDeleteId);
-            setPendingDeleteId(null);
-          }
-        }}
-        onCancel={() => {
-          setDeleteModalOpen(false);
-          setPendingDeleteId(null);
-        }}
-      />
       <div className="mb-6">
         <h2 className="text-xl font-bold text-[#1A1612]">Cooking &amp; Baking Classes</h2>
         <p className="text-sm text-[#8C8278] mt-0.5">Manage class settings, flyer, events, and registrations</p>
@@ -792,25 +737,6 @@ export default function CookingClassSettings({ isSuperAdmin = false }: { isSuper
                   className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
                 />
               </div>
-            </div>
-
-            {/* Update Sheet Headers button */}
-            <div className="mt-4 pt-4 border-t border-[#EDE7DA]">
-              <p className="text-xs text-[#8C8278] mb-2">
-                Click below to write the correct column header row to row 1 of your Google Sheet, matching the exact sequence of fields on the registration form.
-              </p>
-              <button
-                onClick={handleSetSheetHeaders}
-                disabled={settingHeaders || !sheetId}
-                className="bg-[#4A4540] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#2E2A26] transition-colors disabled:opacity-50"
-              >
-                {settingHeaders ? 'Updating Headers…' : 'Update Sheet Headers'}
-              </button>
-              {headersMsg && (
-                <p className={`text-xs mt-2 ${headersMsg.includes('successfully') ? 'text-green-700' : 'text-red-600'}`}>
-                  {headersMsg}
-                </p>
-              )}
             </div>
           </div>
 
@@ -1101,18 +1027,6 @@ export default function CookingClassSettings({ isSuperAdmin = false }: { isSuper
                           className="text-xs bg-[#F5F0E8] border border-[#DDD5C8] text-[#5C5347] px-3 py-1.5 rounded-lg hover:bg-[#EDE7DA] transition-colors font-medium disabled:opacity-50"
                         >
                           {syncingId === reg.id ? 'Syncing...' : 'Sync to Sheet'}
-                        </button>
-                      )}
-                      {isSuperAdmin && (
-                        <button
-                          onClick={() => {
-                            setPendingDeleteId(reg.id);
-                            setDeleteModalOpen(true);
-                          }}
-                          disabled={deletingRegId === reg.id}
-                          className="text-xs bg-red-50 border border-red-200 text-red-600 px-3 py-1.5 rounded-lg hover:bg-red-100 transition-colors font-medium disabled:opacity-50"
-                        >
-                          {deletingRegId === reg.id ? 'Deleting...' : 'Delete'}
                         </button>
                       )}
                     </div>

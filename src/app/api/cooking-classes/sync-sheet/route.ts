@@ -1,68 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-// ── Header row matching the exact form sequence ──────────────────────────────
-// Page 1: Submitted At, Title, First Name, Surname, Email, Cellphone, Event(s), Date(s)
-// Page 2: Relationship, First Time Portal, Allergies/Illness, RSA ID/Passport No
-// Page 3: Emergency Contact 1, Emergency Contact 2
-// Page 4: Children (up to 10 × 6 cols each), Attend School Holiday
-// Page 5: Payment Method, Payment Status, Amount
-// Internal: Registration ID
-function buildHeaderRow(): string[] {
-  const headers = [
-    // ── Page 1 ───────────────────────────────────────────────────────────────
-    'Submitted At',
-    'Title',
-    'First Name',
-    'Surname',
-    'Email',
-    'Cellphone',
-    'Event(s)',
-    'Date(s)',
-    // ── Page 2 ───────────────────────────────────────────────────────────────
-    'Relationship',
-    'First Time Portal',
-    'Allergies / Illness',
-    'RSA ID / Passport No',
-    // ── Page 3 ───────────────────────────────────────────────────────────────
-    'Emergency Contact 1',
-    'Emergency Contact 2',
-    // ── Page 4: Children (up to 10) ──────────────────────────────────────────
-  ];
-
-  for (let i = 1; i <= 10; i++) {
-    headers.push(
-      `Child ${i} Full Name`,
-      `Child ${i} DOB`,
-      `Child ${i} Age`,
-      `Child ${i} Gender`,
-      `Child ${i} Grade`,
-      `Child ${i} Dietary`,
-    );
-  }
-
-  // ── Page 4 (continued) ────────────────────────────────────────────────────
-  headers.push('Attend School Holiday');
-
-  // ── Page 5: Payment ───────────────────────────────────────────────────────
-  headers.push('Payment Method', 'Payment Status', 'Amount');
-
-  // ── Internal ──────────────────────────────────────────────────────────────
-  headers.push('Registration ID');
-
-  return headers;
-}
-
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-
-    // Support setHeaders action to write/update the header row
-    if (body.action === 'setHeaders') {
-      return await handleSetHeaders();
-    }
-
-    const { registrationId } = body;
+    const { registrationId } = await req.json();
     if (!registrationId) {
       return NextResponse.json({ error: 'Missing registrationId' }, { status: 400 });
     }
@@ -124,7 +65,7 @@ export async function POST(req: NextRequest) {
       dateMap[d.id] = `${dateStr} (${startH} - ${endH})`;
     });
 
-    // Build base fields
+    // Build row data
     const events = (reg.selected_events || [])
       .map((e: string) => eventMap[e] || e)
       .join(', ');
@@ -135,45 +76,8 @@ export async function POST(req: NextRequest) {
       timeZone: 'Africa/Johannesburg',
     });
 
-    // Emergency contact helpers
-    const c1 = reg.emergency_contact1 || {};
-    const c2 = reg.emergency_contact2 || {};
-    const formatContact = (c: Record<string, string>) => {
-      if (!c.firstName && !c.surname) return '';
-      const parts = [
-        c.title || '',
-        c.firstName || '',
-        c.surname || '',
-        c.cellNo ? `(${c.cellNo})` : '',
-        c.relationshipToChild ? `[${c.relationshipToChild}]` : '',
-      ].filter(Boolean);
-      return parts.join(' ');
-    };
-
-    // Children details — each child gets its own set of columns (up to 10)
-    const children: Array<Record<string, string>> = Array.isArray(reg.children) ? reg.children : [];
-
-    // Build child columns (up to 10 children) — placed BEFORE attendSchoolHoliday
-    const childColumns: string[] = [];
-    for (let i = 0; i < 10; i++) {
-      const child = children[i];
-      if (child && child.fullName) {
-        childColumns.push(
-          child.fullName || '',
-          child.dob || '',
-          child.age || '',
-          child.gender || '',
-          child.grade || '',
-          child.dietaryRestrictions || '',
-        );
-      } else {
-        childColumns.push('', '', '', '', '', '');
-      }
-    }
-
     const rowValues = [
       [
-        // ── Page 1: Registration info ────────────────────────────────────────
         submittedAt,
         reg.title || '',
         reg.first_name || '',
@@ -182,23 +86,9 @@ export async function POST(req: NextRequest) {
         reg.cellphone || '',
         events,
         dates,
-        // ── Page 2: Personal details ─────────────────────────────────────────
-        reg.relationship || '',
-        reg.first_time_portal || '',
-        reg.allergies_illness || '',
-        reg.rsa_id_passport || '',
-        // ── Page 3: Emergency contacts ───────────────────────────────────────
-        formatContact(c1),
-        formatContact(c2),
-        // ── Page 4: Children (up to 10, 6 columns each) ──────────────────────
-        ...childColumns,
-        // ── Page 4 (continued): School holiday ───────────────────────────────
-        reg.attend_school_holiday || '',
-        // ── Page 5: Payment ──────────────────────────────────────────────────
         reg.payment_method === 'payfast' ? 'PayFast' : 'EFT',
         reg.payment_status || '',
         reg.amount ? `R${Number(reg.amount).toFixed(2)}` : '',
-        // ── Internal ID ──────────────────────────────────────────────────────
         reg.id,
       ],
     ];
@@ -238,57 +128,6 @@ export async function POST(req: NextRequest) {
   }
 }
 
-async function handleSetHeaders(): Promise<NextResponse> {
-  try {
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { persistSession: false } }
-    );
-
-    const { data: settings } = await supabaseAdmin
-      .from('cooking_class_settings')
-      .select('sheet_id, sheet_name')
-      .limit(1)
-      .single();
-
-    if (!settings?.sheet_id || !settings?.sheet_name) {
-      return NextResponse.json({ error: 'Google Sheet not configured in settings' }, { status: 400 });
-    }
-
-    const accessToken = await getOAuthAccessToken();
-    const headers = buildHeaderRow();
-
-    // Write header row to row 1 (A1) of the sheet
-    const range = `${settings.sheet_name}!A1`;
-    const updateUrl = `https://sheets.googleapis.com/v4/spreadsheets/${settings.sheet_id}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED`;
-
-    const updateRes = await fetch(updateUrl, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({ values: [headers] }),
-    });
-
-    if (!updateRes.ok) {
-      const errText = await updateRes.text();
-      console.error('[Sheets setHeaders] API error:', errText);
-      return NextResponse.json(
-        { error: 'Failed to write headers to Google Sheet', details: errText },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({ success: true, columnCount: headers.length });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Unexpected error';
-    console.error('[Sheets setHeaders]', message);
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
-}
-
 async function getOAuthAccessToken(): Promise<string> {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
@@ -316,6 +155,7 @@ async function getOAuthAccessToken(): Promise<string> {
   const tokenData = await tokenRes.json();
 
   if (!tokenData.access_token) {
+    // Build a detailed error message so we can diagnose the exact cause
     const googleError = tokenData.error || 'unknown_error';
     const googleDesc = tokenData.error_description || '';
     const hint = getTokenErrorHint(googleError);

@@ -96,7 +96,7 @@ interface BookingCount {
 // (1) Updated: added 'Dr', removed 'Other'
 const TITLE_OPTIONS = ['Dr', 'Ms', 'Mr', 'Mrs'];
 const RELATIONSHIP_OPTIONS = ['Father', 'Mother', 'Grandparent', 'Guardian', 'Au pair', 'Other'];
-const RELATIONSHIP_TO_CHILD_OPTIONS = ['Father', 'Mother', 'Grandparent', 'Guardian', 'Au pair', 'Sibling', 'Friend'];
+const RELATIONSHIP_TO_CHILD_OPTIONS = ['Father', 'Mother', 'Grandparent', 'Guardian', 'Au pair', 'Other', 'Sibling', 'Friend'];
 const DIETARY_OPTIONS = ['None', 'Vegetarian', 'Vegan', 'Gluten-free', 'Lactose Intolerant', 'Peanut Allergy', 'Other'];
 
 const EMPTY_CHILD: ChildRow = { fullName: '', dob: '', age: '', gender: '', grade: '', dietaryRestrictions: '' };
@@ -136,7 +136,6 @@ export default function CookingClassesPage() {
   const [submitError, setSubmitError] = useState('');
   const [registrationId, setRegistrationId] = useState<string | null>(null);
   const [paymentLaunched, setPaymentLaunched] = useState(false);
-  const [contactOfficePopup, setContactOfficePopup] = useState(false);
 
   const [classEvents, setClassEvents] = useState<ClassEvent[]>([]);
   const [eventDates, setEventDates] = useState<EventDateRow[]>([]);
@@ -350,13 +349,6 @@ export default function CookingClassesPage() {
     });
   }
 
-  // Check if all dates for selected events are unavailable (greyed out)
-  function allDatesUnavailable(): boolean {
-    const dates = getFilteredDates();
-    if (dates.length === 0) return true;
-    return dates.every(row => !isDateSelectable(row));
-  }
-
   // ── Validation ──────────────────────────────────────────────────────────────
 
   function validatePage1(): boolean {
@@ -433,25 +425,6 @@ export default function CookingClassesPage() {
     const errors: Record<string, string> = {};
     const filledChildren = page4.children.filter(c => c.fullName.trim());
     if (filledChildren.length === 0) errors.children = "Please enter at least one child's details";
-
-    // For each child with a name entered, validate DOB, Gender, Dietary as mandatory and age range
-    page4.children.forEach((child, idx) => {
-      if (!child.fullName.trim()) return;
-      if (!child.dob) {
-        errors[`child_${idx}_dob`] = 'Date of Birth is required';
-      } else {
-        const dob = new Date(child.dob);
-        const today = new Date();
-        let age = today.getFullYear() - dob.getFullYear();
-        const m = today.getMonth() - dob.getMonth();
-        if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--;
-        if (age < 5) errors[`child_${idx}_age`] = 'Minimum participant age is 5';
-        else if (age > 16) errors[`child_${idx}_age`] = 'Maximum participant age is 16';
-      }
-      if (!child.gender) errors[`child_${idx}_gender`] = 'Gender is required';
-      if (!child.dietaryRestrictions) errors[`child_${idx}_dietary`] = 'Dietary Restrictions is required';
-    });
-
     if (!page4.attendSchoolHoliday) errors.attendSchoolHoliday = 'Please answer this question';
     setPage4Errors(errors);
     return Object.keys(errors).length === 0;
@@ -521,17 +494,6 @@ export default function CookingClassesPage() {
     setPage4(prev => {
       const updated = [...prev.children];
       updated[index] = { ...updated[index], [field]: value };
-      // Auto-calculate age when DOB changes
-      if (field === 'dob' && value) {
-        const dob = new Date(value);
-        const today = new Date();
-        let age = today.getFullYear() - dob.getFullYear();
-        const m = today.getMonth() - dob.getMonth();
-        if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--;
-        updated[index] = { ...updated[index], dob: value, age: age >= 0 ? String(age) : '' };
-      } else if (field === 'dob' && !value) {
-        updated[index] = { ...updated[index], dob: '', age: '' };
-      }
       return { ...prev, children: updated };
     });
   }
@@ -554,29 +516,20 @@ export default function CookingClassesPage() {
     reader.readAsDataURL(file);
   }
 
-  async function recordBookingCounts(regId: string, selectedDateLabels: string[], participantCount: number) {
+  async function recordBookingCounts(regId: string, selectedDateLabels: string[]) {
     try {
       const matchedDateIds = eventDates
         .filter(row => selectedDateLabels.includes(formatEventDate(row)))
         .map(row => row.id);
       if (matchedDateIds.length === 0) return;
-      // Insert one row per participant per date so seating reflects actual participants
-      const inserts: { event_date_id: string; registration_id: string }[] = [];
-      matchedDateIds.forEach(event_date_id => {
-        const count = Math.max(participantCount, 1);
-        for (let i = 0; i < count; i++) {
-          inserts.push({ event_date_id, registration_id: regId });
-        }
-      });
+      const inserts = matchedDateIds.map(event_date_id => ({
+        event_date_id,
+        registration_id: regId,
+      }));
       await supabase.from('cooking_class_booking_counts').insert(inserts);
     } catch {
       // Non-blocking
     }
-  }
-
-  // Calculate number of enrolled participants (children with a name entered)
-  function getParticipantCount(): number {
-    return page4.children.filter(c => c.fullName.trim()).length;
   }
 
   async function handleSubmit() {
@@ -599,10 +552,6 @@ export default function CookingClassesPage() {
         proofUrl = null;
       }
 
-      const participantCount = getParticipantCount();
-      const classFee = settings?.class_fee || 0;
-      const totalAmount = classFee * Math.max(participantCount, 1);
-
       const { data: reg, error: regErr } = await supabase
         .from('cooking_class_registrations')
         .insert({
@@ -613,19 +562,11 @@ export default function CookingClassesPage() {
           cellphone: page1.cellphone,
           selected_events: page1.selectedEvents,
           adult_class_dates: page1.selectedDates,
-          relationship: page2.relationship,
-          first_time_portal: page2.firstTimePortal,
-          allergies_illness: page2.allergiesIllness,
-          rsa_id_passport: page2.rsaIdPassport,
-          emergency_contact1: page3.contact1,
-          emergency_contact2: page3.contact2,
-          children: page4.children.filter(c => c.fullName.trim()),
-          attend_school_holiday: page4.attendSchoolHoliday,
           payment_method: page5.paymentMethod,
           payment_status: page5.paymentMethod === 'eft' ? 'awaiting_confirmation' : 'pending',
           proof_of_payment_url: proofUrl,
           proof_of_payment_path: proofPath,
-          amount: totalAmount,
+          amount: settings?.class_fee || 0,
         })
         .select('id')
         .single();
@@ -633,13 +574,13 @@ export default function CookingClassesPage() {
       if (regErr || !reg) throw new Error(regErr?.message || 'Failed to save registration');
       setRegistrationId(reg.id);
 
-      await recordBookingCounts(reg.id, page1.selectedDates, participantCount);
+      await recordBookingCounts(reg.id, page1.selectedDates);
 
       if (page5.paymentMethod === 'eft') {
         await syncToSheet(reg.id);
         setCurrentPage(6);
       } else {
-        await initiatePayFast(reg.id, totalAmount);
+        await initiatePayFast(reg.id);
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'An error occurred. Please try again.';
@@ -661,9 +602,9 @@ export default function CookingClassesPage() {
     }
   }
 
-  async function initiatePayFast(regId: string, amount?: number) {
-    const finalAmount = amount ?? settings?.class_fee ?? 0;
-    if (finalAmount <= 0) {
+  async function initiatePayFast(regId: string) {
+    const amount = settings?.class_fee || 0;
+    if (amount <= 0) {
       await supabase
         .from('cooking_class_registrations')
         .update({ payment_status: 'paid' })
@@ -681,7 +622,7 @@ export default function CookingClassesPage() {
           paymentId: `CC-${regId.slice(0, 8).toUpperCase()}`,
           itemName: 'Cooking & Baking Class Registration',
           itemDescription: `${page1.firstName} ${page1.surname} - ${page1.selectedEvents.join(', ')}`,
-          amount: finalAmount,
+          amount,
         },
         buyer: {
           firstName: page1.firstName,
@@ -737,32 +678,6 @@ export default function CookingClassesPage() {
 
   return (
     <div className="min-h-screen bg-[#FAF5EE]">
-      {/* Contact Office Popup — shown when event has no dates or all dates greyed out */}
-      {contactOfficePopup && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl border border-[#DDD5C8] w-full max-w-md mx-4 p-8">
-            <div className="flex justify-center mb-4">
-              <div className="w-14 h-14 rounded-full bg-[#FEF3EC] flex items-center justify-center">
-                <svg className="w-7 h-7 text-[#C4622D]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                </svg>
-              </div>
-            </div>
-            <h2 className="text-xl font-bold text-[#1A1612] text-center mb-3">Contact Our Office</h2>
-            <p className="text-[#5C5347] text-sm text-center mb-6">
-              Contact our office about this Event — <span className="font-semibold text-[#1A1612]">087 265 2262</span> or drop us an email:{' '}
-              <a href="mailto:info@cardamomkitchen.co.za" className="text-[#C4622D] hover:underline font-semibold">info@cardamomkitchen.co.za</a>
-            </p>
-            <button
-              onClick={() => setContactOfficePopup(false)}
-              className="w-full bg-[#C4622D] text-white py-3 rounded-xl font-semibold text-sm hover:bg-[#A04E22] transition-all duration-200"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Header */}
       <header className="bg-white border-b border-[#DDD5C8] px-6 py-4">
         <div className="max-w-2xl mx-auto flex items-center justify-between">
@@ -933,50 +848,7 @@ export default function CookingClassesPage() {
               {page1.selectedEvents.length === 0 ? (
                 <p className="text-xs text-[#8C8278] italic">Please select an event above to see available dates.</p>
               ) : filteredDates.length === 0 ? (
-                <div>
-                  <p className="text-xs text-[#8C8278] italic">No dates available for the selected event(s).</p>
-                  <button
-                    type="button"
-                    onClick={() => setContactOfficePopup(true)}
-                    className="mt-2 text-xs text-[#C4622D] hover:underline font-medium"
-                  >
-                    Contact our office about this event →
-                  </button>
-                </div>
-              ) : allDatesUnavailable() ? (
-                <div>
-                  <div className="space-y-3">
-                    {filteredDates.map(row => {
-                      const label = formatEventDate(row);
-                      const availability = getAvailabilityText(row);
-                      return (
-                        <div key={row.id}>
-                          <label className="flex items-center gap-3 cursor-not-allowed opacity-60">
-                            <input
-                              type="checkbox"
-                             
-                              disabled
-                              className="w-4 h-4 rounded border-[#DDD5C8] text-[#C4622D] focus:ring-[#C4622D] disabled:opacity-50"
-                            />
-                            <span className="text-sm text-[#8C8278]">{label}</span>
-                          </label>
-                          {availability.text && (
-                            <p className={`text-xs mt-0.5 ml-7 font-medium ${availability.color}`}>
-                              {availability.text}
-                            </p>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setContactOfficePopup(true)}
-                    className="mt-3 text-xs text-[#C4622D] hover:underline font-medium"
-                  >
-                    Contact our office about this event →
-                  </button>
-                </div>
+                <p className="text-xs text-[#8C8278] italic">No dates available for the selected event(s).</p>
               ) : (
                 <div className="space-y-3">
                   {filteredDates.map(row => {
@@ -1373,7 +1245,6 @@ export default function CookingClassesPage() {
                 <div className="space-y-3 mb-6">
                   {page4.children.map((child, idx) => {
                     const isOpen = !collapsedChildren[idx];
-                    const hasName = !!child.fullName.trim();
                     return (
                       <div key={idx} className="border border-[#DDD5C8] rounded-xl overflow-hidden">
                         {/* Card header */}
@@ -1406,18 +1277,13 @@ export default function CookingClassesPage() {
                                 />
                               </div>
                               <div>
-                                <label className="block text-xs font-medium text-[#5C5347] mb-1">
-                                  DOB {hasName && <span className="text-red-500">*</span>}
-                                </label>
+                                <label className="block text-xs font-medium text-[#5C5347] mb-1">DOB</label>
                                 <input
                                   type="date"
                                   value={child.dob}
                                   onChange={e => updateChild(idx, 'dob', e.target.value)}
-                                  className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] ${page4Errors[`child_${idx}_dob`] ? 'border-red-400' : 'border-[#DDD5C8]'}`}
+                                  className="w-full border border-[#DDD5C8] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
                                 />
-                                {page4Errors[`child_${idx}_dob`] && (
-                                  <p className="text-xs text-red-500 mt-1">{page4Errors[`child_${idx}_dob`]}</p>
-                                )}
                               </div>
                             </div>
                             {/* Row 2: Age + Gender + Grade */}
@@ -1427,29 +1293,21 @@ export default function CookingClassesPage() {
                                 <input
                                   type="text"
                                   value={child.age}
-                                  readOnly
-                                  className="w-full border border-[#DDD5C8] rounded-lg px-3 py-2 text-sm bg-[#F5F0E8] text-[#5C5347] cursor-not-allowed"
+                                  onChange={e => updateChild(idx, 'age', e.target.value)}
+                                  className="w-full border border-[#DDD5C8] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
                                 />
-                                {page4Errors[`child_${idx}_age`] && (
-                                  <p className="text-xs text-red-500 mt-1">{page4Errors[`child_${idx}_age`]}</p>
-                                )}
                               </div>
                               <div>
-                                <label className="block text-xs font-medium text-[#5C5347] mb-1">
-                                  Gender {hasName && <span className="text-red-500">*</span>}
-                                </label>
+                                <label className="block text-xs font-medium text-[#5C5347] mb-1">Gender</label>
                                 <select
                                   value={child.gender}
                                   onChange={e => updateChild(idx, 'gender', e.target.value)}
-                                  className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white ${page4Errors[`child_${idx}_gender`] ? 'border-red-400' : 'border-[#DDD5C8]'}`}
+                                  className="w-full border border-[#DDD5C8] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
                                 >
                                   <option value="">Select...</option>
                                   <option value="Female">Female</option>
                                   <option value="Male">Male</option>
                                 </select>
-                                {page4Errors[`child_${idx}_gender`] && (
-                                  <p className="text-xs text-red-500 mt-1">{page4Errors[`child_${idx}_gender`]}</p>
-                                )}
                               </div>
                               <div>
                                 <label className="block text-xs font-medium text-[#5C5347] mb-1">Grade</label>
@@ -1463,22 +1321,17 @@ export default function CookingClassesPage() {
                             </div>
                             {/* Row 3: Dietary Restrictions */}
                             <div>
-                              <label className="block text-xs font-medium text-[#5C5347] mb-1">
-                                Dietary Restrictions {hasName && <span className="text-red-500">*</span>}
-                              </label>
+                              <label className="block text-xs font-medium text-[#5C5347] mb-1">Dietary Restrictions</label>
                               <select
                                 value={child.dietaryRestrictions}
                                 onChange={e => updateChild(idx, 'dietaryRestrictions', e.target.value)}
-                                className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white ${page4Errors[`child_${idx}_dietary`] ? 'border-red-400' : 'border-[#DDD5C8]'}`}
+                                className="w-full border border-[#DDD5C8] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
                               >
                                 <option value="">Select...</option>
                                 {DIETARY_OPTIONS.map(opt => (
                                   <option key={opt} value={opt}>{opt}</option>
                                 ))}
                               </select>
-                              {page4Errors[`child_${idx}_dietary`] && (
-                                <p className="text-xs text-red-500 mt-1">{page4Errors[`child_${idx}_dietary`]}</p>
-                              )}
                             </div>
                           </div>
                         )}
