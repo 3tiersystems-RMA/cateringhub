@@ -2917,7 +2917,7 @@ export default function StaffWorkspacePage() {
               {/* ── Scanner (standalone page) ── */}
               {canRole('super_admin', 'admin', 'staff') && (
                 <button onClick={() => router.push('/staff/scanner')} className="flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]">
-                  <span className="text-base">📷</span><span>Scanner</span>
+                  <span className="text-base">📷</span><span>Voucher Meal Status</span>
                 </button>
               )}
 
@@ -3005,7 +3005,7 @@ export default function StaffWorkspacePage() {
               {/* ── Guide (standalone help page) ── */}
               {canRole('super_admin', 'admin', 'staff') && (
                 <button onClick={() => router.push('/staff/guide')} className="flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]">
-                  <span className="text-base">📖</span><span>Guide</span>
+                  <span className="text-base">📖</span><span>User Guide</span>
                 </button>
               )}
 
