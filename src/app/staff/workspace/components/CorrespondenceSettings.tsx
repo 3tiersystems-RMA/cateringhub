@@ -185,6 +185,7 @@ export default function CorrespondenceSettings() {
     } else {
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
+      setIsOpen(false);
     }
 
     setSaving(false);
