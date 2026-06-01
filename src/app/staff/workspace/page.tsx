@@ -2958,11 +2958,11 @@ export default function StaffWorkspacePage() {
                 </>
               )}
 
-              {/* ── Media (collapsible) ── */}
+              {/* ── Media Library (collapsible) ── */}
               {canAnyTab('media', 'media_events') && (
                 <>
                   <button onClick={() => setMediaMenuOpen(prev => !prev)} className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${['media', 'media_events', 'media_products'].includes(activeTab) ? 'text-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'}`}>
-                    <span className="text-base">🗂️</span><span className="flex-1">Media</span><span className="text-xs">{mediaMenuOpen ? '▲' : '▼'}</span>
+                    <span className="text-base">🗂️</span><span className="flex-1">Media Library</span><span className="text-xs">{mediaMenuOpen ? '▲' : '▼'}</span>
                   </button>
                   {mediaMenuOpen && (
                     <div className="pl-4 border-l-2 border-[#E8DDD0] ml-4">
@@ -2974,6 +2974,11 @@ export default function StaffWorkspacePage() {
                       {canTab('media_events') && (
                         <button onClick={() => { handleTabChange('media_events'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'media_events' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
                           <span className="text-base">🎉</span><span>Events</span>
+                        </button>
+                      )}
+                      {canTab('media_products') && (
+                        <button onClick={() => { handleTabChange('media_products'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'media_products' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
+                          <span className="text-base">🛍️</span><span>Products</span>
                         </button>
                       )}
                     </div>
@@ -3677,6 +3682,11 @@ export default function StaffWorkspacePage() {
                         </button>
                       )}
                     </div>
+                    {(['all', 'active', 'unpaid', 'paid', 'redeemed', 'expired'] as const).map(status => (
+                      <button key={status} onClick={() => setMvFilterStatus(status)} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors capitalize ${mvFilterStatus === status ? 'text-[#C4622D] font-semibold' : 'text-[#5C5347] hover:text-[#C4622D]'}`}>
+                        {status.charAt(0).toUpperCase() + status.slice(1)}
+                      </button>
+                    ))}
                     <button onClick={() => { setEditingMv(null); setMvForm({ voucher_code: `MV-${Date.now().toString(36).toUpperCase()}`, customer_name: '', customer_email: '', customer_phone: '', total_meals: '', meals_remaining: '', status: 'unpaid', notes: '', package_type: 'none', purchased_at: '' }); setMvFormError(''); setMvFormSuccess(''); setShowMvForm(true); }} className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors">+ Add Voucher</button>
                   </div>
                 </div>
