@@ -14,6 +14,9 @@ interface CorrespondenceSettingsData {
   info_email: string | null;
   admin_email: string | null;
   banking_details: string | null;
+  default_despatch_address: string | null;
+  cost_per_km: string | null;
+  default_delivery_charge: string | null;
 }
 
 const defaultSettings: Omit<CorrespondenceSettingsData, 'id'> = {
@@ -26,6 +29,9 @@ const defaultSettings: Omit<CorrespondenceSettingsData, 'id'> = {
   info_email: null,
   admin_email: null,
   banking_details: null,
+  default_despatch_address: null,
+  cost_per_km: null,
+  default_delivery_charge: null,
 };
 
 export default function CorrespondenceSettings() {
@@ -70,6 +76,9 @@ export default function CorrespondenceSettings() {
         info_email: data.info_email || null,
         admin_email: data.admin_email || null,
         banking_details: data.banking_details || null,
+        default_despatch_address: data.default_despatch_address || null,
+        cost_per_km: data.cost_per_km != null ? String(data.cost_per_km) : null,
+        default_delivery_charge: data.default_delivery_charge != null ? String(data.default_delivery_charge) : null,
       });
     }
     setLoading(false);
@@ -147,6 +156,9 @@ export default function CorrespondenceSettings() {
       info_email: form.info_email || null,
       admin_email: form.admin_email || null,
       banking_details: form.banking_details || null,
+      default_despatch_address: form.default_despatch_address || null,
+      cost_per_km: form.cost_per_km ? parseFloat(parseFloat(form.cost_per_km).toFixed(2)) : null,
+      default_delivery_charge: form.default_delivery_charge ? parseFloat(parseFloat(form.default_delivery_charge).toFixed(2)) : null,
       updated_at: new Date().toISOString(),
     };
 
@@ -331,6 +343,55 @@ export default function CorrespondenceSettings() {
                   placeholder="e.g. admin@cardamomkitchen.co.za"
                   className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30 focus:border-[#C4622D]"
                 />
+              </div>
+
+              {/* Default Despatch Address */}
+              <div>
+                <label className="block text-sm font-semibold text-[#1A1612] mb-1.5">Default Despatch Address</label>
+                <p className="text-xs text-[#8C8278] mb-2">The default address from which orders are despatched.</p>
+                <input
+                  type="text"
+                  value={form.default_despatch_address || ''}
+                  onChange={e => handleChange('default_despatch_address', e.target.value)}
+                  placeholder="e.g. 12 Main Road, Cape Town, 8001"
+                  className="w-full border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30 focus:border-[#C4622D]"
+                />
+              </div>
+
+              {/* Cost per Km */}
+              <div>
+                <label className="block text-sm font-semibold text-[#1A1612] mb-1.5">Cost per Km</label>
+                <p className="text-xs text-[#8C8278] mb-2">Delivery cost charged per kilometre (ZAR).</p>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-[#8C8278] font-medium select-none">R</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.cost_per_km || ''}
+                    onChange={e => handleChange('cost_per_km', e.target.value)}
+                    placeholder="0.00"
+                    className="w-full border border-[#DDD5C8] rounded-xl pl-8 pr-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30 focus:border-[#C4622D]"
+                  />
+                </div>
+              </div>
+
+              {/* Default Delivery Charge */}
+              <div>
+                <label className="block text-sm font-semibold text-[#1A1612] mb-1.5">Default Delivery Charge</label>
+                <p className="text-xs text-[#8C8278] mb-2">Default flat delivery charge applied to orders (ZAR).</p>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-[#8C8278] font-medium select-none">R</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.default_delivery_charge || ''}
+                    onChange={e => handleChange('default_delivery_charge', e.target.value)}
+                    placeholder="0.00"
+                    className="w-full border border-[#DDD5C8] rounded-xl pl-8 pr-4 py-2.5 text-sm text-[#1A1612] focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30 focus:border-[#C4622D]"
+                  />
+                </div>
               </div>
 
               {/* Sales Representative */}
