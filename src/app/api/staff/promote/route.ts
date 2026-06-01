@@ -27,9 +27,9 @@ export async function POST(request: NextRequest) {
       .in('role', ['staff', 'admin', 'super_admin'])
       .maybeSingle();
 
-    if (existingProfile) {
+    if (existingProfile && existingProfile.role === role) {
       return NextResponse.json(
-        { error: `This user is already a staff member (${existingProfile.role}).` },
+        { error: `This user is already a ${role}.` },
         { status: 409 }
       );
     }
