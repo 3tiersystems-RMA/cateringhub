@@ -3025,6 +3025,31 @@ export default function StaffWorkspacePage() {
                     <button onClick={openAddForm} className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors">+ Add Product</button>
                   </div>
                 </div>
+
+                {/* Category Filter Buttons */}
+                <div className="flex flex-wrap gap-2 mb-5">
+                  {(['All', ...categoryNames]).map((cat) => {
+                    const count = cat === 'All' ? products.length : products.filter(p => p.category === cat).length;
+                    if (cat !== 'All' && count === 0) return null;
+                    return (
+                      <button
+                        key={cat}
+                        onClick={() => setStaffProductCategory(cat)}
+                        className={`px-5 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                          staffProductCategory === cat
+                            ? 'bg-[#C4622D] text-white shadow-sm'
+                            : 'bg-white border border-[#DDD5C8] text-[#5C5347] hover:border-[#C4622D]/40 hover:text-[#C4622D]'
+                        }`}
+                      >
+                        {cat}
+                        <span className={`ml-2 text-xs ${staffProductCategory === cat ? 'text-white/70' : 'text-[#B5ADA5]'}`}>
+                          ({count})
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
                 {productsLoading ? (
                   <div className="flex items-center justify-center py-12"><div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>
                 ) : (
@@ -3041,7 +3066,11 @@ export default function StaffWorkspacePage() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-[#F0EBE3]">
-                          {products.filter(p => !productSearchQuery || p.name.toLowerCase().includes(productSearchQuery.toLowerCase()) || p.category.toLowerCase().includes(productSearchQuery.toLowerCase())).map(product => (
+                          {products.filter(p => {
+                            const matchesSearch = !productSearchQuery || p.name.toLowerCase().includes(productSearchQuery.toLowerCase()) || p.category.toLowerCase().includes(productSearchQuery.toLowerCase());
+                            const matchesCategory = staffProductCategory === 'All' || p.category === staffProductCategory;
+                            return matchesSearch && matchesCategory;
+                          }).map(product => (
                             <tr key={product.id} className="hover:bg-[#FAF5EE] transition-colors">
                               <td className="px-4 py-3">
                                 <div className="flex items-center gap-3">
