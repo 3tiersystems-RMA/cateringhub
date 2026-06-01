@@ -573,7 +573,21 @@ export default function GoogleDriveDocuments({ isSuperAdmin }: GoogleDriveDocume
 
   // ── Remove document ──
   const handleRemove = async (id: string) => {
-    await supabase.from('drive_documents').delete().eq('id', id);
+    setFormError(null);
+    // .select() lets us confirm a row was actually deleted. If RLS blocks the
+    // delete it returns 0 rows — surface that instead of silently dropping it
+    // from the UI while it lingers in the database.
+    const { data, error } = await supabase
+      .from('drive_documents')
+      .delete()
+      .eq('id', id)
+      .select('id');
+
+    if (error || !data || data.length === 0) {
+      setFormError('Could not remove the document — only a Super Admin can remove documents.');
+      await loadDocuments();
+      return;
+    }
     setDocuments((prev) => prev.filter((d) => d.id !== id));
   };
 

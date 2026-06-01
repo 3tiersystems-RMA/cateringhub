@@ -40,10 +40,10 @@ export default function AnnouncementCard() {
 
           // Resolve signed URL for uploaded image
           if (data.image_path) {
-            const { data: urlData } = await supabase.storage
+            const { data: urlData } = supabase.storage
               .from("homepage-card-images")
-              .createSignedUrl(data.image_path, 3600);
-            setResolvedImageUrl(urlData?.signedUrl ?? null);
+              .getPublicUrl(data.image_path);
+            setResolvedImageUrl(urlData?.publicUrl ?? null);
           } else if (data.image_url) {
             setResolvedImageUrl(data.image_url);
           }

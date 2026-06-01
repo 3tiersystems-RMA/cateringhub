@@ -255,11 +255,12 @@ export function generatePaymentSignature(
   }
 
   if (passPhrase !== null && passPhrase.trim() !== "") {
-    const encodedOnce = phpUrlencode(passPhrase.trim());
-    parts.push(`passphrase=${phpUrlencode(encodedOnce)}`);
+    // Single URL-encode, matching PayFast\Auth::generateSignature (urlencode(trim($pass))).
+    parts.push(`passphrase=${phpUrlencode(passPhrase.trim())}`);
   }
 
-  return computeMD5(parts.join("&"));
+  const sigString = parts.join("&");
+  return computeMD5(sigString);
 }
 
 /** Drop empty values so form POST matches signature (PayFast rejects mismatches). */
@@ -330,24 +331,22 @@ export function buildPaymentPayload(
 
   const passPhrase = pfConfig.passphrase || null;
   const signature = generatePaymentSignature(raw, passPhrase);
-  const cleaned = stripEmptyPayFastFields({ ...raw, signature });
 
-  const params: PayFastParams = {
-    merchant_id: cleaned.merchant_id,
-    merchant_key: cleaned.merchant_key,
-    return_url: cleaned.return_url,
-    cancel_url: cleaned.cancel_url,
-    notify_url: cleaned.notify_url,
-    name_first: cleaned.name_first,
-    name_last: cleaned.name_last,
-    email_address: cleaned.email_address,
-    m_payment_id: cleaned.m_payment_id,
-    amount: cleaned.amount,
-    item_name: cleaned.item_name,
-    signature: cleaned.signature,
-    ...(cleaned.cell_number ? { cell_number: cleaned.cell_number } : {}),
-    ...(cleaned.item_description ? { item_description: cleaned.item_description } : {}),
-  };
+  // CRITICAL: the POSTed fields must be in the SAME order used to build the
+  // signature (the canonical PAYMENT_SIGNATURE_FIELDS order), with `signature`
+  // appended LAST. PayFast reconstructs the signature from the posted fields in
+  // the order received; if the order differs (e.g. cell_number posted after the
+  // signature instead of between email_address and m_payment_id), it fails with
+  // "Generated signature does not match submitted signature".
+  const ordered: Record<string, string> = {};
+  for (const field of PAYMENT_SIGNATURE_FIELDS) {
+    if (isNonEmpty(raw[field])) {
+      ordered[field] = String(raw[field]).trim();
+    }
+  }
+  ordered.signature = signature;
+
+  const params = ordered as unknown as PayFastParams;
 
   return {
     params,
@@ -355,25 +354,39 @@ export function buildPaymentPayload(
   };
 }
 
-/** ITN: alphabetical order + single passphrase encode (PayFast\Auth::generateApiSignature). */
+/**
+ * Build the ITN param string EXACTLY as PayFast reconstructs it: the posted fields
+ * in the ORDER RECEIVED (NOT alphabetical), URL-encoded, joined by '&', stopping at
+ * `signature` (PayFast always posts `signature` last). No empty-filtering — the string
+ * must mirror precisely what PayFast posted.
+ * @see PayFast docs → Confirm payment → "Convert posted variables to a string"
+ *      (foreach $pfData ... if key !== 'signature' ... else break)
+ */
+function buildItnParamString(pfData: Record<string, string>): string {
+  const parts: string[] = [];
+  for (const [key, value] of Object.entries(pfData)) {
+    if (key === "signature") break;
+    parts.push(`${key}=${phpUrlencode(String(value ?? ""))}`);
+  }
+  return parts.join("&");
+}
+
+/**
+ * ITN signature: received order + passphrase appended last (PayFast pfValidSignature).
+ * CRITICAL: PayFast's redirect/payment signature uses the fixed attribute order, but the
+ * ITN signature must use the ORDER THE FIELDS WERE POSTED — never alphabetical. Sorting
+ * here caused every ITN to fail validation, so paid orders never updated to "paid".
+ */
 export function validateITNSignature(
   pfData: Record<string, string>,
   receivedSig: string
 ): boolean {
-  let data = { ...pfData };
+  let pfParamString = buildItnParamString(pfData);
+
   const passPhrase = pfConfig.passphrase || null;
-
   if (passPhrase) {
-    data.passphrase = passPhrase;
+    pfParamString += `&passphrase=${phpUrlencode(passPhrase)}`;
   }
-
-  const keys = Object.keys(data)
-    .filter((k) => k !== "signature" && isNonEmpty(data[k]))
-    .sort();
-
-  const pfParamString = keys
-    .map((k) => `${k}=${phpUrlencode(data[k])}`)
-    .join("&");
 
   return computeMD5(pfParamString) === receivedSig;
 }
@@ -382,11 +395,9 @@ export function validateWithPayFast(pfData: Record<string, string>): Promise<boo
   return new Promise((resolve) => {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const https = require("https");
-    const body = Object.keys(pfData)
-      .filter((k) => isNonEmpty(pfData[k]))
-      .sort()
-      .map((k) => `${k}=${phpUrlencode(pfData[k])}`)
-      .join("&");
+    // Server confirmation posts the same received-order param string PayFast sent
+    // (no passphrase, no signature) — PayFast\pfValidServerConfirmation.
+    const body = buildItnParamString(pfData);
 
     const options = {
       host: pfConfig.validateHost,

@@ -46,11 +46,22 @@ function StaffLoginForm() {
         return;
       }
 
-      // Check if account is active (suspended check)
+      // Role-based landing route (mirrors middleware ROLE_DASHBOARDS). All roles use the
+      // workspace hub, which then shows a role-appropriate default view. Kept as an
+      // explicit map so a dedicated per-role landing page can be slotted in later.
+      const ROLE_LANDING: Record<string, string> = {
+        super_admin: '/staff/workspace',
+        admin: '/staff/workspace',
+        staff: '/staff/workspace',
+      };
+
+      let landing = '/staff/workspace';
+
+      // Check account status + role in a single lookup
       if (authData?.user) {
         const { data: profile } = await supabase
           .from('user_profiles')
-          .select('is_active')
+          .select('is_active, role')
           .eq('id', authData.user.id)
           .single();
 
@@ -60,9 +71,18 @@ function StaffLoginForm() {
           setError('Account suspended — Contact your Admin');
           return;
         }
+
+        if (!profile || !profile.role || !ROLE_LANDING[profile.role]) {
+          // No valid staff role — not allowed into the portal
+          await supabase.auth.signOut();
+          setError('Your account does not have staff access. Contact your Admin.');
+          return;
+        }
+
+        landing = ROLE_LANDING[profile.role];
       }
 
-      router.push('/staff/workspace');
+      router.push(landing);
       router.refresh();
     } catch (err: any) {
       setError('An unexpected error occurred. Please try again.');

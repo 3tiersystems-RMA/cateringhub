@@ -71,15 +71,15 @@ function HeroSectionInner() {
       order('display_order', { ascending: true });
 
       if (!error && data) {
-        const withUrls = await Promise.all((data as HomepageCard[]).map(async (card) => {
+        const withUrls = (data as HomepageCard[]).map((card) => {
           if (card.card_type === 'todays_special' && card.image_path) {
-            const { data: urlData } = await supabase.storage.
+            const { data: urlData } = supabase.storage.
             from('homepage-card-images').
-            createSignedUrl(card.image_path, 3600);
-            return { ...card, imageUrl: urlData?.signedUrl ?? null };
+            getPublicUrl(card.image_path);
+            return { ...card, imageUrl: urlData?.publicUrl ?? null };
           }
           return { ...card, imageUrl: null };
-        }));
+        });
         setCards(withUrls);
       }
       setCardsLoaded(true);

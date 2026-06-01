@@ -49,17 +49,17 @@ export default function SuperAdminGuidePage() {
             <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
               <div className="text-2xl mb-2">👑</div>
               <h3 className="font-semibold text-purple-800 text-sm mb-1">Super Admin</h3>
-              <p className="text-xs text-purple-700">Full access: staff management, products, media, orders</p>
+              <p className="text-xs text-purple-700">Everything — staff management and system settings, plus all Admin and Staff capabilities.</p>
             </div>
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
               <div className="text-2xl mb-2">🛡️</div>
               <h3 className="font-semibold text-blue-800 text-sm mb-1">Admin</h3>
-              <p className="text-xs text-blue-700">Workspace access: products, media, orders — no staff management</p>
+              <p className="text-xs text-blue-700">All business &amp; content management (products, menu, vouchers, media, reporting) plus everything Staff can do. No staff management or system settings.</p>
             </div>
             <div className="bg-[#F5F0E8] border border-[#DDD5C8] rounded-xl p-4">
               <div className="text-2xl mb-2">👤</div>
               <h3 className="font-semibold text-[#5C5347] text-sm mb-1">Staff</h3>
-              <p className="text-xs text-[#8C8278]">Standard access: products & services management only</p>
+              <p className="text-xs text-[#8C8278]">Daily operations only: Order Management, Customer Order History, Voucher Scanner, and viewing Documents.</p>
             </div>
           </div>
         </section>
@@ -79,11 +79,11 @@ export default function SuperAdminGuidePage() {
           <ol className="space-y-3 mb-6">
             {[
               { step: '1', text: 'Log in to the Staff Portal at /staff/login with your Super Admin credentials.' },
-              { step: '2', text: 'Navigate to the Staff Workspace and click the 👥 Staff Management tab (visible only to Super Admin).' },
-              { step: '3', text: 'Click the Invite Staff Member button (purple button, top right).' },
-              { step: '4', text: 'Fill in the form: Full Name, Email Address, and select a Role (Admin or Staff).' },
-              { step: '5', text: 'Click Send Invitation. The staff member will receive an email with a secure sign-in link.' },
-              { step: '6', text: 'Once they click the link and set their password, they can log in and access the workspace.' },
+              { step: '2', text: 'In the Staff Workspace sidebar, open the 👥 Staff Management tab (visible only to Super Admin).' },
+              { step: '3', text: 'Click the + Invite Staff button below the staff list.' },
+              { step: '4', text: 'Fill in the form: Full Name, Email, and select a Role (Staff or Admin).' },
+              { step: '5', text: 'Click Send Invite. The person receives an email with a secure sign-in link.' },
+              { step: '6', text: 'Once they open the link and set their password, they can log in and access the workspace for their role.' },
             ]?.map(({ step, text }) => (
               <li key={step} className="flex gap-3">
                 <span className="w-6 h-6 bg-purple-600 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">{step}</span>
@@ -92,12 +92,21 @@ export default function SuperAdminGuidePage() {
             ))}
           </ol>
 
+          <div className="bg-[#F5F0E8] border border-[#DDD5C8] rounded-xl p-4 mb-4">
+            <p className="text-sm font-semibold text-[#3D3530] mb-1">🔁 Promote an Existing User</p>
+            <p className="text-xs text-[#5C5347] leading-relaxed">
+              If someone already has an account, use the <strong>Promote Existing User</strong> button (next to
+              Invite Staff) to grant them a Staff or Admin role instead of sending a fresh invitation.
+            </p>
+          </div>
+
           <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
             <p className="text-sm font-semibold text-blue-800 mb-1">📧 About Invitation Emails</p>
             <p className="text-xs text-blue-700 leading-relaxed">
-              Invitations are sent via Supabase Auth. The staff member receives a magic link email.
-              The link is valid for 24 hours. If it expires, you can send a new invitation.
-              Ensure the email address is correct before sending.
+              Invitations are sent via Supabase Auth as a secure sign-in link. The link is valid for a
+              limited time — if it expires, simply send a new invitation. Double-check the email address
+              before sending. Only Staff and Admin roles can be invited; Super Admin is assigned separately
+              (see section 6).
             </p>
           </div>
         </section>
@@ -121,13 +130,17 @@ export default function SuperAdminGuidePage() {
               <tbody className="divide-y divide-[#EDE7DA]">
                 {[
                   { feature: 'Log in to Staff Portal', staff: true, admin: true, superAdmin: true },
-                  { feature: 'Manage Products & Pricing', staff: true, admin: true, superAdmin: true },
-                  { feature: 'Upload Media (Images)', staff: true, admin: true, superAdmin: true },
-                  { feature: 'View & Manage Orders', staff: true, admin: true, superAdmin: true },
-                  { feature: 'View Staff Management Tab', staff: false, admin: false, superAdmin: true },
-                  { feature: 'Invite New Staff Members', staff: false, admin: false, superAdmin: true },
-                  { feature: 'Suspend Staff Access', staff: false, admin: false, superAdmin: true },
-                  { feature: 'Reinstate Suspended Staff', staff: false, admin: false, superAdmin: true },
+                  { feature: 'Order Management (view & update status)', staff: true, admin: true, superAdmin: true },
+                  { feature: 'Customer Order History (lookup)', staff: true, admin: true, superAdmin: true },
+                  { feature: 'Voucher Scanner (redeem meals)', staff: true, admin: true, superAdmin: true },
+                  { feature: 'View Documents', staff: true, admin: true, superAdmin: true },
+                  { feature: 'Products, Menu, Categories & Pricing', staff: false, admin: true, superAdmin: true },
+                  { feature: 'Media, Gallery, Homepage & Testimonials', staff: false, admin: true, superAdmin: true },
+                  { feature: 'Vouchers, Discounts, Reporting & Analytics', staff: false, admin: true, superAdmin: true },
+                  { feature: 'Delete Orders', staff: false, admin: false, superAdmin: true },
+                  { feature: 'Add / Edit / Remove Documents', staff: false, admin: false, superAdmin: true },
+                  { feature: 'Staff Management (invite, edit, deactivate)', staff: false, admin: false, superAdmin: true },
+                  { feature: 'System Settings (social media, visibility, correspondence)', staff: false, admin: false, superAdmin: true },
                 ]?.map(({ feature, staff, admin, superAdmin }) => (
                   <tr key={feature} className="hover:bg-[#FAFAF8]">
                     <td className="px-4 py-3 text-[#3D3530] font-medium">{feature}</td>
@@ -151,20 +164,20 @@ export default function SuperAdminGuidePage() {
         <section className="bg-white rounded-2xl border border-[#DDD5C8] p-6 md:p-8 mb-6">
           <h2 className="text-xl font-bold text-[#1A1612] mb-4 flex items-center gap-2">
             <span className="w-7 h-7 bg-purple-100 text-purple-700 rounded-full flex items-center justify-center text-sm font-bold">4</span>
-            Suspending Staff Access
+            Deactivating Staff Access
           </h2>
           <p className="text-[#5C5347] text-sm leading-relaxed mb-5">
-            If a staff member leaves the business, or their access needs to be temporarily revoked,
-            you can suspend their account. Suspended staff cannot log in and will see a clear message.
+            If a staff member leaves the business, or their access needs to be revoked, you can deactivate
+            their account. Deactivated (Inactive) staff cannot log in and will see a clear message.
           </p>
 
-          <h3 className="font-semibold text-[#1A1612] text-sm mb-3">Step-by-Step: Suspending a Staff Member</h3>
+          <h3 className="font-semibold text-[#1A1612] text-sm mb-3">Step-by-Step: Deactivating a Staff Member</h3>
           <ol className="space-y-3 mb-5">
             {[
               { step: '1', text: 'Go to Staff Workspace → 👥 Staff Management tab.' },
               { step: '2', text: 'Find the staff member in the list.' },
-              { step: '3', text: 'Click the red Suspend button next to their name.' },
-              { step: '4', text: 'Their status will immediately change to Suspended (shown in red).' },
+              { step: '3', text: 'Click the Deactivate link next to their name.' },
+              { step: '4', text: 'Their status badge changes from Active (green) to Inactive (red) immediately.' },
               { step: '5', text: 'The next time they attempt to log in, they will see: "Account suspended — Contact your Admin".' },
             ]?.map(({ step, text }) => (
               <li key={step} className="flex gap-3">
@@ -177,10 +190,10 @@ export default function SuperAdminGuidePage() {
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
             <p className="text-sm font-semibold text-amber-800 mb-1">⚠️ Important Notes</p>
             <ul className="text-xs text-amber-700 leading-relaxed space-y-1">
-              <li>• You cannot suspend your own Super Admin account.</li>
-              <li>• Suspension is immediate — the staff member loses access instantly.</li>
-              <li>• Any active sessions the suspended user has will be blocked on their next action.</li>
-              <li>• Suspension does not delete the account or any data — it only blocks login.</li>
+              <li>• Deactivation is immediate — the member is blocked on their next login or action.</li>
+              <li>• Deactivation does not delete the account or any data — it only blocks login.</li>
+              <li>• An account must be deactivated before it can be deleted; the system blocks deleting an Active member.</li>
+              <li>• Use the Reset PW link to send a member a password-reset email if they are locked out.</li>
             </ul>
           </div>
         </section>
@@ -189,19 +202,19 @@ export default function SuperAdminGuidePage() {
         <section className="bg-white rounded-2xl border border-[#DDD5C8] p-6 md:p-8 mb-6">
           <h2 className="text-xl font-bold text-[#1A1612] mb-4 flex items-center gap-2">
             <span className="w-7 h-7 bg-purple-100 text-purple-700 rounded-full flex items-center justify-center text-sm font-bold">5</span>
-            Reinstating Suspended Staff
+            Reactivating Staff
           </h2>
           <p className="text-[#5C5347] text-sm leading-relaxed mb-5">
-            If a suspended staff member needs to regain access (e.g., they return to the business),
-            you can reinstate their account at any time.
+            If a deactivated staff member needs to regain access (e.g., they return to the business),
+            you can reactivate their account at any time.
           </p>
 
           <ol className="space-y-3">
             {[
               { step: '1', text: 'Go to Staff Workspace → 👥 Staff Management tab.' },
-              { step: '2', text: 'Find the suspended staff member (shown with a red Suspended badge).' },
-              { step: '3', text: 'Click the green Reinstate button next to their name.' },
-              { step: '4', text: 'Their status changes to Active immediately.' },
+              { step: '2', text: 'Find the staff member showing a red Inactive badge.' },
+              { step: '3', text: 'Click the Activate link next to their name.' },
+              { step: '4', text: 'Their status changes back to Active immediately.' },
               { step: '5', text: 'They can now log in again using their existing credentials.' },
             ]?.map(({ step, text }) => (
               <li key={step} className="flex gap-3">
@@ -251,7 +264,7 @@ WHERE email = 'your-email@example.com';`}</pre>
           <ul className="space-y-3">
             {[
               { icon: '🔐', title: 'Use a strong password', desc: 'Your Super Admin account should use a unique, strong password (12+ characters, mixed case, numbers, symbols).' },
-              { icon: '👁️', title: 'Regularly review staff access', desc: 'Periodically review the Staff Management list and suspend accounts for staff who are no longer active.' },
+              { icon: '👁️', title: 'Regularly review staff access', desc: 'Periodically review the Staff Management list and deactivate accounts for staff who are no longer active.' },
               { icon: '📧', title: 'Verify email addresses', desc: 'Always double-check email addresses before sending invitations to prevent unauthorized access.' },
               { icon: '🚫', title: 'Limit Super Admin accounts', desc: 'Only one or two trusted individuals should hold the Super Admin role. More access points increase security risk.' },
               { icon: '📋', title: 'Audit access regularly', desc: 'Review who has Admin vs Staff roles and ensure permissions match current job responsibilities.' },

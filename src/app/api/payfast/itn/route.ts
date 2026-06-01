@@ -107,6 +107,7 @@ export async function POST(req: NextRequest) {
           .update({
             payment_status: "paid",
             payment_method: "payfast",
+            payfast_transaction_id: pfData.pf_payment_id || null,
             notes: `PayFast payment confirmed. PF ID: ${pfData.pf_payment_id || ""}`,
           })
           .eq("m_payment_id", paymentId);

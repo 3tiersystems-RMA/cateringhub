@@ -28,6 +28,8 @@ interface RedemptionRecord {
   redeemed_at: string;
   notes: string | null;
   redeemed_by: string;
+  customer_name: string | null;
+  customer_email: string | null;
   meals_remaining_before: number;
   meals_remaining_after: number;
 }
@@ -165,40 +167,71 @@ export default function VoucherScannerPage() {
     setIsRedeeming(true);
     const supabase = createClient();
     const now = new Date().toISOString();
-    const mealsAfter = voucher.meals_remaining - mealsToRedeem;
+    const code = voucher.voucher_code;
 
     try {
-      // Insert redemption record
+      // 1. Re-read the voucher fresh so we never decrement from a stale balance
+      //    (another device may have redeemed since this voucher was scanned).
+      const { data: fresh, error: freshErr } = await supabase
+        .from('vouchers')
+        .select('*')
+        .eq('voucher_code', code)
+        .single();
+      if (freshErr || !fresh) throw new Error('Could not re-verify the voucher. Please re-scan.');
+
+      if (fresh.status === 'redeemed' || fresh.meals_remaining <= 0) {
+        throw new Error('This voucher has already been fully redeemed.');
+      }
+      if (fresh.status === 'expired') throw new Error('This voucher has expired.');
+      if (fresh.status === 'unpaid' || fresh.status === 'pending') {
+        throw new Error('This voucher has not been paid for yet.');
+      }
+      if (mealsToRedeem > fresh.meals_remaining) {
+        throw new Error(`Only ${fresh.meals_remaining} meal(s) remaining on this voucher.`);
+      }
+
+      const mealsAfter = fresh.meals_remaining - mealsToRedeem;
+      const newStatus = mealsAfter <= 0 ? 'redeemed' : 'active';
+
+      // 2. Decrement the voucher FIRST with an optimistic lock on the exact balance we
+      //    just read. If another redemption slipped in, 0 rows match → abort (no double
+      //    spend). 0 rows also surfaces an RLS/permission block instead of failing silently.
+      const { data: updated, error: updateError } = await supabase
+        .from('vouchers')
+        .update({ meals_remaining: mealsAfter, status: newStatus, updated_at: now })
+        .eq('voucher_code', code)
+        .eq('meals_remaining', fresh.meals_remaining)
+        .select('id');
+      if (updateError) throw updateError;
+      if (!updated || updated.length === 0) {
+        throw new Error('Voucher balance changed since it was scanned. Please re-scan and try again.');
+      }
+
+      // 3. Record the redemption. If this fails, roll the voucher balance back so we
+      //    never decrement meals without an audit record.
       const { data: redemptionData, error: redemptionError } = await supabase
         .from('voucher_redemptions')
         .insert({
-          voucher_code: voucher.voucher_code,
+          voucher_code: code,
           meals_used: mealsToRedeem,
           redeemed_at: now,
           notes: redemptionNote || `Scanned by ${staffName}`,
           redeemed_by: staffEmail || staffName,
-          customer_name: voucher.customer_name,
-          customer_email: voucher.customer_email,
-          meals_remaining_before: voucher.meals_remaining,
+          customer_name: fresh.customer_name,
+          customer_email: fresh.customer_email,
+          meals_remaining_before: fresh.meals_remaining,
           meals_remaining_after: mealsAfter,
         })
         .select()
         .single();
 
-      if (redemptionError) throw redemptionError;
-
-      // Update voucher meals_remaining and status
-      const newStatus = mealsAfter <= 0 ? 'redeemed' : 'active';
-      const { error: updateError } = await supabase
-        .from('vouchers')
-        .update({
-          meals_remaining: mealsAfter,
-          status: newStatus,
-          updated_at: now,
-        })
-        .eq('voucher_code', voucher.voucher_code);
-
-      if (updateError) throw updateError;
+      if (redemptionError) {
+        await supabase
+          .from('vouchers')
+          .update({ meals_remaining: fresh.meals_remaining, status: fresh.status, updated_at: now })
+          .eq('voucher_code', code);
+        throw redemptionError;
+      }
 
       setLastRedemption(redemptionData);
       setScanState('success');

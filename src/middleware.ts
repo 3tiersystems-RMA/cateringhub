@@ -1,7 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
-
 type StaffRole = 'admin' | 'staff' | 'super_admin';
 
 function getProjectRef(): string {
@@ -32,8 +31,23 @@ const ROLE_ALLOWED_ROUTES: Record<StaffRole, string[]> = {
     '/staff/guide',
     '/staff/reset-password',
   ],
-  admin: ['/staff/workspace', '/staff/orders', '/staff/analytics', '/staff/reset-password'],
-  staff: ['/staff/workspace', '/staff/orders', '/staff/reset-password'],
+  // Admin: operations + business management + analytics + scanner (no system settings).
+  admin: [
+    '/staff/workspace',
+    '/staff/orders',
+    '/staff/analytics',
+    '/staff/scanner',
+    '/staff/guide',
+    '/staff/reset-password',
+  ],
+  // Staff: daily operations only — orders, scanner, guide (no analytics page).
+  staff: [
+    '/staff/workspace',
+    '/staff/orders',
+    '/staff/scanner',
+    '/staff/guide',
+    '/staff/reset-password',
+  ],
 };
 
 function isStaffRoute(pathname: string): boolean {

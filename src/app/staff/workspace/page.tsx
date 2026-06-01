@@ -8,7 +8,7 @@ import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal';
 import VoucherErrorModal from '@/components/ui/VoucherErrorModal';
 
 
-import {  } from 'recharts';
+import { ResponsiveContainer, ComposedChart, BarChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell,  } from 'recharts';
 import GoogleDriveDocuments from '@/app/staff/workspace/components/GoogleDriveDocuments';
 import EventManagement from '@/app/staff/workspace/components/EventManagement';
 import CorrespondenceSettings from '@/app/staff/workspace/components/CorrespondenceSettings';
@@ -23,6 +23,51 @@ type WorkspaceTab = 'products' | 'media' | 'media_events' | 'media_products' | '
 
 type ProductCategory = string;
 type StaffRole = 'admin' | 'staff' | 'super_admin';
+
+// ─── Role-based access control (single source of truth) ──────────────────────
+// Tiered model: staff ⊂ admin ⊂ super_admin.
+//   • staff       → daily operations only (orders, lookups, scanner, docs)
+//   • admin       → operations + all business & content management
+//   • super_admin → everything, incl. staff accounts & system settings
+const TAB_ACCESS: Record<WorkspaceTab, StaffRole[]> = {
+  // Operational — everyone (incl. staff)
+  orders: ['super_admin', 'admin', 'staff'],
+  customer_order_history: ['super_admin', 'admin', 'staff'],
+  media: ['super_admin', 'admin', 'staff'], // Document Management
+  // Business & content — admin and above
+  products: ['super_admin', 'admin'],
+  categories: ['super_admin', 'admin'],
+  media_products: ['super_admin', 'admin'],
+  weekly_menu: ['super_admin', 'admin'],
+  cooking_classes: ['super_admin', 'admin'],
+  vouchers: ['super_admin', 'admin'],
+  discount_vouchers: ['super_admin', 'admin'],
+  abandoned_carts: ['super_admin', 'admin'],
+  reporting: ['super_admin', 'admin'],
+  analytics: ['super_admin', 'admin'],
+  homepage_cards: ['super_admin', 'admin'],
+  gallery: ['super_admin', 'admin'],
+  testimonials: ['super_admin', 'admin'],
+  package_visibility: ['super_admin', 'admin'],
+  media_events: ['super_admin', 'admin'],
+  // System & sensitive — super_admin only
+  staff: ['super_admin'],
+  social_media: ['super_admin'],
+  section_visibility: ['super_admin'],
+  correspondence_settings: ['super_admin'],
+};
+
+// Where each role lands when they open the workspace (must be a tab they can access).
+const DEFAULT_TAB_BY_ROLE: Record<StaffRole, WorkspaceTab> = {
+  super_admin: 'products',
+  admin: 'products',
+  staff: 'orders',
+};
+
+function roleCanAccessTab(role: string | undefined | null, tab: WorkspaceTab): boolean {
+  if (!role) return false;
+  return TAB_ACCESS[tab]?.includes(role as StaffRole) ?? false;
+}
 
 // ─── Orders types ─────────────────────────────────────────────────────────────
 type PaymentStatus = 'pending' | 'paid' | 'failed' | 'awaiting_payment' | 'refunded';
@@ -960,7 +1005,7 @@ export default function StaffWorkspacePage() {
   };
 
   const downloadProductsOrderedPDF = (rows: ProductsOrderedRow[]) => {
-    const headers = ['Product', 'Type', 'Item', 'Meal Voucher', 'Discount Voucher', 'Ordered', 'Client', 'eMail'];
+    let headers = ['Product', 'Type', 'Item', 'Meal Voucher', 'Discount Voucher', 'Ordered', 'Client', 'eMail'];
     const pdfRows = rows.map(r => [
       r.productName,
       r.productType,
@@ -975,7 +1020,7 @@ export default function StaffWorkspacePage() {
   };
 
   const downloadPackageMealsPDF = (rows: PackageMealsOrderedRow[]) => {
-    const headers = ['Product', 'Type', 'Item', 'Package', 'Meal Voucher', 'Discount Voucher', 'Ordered', 'Delivered', 'Client', 'eMail'];
+    let headers = ['Product', 'Type', 'Item', 'Package', 'Meal Voucher', 'Discount Voucher', 'Ordered', 'Delivered', 'Client', 'eMail'];
     const pdfRows = rows.map(r => [
       r.productName,
       r.productType,
@@ -992,7 +1037,7 @@ export default function StaffWorkspacePage() {
   };
 
   const downloadFrozenMealsPDF = (rows: PackageMealsOrderedRow[]) => {
-    const headers = ['Product', 'Type', 'Item', 'Package', 'Meal Voucher', 'Discount Voucher', 'Ordered', 'Delivered', 'Client', 'eMail'];
+    let headers = ['Product', 'Type', 'Item', 'Package', 'Meal Voucher', 'Discount Voucher', 'Ordered', 'Delivered', 'Client', 'eMail'];
     const pdfRows = rows.map(r => [
       r.productName,
       r.productType,
@@ -1009,7 +1054,7 @@ export default function StaffWorkspacePage() {
   };
 
   const downloadDiscountVouchersPDF = (rows: DiscountVouchersReportRow[]) => {
-    const headers = ['Discount Voucher', 'Amount', 'Expiry Date', 'Product Name', 'Type', 'Item', 'Ordered', 'Delivered', 'Client', 'eMail'];
+    let headers = ['Discount Voucher', 'Amount', 'Expiry Date', 'Product Name', 'Type', 'Item', 'Ordered', 'Delivered', 'Client', 'eMail'];
     const pdfRows = rows.map(r => [
       r.dvCode,
       `R${r.dvAmount.toFixed(2)}`,
@@ -1026,7 +1071,7 @@ export default function StaffWorkspacePage() {
   };
 
   const downloadDeliveredOrdersPDF = (rows: DeliveredOrdersRow[]) => {
-    const headers = ['Product', 'Type', 'Item', 'Package', 'Meal Voucher', 'Discount Voucher', 'Ordered', 'Delivered', 'Lead Time', 'Email'];
+    let headers = ['Product', 'Type', 'Item', 'Package', 'Meal Voucher', 'Discount Voucher', 'Ordered', 'Delivered', 'Lead Time', 'Email'];
     const pdfRows = rows.map(r => [
       r.productName,
       r.productType,
@@ -1083,6 +1128,13 @@ export default function StaffWorkspacePage() {
         return;
       }
       setUserProfile(profile);
+      // Land the user on a tab their role can actually access (staff can't see the
+      // default 'products' tab), and never leave them stranded on a forbidden tab.
+      setActiveTab((prev) =>
+        roleCanAccessTab(profile.role, prev)
+          ? prev
+          : DEFAULT_TAB_BY_ROLE[profile.role as StaffRole] ?? 'orders'
+      );
       await loadCategoryNames();
       await loadPackageTypes();
       await loadProducts();
@@ -1110,6 +1162,9 @@ export default function StaffWorkspacePage() {
   // ─── Orders realtime subscription ────────────────────────────────────────────
   useEffect(() => {
     if (activeTab !== 'orders') return;
+    // Initial load whenever the Orders tab becomes active — covers both clicking the
+    // tab AND landing on it by default (e.g. staff, whose default tab is Orders).
+    loadWsOrders();
     const channel = supabase
       .channel('ws-orders-realtime')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, (payload) => {
@@ -1150,16 +1205,18 @@ export default function StaffWorkspacePage() {
     setProductsLoading(true);
     const { data, error } = await supabase.from('products').select('*').order('sort_order');
     if (!error && data) {
-      const withUrls = await Promise.all(data.map(async (p: Product) => {
+      const withUrls = data.map((p: Product) => {
         if (p.image_path) {
           if (p.image_path.startsWith('/')) {
             return { ...p, imageUrl: p.image_path };
           }
-          const { data: urlData } = await supabase.storage.from('product-images').createSignedUrl(p.image_path, 3600);
-          return { ...p, imageUrl: urlData?.signedUrl };
+          // product-images is a public bucket — use a direct public URL (a signed
+          // URL 400s here and is unnecessary). Matches the customer /products page.
+          const { data: urlData } = supabase.storage.from('product-images').getPublicUrl(p.image_path);
+          return { ...p, imageUrl: urlData?.publicUrl };
         }
         return p;
-      }));
+      });
       setProducts(withUrls);
     }
     setProductsLoading(false);
@@ -1739,6 +1796,18 @@ export default function StaffWorkspacePage() {
       setFrozenMealsRows(frozenRows);
       setDiscountVouchersReportRows(dvReportRows);
       setDeliveredOrdersRows(deliveredRows);
+
+      // Auto-open the first report that has data so the table is visible immediately
+      // (instead of leaving the user on an empty overview panel).
+      setReportingView(prev => {
+        if (prev !== 'cards') return prev;
+        if (productsRows.length) return 'products_ordered';
+        if (packageRows.length) return 'package_meals_ordered';
+        if (frozenRows.length) return 'frozen_meals_ordered';
+        if (dvReportRows.length) return 'discount_vouchers_report';
+        if (deliveredRows.length) return 'delivered_orders';
+        return prev;
+      });
     } catch (err) {
       console.error('Reporting load error:', err);
     } finally {
@@ -1787,9 +1856,14 @@ export default function StaffWorkspacePage() {
       const voucherMap: Record<string, { mealVouchers: number; discountVouchers: number }> = {};
       buckets.forEach(b => { orderMap[b] = { orders: 0, revenue: 0 }; voucherMap[b] = { mealVouchers: 0, discountVouchers: 0 }; });
 
+      const isPaid = (o: any) => o.payment_status === 'paid' || o.payment_status === 'discounted';
       (orders || []).forEach(o => {
         const label = bucketFn(new Date(o.created_at));
-        if (orderMap[label] !== undefined) { orderMap[label].orders += 1; orderMap[label].revenue += calculateOrderTotal(o); }
+        if (orderMap[label] !== undefined) {
+          orderMap[label].orders += 1;
+          // Revenue is only realised from paid/discounted orders, matching the system flow.
+          if (isPaid(o)) orderMap[label].revenue += calculateOrderTotal(o);
+        }
       });
       (redemptions || []).forEach(r => {
         const label = bucketFn(new Date(r.redeemed_at));
@@ -1815,17 +1889,17 @@ export default function StaffWorkspacePage() {
       );
 
       const totalOrders = (orders || []).length;
-      const totalRevenue = (orders || []).reduce((sum, o) => sum + calculateOrderTotal(o), 0);
-      const paidOrders = (orders || []).filter(o => o.payment_status === 'paid' || o.payment_status === 'discounted').length;
+      const paidOrders = (orders || []).filter(isPaid).length;
+      const totalRevenue = (orders || []).filter(isPaid).reduce((sum, o) => sum + calculateOrderTotal(o), 0);
       const deliveredOrders = (orders || []).filter(o => o.fulfillment_status === 'delivered').length;
       const totalMealRedemptions = (redemptions || []).length;
       const totalDvUsed = (dvOrders || []).length;
-      const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+      const avgOrderValue = paidOrders > 0 ? totalRevenue / paidOrders : 0;
       const fulfillmentRate = totalOrders > 0 ? Math.round((deliveredOrders / totalOrders) * 100) : 0;
 
       setSummaryMetrics([
         { label: 'Total Orders', value: String(totalOrders), sub: `${paidOrders} paid`, icon: '📋' },
-        { label: 'Total Revenue', value: `R${totalRevenue.toFixed(2)}`, sub: `Avg R${avgOrderValue.toFixed(2)}/order`, icon: '💰' },
+        { label: 'Total Revenue', value: `R${totalRevenue.toFixed(2)}`, sub: paidOrders > 0 ? `Avg R${avgOrderValue.toFixed(2)}/paid order` : 'From paid orders', icon: '💰' },
         { label: 'Meal Vouchers Used', value: String(totalMealRedemptions), sub: 'Redemptions', icon: '🎟️' },
         { label: 'Discount Vouchers', value: String(totalDvUsed), sub: 'Orders with discount', icon: '🏷️' },
         { label: 'Delivered Orders', value: String(deliveredOrders), sub: `${fulfillmentRate}% fulfillment rate`, icon: '✅' },
@@ -1890,9 +1964,17 @@ export default function StaffWorkspacePage() {
 
   const handleWsPaymentUpdate = async (orderId: string, newStatus: PaymentStatus) => {
     setWsOrderUpdateField(orderId, 'paymentSaving', true);
-    const { error } = await supabase.from('orders').update({ payment_status: newStatus }).eq('id', orderId);
+    // .select() confirms a row was actually updated. RLS-blocked updates return no
+    // error but 0 rows — without this the UI would lie and the value would revert on reload.
+    const { data, error } = await supabase
+      .from('orders')
+      .update({ payment_status: newStatus })
+      .eq('id', orderId)
+      .select('id');
     if (error) {
       setWsOrderUpdateField(orderId, 'paymentError', error.message);
+    } else if (!data || data.length === 0) {
+      setWsOrderUpdateField(orderId, 'paymentError', 'Update blocked — you may not have permission to change this order.');
     } else {
       setWsOrders(prev => prev.map(o => o.id === orderId ? { ...o, payment_status: newStatus } : o));
       setWsOrderUpdateField(orderId, 'paymentSuccess', true);
@@ -1907,9 +1989,15 @@ export default function StaffWorkspacePage() {
     setWsOrderUpdateField(orderId, 'fulfillmentSaving', true);
     const updateData: any = { fulfillment_status: newStatus };
     if (newStatus === 'delivered') updateData.delivered_date = new Date().toISOString();
-    const { error } = await supabase.from('orders').update(updateData).eq('id', orderId);
+    const { data, error } = await supabase
+      .from('orders')
+      .update(updateData)
+      .eq('id', orderId)
+      .select('id');
     if (error) {
       setWsOrderUpdateField(orderId, 'fulfillmentError', error.message);
+    } else if (!data || data.length === 0) {
+      setWsOrderUpdateField(orderId, 'fulfillmentError', 'Update blocked — you may not have permission to change this order.');
     } else {
       setWsOrders(prev => prev.map(o => o.id === orderId ? { ...o, fulfillment_status: newStatus } : o));
       setWsOrderUpdateField(orderId, 'fulfillmentSuccess', true);
@@ -1921,11 +2009,20 @@ export default function StaffWorkspacePage() {
   const handleDeleteOrder = async () => {
     if (!deleteOrderId) return;
     setDeletingOrder(true);
-    const { error } = await supabase.from('orders').delete().eq('id', deleteOrderId);
-    if (!error) {
-      setWsOrders(prev => prev.filter(o => o.id !== deleteOrderId));
-    } else {
+    // .select() returns the deleted rows. RLS only allows super_admin to delete; for
+    // anyone else the delete returns no error but 0 rows — detect that and surface it
+    // instead of optimistically removing a row that still exists in the database.
+    const { data, error } = await supabase
+      .from('orders')
+      .delete()
+      .eq('id', deleteOrderId)
+      .select('id');
+    if (error) {
       setWsOrdersError('Failed to delete order: ' + error.message);
+    } else if (!data || data.length === 0) {
+      setWsOrdersError('Order was not deleted — only a Super Admin can delete orders.');
+    } else {
+      setWsOrders(prev => prev.filter(o => o.id !== deleteOrderId));
     }
     setDeletingOrder(false);
     setDeleteOrderId(null);
@@ -2243,8 +2340,8 @@ export default function StaffWorkspacePage() {
       const { error: uploadErr } = await supabase.storage.from('homepage-card-images').upload(path, cardImageFile);
       if (uploadErr) { setCardFormError(uploadErr.message); setSavingCard(false); setUploadingCardImage(false); return; }
       image_path = path;
-      const { data: urlData } = await supabase.storage.from('homepage-card-images').createSignedUrl(path, 3600 * 24 * 365);
-      image_url = urlData?.signedUrl || null;
+      const { data: urlData } = supabase.storage.from('homepage-card-images').getPublicUrl(path);
+      image_url = urlData?.publicUrl || null;
       setUploadingCardImage(false);
     }
     const { error } = await supabase.from('homepage_cards').update({
@@ -2533,9 +2630,16 @@ export default function StaffWorkspacePage() {
     setCohProfile(null);
     setCohOrders([]);
     try {
-      const res = await fetch(`/api/customer-lookup?q=${encodeURIComponent(cohLookupInput.trim())}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Lookup failed');
+      // The API is a POST endpoint expecting { identifier }. Parse defensively so an
+      // empty/non-JSON body (e.g. a 405/500) never throws "Unexpected end of JSON input".
+      const res = await fetch('/api/customer-lookup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier: cohLookupInput.trim() }),
+      });
+      const text = await res.text();
+      const data = text ? JSON.parse(text) : {};
+      if (!res.ok) throw new Error(data.error || `Lookup failed (${res.status})`);
       setCohProfile(data.profile);
       setCohOrders(data.orders || []);
     } catch (err: any) {
@@ -2547,6 +2651,8 @@ export default function StaffWorkspacePage() {
 
   // ─── Tab change handler ───────────────────────────────────────────────────────
   const handleTabChange = (tab: WorkspaceTab) => {
+    // Defense-in-depth: ignore navigation to tabs the current role can't access.
+    if (!roleCanAccessTab(userProfile?.role, tab)) return;
     setActiveTab(tab);
     if (tab === 'staff') loadStaff();
     if (tab === 'homepage_cards') { loadHomepageCards(); loadTickerBanner(); }
@@ -2556,7 +2662,8 @@ export default function StaffWorkspacePage() {
     if (tab === 'discount_vouchers') loadDiscountVouchers();
     if (tab === 'testimonials') loadTestimonials();
     if (tab === 'social_media') loadSocialLinks();
-    if (tab === 'orders') loadWsOrders();
+    // Orders are loaded by the Orders realtime effect (fires on activeTab change),
+    // which also covers landing on Orders by default — avoids a double fetch here.
     if (tab === 'reporting') loadReporting();
     if (tab === 'analytics') loadAnalytics(analyticsPeriod);
     if (tab === 'gallery') loadGallery();
@@ -2571,6 +2678,13 @@ export default function StaffWorkspacePage() {
       setCohExpandedOrderId(null);
     }
   };
+
+  // Role-scoped tab visibility helpers for the sidebar.
+  const canTab = (tab: WorkspaceTab) => roleCanAccessTab(userProfile?.role, tab);
+  const canAnyTab = (...tabs: WorkspaceTab[]) => tabs.some(canTab);
+  // Role gate for standalone /staff/* pages linked from the sidebar.
+  const canRole = (...roles: StaffRole[]) =>
+    !!userProfile?.role && roles.includes(userProfile.role as StaffRole);
 
   return (
     <>
@@ -2691,131 +2805,195 @@ export default function StaffWorkspacePage() {
             <nav className="py-4 space-y-0.5">
 
               {/* ── Site Content (collapsible) ── */}
-              <button
-                onClick={() => setSiteContentOpen(prev => !prev)}
-                className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
-                  ['staff', 'homepage_cards', 'testimonials', 'social_media', 'gallery', 'section_visibility', 'correspondence_settings', 'package_visibility'].includes(activeTab) ? 'text-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
-                }`}
-              >
-                <span className="text-base">📁</span>
-                <span className="flex-1">Site Content</span>
-                <span className="text-xs">{siteContentOpen ? '▲' : '▼'}</span>
-              </button>
-              {siteContentOpen && (
-                <div className="pl-4 border-l-2 border-[#E8DDD0] ml-4">
-                  {(userProfile?.role === 'super_admin') && (
-                    <button onClick={() => { handleTabChange('staff'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'staff' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
-                      <span className="text-base">👥</span><span>Staff Management</span>
-                    </button>
+              {canAnyTab('staff', 'homepage_cards', 'gallery', 'section_visibility', 'correspondence_settings', 'package_visibility', 'testimonials', 'social_media') && (
+                <>
+                  <button
+                    onClick={() => setSiteContentOpen(prev => !prev)}
+                    className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
+                      ['staff', 'homepage_cards', 'testimonials', 'social_media', 'gallery', 'section_visibility', 'correspondence_settings', 'package_visibility'].includes(activeTab) ? 'text-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
+                    }`}
+                  >
+                    <span className="text-base">📁</span>
+                    <span className="flex-1">Site Content</span>
+                    <span className="text-xs">{siteContentOpen ? '▲' : '▼'}</span>
+                  </button>
+                  {siteContentOpen && (
+                    <div className="pl-4 border-l-2 border-[#E8DDD0] ml-4">
+                      {canTab('staff') && (
+                        <button onClick={() => { handleTabChange('staff'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'staff' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
+                          <span className="text-base">👥</span><span>Staff Management</span>
+                        </button>
+                      )}
+                      {canTab('homepage_cards') && (
+                        <button onClick={() => { handleTabChange('homepage_cards'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'homepage_cards' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
+                        <span className="text-base">🏠</span><span>Home Page Cards</span>
+                        </button>
+                      )}
+                      {canTab('gallery') && (
+                        <button onClick={() => { handleTabChange('gallery'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'gallery' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
+                        <span className="text-base">🖼️</span><span>Gallery</span>
+                        </button>
+                      )}
+                      {canTab('section_visibility') && (
+                        <button onClick={() => { handleTabChange('section_visibility'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'section_visibility' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
+                        <span className="text-base">👁️</span><span>Section Visibility</span>
+                        </button>
+                      )}
+                      {canTab('correspondence_settings') && (
+                        <button onClick={() => { handleTabChange('correspondence_settings'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'correspondence_settings' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
+                        <span className="text-base">✉️</span><span>Correspondence Settings</span>
+                        </button>
+                      )}
+                      {canTab('package_visibility') && (
+                        <button onClick={() => { handleTabChange('package_visibility'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'package_visibility' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
+                        <span className="text-base">📦</span><span>Package Visibility</span>
+                        </button>
+                      )}
+                      {canTab('testimonials') && (
+                        <button onClick={() => { handleTabChange('testimonials'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'testimonials' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
+                          <span className="text-base">⭐</span><span>Testimonials</span>
+                        </button>
+                      )}
+                      {canTab('social_media') && (
+                        <button onClick={() => { handleTabChange('social_media'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'social_media' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
+                          <span className="text-base">🔗</span><span>Social Media</span>
+                        </button>
+                      )}
+                    </div>
                   )}
-                  <button onClick={() => { handleTabChange('homepage_cards'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'homepage_cards' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
-                    <span className="text-base">🏠</span><span>Home Page Cards</span>
-                  </button>
-                  <button onClick={() => { handleTabChange('gallery'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'gallery' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
-                    <span className="text-base">🖼️</span><span>Gallery</span>
-                  </button>
-                  <button onClick={() => { handleTabChange('section_visibility'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'section_visibility' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
-                    <span className="text-base">👁️</span><span>Section Visibility</span>
-                  </button>
-                  <button onClick={() => { handleTabChange('correspondence_settings'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'correspondence_settings' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
-                    <span className="text-base">✉️</span><span>Correspondence Settings</span>
-                  </button>
-                  <button onClick={() => { handleTabChange('package_visibility'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'package_visibility' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
-                    <span className="text-base">📦</span><span>Package Visibility</span>
-                  </button>
-                  {['super_admin', 'admin'].includes(userProfile?.role ?? '') && (
-                    <button onClick={() => { handleTabChange('testimonials'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'testimonials' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
-                      <span className="text-base">⭐</span><span>Testimonials</span>
-                    </button>
-                  )}
-                  {userProfile?.role === 'super_admin' && (
-                    <button onClick={() => { handleTabChange('social_media'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'social_media' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
-                      <span className="text-base">🔗</span><span>Social Media</span>
-                    </button>
-                  )}
-                </div>
+                </>
               )}
 
               {/* ── Cooking & Baking Classes ── */}
-              <button
-                onClick={() => { handleTabChange('cooking_classes'); }}
-                className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
-                  activeTab === 'cooking_classes' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
-                }`}
-              >
-                <span className="text-base">👨‍🍳</span>
-                <span>Cooking &amp; Baking Classes</span>
-              </button>
+              {canTab('cooking_classes') && (
+                <button
+                  onClick={() => { handleTabChange('cooking_classes'); }}
+                  className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
+                    activeTab === 'cooking_classes' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
+                  }`}
+                >
+                  <span className="text-base">👨‍🍳</span>
+                  <span>Cooking &amp; Baking Classes</span>
+                </button>
+              )}
 
               {/* ── Products & Pricing ── */}
-              <button onClick={() => { handleTabChange('products'); }} className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${activeTab === 'products' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'}`}>
-                <span className="text-base">🛒</span><span>Products &amp; Pricing</span>
-              </button>
+              {canTab('products') && (
+                <button onClick={() => { handleTabChange('products'); }} className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${activeTab === 'products' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'}`}>
+                  <span className="text-base">🛒</span><span>Products &amp; Pricing</span>
+                </button>
+              )}
 
               {/* ── Weekly Menu ── */}
-              <button onClick={() => { handleTabChange('weekly_menu'); }} className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${activeTab === 'weekly_menu' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'}`}>
-                <span className="text-base">📅</span><span>Weekly Menu</span>
-              </button>
+              {canTab('weekly_menu') && (
+                <button onClick={() => { handleTabChange('weekly_menu'); }} className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${activeTab === 'weekly_menu' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'}`}>
+                  <span className="text-base">📅</span><span>Weekly Menu</span>
+                </button>
+              )}
 
               {/* ── Orders ── */}
-              <button onClick={() => { handleTabChange('orders'); }} className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${activeTab === 'orders' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'}`}>
-                <span className="text-base">📦</span><span>Order Management</span>
-              </button>
+              {canTab('orders') && (
+                <button onClick={() => { handleTabChange('orders'); }} className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${activeTab === 'orders' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'}`}>
+                  <span className="text-base">📦</span><span>Order Management</span>
+                </button>
+              )}
 
               {/* ── Customer Order History ── */}
-              <button onClick={() => { handleTabChange('customer_order_history'); }} className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${activeTab === 'customer_order_history' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'}`}>
-                <span className="text-base">🔍</span><span>Customer Order History</span>
-              </button>
+              {canTab('customer_order_history') && (
+                <button onClick={() => { handleTabChange('customer_order_history'); }} className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${activeTab === 'customer_order_history' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'}`}>
+                  <span className="text-base">🔍</span><span>Customer Order History</span>
+                </button>
+              )}
+
+              {/* ── Scanner (standalone page) ── */}
+              {canRole('super_admin', 'admin', 'staff') && (
+                <button onClick={() => router.push('/staff/scanner')} className="flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]">
+                  <span className="text-base">📷</span><span>Scanner</span>
+                </button>
+              )}
 
               {/* ── Vouchers (collapsible) ── */}
-              <button onClick={() => setVouchersMenuOpen(prev => !prev)} className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${['vouchers', 'discount_vouchers'].includes(activeTab) ? 'text-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'}`}>
-                <span className="text-base">🎟️</span><span className="flex-1">Vouchers</span><span className="text-xs">{vouchersMenuOpen ? '▲' : '▼'}</span>
-              </button>
-              {vouchersMenuOpen && (
-                <div className="pl-4 border-l-2 border-[#E8DDD0] ml-4">
-                  <button onClick={() => { handleTabChange('vouchers'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'vouchers' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
-                    <span className="text-base">🍽️</span><span>Meal Vouchers</span>
+              {canAnyTab('vouchers', 'discount_vouchers') && (
+                <>
+                  <button onClick={() => setVouchersMenuOpen(prev => !prev)} className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${['vouchers', 'discount_vouchers'].includes(activeTab) ? 'text-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'}`}>
+                    <span className="text-base">🎟️</span><span className="flex-1">Vouchers</span><span className="text-xs">{vouchersMenuOpen ? '▲' : '▼'}</span>
                   </button>
-                  <button onClick={() => { handleTabChange('discount_vouchers'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'discount_vouchers' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
-                    <span className="text-base">🏷️</span><span>Discount Vouchers</span>
-                  </button>
-                </div>
+                  {vouchersMenuOpen && (
+                    <div className="pl-4 border-l-2 border-[#E8DDD0] ml-4">
+                      {canTab('vouchers') && (
+                        <button onClick={() => { handleTabChange('vouchers'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'vouchers' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
+                          <span className="text-base">🍽️</span><span>Meal Vouchers</span>
+                        </button>
+                      )}
+                      {canTab('discount_vouchers') && (
+                        <button onClick={() => { handleTabChange('discount_vouchers'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'discount_vouchers' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
+                          <span className="text-base">🏷️</span><span>Discount Vouchers</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </>
               )}
 
               {/* ── Reports (collapsible) ── */}
-              <button onClick={() => setReportsMenuOpen(prev => !prev)} className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${['reporting', 'analytics'].includes(activeTab) ? 'text-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'}`}>
-                <span className="text-base">📊</span><span className="flex-1">Reports</span><span className="text-xs">{reportsMenuOpen ? '▲' : '▼'}</span>
-              </button>
-              {reportsMenuOpen && (
-                <div className="pl-4 border-l-2 border-[#E8DDD0] ml-4">
-                  <button onClick={() => { handleTabChange('reporting'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'reporting' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
-                    <span className="text-base">📋</span><span>Reports Dashboard</span>
+              {canAnyTab('reporting', 'analytics') && (
+                <>
+                  <button onClick={() => setReportsMenuOpen(prev => !prev)} className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${['reporting', 'analytics'].includes(activeTab) ? 'text-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'}`}>
+                    <span className="text-base">📊</span><span className="flex-1">Reports</span><span className="text-xs">{reportsMenuOpen ? '▲' : '▼'}</span>
                   </button>
-                  <button onClick={() => { handleTabChange('analytics'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'analytics' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
-                    <span className="text-base">📈</span><span>Analytics</span>
-                  </button>
-                </div>
+                  {reportsMenuOpen && (
+                    <div className="pl-4 border-l-2 border-[#E8DDD0] ml-4">
+                      {canTab('reporting') && (
+                        <button onClick={() => { handleTabChange('reporting'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'reporting' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
+                          <span className="text-base">📋</span><span>Reports Dashboard</span>
+                        </button>
+                      )}
+                      {canTab('analytics') && (
+                        <button onClick={() => { handleTabChange('analytics'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'analytics' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
+                          <span className="text-base">📈</span><span>Analytics</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </>
               )}
 
               {/* ── Media (collapsible) ── */}
-              <button onClick={() => setMediaMenuOpen(prev => !prev)} className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${['media', 'media_events', 'media_products'].includes(activeTab) ? 'text-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'}`}>
-                <span className="text-base">🗂️</span><span className="flex-1">Media</span><span className="text-xs">{mediaMenuOpen ? '▲' : '▼'}</span>
-              </button>
-              {mediaMenuOpen && (
-                <div className="pl-4 border-l-2 border-[#E8DDD0] ml-4">
-                  <button onClick={() => { handleTabChange('media'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'media' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
-                    <span className="text-base">📄</span><span>Document Management</span>
+              {canAnyTab('media', 'media_events') && (
+                <>
+                  <button onClick={() => setMediaMenuOpen(prev => !prev)} className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${['media', 'media_events', 'media_products'].includes(activeTab) ? 'text-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'}`}>
+                    <span className="text-base">🗂️</span><span className="flex-1">Media</span><span className="text-xs">{mediaMenuOpen ? '▲' : '▼'}</span>
                   </button>
-                  <button onClick={() => { handleTabChange('media_events'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'media_events' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
-                    <span className="text-base">🎉</span><span>Events</span>
-                  </button>
-                </div>
+                  {mediaMenuOpen && (
+                    <div className="pl-4 border-l-2 border-[#E8DDD0] ml-4">
+                      {canTab('media') && (
+                        <button onClick={() => { handleTabChange('media'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'media' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
+                          <span className="text-base">📄</span><span>Document Management</span>
+                        </button>
+                      )}
+                      {canTab('media_events') && (
+                        <button onClick={() => { handleTabChange('media_events'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'media_events' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
+                          <span className="text-base">🎉</span><span>Events</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </>
               )}
 
               {/* ── Abandoned Carts ── */}
-              <button onClick={() => { handleTabChange('abandoned_carts'); }} className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${activeTab === 'abandoned_carts' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'}`}>
-                <span className="text-base">🛒</span><span>Abandoned Carts</span>
-              </button>
+              {canTab('abandoned_carts') && (
+                <button onClick={() => { handleTabChange('abandoned_carts'); }} className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${activeTab === 'abandoned_carts' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'}`}>
+                  <span className="text-base">🛒</span><span>Abandoned Carts</span>
+                </button>
+              )}
+
+              {/* ── Guide (standalone help page) ── */}
+              {canRole('super_admin', 'admin', 'staff') && (
+                <button onClick={() => router.push('/staff/guide')} className="flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]">
+                  <span className="text-base">📖</span><span>Guide</span>
+                </button>
+              )}
 
             </nav>
           </aside>
@@ -2887,8 +3065,8 @@ export default function StaffWorkspacePage() {
                               </td>
                               <td className="px-4 py-3 text-right">
                                 <div className="flex items-center justify-end gap-2">
-                                  <button onClick={() => openEditForm(product)} className="text-xs text-[#C4622D] hover:underline font-medium">Edit</button>
-                                  <button onClick={() => handleDeleteProduct(product)} className="text-xs text-red-500 hover:underline font-medium">Delete</button>
+                                  <button onClick={() => openEditForm(product)} className="text-xs bg-[#C4622D] text-white px-3 py-1.5 rounded-xl font-semibold hover:bg-[#A04E22] transition-colors">Edit</button>
+                                  <button onClick={() => handleDeleteProduct(product)} className="text-xs bg-white text-red-600 border border-red-300 px-3 py-1.5 rounded-xl font-semibold hover:bg-red-50 transition-colors">Delete</button>
                                 </div>
                               </td>
                             </tr>
@@ -3051,7 +3229,11 @@ export default function StaffWorkspacePage() {
                 <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
                   <div>
                     <h2 className="text-xl font-bold text-[#1A1612]">Order Management</h2>
-                    <p className="text-sm text-[#8C8278] mt-0.5">{wsOrders.length} orders</p>
+                    <p className="text-sm text-[#8C8278] mt-0.5">
+                      {wsFilteredOrders.length === wsOrders.length
+                        ? `${wsOrders.length} orders`
+                        : `${wsFilteredOrders.length} of ${wsOrders.length} orders`}
+                    </p>
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
                     <div className="relative">
@@ -3129,14 +3311,23 @@ export default function StaffWorkspacePage() {
                                   <select value={order.payment_status} onChange={e => handleWsPaymentUpdate(order.id, e.target.value as PaymentStatus)} disabled={updateState.paymentSaving} className="border border-[#DDD5C8] rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white disabled:opacity-50">
                                     {PAYMENT_OPTIONS.map(s => <option key={s} value={s}>{PAYMENT_STATUS_LABELS[s]}</option>)}
                                   </select>
+                                  {updateState.paymentSaving && <p className="text-xs text-[#8C8278] mt-1">Saving…</p>}
+                                  {updateState.paymentSuccess && <p className="text-xs text-green-600 mt-1">✓ Saved</p>}
+                                  {updateState.paymentError && <p className="text-xs text-red-500 mt-1">{updateState.paymentError}</p>}
                                 </div>
                                 <div>
                                   <p className="text-xs text-[#8C8278] mb-1">Fulfillment Status</p>
                                   <select value={order.fulfillment_status} onChange={e => handleWsFulfillmentUpdate(order.id, e.target.value as FulfillmentStatus)} disabled={updateState.fulfillmentSaving || isFulfillmentStatusLocked(order.fulfillment_status)} className="border border-[#DDD5C8] rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white disabled:opacity-50">
                                     {FULFILLMENT_OPTIONS.map(s => <option key={s} value={s}>{FULFILLMENT_STATUS_LABELS[s]}</option>)}
                                   </select>
+                                  {updateState.fulfillmentSaving && <p className="text-xs text-[#8C8278] mt-1">Saving…</p>}
+                                  {updateState.fulfillmentSuccess && <p className="text-xs text-green-600 mt-1">✓ Saved</p>}
+                                  {updateState.fulfillmentError && <p className="text-xs text-red-500 mt-1">{updateState.fulfillmentError}</p>}
+                                  {isFulfillmentStatusLocked(order.fulfillment_status) && <p className="text-xs text-[#8C8278] mt-1">Locked — already {FULFILLMENT_STATUS_LABELS[order.fulfillment_status]}</p>}
                                 </div>
-                                <button onClick={() => setDeleteOrderId(order.id)} className="text-xs text-red-500 hover:underline font-medium mt-4">Delete Order</button>
+                                {canRole('super_admin') && (
+                                  <button onClick={() => setDeleteOrderId(order.id)} className="text-xs text-red-500 hover:underline font-medium mt-4">Delete Order</button>
+                                )}
                               </div>
                             </div>
                           )}
@@ -3465,19 +3656,130 @@ export default function StaffWorkspacePage() {
                     <button onClick={loadReporting} className="text-sm border border-[#DDD5C8] text-[#5C5347] px-4 py-2 rounded-xl hover:bg-[#F5F0E8] transition-colors">↻ Refresh</button>
                   </div>
                 </div>
-                <div className="bg-white rounded-2xl border border-[#EDE7DA] p-8 text-center">
-                  <span className="text-4xl">📊</span>
-                  <p className="text-[#8C8278] mt-3 text-sm">Reports are loading. Use the Refresh button to load data.</p>
+                {/* Report selector cards */}
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
+                  {[
+                    { key: 'products_ordered', icon: '🛒', label: 'Products Ordered', count: productsOrderedRows.length },
+                    { key: 'package_meals_ordered', icon: '📦', label: 'Package Meals', count: packageMealsRows.length },
+                    { key: 'frozen_meals_ordered', icon: '❄️', label: 'Frozen Meals', count: frozenMealsRows.length },
+                    { key: 'discount_vouchers_report', icon: '🏷️', label: 'Discount Vouchers', count: discountVouchersReportRows.length },
+                    { key: 'delivered_orders', icon: '🚚', label: 'Delivered Orders', count: deliveredOrdersRows.length },
+                  ].map(c => (
+                    <button
+                      key={c.key}
+                      onClick={() => setReportingView(c.key as typeof reportingView)}
+                      className={`text-left rounded-2xl border p-4 transition-colors ${reportingView === c.key ? 'border-[#C4622D] bg-[#FDF6EE]' : 'border-[#EDE7DA] bg-white hover:bg-[#FAF5EE]'}`}
+                    >
+                      <div className="text-2xl mb-1">{c.icon}</div>
+                      <p className="text-xs font-medium text-[#5C5347]">{c.label}</p>
+                      <p className="text-lg font-bold text-[#1A1612]">{c.count}</p>
+                    </button>
+                  ))}
                 </div>
+
+                {reportingView === 'cards' ? (
+                  <div className="bg-white rounded-2xl border border-[#EDE7DA] p-8 text-center">
+                    <span className="text-4xl">📊</span>
+                    <p className="text-[#8C8278] mt-3 text-sm">Select a report above to view its details. Use ↻ Refresh to reload data.</p>
+                  </div>
+                ) : (() => {
+                  const q = reportingSearchQuery.trim().toLowerCase();
+                  const f = <T,>(arr: T[], keys: (keyof T)[]) => arr.filter(r => !q || keys.some(k => String(r[k] ?? '').toLowerCase().includes(q)));
+                  let headers: string[] = [];
+                  let rows: (string | number)[][] = [];
+                  let download: () => void = () => {};
+                  let loading = false;
+
+                  if (reportingView === 'products_ordered') {
+                    loading = productsOrderedLoading;
+                    headers = ['Product', 'Type', 'Item', 'Meal Voucher', 'Discount Voucher', 'Ordered', 'Client', 'eMail'];
+                    const fr = f(productsOrderedRows, ['productName', 'productType', 'item', 'clientName', 'clientEmail']);
+                    rows = fr.map(r => [r.productName, r.productType, r.item, r.mealVoucher || '—', r.discountVoucher || '—', r.orderedDate, r.clientName, r.clientEmail]);
+                    download = () => downloadProductsOrderedPDF(fr);
+                  } else if (reportingView === 'package_meals_ordered') {
+                    loading = packageMealsLoading;
+                    headers = ['Product', 'Type', 'Item', 'Package', 'Meal Voucher', 'Discount Voucher', 'Ordered', 'Delivered', 'Client', 'eMail'];
+                    const fr = f(packageMealsRows, ['productName', 'productType', 'item', 'packagePurchased', 'clientName', 'clientEmail']);
+                    rows = fr.map(r => [r.productName, r.productType, r.item, r.packagePurchased, r.mealVoucher || '—', r.discountVoucher || '—', r.orderedDate, r.deliveredDt, r.clientName, r.clientEmail]);
+                    download = () => downloadPackageMealsPDF(fr);
+                  } else if (reportingView === 'frozen_meals_ordered') {
+                    loading = frozenMealsLoading;
+                    headers = ['Product', 'Type', 'Item', 'Package', 'Meal Voucher', 'Discount Voucher', 'Ordered', 'Delivered', 'Client', 'eMail'];
+                    const fr = f(frozenMealsRows, ['productName', 'productType', 'item', 'packagePurchased', 'clientName', 'clientEmail']);
+                    rows = fr.map(r => [r.productName, r.productType, r.item, r.packagePurchased, r.mealVoucher || '—', r.discountVoucher || '—', r.orderedDate, r.deliveredDt, r.clientName, r.clientEmail]);
+                    download = () => downloadFrozenMealsPDF(fr);
+                  } else if (reportingView === 'discount_vouchers_report') {
+                    loading = discountVouchersReportLoading;
+                    headers = ['Discount Voucher', 'Amount', 'Expiry Date', 'Product Name', 'Type', 'Item', 'Ordered', 'Delivered', 'Client', 'eMail'];
+                    const fr = f(discountVouchersReportRows, ['dvCode', 'productName', 'productType', 'item', 'clientName', 'clientEmail']);
+                    rows = fr.map(r => [r.dvCode, `R${r.dvAmount.toFixed(2)}`, r.expiryDate, r.productName, r.productType, r.item, r.orderedDate, r.deliveredDt, r.clientName, r.clientEmail]);
+                    download = () => downloadDiscountVouchersPDF(fr);
+                  } else if (reportingView === 'delivered_orders') {
+                    loading = deliveredOrdersLoading;
+                    headers = ['Product', 'Type', 'Item', 'Package', 'Meal Voucher', 'Discount Voucher', 'Ordered', 'Delivered', 'Lead Time', 'Email'];
+                    const fr = f(deliveredOrdersRows, ['productName', 'productType', 'item', 'packagePurchased', 'clientEmail']);
+                    rows = fr.map(r => [r.productName, r.productType, r.item, r.packagePurchased, r.mealVoucher || '—', r.discountVoucher || '—', r.orderedDate, r.deliveredDt, r.leadTime, r.clientEmail]);
+                    download = () => downloadDeliveredOrdersPDF(fr);
+                  }
+
+                  return (
+                    <div className="bg-white rounded-2xl border border-[#EDE7DA] overflow-hidden">
+                      <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-[#EDE7DA]">
+                        <p className="text-sm font-semibold text-[#1A1612]">{rows.length} row{rows.length !== 1 ? 's' : ''}</p>
+                        <button
+                          onClick={download}
+                          disabled={loading || rows.length === 0}
+                          className="text-sm bg-[#C4622D] text-white px-4 py-1.5 rounded-xl font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          ⬇ Download PDF
+                        </button>
+                      </div>
+                      {loading ? (
+                        <div className="flex items-center justify-center py-12"><div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>
+                      ) : rows.length === 0 ? (
+                        <div className="py-12 text-center text-sm text-[#8C8278]">No data found for this report.</div>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="bg-[#F5F0E8]">
+                                {headers.map(h => (
+                                  <th key={h} className="text-left px-4 py-2.5 text-xs font-semibold text-[#8C8278] uppercase tracking-wider whitespace-nowrap">{h}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-[#EDE7DA]">
+                              {rows.map((row, ri) => (
+                                <tr key={ri} className="hover:bg-[#FAFAF8]">
+                                  {row.map((cell, ci) => (
+                                    <td key={ci} className="px-4 py-2.5 text-[#3D3530] whitespace-nowrap">{cell}</td>
+                                  ))}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             )}
 
             {/* ── ANALYTICS TAB ── */}
             {activeTab === 'analytics' && (
               <div className="p-6">
-                <div className="mb-6">
-                  <h2 className="text-xl font-bold text-[#1A1612]">Analytics</h2>
-                  <p className="text-sm text-[#8C8278] mt-0.5">Order trends and performance metrics</p>
+                <div className="mb-6 flex items-start justify-between flex-wrap gap-3">
+                  <div>
+                    <h2 className="text-xl font-bold text-[#1A1612]">Analytics</h2>
+                    <p className="text-sm text-[#8C8278] mt-0.5">Order trends and performance metrics</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {(['7d', '30d', '90d', '12m'] as AnalyticsPeriod[]).map(p => (
+                      <button key={p} onClick={() => { setAnalyticsPeriod(p); loadAnalytics(p); }} className={`px-3.5 py-2 rounded-xl text-sm font-medium transition-colors ${analyticsPeriod === p ? 'bg-[#C4622D] text-white' : 'border border-[#DDD5C8] text-[#5C5347] hover:bg-[#F5F0E8]'}`}>{p}</button>
+                    ))}
+                    <button onClick={() => loadAnalytics(analyticsPeriod)} className="text-sm border border-[#DDD5C8] text-[#5C5347] px-3.5 py-2 rounded-xl hover:bg-[#F5F0E8] transition-colors">↻</button>
+                  </div>
                 </div>
                 {analyticsLoading ? (
                   <div className="flex items-center justify-center py-12"><div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>
@@ -3485,11 +3787,7 @@ export default function StaffWorkspacePage() {
                   <div className="bg-red-50 border border-red-200 rounded-xl p-4"><p className="text-sm text-red-600">{analyticsError}</p></div>
                 ) : (
                   <div className="space-y-6">
-                    <div className="flex gap-2">
-                      {(['7d', '30d', '90d', '12m'] as AnalyticsPeriod[]).map(p => (
-                        <button key={p} onClick={() => { setAnalyticsPeriod(p); loadAnalytics(p); }} className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${analyticsPeriod === p ? 'bg-[#C4622D] text-white' : 'border border-[#DDD5C8] text-[#5C5347] hover:bg-[#F5F0E8]'}`}>{p}</button>
-                      ))}
-                    </div>
+                    {/* Summary metric cards */}
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                       {summaryMetrics.map((m, i) => (
                         <div key={i} className="bg-white rounded-2xl border border-[#EDE7DA] p-4">
@@ -3501,6 +3799,86 @@ export default function StaffWorkspacePage() {
                           {m.sub && <p className="text-xs text-[#8C8278] mt-0.5">{m.sub}</p>}
                         </div>
                       ))}
+                    </div>
+
+                    {/* Orders & Revenue trend */}
+                    <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-sm font-bold text-[#1A1612]">Orders &amp; Revenue Trend</h3>
+                        <div className="flex items-center gap-4 text-xs text-[#8C8278]">
+                          <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-[#C4622D]" /> Orders</span>
+                          <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-[#22C55E]" /> Revenue (R)</span>
+                        </div>
+                      </div>
+                      {orderTrend.some(p => p.orders > 0 || p.revenue > 0) ? (
+                        <ResponsiveContainer width="100%" height={300}>
+                          <ComposedChart data={orderTrend} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#EDE7DA" vertical={false} />
+                            <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#8C8278' }} tickLine={false} axisLine={{ stroke: '#EDE7DA' }} />
+                            <YAxis yAxisId="left" tick={{ fontSize: 11, fill: '#8C8278' }} tickLine={false} axisLine={false} allowDecimals={false} />
+                            <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: '#8C8278' }} tickLine={false} axisLine={false} />
+                            <Tooltip content={<AnalyticsTooltip />} />
+                            <Bar yAxisId="left" dataKey="orders" name="Orders" fill="#C4622D" radius={[4, 4, 0, 0]} maxBarSize={38} />
+                            <Line yAxisId="right" type="monotone" dataKey="revenue" name="Revenue" stroke="#22C55E" strokeWidth={2.5} dot={{ r: 3 }} />
+                          </ComposedChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="py-16 text-center text-sm text-[#8C8278]">No orders in this period.</div>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* Fulfillment breakdown */}
+                      <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5">
+                        <h3 className="text-sm font-bold text-[#1A1612] mb-4">Order Fulfillment</h3>
+                        {fulfillmentMetrics.length > 0 ? (
+                          <div className="flex flex-col sm:flex-row items-center gap-4">
+                            <ResponsiveContainer width="100%" height={220}>
+                              <PieChart>
+                                <Pie data={fulfillmentMetrics} dataKey="count" nameKey="status" cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={2}>
+                                  {fulfillmentMetrics.map((m, i) => <Cell key={i} fill={m.color} />)}
+                                </Pie>
+                                <Tooltip />
+                              </PieChart>
+                            </ResponsiveContainer>
+                            <div className="space-y-2 w-full sm:w-auto">
+                              {fulfillmentMetrics.map((m, i) => (
+                                <div key={i} className="flex items-center justify-between gap-4 text-sm">
+                                  <span className="flex items-center gap-2 text-[#5C5347]"><span className="w-3 h-3 rounded-sm" style={{ backgroundColor: m.color }} />{m.status}</span>
+                                  <span className="font-semibold text-[#1A1612]">{m.count}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="py-16 text-center text-sm text-[#8C8278]">No orders in this period.</div>
+                        )}
+                      </div>
+
+                      {/* Voucher usage */}
+                      <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5">
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="text-sm font-bold text-[#1A1612]">Voucher Usage</h3>
+                          <div className="flex items-center gap-4 text-xs text-[#8C8278]">
+                            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-[#8B5CF6]" /> Meal</span>
+                            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-[#F4B400]" /> Discount</span>
+                          </div>
+                        </div>
+                        {voucherUsage.some(p => p.mealVouchers > 0 || p.discountVouchers > 0) ? (
+                          <ResponsiveContainer width="100%" height={220}>
+                            <BarChart data={voucherUsage} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="#EDE7DA" vertical={false} />
+                              <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#8C8278' }} tickLine={false} axisLine={{ stroke: '#EDE7DA' }} />
+                              <YAxis tick={{ fontSize: 11, fill: '#8C8278' }} tickLine={false} axisLine={false} allowDecimals={false} />
+                              <Tooltip />
+                              <Bar dataKey="mealVouchers" name="Meal" stackId="v" fill="#8B5CF6" radius={[0, 0, 0, 0]} maxBarSize={38} />
+                              <Bar dataKey="discountVouchers" name="Discount" stackId="v" fill="#F4B400" radius={[4, 4, 0, 0]} maxBarSize={38} />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        ) : (
+                          <div className="py-16 text-center text-sm text-[#8C8278]">No voucher activity in this period.</div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -3709,6 +4087,96 @@ export default function StaffWorkspacePage() {
                   <span className="text-4xl">🛍️</span>
                   <p className="text-[#8C8278] mt-3 text-sm">Switch to the Products tab to manage your product catalog.</p>
                   <button onClick={() => handleTabChange('products')} className="mt-4 bg-[#C4622D] text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors">Go to Products</button>
+                </div>
+              </div>
+            )}
+
+            {/* ── WEEKLY MENU ADD/EDIT FORM MODAL ── */}
+            {showWeeklyMenuForm && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+                <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
+                  <div className="p-6 border-b border-[#EDE7DA] flex items-center justify-between">
+                    <h3 className="text-base font-bold text-[#1A1612]">
+                      {editingWeeklyEntry ? `Edit — ${weeklyMenuForm.day_name}` : `Add Meal — ${weeklyMenuForm.day_name}`}
+                    </h3>
+                    <button onClick={() => { setShowWeeklyMenuForm(false); setEditingWeeklyEntry(null); }} className="text-[#8C8278] hover:text-[#1A1612] text-lg leading-none">✕</button>
+                  </div>
+                  <div className="p-6 space-y-4">
+                    <div className="flex items-center gap-3">
+                      <label className="flex items-center gap-2 text-sm text-[#5C5347] cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={weeklyMenuForm.is_closed}
+                          onChange={e => setWeeklyMenuForm(f => ({ ...f, is_closed: e.target.checked }))}
+                          className="w-4 h-4 accent-[#C4622D]"
+                        />
+                        Mark day as Closed
+                      </label>
+                    </div>
+                    {weeklyMenuForm.is_closed ? (
+                      <div>
+                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Closed Reason (optional)</label>
+                        <input
+                          type="text"
+                          value={weeklyMenuForm.closed_reason}
+                          onChange={e => setWeeklyMenuForm(f => ({ ...f, closed_reason: e.target.value }))}
+                          placeholder="e.g. Public holiday"
+                          className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                        />
+                      </div>
+                    ) : (
+                      <>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Meal Name <span className="text-red-500">*</span></label>
+                          <input
+                            type="text"
+                            value={weeklyMenuForm.meal_name}
+                            onChange={e => setWeeklyMenuForm(f => ({ ...f, meal_name: e.target.value }))}
+                            placeholder="e.g. Grilled Chicken with Rice"
+                            className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Description</label>
+                          <textarea
+                            value={weeklyMenuForm.description}
+                            onChange={e => setWeeklyMenuForm(f => ({ ...f, description: e.target.value }))}
+                            placeholder="Optional description"
+                            rows={2}
+                            className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] resize-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Price (R)</label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={weeklyMenuForm.price}
+                            onChange={e => setWeeklyMenuForm(f => ({ ...f, price: e.target.value }))}
+                            placeholder="0.00"
+                            className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                          />
+                        </div>
+                      </>
+                    )}
+                    {weeklyMenuFormError && <p className="text-xs text-red-500">{weeklyMenuFormError}</p>}
+                  </div>
+                  <div className="p-6 pt-0 flex justify-end gap-3">
+                    <button
+                      onClick={() => { setShowWeeklyMenuForm(false); setEditingWeeklyEntry(null); }}
+                      className="px-4 py-2 rounded-xl border border-[#DDD5C8] text-sm text-[#5C5347] hover:bg-[#F5F0E8] transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleSaveWeeklyEntry}
+                      disabled={savingWeeklyEntry}
+                      className="px-5 py-2 rounded-xl bg-[#C4622D] text-white text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
+                    >
+                      {savingWeeklyEntry ? 'Saving…' : editingWeeklyEntry ? 'Update' : 'Add Meal'}
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
