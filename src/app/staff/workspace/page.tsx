@@ -2309,7 +2309,7 @@ export default function StaffWorkspacePage() {
     setEditModalError('');
     const { error } = await supabase.from('user_profiles').update({
       full_name: editModalForm.full_name.trim(),
-      phone: editModalForm.phone.trim() || null,
+      phone: editModalForm.phone.trim() || '',
       role: editModalForm.role,
     }).eq('id', editModalMember.id);
     if (error) { setEditModalError(error.message); }
