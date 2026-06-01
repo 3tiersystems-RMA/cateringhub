@@ -708,9 +708,9 @@ export default function StaffOrdersPage() {
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 pt-4">
                           {/* Customer Details */}
                           <div className="bg-white rounded-xl border border-[#DDD5C8] p-4">
-                            <h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                            <h4 style={{ color: '#8C8278' }} className="text-xs font-semibold uppercase tracking-wider mb-3 flex items-center gap-1.5">
                               <AppIcon name="UserIcon" size={13} />
-                              Customer Details
+                              <span>Customer Details</span>
                             </h4>
                             <div className="space-y-2">
                               <div>
@@ -763,9 +763,9 @@ export default function StaffOrdersPage() {
 
                           {/* Items Ordered */}
                           <div className="bg-white rounded-xl border border-[#DDD5C8] p-4">
-                            <h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                            <h4 style={{ color: '#8C8278' }} className="text-xs font-semibold uppercase tracking-wider mb-3 flex items-center gap-1.5">
                               <AppIcon name="ShoppingBagIcon" size={13} />
-                              Items Ordered
+                              <span>Items Ordered</span>
                             </h4>
                             {Array.isArray(order.items) && order.items.length > 0 ? (
                               <div className="space-y-2">
@@ -791,9 +791,9 @@ export default function StaffOrdersPage() {
 
                           {/* Payment Summary */}
                           <div className="bg-white rounded-xl border border-[#DDD5C8] p-4">
-                            <h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                            <h4 style={{ color: '#8C8278' }} className="text-xs font-semibold uppercase tracking-wider mb-3 flex items-center gap-1.5">
                               <AppIcon name="CreditCardIcon" size={13} />
-                              Payment Summary
+                              <span>Payment Summary</span>
                             </h4>
                             <div className="space-y-2">
                               <div className="flex justify-between text-sm">
