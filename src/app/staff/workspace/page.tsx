@@ -3292,11 +3292,25 @@ export default function StaffWorkspacePage() {
                             <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${member.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{member.is_active ? 'Active' : 'Inactive'}</span>
                           </div>
                         </div>
-                        <div className="flex items-center gap-3 flex-shrink-0">
-                          <button onClick={() => { setEditModalMember(member); setEditModalForm({ full_name: member.full_name, phone: member.phone || '', role: member.role }); setEditModalError(''); }} className="text-xs text-[#C4622D] hover:underline font-medium">Edit</button>
-                          <button onClick={() => handleToggleStaffActive(member)} disabled={togglingStaffId === member.id} className="text-xs text-[#5C5347] hover:underline font-medium disabled:opacity-50">{member.is_active ? 'Deactivate' : 'Activate'}</button>
-                          <button onClick={() => handleSendPasswordReset(member)} disabled={sendingResetId === member.id} className="text-xs text-blue-600 hover:underline font-medium disabled:opacity-50">Reset PW</button>
-                          <button onClick={() => handleDeleteStaff(member)} className="text-xs text-red-500 hover:underline font-medium">Delete</button>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+                          <button
+                            onClick={() => { setEditModalMember(member); setEditModalForm({ full_name: member.full_name, phone: member.phone || '', role: member.role }); setEditModalError(''); }}
+                            style={{ fontSize: '12px', color: '#C4622D', background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontWeight: 500, textDecoration: 'underline' }}
+                          >Edit</button>
+                          <button
+                            onClick={() => handleToggleStaffActive(member)}
+                            disabled={togglingStaffId === member.id}
+                            style={{ fontSize: '12px', color: '#5C5347', background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontWeight: 500, textDecoration: 'underline', opacity: togglingStaffId === member.id ? 0.5 : 1 }}
+                          >{member.is_active ? 'Deactivate' : 'Activate'}</button>
+                          <button
+                            onClick={() => handleSendPasswordReset(member)}
+                            disabled={sendingResetId === member.id}
+                            style={{ fontSize: '12px', color: '#2563eb', background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontWeight: 500, textDecoration: 'underline', opacity: sendingResetId === member.id ? 0.5 : 1 }}
+                          >Reset PW</button>
+                          <button
+                            onClick={() => handleDeleteStaff(member)}
+                            style={{ fontSize: '12px', color: '#ef4444', background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontWeight: 500, textDecoration: 'underline' }}
+                          >Delete</button>
                         </div>
                       </div>
                     ))}
