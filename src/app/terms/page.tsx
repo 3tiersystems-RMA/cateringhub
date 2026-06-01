@@ -69,8 +69,8 @@ export default function TermsPage() {
           <div className="flex gap-8 items-start">
 
             {/* Sticky Contents Card */}
-            <aside className="hidden lg:block w-64 flex-shrink-0">
-              <div className="sticky top-24 bg-white rounded-2xl shadow-sm border border-[#C8BFB5] p-6">
+            <aside className="hidden lg:block w-64 flex-shrink-0 sticky top-24">
+              <div className="bg-white rounded-2xl shadow-sm border border-[#C8BFB5] p-6">
                 <p className="text-xs font-bold tracking-widest text-[#3D2B1F] uppercase mb-4">Contents</p>
                 <nav className="space-y-1">
                   {sections.map((s, i) => (
