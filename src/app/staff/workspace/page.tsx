@@ -3134,6 +3134,34 @@ export default function StaffWorkspacePage() {
                           <input type="text" value={form.unit} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
                         </div>
                         <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Old Price (R) <span className="font-normal text-[#9C8E82]">(optional)</span></label>
+                          <input
+                            type="number"
+                            value={form.old_price ?? ''}
+                            onChange={e => {
+                              const oldPriceVal = e.target.value;
+                              const price = Number(form.price) || 0;
+                              const oldPrice = Number(oldPriceVal);
+                              const saving = oldPriceVal && oldPrice > price && price > 0
+                                ? Math.round(((oldPrice - price) / oldPrice) * 100)
+                                : '';
+                              setForm(f => ({ ...f, old_price: oldPriceVal, saving_percent: saving === '' ? '' : String(saving) }));
+                            }}
+                            placeholder="e.g. 250"
+                            className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Saving % <span className="font-normal text-[#9C8E82]">(auto-calculated)</span></label>
+                          <input
+                            type="text"
+                            value={form.saving_percent ?? ''}
+                            readOnly
+                            placeholder="Auto-calculated"
+                            className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm bg-[#F5F0EB] text-[#9C8E82] cursor-not-allowed"
+                          />
+                        </div>
+                        <div>
                           <label className="block text-xs font-semibold text-[#5C5347] mb-1">Package Type</label>
                           <select value={form.package_type} onChange={e => setForm(f => ({ ...f, package_type: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white">
                             {packageTypes.map(p => <option key={p} value={p}>{p}</option>)}
