@@ -3702,15 +3702,47 @@ export default function StaffWorkspacePage() {
                     }).map(v => (
                       <div key={v.id} className="bg-white rounded-2xl border border-[#EDE7DA] p-4 flex items-center justify-between gap-4">
                         <div>
-                          <p className="font-semibold text-[#1A1612] font-mono text-sm">{v.voucher_code}</p>
-                          <p className="text-xs text-[#5C5347]">{v.customer_name} · {v.customer_email}</p>
-                          <p className="text-xs text-[#8C8278] mt-0.5">{v.meals_remaining}/{v.total_meals} meals remaining · {v.status}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-semibold text-[#1A1612] font-mono text-sm">{v.voucher_code}</p>
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium border ${
+                              v.status === 'active' ? 'bg-green-50 text-green-700 border-green-200' :
+                              v.status === 'paid' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                              v.status === 'unpaid' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                              v.status === 'redeemed' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                              v.status === 'expired' ? 'bg-[#FDF6EE] text-[#C4622D] border-[#F0D9C8]' :
+                              'bg-gray-50 text-gray-600 border-gray-200'
+                            }`}>{v.status.charAt(0).toUpperCase() + v.status.slice(1)}</span>
+                          </div>
+                          <p className="text-xs text-[#5C5347] mt-0.5">{v.customer_name} · {v.customer_email}</p>
+                          <p className="text-xs text-[#8C8278] mt-0.5">{v.meals_remaining}/{v.total_meals} meals remaining · {v.package_type && v.package_type !== 'none' ? v.package_type : ''}</p>
+                          <p className="text-xs text-[#8C8278]">Date purchased: {v.purchased_at ? new Date(v.purchased_at).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '/') : '—'}</p>
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
                           {v.status === 'unpaid' && (
                             <button onClick={() => handleMarkVoucherPaid(v)} disabled={markingVoucherPaidId === v.id} className="text-xs bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50">Mark Paid</button>
                           )}
-                          <button onClick={() => handleDeleteVoucher(v)} className="text-xs text-red-500 hover:underline font-medium">Delete</button>
+                          <button
+                            onClick={() => {
+                              setEditingMv(v);
+                              setMvForm({
+                                voucher_code: v.voucher_code,
+                                customer_name: v.customer_name,
+                                customer_email: v.customer_email,
+                                customer_phone: v.customer_phone || '',
+                                total_meals: String(v.total_meals),
+                                meals_remaining: String(v.meals_remaining),
+                                status: v.status,
+                                notes: v.notes || '',
+                                package_type: v.package_type || 'none',
+                                purchased_at: v.purchased_at || '',
+                              });
+                              setMvFormError('');
+                              setMvFormSuccess('');
+                              setShowMvForm(true);
+                            }}
+                            className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-lg hover:bg-[#FDF6EE] transition-colors font-medium"
+                          >Edit</button>
+                          <button onClick={() => handleDeleteVoucher(v)} className="text-xs text-red-500 border border-red-300 px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors font-medium">Delete</button>
                         </div>
                       </div>
                     ))}
@@ -4300,6 +4332,81 @@ export default function StaffWorkspacePage() {
                     >
                       {savingWeeklyEntry ? 'Saving…' : editingWeeklyEntry ? 'Update' : 'Add Meal'}
                     </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── MV ADD/EDIT FORM MODAL ── */}
+            {showMvForm && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+                <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+                  <div className="p-6 border-b border-[#EDE7DA] flex items-center justify-between">
+                    <h3 className="text-base font-bold text-[#1A1612]">{editingMv ? 'Edit Meal Voucher' : 'Add Meal Voucher'}</h3>
+                    <button onClick={() => { setShowMvForm(false); setEditingMv(null); }} className="text-[#8C8278] hover:text-[#1A1612] text-lg leading-none">✕</button>
+                  </div>
+                  <div className="p-6 space-y-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-[#5C5347] mb-1">Voucher Code <span className="text-red-500">*</span></label>
+                      <input type="text" value={mvForm.voucher_code} onChange={e => setMvForm(f => ({ ...f, voucher_code: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Customer Name <span className="text-red-500">*</span></label>
+                        <input type="text" value={mvForm.customer_name} onChange={e => setMvForm(f => ({ ...f, customer_name: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Customer Email <span className="text-red-500">*</span></label>
+                        <input type="email" value={mvForm.customer_email} onChange={e => setMvForm(f => ({ ...f, customer_email: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Phone</label>
+                        <input type="text" value={mvForm.customer_phone} onChange={e => setMvForm(f => ({ ...f, customer_phone: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Package Type</label>
+                        <select value={mvForm.package_type} onChange={e => setMvForm(f => ({ ...f, package_type: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white">
+                          {packageTypes.map(p => <option key={p} value={p}>{p}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Total Meals</label>
+                        <input type="number" min="0" value={mvForm.total_meals} onChange={e => setMvForm(f => ({ ...f, total_meals: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Meals Remaining</label>
+                        <input type="number" min="0" value={mvForm.meals_remaining} onChange={e => setMvForm(f => ({ ...f, meals_remaining: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Status</label>
+                        <select value={mvForm.status} onChange={e => setMvForm(f => ({ ...f, status: e.target.value as typeof mvForm.status }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white">
+                          <option value="unpaid">Unpaid</option>
+                          <option value="paid">Paid</option>
+                          <option value="redeemed">Redeemed</option>
+                          <option value="expired">Expired</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Date Purchased</label>
+                        <input type="date" value={mvForm.purchased_at ? mvForm.purchased_at.split('T')[0] : ''} onChange={e => setMvForm(f => ({ ...f, purchased_at: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-[#5C5347] mb-1">Notes</label>
+                      <textarea value={mvForm.notes} onChange={e => setMvForm(f => ({ ...f, notes: e.target.value }))} rows={2} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] resize-none" />
+                    </div>
+                    {mvFormError && <p className="text-xs text-red-500">{mvFormError}</p>}
+                    {mvFormSuccess && <p className="text-xs text-green-600">{mvFormSuccess}</p>}
+                  </div>
+                  <div className="p-6 pt-0 flex justify-end gap-3">
+                    <button onClick={() => { setShowMvForm(false); setEditingMv(null); }} className="px-4 py-2 rounded-xl border border-[#DDD5C8] text-sm text-[#5C5347] hover:bg-[#F5F0E8] transition-colors">Cancel</button>
+                    <button onClick={handleSaveMv} disabled={savingMv} className="px-5 py-2 rounded-xl bg-[#C4622D] text-white text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50">{savingMv ? 'Saving…' : editingMv ? 'Update Voucher' : 'Add Voucher'}</button>
                   </div>
                 </div>
               </div>
