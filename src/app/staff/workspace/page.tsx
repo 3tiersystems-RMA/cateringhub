@@ -3191,7 +3191,7 @@ export default function StaffWorkspacePage() {
             {/* ── STAFF TAB ── */}
             {activeTab === 'staff' && (
               <div className="p-6">
-                <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
+                <div className="mb-4 flex items-center justify-between flex-wrap gap-3">
                   <div>
                     <h2 className="text-xl font-bold text-[#1A1612]">Staff Management</h2>
                     <p className="text-sm text-[#8C8278] mt-0.5">{staffMembers.length} members</p>
@@ -3205,6 +3205,46 @@ export default function StaffWorkspacePage() {
                     )}
                   </div>
                 </div>
+                {/* Invite & Promote buttons — below search row */}
+                <div className="mb-5 flex gap-3">
+                  <button onClick={() => { setInviteOpen(o => !o); setPromoteOpen(false); }} className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors">+ Invite Staff</button>
+                  <button onClick={() => { setPromoteOpen(o => !o); setInviteOpen(false); }} className="border border-[#DDD5C8] text-[#5C5347] px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#FAF5EE] transition-colors">Promote Existing User</button>
+                </div>
+                {/* Invite form */}
+                {inviteOpen && (
+                  <div className="mb-5 bg-white rounded-2xl border border-[#EDE7DA] p-5">
+                    <h3 className="text-sm font-bold text-[#1A1612] mb-4">Invite New Staff Member</h3>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Full Name *</label><input type="text" value={inviteForm.full_name} onChange={e => setInviteForm(f => ({ ...f, full_name: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
+                      <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Email *</label><input type="email" value={inviteForm.email} onChange={e => setInviteForm(f => ({ ...f, email: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
+                      <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Role</label><select value={inviteForm.role} onChange={e => setInviteForm(f => ({ ...f, role: e.target.value as StaffRole }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"><option value="staff">Staff</option><option value="admin">Admin</option></select></div>
+                    </div>
+                    {inviteError && <p className="text-sm text-red-600 mt-2">{inviteError}</p>}
+                    {inviteSuccess && <p className="text-sm text-green-600 mt-2">{inviteSuccess}</p>}
+                    <div className="flex gap-3 mt-4">
+                      <button onClick={handleInviteStaff} disabled={inviting} className="bg-[#C4622D] text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50">{inviting ? 'Inviting…' : 'Send Invite'}</button>
+                      <button onClick={() => setInviteOpen(false)} className="border border-[#DDD5C8] text-[#5C5347] px-5 py-2 rounded-xl text-sm font-semibold hover:bg-[#FAF5EE] transition-colors">Cancel</button>
+                    </div>
+                  </div>
+                )}
+                {/* Promote form */}
+                {promoteOpen && (
+                  <div className="mb-5 bg-white rounded-2xl border border-[#EDE7DA] p-5">
+                    <h3 className="text-sm font-bold text-[#1A1612] mb-4">Promote Existing User to Staff</h3>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Email *</label><input type="email" value={promoteForm.email} onChange={e => setPromoteForm(f => ({ ...f, email: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
+                      <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Full Name *</label><input type="text" value={promoteForm.full_name} onChange={e => setPromoteForm(f => ({ ...f, full_name: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
+                      <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Phone</label><input type="text" value={promoteForm.phone_number} onChange={e => setPromoteForm(f => ({ ...f, phone_number: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
+                      <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Role</label><select value={promoteForm.role} onChange={e => setPromoteForm(f => ({ ...f, role: e.target.value as StaffRole }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"><option value="staff">Staff</option><option value="admin">Admin</option></select></div>
+                    </div>
+                    {promoteError && <p className="text-sm text-red-600 mt-2">{promoteError}</p>}
+                    {promoteSuccess && <p className="text-sm text-green-600 mt-2">{promoteSuccess}</p>}
+                    <div className="flex gap-3 mt-4">
+                      <button onClick={handlePromoteUser} disabled={promoting} className="bg-[#C4622D] text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50">{promoting ? 'Promoting…' : 'Promote User'}</button>
+                      <button onClick={() => setPromoteOpen(false)} className="border border-[#DDD5C8] text-[#5C5347] px-5 py-2 rounded-xl text-sm font-semibold hover:bg-[#FAF5EE] transition-colors">Cancel</button>
+                    </div>
+                  </div>
+                )}
                 {staffLoading ? (
                   <div className="flex items-center justify-center py-12"><div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>
                 ) : (
@@ -3219,7 +3259,7 @@ export default function StaffWorkspacePage() {
                             <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${member.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{member.is_active ? 'Active' : 'Inactive'}</span>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
+                        <div className="flex items-center gap-3 flex-shrink-0">
                           <button onClick={() => { setEditModalMember(member); setEditModalForm({ full_name: member.full_name, phone: member.phone || '', role: member.role }); setEditModalError(''); }} className="text-xs text-[#C4622D] hover:underline font-medium">Edit</button>
                           <button onClick={() => handleToggleStaffActive(member)} disabled={togglingStaffId === member.id} className="text-xs text-[#5C5347] hover:underline font-medium disabled:opacity-50">{member.is_active ? 'Deactivate' : 'Activate'}</button>
                           <button onClick={() => handleSendPasswordReset(member)} disabled={sendingResetId === member.id} className="text-xs text-blue-600 hover:underline font-medium disabled:opacity-50">Reset PW</button>
@@ -3227,26 +3267,6 @@ export default function StaffWorkspacePage() {
                         </div>
                       </div>
                     ))}
-                  </div>
-                )}
-                <div className="mt-6 flex gap-3">
-                  <button onClick={() => setInviteOpen(true)} className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors">+ Invite Staff</button>
-                  <button onClick={() => setPromoteOpen(true)} className="border border-[#DDD5C8] text-[#5C5347] px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#FAF5EE] transition-colors">Promote Existing User</button>
-                </div>
-                {inviteOpen && (
-                  <div className="mt-4 bg-white rounded-2xl border border-[#EDE7DA] p-5">
-                    <h3 className="text-sm font-bold text-[#1A1612] mb-4">Invite New Staff Member</h3>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Full Name *</label><input type="text" value={inviteForm.full_name} onChange={e => setInviteForm(f => ({ ...f, full_name: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
-                      <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Email *</label><input type="email" value={inviteForm.email} onChange={e => setInviteForm(f => ({ ...f, email: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
-                      <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Role</label><select value={inviteForm.role} onChange={e => setInviteForm(f => ({ ...f, role: e.target.value as StaffRole }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"><option value="staff">Staff</option><option value="admin">Admin</option></select></div>
-                    </div>
-                    {inviteError && <p className="text-sm text-red-600 mt-2">{inviteError}</p>}
-                    {inviteSuccess && <p className="text-sm text-green-600 mt-2">{inviteSuccess}</p>}
-                    <div className="flex gap-3 mt-4">
-                      <button onClick={handleInviteStaff} disabled={inviting} className="bg-[#C4622D] text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50">{inviting ? 'Inviting…' : 'Send Invite'}</button>
-                      <button onClick={() => setInviteOpen(false)} className="border border-[#DDD5C8] text-[#5C5347] px-5 py-2 rounded-xl text-sm font-semibold hover:bg-[#FAF5EE] transition-colors">Cancel</button>
-                    </div>
                   </div>
                 )}
               </div>
@@ -3312,51 +3332,88 @@ export default function StaffWorkspacePage() {
                             </div>
                           </button>
                           {isExpanded && (
-                            <div className="border-t border-[#EDE7DA] px-5 py-4 space-y-4">
-                              <div className="grid grid-cols-2 gap-4 text-sm">
-                                <div>
-                                  <p className="text-xs text-[#8C8278] mb-0.5">Phone</p>
-                                  <p className="font-medium text-[#1A1612]">{order.customer_phone || '—'}</p>
+                            <div className="border-t border-[#EDE7DA] px-5 py-5 bg-[#FDFAF6]">
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                                {/* Customer Details */}
+                                <div className="bg-white rounded-xl border border-[#DDD5C8] p-4">
+                                  <h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5"><path d="M10 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM3.465 14.493a1.23 1.23 0 0 0 .41 1.412A9.957 9.957 0 0 0 10 18c2.31 0 4.438-.784 6.131-2.1.43-.333.604-.903.408-1.41a7.002 7.002 0 0 0-13.074.003Z" /></svg>
+                                    Customer Details
+                                  </h4>
+                                  <div className="space-y-2">
+                                    <div><p className="text-xs text-[#B5ADA5]">Name</p><p className="text-sm font-medium text-[#1A1612]">{order.customer_name || '—'}</p></div>
+                                    <div><p className="text-xs text-[#B5ADA5]">Email</p><p className="text-sm text-[#1A1612] break-all">{order.customer_email || '—'}</p></div>
+                                    <div><p className="text-xs text-[#B5ADA5]">Phone</p><p className="text-sm text-[#1A1612]">{order.customer_phone || '—'}</p></div>
+                                    {order.event_date && <div><p className="text-xs text-[#B5ADA5]">Event Date</p><p className="text-sm text-[#1A1612]">{formatDate(order.event_date)}</p></div>}
+                                    {order.delivered_date && <div><p className="text-xs text-[#B5ADA5]">Delivered Date</p><p className="text-sm font-medium text-green-700">{formatDate(order.delivered_date)}</p></div>}
+                                    <div><p className="text-xs text-[#B5ADA5]">Delivery Address</p><p className="text-sm text-[#1A1612]">{order.delivery_address || '—'}</p></div>
+                                    {order.notes && <div><p className="text-xs text-[#B5ADA5]">Notes</p><p className="text-sm text-[#1A1612]">{order.notes}</p></div>}
+                                  </div>
                                 </div>
-                                <div>
-                                  <p className="text-xs text-[#8C8278] mb-0.5">Delivery Address</p>
-                                  <p className="font-medium text-[#1A1612]">{order.delivery_address || '—'}</p>
-                                </div>
-                              </div>
-                              <div>
-                                <p className="text-xs text-[#8C8278] mb-2">Items</p>
-                                <div className="space-y-1">
-                                  {(order.items || []).map((item, i) => (
-                                    <div key={i} className="flex items-center justify-between text-sm">
-                                      <span className="text-[#1A1612]">{item.quantity}x {item.name}</span>
-                                      <span className="text-[#5C5347]">{formatCurrency(item.price * item.quantity)}</span>
+
+                                {/* Items Ordered */}
+                                <div className="bg-white rounded-xl border border-[#DDD5C8] p-4">
+                                  <h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5"><path fillRule="evenodd" d="M6 5v1H4.667a1.75 1.75 0 0 0-1.743 1.598l-.826 9.14A1.75 1.75 0 0 0 3.84 18.5h12.32a1.75 1.75 0 0 0 1.742-1.762l-.826-9.14A1.75 1.75 0 0 0 15.333 6H14V5a4 4 0 0 0-8 0Zm4-2.5A2.5 2.5 0 0 0 7.5 5v1h5V5A2.5 2.5 0 0 0 10 2.5ZM7.5 10a2.5 2.5 0 0 0 5 0V8.75a.75.75 0 0 1 1.5 0V10a4 4 0 0 1-8 0V8.75a.75.75 0 0 1 1.5 0V10Z" clipRule="evenodd" /></svg>
+                                    Items Ordered
+                                  </h4>
+                                  {(order.items || []).length > 0 ? (
+                                    <div className="space-y-2">
+                                      {(order.items || []).map((item, i) => (
+                                        <div key={i} className="flex justify-between items-start gap-2">
+                                          <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-medium text-[#1A1612] truncate">{item.name}</p>
+                                            <p className="text-xs text-[#B5ADA5]">{item.unit} × {item.quantity}</p>
+                                            {item.category && <span className="inline-block mt-0.5 text-[10px] font-medium text-[#C4622D] bg-[#FDF3ED] px-1.5 py-0.5 rounded-full">{item.category}</span>}
+                                          </div>
+                                          <span className="text-sm font-semibold text-[#1A1612] flex-shrink-0">{formatCurrency(item.price * item.quantity)}</span>
+                                        </div>
+                                      ))}
                                     </div>
-                                  ))}
+                                  ) : (
+                                    <p className="text-sm text-[#B5ADA5]">No item details available</p>
+                                  )}
                                 </div>
-                              </div>
-                              <div className="flex items-center gap-4 flex-wrap">
-                                <div>
-                                  <p className="text-xs text-[#8C8278] mb-1">Payment Status</p>
-                                  <select value={order.payment_status} onChange={e => handleWsPaymentUpdate(order.id, e.target.value as PaymentStatus)} disabled={updateState.paymentSaving} className="border border-[#DDD5C8] rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white disabled:opacity-50">
-                                    {PAYMENT_OPTIONS.map(s => <option key={s} value={s}>{PAYMENT_STATUS_LABELS[s]}</option>)}
-                                  </select>
-                                  {updateState.paymentSaving && <p className="text-xs text-[#8C8278] mt-1">Saving…</p>}
-                                  {updateState.paymentSuccess && <p className="text-xs text-green-600 mt-1">✓ Saved</p>}
-                                  {updateState.paymentError && <p className="text-xs text-red-500 mt-1">{updateState.paymentError}</p>}
+
+                                {/* Payment Summary */}
+                                <div className="bg-white rounded-xl border border-[#DDD5C8] p-4">
+                                  <h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5"><path d="M2.5 4A1.5 1.5 0 0 0 1 5.5v1h18v-1A1.5 1.5 0 0 0 17.5 4h-15ZM19 8.5H1V14.5A1.5 1.5 0 0 0 2.5 16h15a1.5 1.5 0 0 0 1.5-1.5V8.5ZM3 13.25a.75.75 0 0 1 .75-.75h1.5a.75.75 0 0 1 0 1.5h-1.5a.75.75 0 0 1-.75-.75Zm4.75-.75a.75.75 0 0 0 0 1.5h3.5a.75.75 0 0 0 0-1.5h-3.5Z" /></svg>
+                                    Payment Summary
+                                  </h4>
+                                  <div className="space-y-2">
+                                    <div className="flex justify-between text-sm"><span className="text-[#8C8278]">Subtotal</span><span className="text-[#1A1612]">{formatCurrency(order.subtotal)}</span></div>
+                                    <div className="flex justify-between text-sm"><span className="text-[#8C8278]">Delivery</span><span className="text-[#1A1612]">{formatCurrency(order.delivery_fee)}</span></div>
+                                    <div className="flex justify-between text-sm font-bold border-t border-[#EDE7DA] pt-2"><span className="text-[#1A1612]">Total</span><span className="text-[#C4622D]">{formatCurrency(calculateOrderTotal(order))}</span></div>
+                                    <div className="pt-2 space-y-2">
+                                      <div>
+                                        <p className="text-xs text-[#B5ADA5] mb-1">Payment Status</p>
+                                        <select value={order.payment_status} onChange={e => handleWsPaymentUpdate(order.id, e.target.value as PaymentStatus)} disabled={updateState.paymentSaving} className="border border-[#DDD5C8] rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white disabled:opacity-50 w-full">
+                                          {PAYMENT_OPTIONS.map(s => <option key={s} value={s}>{PAYMENT_STATUS_LABELS[s]}</option>)}
+                                        </select>
+                                        {updateState.paymentSaving && <p className="text-xs text-[#8C8278] mt-1">Saving…</p>}
+                                        {updateState.paymentSuccess && <p className="text-xs text-green-600 mt-1">✓ Saved</p>}
+                                        {updateState.paymentError && <p className="text-xs text-red-500 mt-1">{updateState.paymentError}</p>}
+                                      </div>
+                                      <div>
+                                        <p className="text-xs text-[#B5ADA5] mb-1">Fulfillment Status</p>
+                                        <select value={order.fulfillment_status} onChange={e => handleWsFulfillmentUpdate(order.id, e.target.value as FulfillmentStatus)} disabled={updateState.fulfillmentSaving || isFulfillmentStatusLocked(order.fulfillment_status)} className="border border-[#DDD5C8] rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white disabled:opacity-50 w-full">
+                                          {FULFILLMENT_OPTIONS.map(s => <option key={s} value={s}>{FULFILLMENT_STATUS_LABELS[s]}</option>)}
+                                        </select>
+                                        {updateState.fulfillmentSaving && <p className="text-xs text-[#8C8278] mt-1">Saving…</p>}
+                                        {updateState.fulfillmentSuccess && <p className="text-xs text-green-600 mt-1">✓ Saved</p>}
+                                        {updateState.fulfillmentError && <p className="text-xs text-red-500 mt-1">{updateState.fulfillmentError}</p>}
+                                        {isFulfillmentStatusLocked(order.fulfillment_status) && <p className="text-xs text-[#8C8278] mt-1">Locked — already {FULFILLMENT_STATUS_LABELS[order.fulfillment_status]}</p>}
+                                      </div>
+                                      {order.m_payment_id && <div><p className="text-xs text-[#B5ADA5]">Order Reference</p><p className="text-xs font-mono text-[#5C5347]">{order.m_payment_id}</p></div>}
+                                    </div>
+                                    {canRole('super_admin') && (
+                                      <div className="pt-2 border-t border-[#EDE7DA]">
+                                        <button onClick={() => setDeleteOrderId(order.id)} className="text-xs text-red-500 hover:underline font-medium">Delete Order</button>
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
-                                <div>
-                                  <p className="text-xs text-[#8C8278] mb-1">Fulfillment Status</p>
-                                  <select value={order.fulfillment_status} onChange={e => handleWsFulfillmentUpdate(order.id, e.target.value as FulfillmentStatus)} disabled={updateState.fulfillmentSaving || isFulfillmentStatusLocked(order.fulfillment_status)} className="border border-[#DDD5C8] rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white disabled:opacity-50">
-                                    {FULFILLMENT_OPTIONS.map(s => <option key={s} value={s}>{FULFILLMENT_STATUS_LABELS[s]}</option>)}
-                                  </select>
-                                  {updateState.fulfillmentSaving && <p className="text-xs text-[#8C8278] mt-1">Saving…</p>}
-                                  {updateState.fulfillmentSuccess && <p className="text-xs text-green-600 mt-1">✓ Saved</p>}
-                                  {updateState.fulfillmentError && <p className="text-xs text-red-500 mt-1">{updateState.fulfillmentError}</p>}
-                                  {isFulfillmentStatusLocked(order.fulfillment_status) && <p className="text-xs text-[#8C8278] mt-1">Locked — already {FULFILLMENT_STATUS_LABELS[order.fulfillment_status]}</p>}
-                                </div>
-                                {canRole('super_admin') && (
-                                  <button onClick={() => setDeleteOrderId(order.id)} className="text-xs text-red-500 hover:underline font-medium mt-4">Delete Order</button>
-                                )}
                               </div>
                             </div>
                           )}
