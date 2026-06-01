@@ -938,6 +938,9 @@ export default function StaffWorkspacePage() {
   const [activeBucket, setActiveBucket] = useState<BucketType>('product-images');
   const [uploadingMedia, setUploadingMedia] = useState(false);
 
+  // Visual types state
+  const [visualTypes, setVisualTypes] = useState<string[]>([]);
+
   // ─── Helpers ──────────────────────────────────────────────────────────────────
   const formatCurrency = (val: number | null | undefined) =>
     val != null ? `R${Number(val).toFixed(2)}` : '—';
@@ -1138,6 +1141,7 @@ export default function StaffWorkspacePage() {
       await loadCategoryNames();
       await loadPackageTypes();
       await loadProducts();
+      await loadVisualTypes();
     };
     checkAuth().then(() => {
       // Only start inactivity timer for non-super_admin roles
@@ -1227,6 +1231,11 @@ export default function StaffWorkspacePage() {
     const { data } = await supabase.from('product_categories').select('*').order('sort_order');
     if (data) setCategories(data);
     setCategoriesLoading(false);
+  };
+
+  const loadVisualTypes = async () => {
+    const { data } = await supabase.from('visual_types').select('name').order('name');
+    if (data) setVisualTypes(data.map((r: { name: string }) => r.name));
   };
 
   const loadStaff = async () => {
@@ -3194,7 +3203,12 @@ export default function StaffWorkspacePage() {
                         </div>
                         <div>
                           <label className="block text-xs font-semibold text-[#5C5347] mb-1">Visual Type</label>
-                          <input type="text" value={form.visual_type ?? ''} onChange={e => setForm(f => ({ ...f, visual_type: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" placeholder="e.g. card, banner" />
+                          <select value={form.visual_type ?? ''} onChange={e => setForm(f => ({ ...f, visual_type: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white">
+                            <option value="">— Select Visual Type —</option>
+                            {visualTypes.map(vt => (
+                              <option key={vt} value={vt}>{vt}</option>
+                            ))}
+                          </select>
                         </div>
                         <div>
                           <label className="block text-xs font-semibold text-[#5C5347] mb-1">Badge</label>
