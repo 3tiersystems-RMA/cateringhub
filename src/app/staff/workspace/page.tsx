@@ -3220,6 +3220,10 @@ export default function StaffWorkspacePage() {
                           <label className="block text-xs font-semibold text-[#5C5347] mb-1">Sort Order</label>
                           <input type="number" value={form.sort_order} onChange={e => setForm(f => ({ ...f, sort_order: Number(e.target.value) }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
                         </div>
+                        <div className="col-span-2">
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Tags <span className="font-normal text-[#9C8E82]">(comma-separated)</span></label>
+                          <input type="text" value={form.tags} onChange={e => setForm(f => ({ ...f, tags: e.target.value }))} placeholder="e.g. healthy, gluten-free, halaal" className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                        </div>
                         <div className="col-span-2 flex items-center gap-6">
                           <label className="flex items-center gap-2 cursor-pointer">
                             <input type="checkbox" checked={form.available} onChange={e => setForm(f => ({ ...f, available: e.target.checked }))} className="rounded" />
