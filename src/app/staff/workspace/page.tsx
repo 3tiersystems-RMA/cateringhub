@@ -3076,6 +3076,7 @@ export default function StaffWorkspacePage() {
                             <th className="text-left px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wider">Category</th>
                             <th className="text-left px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wider">Price</th>
                             <th className="text-left px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wider">Status</th>
+                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wider">Visual Type</th>
                             <th className="text-right px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wider">Actions</th>
                           </tr>
                         </thead>
@@ -3106,6 +3107,7 @@ export default function StaffWorkspacePage() {
                                   {product.available ? 'Available' : 'Unavailable'}
                                 </span>
                               </td>
+                              <td className="px-4 py-3 text-[#5C5347] text-sm">{product.visual_type || '—'}</td>
                               <td className="px-4 py-3 text-right">
                                 <div className="flex items-center justify-end gap-2">
                                   <button onClick={() => openEditForm(product)} className="text-xs bg-[#C4622D] text-white px-3 py-1.5 rounded-xl font-semibold hover:bg-[#A04E22] transition-colors">Edit</button>
