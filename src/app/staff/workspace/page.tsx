@@ -3176,6 +3176,26 @@ export default function StaffWorkspacePage() {
                           <label className="block text-xs font-semibold text-[#5C5347] mb-1">Description</label>
                           <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={3} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] resize-none" />
                         </div>
+                        <div className="col-span-2">
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Long Description</label>
+                          <textarea value={form.long_description ?? ''} onChange={e => setForm(f => ({ ...f, long_description: e.target.value }))} rows={4} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] resize-none" placeholder="Detailed product description…" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Attribute 1</label>
+                          <input type="text" value={form.attribute1 ?? ''} onChange={e => setForm(f => ({ ...f, attribute1: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" placeholder="e.g. Gluten Free" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Attribute 2</label>
+                          <input type="text" value={form.attribute2 ?? ''} onChange={e => setForm(f => ({ ...f, attribute2: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" placeholder="e.g. Halaal" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Attribute 3</label>
+                          <input type="text" value={form.attribute3 ?? ''} onChange={e => setForm(f => ({ ...f, attribute3: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" placeholder="e.g. Vegan" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Visual Type</label>
+                          <input type="text" value={form.visual_type ?? ''} onChange={e => setForm(f => ({ ...f, visual_type: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" placeholder="e.g. card, banner" />
+                        </div>
                         <div>
                           <label className="block text-xs font-semibold text-[#5C5347] mb-1">Badge</label>
                           <input type="text" value={form.badge} onChange={e => setForm(f => ({ ...f, badge: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
