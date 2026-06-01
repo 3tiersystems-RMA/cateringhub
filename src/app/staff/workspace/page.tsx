@@ -38,7 +38,7 @@ const TAB_ACCESS: Record<WorkspaceTab, StaffRole[]> = {
   products: ['super_admin', 'admin'],
   categories: ['super_admin', 'admin'],
   media_products: ['super_admin', 'admin'],
-  weekly_menu: ['super_admin', 'admin'],
+  weekly_menu: ['super_admin', 'admin', 'staff'],
   cooking_classes: ['super_admin', 'admin'],
   vouchers: ['super_admin', 'admin'],
   discount_vouchers: ['super_admin', 'admin'],
