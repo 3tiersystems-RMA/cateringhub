@@ -361,7 +361,7 @@ export default function CorrespondenceSettings() {
 
               {/* Cost per Km */}
               <div>
-                <label className="block text-sm font-semibold text-[#1A1612] mb-1.5">Cost per Km</label>
+                <label className="block text-sm font-semibold text-[#1A1612] mb-1.5">Rate per Km</label>
                 <p className="text-xs text-[#8C8278] mb-2">Delivery cost charged per kilometre (ZAR).</p>
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-[#8C8278] font-medium select-none">R</span>
