@@ -214,6 +214,18 @@ export default function CookingClassesPage() {
     loadSessionStatuses();
   }, []);
 
+  // Auto-show popup when selected event has no dates
+  useEffect(() => {
+    if (page1.selectedEvents.length === 0) return;
+    const selectedEventIds = classEvents
+      .filter(ev => page1.selectedEvents.includes(ev.name))
+      .map(ev => ev.id);
+    const datesForSelected = eventDates.filter(row => row.event_id && selectedEventIds.includes(row.event_id));
+    if (datesForSelected.length === 0) {
+      setShowNoDatesPopup(true);
+    }
+  }, [page1.selectedEvents, eventDates, classEvents]);
+
   async function loadSettings() {
     setLoadingSettings(true);
     try {
@@ -964,10 +976,7 @@ export default function CookingClassesPage() {
               {page1.selectedEvents.length === 0 ? (
                 <p className="text-xs text-[#8C8278] italic">Please select an event above to see available dates.</p>
               ) : filteredDates.length === 0 ? (
-                <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
-                  <p className="text-xs text-amber-700 font-medium">No dates available for the selected event(s).</p>
-                  <p className="text-xs text-amber-600 mt-1">Please contact our office for scheduling information.</p>
-                </div>
+                <p className="text-xs text-[#8C8278] italic">No dates are currently scheduled for this event.</p>
               ) : (
                 <div className="space-y-3">
                   {filteredDates.map(row => {
@@ -1019,18 +1028,6 @@ export default function CookingClassesPage() {
             >
               Continue →
             </button>
-            {hasNoDates && (
-              <p className="text-xs text-amber-600 text-center mt-2">
-                Registration is unavailable — no dates have been scheduled for this event.{' '}
-                <button
-                  type="button"
-                  onClick={() => setShowNoDatesPopup(true)}
-                  className="underline font-medium hover:text-[#C4622D]"
-                >
-                  Contact our office
-                </button>
-              </p>
-            )}
           </div>
         )}
 
