@@ -1,9 +1,14 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@supabase/supabase-js';
 
 export async function GET() {
   try {
-    const supabase = await createClient();
+    // Use service role key to bypass RLS — this is a server-only route
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
     const { data, error } = await supabase
       .from('correspondence_settings')
       .select('default_despatch_address, cost_per_km')
@@ -11,6 +16,7 @@ export async function GET() {
       .single();
 
     if (error) {
+      console.error('[delivery-settings] Supabase error:', error.message);
       return NextResponse.json({ error: 'Could not read CorrespondenceSettings' }, { status: 500 });
     }
 
@@ -25,7 +31,8 @@ export async function GET() {
     }
 
     return NextResponse.json({ defaultDespatchAddress, ratePerKm });
-  } catch {
+  } catch (err) {
+    console.error('[delivery-settings] Unexpected error:', err);
     return NextResponse.json({ error: 'Could not read CorrespondenceSettings' }, { status: 500 });
   }
 }
