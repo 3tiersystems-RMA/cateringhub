@@ -31,12 +31,12 @@ export function useDeliveryCalculator({ minimumFee = 0 }: UseDeliveryCalculatorO
       .then((r) => r.json())
       .then((d) => {
         if (d.error) {
-          setError('Could not load delivery settings.');
+          setError(`Delivery settings: ${d.error}`);
         } else {
           setSettings(d);
         }
       })
-      .catch(() => setError('Could not load delivery settings.'));
+      .catch(() => setError('Could not load delivery settings. Please try again.'));
   }, []);
 
   const calculate = useCallback(
