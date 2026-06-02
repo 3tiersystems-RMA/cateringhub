@@ -11,9 +11,13 @@ import CartStepDetails from "./CartStepDetails";
 import CartStepPayment from "./CartStepPayment";
 import CartStepSuccess from "./CartStepSuccess";
 import VoucherErrorModal from "@/components/ui/VoucherErrorModal";
+import DespatchModal from "./DespatchModal";
+import DeliveryCalculator from "./DeliveryCalculator";
 
 type CheckoutStep = "cart" | "details" | "payment" | "eft-success" | "confirmation";
 type PaymentMethod = "eft" | "voucher" | "payfast";
+type DespatchPhase = "idle" | "choosing" | "calculating";
+type DespatchMethod = "collection" | "delivery";
 
 const INITIAL_FORM = { name: "", email: "", phone: "", date: "", address: "", notes: "" };
 
@@ -30,6 +34,12 @@ export default function CartSidebar() {
   const [orderRef, setOrderRef] = useState("");
   const [savedOrderTotal, setSavedOrderTotal] = useState(0);
   const voucherOrderInProgress = useRef(false);
+
+  // Despatch state
+  const [despatchPhase, setDespatchPhase] = useState<DespatchPhase>("idle");
+  const [despatchMethod, setDespatchMethod] = useState<DespatchMethod | null>(null);
+  const [deliveryFee, setDeliveryFee] = useState(0);
+  const [despatchConfirmed, setDespatchConfirmed] = useState(false);
 
   // Global error modal
   const [errorModal, setErrorModal] = useState<{ open: boolean; message: string; title: string }>({ open: false, message: "", title: "Error" });
@@ -59,7 +69,7 @@ export default function CartSidebar() {
   const [showDvSection, setShowDvSection] = useState(false);
 
   const tax = subtotal * 0;
-  const delivery = subtotal > 0 ? 50 : 0;
+  const delivery = subtotal > 0 ? deliveryFee : 0;
   const total = subtotal + tax + delivery;
   const discountedTotal = dvApplied && dvData ? Math.max(0, total - dvData.dv_amount) : total;
 
@@ -84,6 +94,10 @@ export default function CartSidebar() {
     setPhoneErrorState("");
     setProcessing(false);
     setSelectedMethod("eft");
+    setDespatchPhase("idle");
+    setDespatchMethod(null);
+    setDeliveryFee(0);
+    setDespatchConfirmed(false);
   }, []);
 
   const prevIsOpen = useRef(isOpen);
@@ -94,7 +108,40 @@ export default function CartSidebar() {
     prevIsOpen.current = isOpen;
   }, [isOpen, resetCheckoutState]);
 
-  const handleDetailsSubmit = (e: React.FormEvent) => {
+  // Despatch handlers
+  const handleEnterDetails = () => {
+    setDespatchPhase("choosing");
+  };
+
+  const handleDespatchChoice = (choice: DespatchMethod) => {
+    setDespatchMethod(choice);
+    setDespatchPhase("calculating");
+  };
+
+  const handleDespatchConfirm = (result: { deliveryCost: number; total: number }) => {
+    setDeliveryFee(result.deliveryCost);
+    setDespatchConfirmed(true);
+    setDespatchPhase("idle");
+    // Now proceed to details step
+    setForm(getDetailsForm());
+    setPhoneErrorState("");
+    setPayErrorState("");
+    setStep("details");
+  };
+
+  const handleDespatchCancel = () => {
+    setDespatchMethod(null);
+    setDespatchPhase("choosing");
+    setDespatchConfirmed(false);
+  };
+
+  const handleDespatchBackToIdle = () => {
+    setDespatchPhase("idle");
+    setDespatchMethod(null);
+    setDespatchConfirmed(false);
+  };
+
+  const handleDetailsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const stripped = form.phone.replace(/\D/g, "");
     if (stripped.length !== 10) { setPhoneError("Mobile number must be exactly 10 digits"); return; }
@@ -357,8 +404,19 @@ export default function CartSidebar() {
                 <Icon name="ArrowLeftIcon" size={16} className="text-[#5C5347]" />
               </button>
             )}
+            {step === "cart" && despatchPhase !== "idle" && (
+              <button
+                onClick={handleDespatchBackToIdle}
+                className="p-1.5 rounded-lg hover:bg-[#EDE7DA] transition-colors mr-1"
+                aria-label="Go back"
+              >
+                <Icon name="ArrowLeftIcon" size={16} className="text-[#5C5347]" />
+              </button>
+            )}
             <h2 className="font-display text-lg font-semibold text-[#1A1612]">
-              {step === "cart" && `Order Summary (${totalItems})`}
+              {step === "cart" && despatchPhase === "idle" && `Order Summary (${totalItems})`}
+              {step === "cart" && despatchPhase === "choosing" && "Despatch Method"}
+              {step === "cart" && despatchPhase === "calculating" && (despatchMethod === "collection" ? "Collection" : "Delivery")}
               {step === "details" && "Event Details"}
               {step === "payment" && "Secure Payment"}
               {step === "eft-success" && "Order Placed!"}
@@ -371,7 +429,7 @@ export default function CartSidebar() {
         </div>
 
         {/* Progress Steps */}
-        {step !== "confirmation" && step !== "eft-success" && (
+        {step !== "confirmation" && step !== "eft-success" && despatchPhase === "idle" && (
           <div className="px-6 py-3 border-b border-[#DDD5C8] flex items-center gap-2">
             {(["cart", "details", "payment"] as CheckoutStep[]).map((s, i) => (
               <div key={s} className="flex items-center gap-2">
@@ -396,7 +454,7 @@ export default function CartSidebar() {
         )}
 
         {/* Steps */}
-        {step === "cart" && (
+        {step === "cart" && despatchPhase === "idle" && (
           <CartStepCart
             voucherCode={voucherCode}
             setVoucherCode={setVoucherCode}
@@ -422,16 +480,25 @@ export default function CartSidebar() {
             setDvApplied={setDvApplied}
             showDvSection={showDvSection}
             setShowDvSection={setShowDvSection}
-            onProceed={() => {
-              setForm(getDetailsForm());
-              setPhoneErrorState("");
-              setPayErrorState("");
-              setStep("details");
-            }}
+            onProceed={handleEnterDetails}
             subtotal={subtotal}
             tax={tax}
             delivery={delivery}
             total={total}
+          />
+        )}
+
+        {step === "cart" && despatchPhase === "choosing" && (
+          <DespatchModal onChoice={handleDespatchChoice} />
+        )}
+
+        {step === "cart" && despatchPhase === "calculating" && despatchMethod && (
+          <DeliveryCalculator
+            despatchMethod={despatchMethod}
+            orderSubtotal={subtotal}
+            minimumFee={0}
+            onConfirm={handleDespatchConfirm}
+            onCancel={handleDespatchCancel}
           />
         )}
 
