@@ -167,7 +167,7 @@ export default function CookingClassesPage() {
   const [bookingCounts, setBookingCounts] = useState<BookingCount[]>([]);
 
   // Collapsible states
-  const [importantInfoOpen, setImportantInfoOpen] = useState(true);
+  const [importantInfoOpen, setImportantInfoOpen] = useState(false);
   const [emergencyContactOpen, setEmergencyContactOpen] = useState(true);
   const [medicalDetailsOpen, setMedicalDetailsOpen] = useState(false);
   const [cookingClassesOpen, setCookingClassesOpen] = useState(true);
@@ -223,6 +223,9 @@ export default function CookingClassesPage() {
   const [page4Errors, setPage4Errors] = useState<Partial<Record<string, string>>>({});
   const [page5Errors, setPage5Errors] = useState<Partial<Record<string, string>>>({});
 
+  // (NEW) Seats limit popup
+  const [showSeatsFullPopup, setShowSeatsFullPopup] = useState(false);
+
   useEffect(() => {
     loadSettings();
     loadClassEvents();
@@ -241,6 +244,17 @@ export default function CookingClassesPage() {
       setShowNoDatesPopup(true);
     }
   }, [page1.selectedEvents, eventDates, classEvents]);
+
+  // (NEW) When firstTimePortal changes, auto-expand/collapse Important Info and Medical Details
+  useEffect(() => {
+    if (page2.firstTimePortal === 'No') {
+      setImportantInfoOpen(true);
+      setMedicalDetailsOpen(true);
+    } else if (page2.firstTimePortal === 'Yes') {
+      setImportantInfoOpen(false);
+      setMedicalDetailsOpen(false);
+    }
+  }, [page2.firstTimePortal]);
 
   async function loadSettings() {
     setLoadingSettings(true);
@@ -454,7 +468,8 @@ export default function CookingClassesPage() {
     const errors: Record<string, string> = {};
     if (!page2.relationship) errors.relationship = 'Please select your relationship';
     if (!page2.firstTimePortal) errors.firstTimePortal = 'Please answer this question';
-    if (!page2.rsaIdPassport.trim()) errors.rsaIdPassport = 'RSA ID / Passport No is required';
+    // RSA ID / Passport is optional if First Time = Yes
+    if (page2.firstTimePortal !== 'Yes' && !page2.rsaIdPassport.trim()) errors.rsaIdPassport = 'RSA ID / Passport No is required';
     setPage2Errors(errors);
     return Object.keys(errors).length === 0;
   }
@@ -536,7 +551,12 @@ export default function CookingClassesPage() {
 
   function handlePage2Next() {
     if (validatePage2()) {
-      setCurrentPage(3);
+      // If First Time = Yes, skip directly to page 4
+      if (page2.firstTimePortal === 'Yes') {
+        setCurrentPage(4);
+      } else {
+        setCurrentPage(3);
+      }
       window.scrollTo(0, 0);
     }
   }
@@ -797,6 +817,29 @@ export default function CookingClassesPage() {
 
   const flyerUrl = getFlyerUrl();
 
+  // (NEW) Compute seats limit for child cards
+  const availableSeats = getAvailableSeatsForSelection();
+
+  // (NEW) Get total available seats for selected dates (minimum across selected dates)
+  function getAvailableSeatsForSelection(): number | null {
+    const selectedDateLabels = page1.selectedDates;
+    if (selectedDateLabels.length === 0) return null;
+    const matchedRows = eventDates.filter(row => selectedDateLabels.includes(formatEventDate(row)));
+    if (matchedRows.length === 0) return null;
+    let minAvailable: number | null = null;
+    for (const row of matchedRows) {
+      const seating = row.seating || 0;
+      if (seating > 0) {
+        const booked = getBookingCount(row.id);
+        const available = Math.max(0, seating - booked);
+        if (minAvailable === null || available < minAvailable) {
+          minAvailable = available;
+        }
+      }
+    }
+    return minAvailable;
+  }
+
   if (loadingSettings) {
     return (
       <div className="min-h-screen bg-[#FAF5EE] flex items-center justify-center">
@@ -856,17 +899,27 @@ export default function CookingClassesPage() {
       {/* Inactive notice — replaces the entire form */}
       {!loadingSettings && settings?.online_form_status === 'inactive' && (
         <div className="max-w-2xl mx-auto px-4 py-16 flex flex-col items-center text-center">
-          <div className="w-16 h-16 bg-[#FDF0E8] rounded-full flex items-center justify-center mb-6">
-            <svg className="w-8 h-8 text-[#C4622D]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
+          <div className="w-20 h-20 bg-[#FDF0E8] rounded-full flex items-center justify-center mb-6 overflow-hidden">
+            <img
+              src="/favicon.ico"
+              alt="Cardamom Kitchen favicon"
+              className="w-12 h-12 object-contain"
+              onError={(e) => {
+                const target = e.currentTarget as HTMLImageElement;
+                target.style.display = 'none';
+                const parent = target.parentElement;
+                if (parent) {
+                  parent.innerHTML = '<svg class="w-8 h-8 text-[#C4622D]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>';
+                }
+              }}
+            />
           </div>
           <h2 className="text-xl font-bold text-[#1A1612] mb-3">No Online Registration Available</h2>
           <p className="text-[#5C5347] text-base leading-relaxed max-w-sm">
             No online registration available — please contact our office for further information.
           </p>
           <Link
-            href="/homepage"
+            href="/contact"
             className="mt-8 inline-block bg-[#C4622D] text-white px-8 py-3 rounded-xl font-semibold text-sm hover:bg-[#A04E22] transition-colors"
           >
             Back to Home
@@ -1175,7 +1228,8 @@ export default function CookingClassesPage() {
                   {/* RSA ID / Passport No */}
                   <div className="mb-2">
                     <label className="block text-sm font-medium text-[#1A1612] mb-2">
-                      RSA ID / Passport No <span className="text-red-500">*</span>
+                      RSA ID / Passport No {page2.firstTimePortal !== 'Yes' && <span className="text-red-500">*</span>}
+                      {page2.firstTimePortal === 'Yes' && <span className="text-[#8C8278] text-xs font-normal ml-1">(optional)</span>}
                     </label>
                     <input
                       type="text"
@@ -1514,27 +1568,36 @@ export default function CookingClassesPage() {
                     // (5) Age validation message
                     const ageNum = child.dob ? calculateAge(child.dob) : null;
                     const ageError = page4Errors[`child_${idx}_age`];
+                    // (NEW) Determine if this child card is beyond the seats limit
+                    const isDisabledBySeats = availableSeats !== null && idx >= availableSeats;
                     return (
-                      <div key={idx} className="border border-[#DDD5C8] rounded-xl overflow-hidden">
+                      <div key={idx} className={`border rounded-xl overflow-hidden ${isDisabledBySeats ? 'border-[#DDD5C8] opacity-50' : 'border-[#DDD5C8]'}`}>
                         {/* Card header */}
                         <button
                           type="button"
-                          onClick={() => setCollapsedChildren(prev => ({ ...prev, [idx]: !prev[idx] }))}
-                          className="w-full flex items-center justify-between px-4 py-3 bg-[#F5F0E8] hover:bg-[#EDE7DA] transition-colors"
+                          onClick={() => {
+                            if (isDisabledBySeats) {
+                              setShowSeatsFullPopup(true);
+                              return;
+                            }
+                            setCollapsedChildren(prev => ({ ...prev, [idx]: !prev[idx] }));
+                          }}
+                          className={`w-full flex items-center justify-between px-4 py-3 transition-colors ${isDisabledBySeats ? 'bg-[#EDE7DA] cursor-not-allowed' : 'bg-[#F5F0E8] hover:bg-[#EDE7DA]'}`}
                         >
                           <span className="text-sm font-semibold text-[#1A1612]">
                             Child ({idx + 1}){child.fullName.trim() ? ` — ${child.fullName.trim()}` : ''}
+                            {isDisabledBySeats && <span className="ml-2 text-xs font-normal text-[#8C8278]">(seat unavailable)</span>}
                           </span>
                           <svg
-                            className={`w-4 h-4 text-[#8C8278] transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                            className={`w-4 h-4 text-[#8C8278] transition-transform ${isOpen && !isDisabledBySeats ? 'rotate-180' : ''}`}
                             fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
                           >
                             <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                           </svg>
                         </button>
 
-                        {/* Card body */}
-                        {isOpen && (
+                        {/* Card body — hidden if disabled by seats */}
+                        {isOpen && !isDisabledBySeats && (
                           <div className="px-4 py-4 space-y-3">
                             {/* Row 1: Full Name + DOB */}
                             <div className="grid grid-cols-2 gap-3">
@@ -1656,102 +1719,107 @@ export default function CookingClassesPage() {
                   </div>
                 </div>
 
-                {/* Pictures & Indemnity section */}
-                <div className="mt-6 space-y-6">
-                  {/* Pictures Taken consent */}
-                  <div>
-                    <p className="text-sm text-[#1A1612] mb-4 leading-relaxed">
-                      Pictures taken of my/our child at the Business cooking classes can be used / not be used as per my/our consent below:
-                    </p>
-                    <label className="block text-sm font-medium text-[#1A1612] mb-3">
-                      Pictures taken <span className="text-red-500">*</span>
-                    </label>
-                    <div className="grid grid-cols-2 gap-x-8">
-                      {[
-                        { value: 'yes', label: 'Yes, I give consent' },
-                        { value: 'no', label: 'No, I do not consent' },
-                      ].map(opt => (
-                        <label key={opt.value} className="flex items-center gap-3 cursor-pointer">
-                          <input
-                            type="radio"
-                            name="picturesTaken"
-                            value={opt.value}
-                            checked={page4.picturesTaken === opt.value}
-                            onChange={() => setPage4(p => ({ ...p, picturesTaken: opt.value }))}
-                            className="w-5 h-5 border-2 border-[#DDD5C8] text-[#C4622D] focus:ring-[#C4622D]"
-                          />
-                          <span className="text-sm text-[#1A1612]">{opt.label}</span>
+                {/* Pictures, Indemnity & File Upload — styled card */}
+                <div className="mt-6 bg-white border border-[#EDE7DA] rounded-2xl shadow-sm overflow-hidden">
+                  <div className="bg-[#4A4540] text-white px-5 py-4">
+                    <h3 className="text-sm font-semibold">Consent &amp; Indemnity</h3>
+                  </div>
+                  <div className="p-5 space-y-6">
+                    {/* Pictures Taken consent */}
+                    <div>
+                      <p className="text-sm text-[#1A1612] mb-4 leading-relaxed">
+                        Pictures taken of my/our child at the Business cooking classes can be used / not be used as per my/our consent below:
+                      </p>
+                      <label className="block text-sm font-medium text-[#1A1612] mb-3">
+                        Pictures taken <span className="text-red-500">*</span>
+                      </label>
+                      <div className="grid grid-cols-2 gap-x-8">
+                        {[
+                          { value: 'yes', label: 'Yes, I give consent' },
+                          { value: 'no', label: 'No, I do not consent' },
+                        ].map(opt => (
+                          <label key={opt.value} className="flex items-center gap-3 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="picturesTaken"
+                              value={opt.value}
+                              checked={page4.picturesTaken === opt.value}
+                              onChange={() => setPage4(p => ({ ...p, picturesTaken: opt.value }))}
+                              className="w-5 h-5 border-2 border-[#DDD5C8] text-[#C4622D] focus:ring-[#C4622D]"
+                            />
+                            <span className="text-sm text-[#1A1612]">{opt.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                      {page4Errors.picturesTaken && <p className="text-xs text-red-500 mt-2">{page4Errors.picturesTaken}</p>}
+                    </div>
+
+                    <hr className="border-[#EDE7DA]" />
+
+                    {/* Indemnity Form Consent */}
+                    <div>
+                      <div className="flex items-start gap-3">
+                        <label className="block text-sm font-medium text-[#1A1612] whitespace-nowrap">
+                          Indemnity Form Consent <span className="text-red-500">*</span>
                         </label>
-                      ))}
+                        <label className="flex items-start gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={page4.indemnityConsent}
+                            onChange={e => setPage4(p => ({ ...p, indemnityConsent: e.target.checked }))}
+                            className="w-4 h-4 mt-0.5 border-2 border-[#DDD5C8] text-[#C4622D] focus:ring-[#C4622D] rounded flex-shrink-0"
+                          />
+                          <span className="text-sm text-[#1A1612]">I Consent to the clauses in the Business Indemnity Form</span>
+                        </label>
+                      </div>
+                      {page4Errors.indemnityConsent && <p className="text-xs text-red-500 mt-2">{page4Errors.indemnityConsent}</p>}
                     </div>
-                    {page4Errors.picturesTaken && <p className="text-xs text-red-500 mt-2">{page4Errors.picturesTaken}</p>}
-                  </div>
 
-                  <hr className="border-[#EDE7DA]" />
-
-                  {/* Indemnity Form Consent */}
-                  <div>
-                    <div className="flex items-start gap-3">
-                      <label className="block text-sm font-medium text-[#1A1612] whitespace-nowrap">
-                        Indemnity Form Consent <span className="text-red-500">*</span>
+                    {/* SIGNED Indemnity Form upload */}
+                    <div>
+                      <label className="block text-sm font-semibold text-[#1A1612] mb-3">
+                        SIGNED Indemnity Form <span className="text-red-500">*</span>
                       </label>
-                      <label className="flex items-start gap-2 cursor-pointer">
+                      <div
+                        className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer ${page4Errors.indemnityFile ? 'border-red-400 bg-red-50' : 'border-[#DDD5C8] bg-[#F8F5FF] hover:border-[#C4622D]/50'}`}
+                        onClick={() => document.getElementById('indemnity-file-input')?.click()}
+                      >
+                        {page4.indemnityFilePreview ? (
+                          <div>
+                            {page4.indemnityFile?.type?.startsWith('image/') ? (
+                              <img src={page4.indemnityFilePreview} alt="Signed indemnity form preview" className="max-h-32 mx-auto rounded-lg mb-3 object-contain" />
+                            ) : (
+                              <div className="text-4xl mb-3">📄</div>
+                            )}
+                            <p className="text-sm text-[#5C5347] font-medium">{page4.indemnityFile?.name}</p>
+                            <button
+                              type="button"
+                              onClick={e => { e.stopPropagation(); setPage4(p => ({ ...p, indemnityFile: null, indemnityFilePreview: '' })); }}
+                              className="text-xs text-red-500 hover:underline mt-1"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ) : (
+                          <div>
+                            <svg className="w-12 h-12 text-[#9CA3AF] mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                            </svg>
+                            <p className="text-base font-bold text-[#1A1612] mb-1">Browse Files</p>
+                            <p className="text-sm text-[#8C8278]">Drag and drop files here</p>
+                          </div>
+                        )}
                         <input
-                          type="checkbox"
-                          checked={page4.indemnityConsent}
-                          onChange={e => setPage4(p => ({ ...p, indemnityConsent: e.target.checked }))}
-                          className="w-4 h-4 mt-0.5 border-2 border-[#DDD5C8] text-[#C4622D] focus:ring-[#C4622D] rounded flex-shrink-0"
+                          id="indemnity-file-input"
+                          type="file"
+                          accept="image/*,.pdf"
+                          onChange={handleIndemnityUpload}
+                          className="hidden"
                         />
-                        <span className="text-sm text-[#1A1612]">I Consent to the clauses in the Business Indemnity Form</span>
-                      </label>
+                      </div>
+                      <p className="text-xs text-[#5C5347] mt-2">Upload your SIGNED Cardamom Kitchen cooking classes Indemnity Form</p>
+                      {page4Errors.indemnityFile && <p className="text-xs text-red-500 mt-1">{page4Errors.indemnityFile}</p>}
                     </div>
-                    {page4Errors.indemnityConsent && <p className="text-xs text-red-500 mt-2">{page4Errors.indemnityConsent}</p>}
-                  </div>
-
-                  {/* SIGNED Indemnity Form upload */}
-                  <div>
-                    <label className="block text-sm font-semibold text-[#1A1612] mb-3">
-                      SIGNED Indemnity Form <span className="text-red-500">*</span>
-                    </label>
-                    <div
-                      className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer ${page4Errors.indemnityFile ? 'border-red-400 bg-red-50' : 'border-[#DDD5C8] bg-[#F8F5FF] hover:border-[#C4622D]/50'}`}
-                      onClick={() => document.getElementById('indemnity-file-input')?.click()}
-                    >
-                      {page4.indemnityFilePreview ? (
-                        <div>
-                          {page4.indemnityFile?.type?.startsWith('image/') ? (
-                            <img src={page4.indemnityFilePreview} alt="Signed indemnity form preview" className="max-h-32 mx-auto rounded-lg mb-3 object-contain" />
-                          ) : (
-                            <div className="text-4xl mb-3">📄</div>
-                          )}
-                          <p className="text-sm text-[#5C5347] font-medium">{page4.indemnityFile?.name}</p>
-                          <button
-                            type="button"
-                            onClick={e => { e.stopPropagation(); setPage4(p => ({ ...p, indemnityFile: null, indemnityFilePreview: '' })); }}
-                            className="text-xs text-red-500 hover:underline mt-1"
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      ) : (
-                        <div>
-                          <svg className="w-12 h-12 text-[#9CA3AF] mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
-                          </svg>
-                          <p className="text-base font-bold text-[#1A1612] mb-1">Browse Files</p>
-                          <p className="text-sm text-[#8C8278]">Drag and drop files here</p>
-                        </div>
-                      )}
-                      <input
-                        id="indemnity-file-input"
-                        type="file"
-                        accept="image/*,.pdf"
-                        onChange={handleIndemnityUpload}
-                        className="hidden"
-                      />
-                    </div>
-                    <p className="text-xs text-[#5C5347] mt-2">Upload your SIGNED Cardamom Kitchen cooking classes Indemnity Form</p>
-                    {page4Errors.indemnityFile && <p className="text-xs text-red-500 mt-1">{page4Errors.indemnityFile}</p>}
                   </div>
                 </div>
               </div>
@@ -1937,6 +2005,29 @@ export default function CookingClassesPage() {
           </div>
         )}
       </div>
+      )}
+
+      {/* (NEW) Seats Full Popup */}
+      {showSeatsFullPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-8 text-center">
+            <div className="w-14 h-14 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-5">
+              <svg className="w-7 h-7 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-bold text-[#1A1612] mb-3">Seating Limit Reached</h3>
+            <p className="text-sm text-[#5C5347] leading-relaxed mb-6">
+              Cannot register more participants as the vacant seating is filled.
+            </p>
+            <button
+              onClick={() => setShowSeatsFullPopup(false)}
+              className="w-full bg-[#C4622D] text-white py-3 rounded-xl font-semibold text-sm hover:bg-[#A04E22] transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
