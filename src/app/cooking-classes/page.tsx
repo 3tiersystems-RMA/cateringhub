@@ -87,6 +87,7 @@ interface EventDateRow {
   sort_order: number;
   seating: number | null;
   status_id: string | null;
+  class_fee: number | null;
 }
 
 interface BookingCount {
@@ -128,6 +129,18 @@ function formatEventDate(row: EventDateRow): string {
   return `${day} ${month} ${year}${timeStr}`;
 }
 
+// Calculate age in years from DOB string
+function calculateAge(dob: string): number | null {
+  if (!dob) return null;
+  const birth = new Date(dob);
+  if (isNaN(birth.getTime())) return null;
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const m = today.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+  return age;
+}
+
 export default function CookingClassesPage() {
   const supabase = createClient();
   const [currentPage, setCurrentPage] = useState(1);
@@ -138,6 +151,8 @@ export default function CookingClassesPage() {
   const [registrationId, setRegistrationId] = useState<string | null>(null);
   const [paymentLaunched, setPaymentLaunched] = useState(false);
   const [showInactivePopup, setShowInactivePopup] = useState(false);
+  // (NEW) Popup when selected event has no dates configured
+  const [showNoDatesPopup, setShowNoDatesPopup] = useState(false);
 
   const [classEvents, setClassEvents] = useState<ClassEvent[]>([]);
   const [eventDates, setEventDates] = useState<EventDateRow[]>([]);
@@ -342,18 +357,39 @@ export default function CookingClassesPage() {
     return null;
   }
 
-  // (7) Get dates filtered by selected events
+  // Get dates filtered by selected events
   function getFilteredDates(): EventDateRow[] {
     if (page1.selectedEvents.length === 0) return [];
-    // Find event IDs for selected event names
     const selectedEventIds = classEvents
       .filter(ev => page1.selectedEvents.includes(ev.name))
       .map(ev => ev.id);
-    // Only show dates that are explicitly linked to a selected event
     return eventDates.filter(row => {
-      if (!row.event_id) return false; // exclude unlinked/general dates
+      if (!row.event_id) return false;
       return selectedEventIds.includes(row.event_id);
     });
+  }
+
+  // (6) Get the class_fee from the first matching event date for selected events
+  function getEventClassFee(): number {
+    const filtered = getFilteredDates();
+    for (const row of filtered) {
+      if (row.class_fee != null && row.class_fee > 0) return row.class_fee;
+    }
+    // Fallback to settings class_fee
+    return settings?.class_fee || 0;
+  }
+
+  // (6) Count filled participants
+  function getParticipantCount(): number {
+    return page4.children.filter(c => c.fullName.trim()).length;
+  }
+
+  // (6) Amount due = participants × event class_fee
+  function getAmountDue(): number {
+    const fee = getEventClassFee();
+    const count = getParticipantCount();
+    if (fee > 0 && count > 0) return fee * count;
+    return settings?.class_fee || 0;
   }
 
   // ── Validation ──────────────────────────────────────────────────────────────
@@ -410,7 +446,6 @@ export default function CookingClassesPage() {
     }
     if (!c1.relationshipToChild) errors.contact1Relationship = 'Please select relationship to child';
 
-    // (3) 2nd contact is optional — only validate if any field is filled
     const c2 = page3.contact2;
     const c2HasData = c2.firstName.trim() || c2.surname.trim() || c2.cellNo.trim() || c2.relationshipToChild;
     if (c2HasData) {
@@ -432,6 +467,22 @@ export default function CookingClassesPage() {
     const errors: Record<string, string> = {};
     const filledChildren = page4.children.filter(c => c.fullName.trim());
     if (filledChildren.length === 0) errors.children = "Please enter at least one child's details";
+
+    // (4) If child name entered, DOB/Gender/Dietary are mandatory
+    page4.children.forEach((child, idx) => {
+      if (child.fullName.trim()) {
+        if (!child.dob) errors[`child_${idx}_dob`] = 'DOB is required';
+        if (!child.gender) errors[`child_${idx}_gender`] = 'Gender is required';
+        if (!child.dietaryRestrictions) errors[`child_${idx}_dietary`] = 'Dietary info is required';
+        // (5) Age validation
+        if (child.dob) {
+          let age = calculateAge(child.dob);
+          if (age !== null && age < 5) errors[`child_${idx}_age`] = 'Minimum participant age is 5';
+          if (age !== null && age > 16) errors[`child_${idx}_age`] = 'Maximum participant age is 16';
+        }
+      }
+    });
+
     if (!page4.attendSchoolHoliday) errors.attendSchoolHoliday = 'Please answer this question';
     setPage4Errors(errors);
     return Object.keys(errors).length === 0;
@@ -476,13 +527,11 @@ export default function CookingClassesPage() {
     }
   }
 
-  function toggleEvent(eventName: string) {
+  // (1) Only one event can be selected at a time — radio behaviour
+  function selectEvent(eventName: string) {
     setPage1(prev => {
-      const exists = prev.selectedEvents.includes(eventName);
-      const updated = exists
-        ? prev.selectedEvents.filter(e => e !== eventName)
-        : [...prev.selectedEvents, eventName];
-      // Clear selected dates when events change so stale dates are removed
+      const alreadySelected = prev.selectedEvents.length === 1 && prev.selectedEvents[0] === eventName;
+      const updated = alreadySelected ? [] : [eventName];
       return { ...prev, selectedEvents: updated, selectedDates: [] };
     });
   }
@@ -497,10 +546,17 @@ export default function CookingClassesPage() {
     });
   }
 
+  // (5) Update child and auto-calculate age from DOB
   function updateChild(index: number, field: keyof ChildRow, value: string) {
     setPage4(prev => {
       const updated = [...prev.children];
-      updated[index] = { ...updated[index], [field]: value };
+      const updatedChild = { ...updated[index], [field]: value };
+      // Auto-calculate age when DOB changes
+      if (field === 'dob') {
+        let age = calculateAge(value);
+        updatedChild.age = age !== null ? String(age) : '';
+      }
+      updated[index] = updatedChild;
       return { ...prev, children: updated };
     });
   }
@@ -559,6 +615,9 @@ export default function CookingClassesPage() {
         proofUrl = null;
       }
 
+      // (6) Use calculated amount due
+      const amountDue = getAmountDue();
+
       const { data: reg, error: regErr } = await supabase
         .from('cooking_class_registrations')
         .insert({
@@ -573,7 +632,7 @@ export default function CookingClassesPage() {
           payment_status: page5.paymentMethod === 'eft' ? 'awaiting_confirmation' : 'pending',
           proof_of_payment_url: proofUrl,
           proof_of_payment_path: proofPath,
-          amount: settings?.class_fee || 0,
+          amount: amountDue,
         })
         .select('id')
         .single();
@@ -610,7 +669,7 @@ export default function CookingClassesPage() {
   }
 
   async function initiatePayFast(regId: string) {
-    const amount = settings?.class_fee || 0;
+    const amount = getAmountDue();
     if (amount <= 0) {
       await supabase
         .from('cooking_class_registrations')
@@ -680,8 +739,10 @@ export default function CookingClassesPage() {
   }
 
   const totalSteps = 5;
-  // (7) Dates filtered by selected events
   const filteredDates = getFilteredDates();
+  // (NEW) Determine if selected event has no dates configured
+  const hasEventSelected = page1.selectedEvents.length > 0;
+  const hasNoDates = hasEventSelected && filteredDates.length === 0;
 
   return (
     <div className="min-h-screen bg-[#FAF5EE]">
@@ -704,6 +765,32 @@ export default function CookingClassesPage() {
             >
               OK
             </Link>
+          </div>
+        </div>
+      )}
+
+      {/* (NEW) Contact Our Office Popup — shown when selected event has no dates */}
+      {showNoDatesPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-8 text-center">
+            <div className="w-14 h-14 bg-[#FDF0E8] rounded-full flex items-center justify-center mx-auto mb-5">
+              <svg className="w-7 h-7 text-[#C4622D]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-bold text-[#1A1612] mb-3">Contact Our Office</h3>
+            <p className="text-sm text-[#5C5347] leading-relaxed mb-6">
+              Contact our office about this Event — <span className="font-semibold text-[#1A1612]">087 265 2262</span> or drop us an email:{' '}
+              <a href="mailto:info@cardamomkitchen.co.za" className="font-semibold text-[#C4622D] hover:underline">
+                info@cardamomkitchen.co.za
+              </a>
+            </p>
+            <button
+              onClick={() => setShowNoDatesPopup(false)}
+              className="w-full bg-[#C4622D] text-white py-3 rounded-xl font-semibold text-sm hover:bg-[#A04E22] transition-colors"
+            >
+              Close
+            </button>
           </div>
         </div>
       )}
@@ -760,7 +847,6 @@ export default function CookingClassesPage() {
               </label>
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  {/* (2) Title dropdown: Dr, Ms, Mr, Mrs — no Other */}
                   <select
                     value={page1.title}
                     onChange={e => setPage1(p => ({ ...p, title: e.target.value }))}
@@ -799,7 +885,7 @@ export default function CookingClassesPage() {
               </div>
             </div>
 
-            {/* Email — (1) confirmation field masked as password */}
+            {/* Email */}
             <div className="mb-5">
               <label className="block text-sm font-semibold text-[#1A1612] mb-2">
                 Email <span className="text-red-500">*</span>
@@ -812,7 +898,6 @@ export default function CookingClassesPage() {
                 className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] mb-3 ${page1Errors.email ? 'border-red-400' : 'border-[#DDD5C8]'}`}
               />
               {page1Errors.email && <p className="text-xs text-red-500 mb-2">{page1Errors.email}</p>}
-              {/* (1) Confirmation field uses type="password" to mask input as asterisks */}
               <input
                 type="password"
                 autoComplete="off"
@@ -843,7 +928,7 @@ export default function CookingClassesPage() {
               }
             </div>
 
-            {/* Select an Event */}
+            {/* (1) Select an Event — radio buttons, only one at a time */}
             <div className="mb-5">
               <label className="block text-sm font-semibold text-[#1A1612] mb-2">
                 Select an Event <span className="text-red-500">*</span>
@@ -855,10 +940,11 @@ export default function CookingClassesPage() {
                   {classEvents.map(ev => (
                     <label key={ev.id} className="flex items-center gap-3 cursor-pointer">
                       <input
-                        type="checkbox"
+                        type="radio"
+                        name="selectedEvent"
                         checked={page1.selectedEvents.includes(ev.name)}
-                        onChange={() => toggleEvent(ev.name)}
-                        className="w-4 h-4 rounded border-[#DDD5C8] text-[#C4622D] focus:ring-[#C4622D]"
+                        onChange={() => selectEvent(ev.name)}
+                        className="w-4 h-4 border-[#DDD5C8] text-[#C4622D] focus:ring-[#C4622D]"
                       />
                       <span className="text-sm text-[#1A1612]">{ev.name}</span>
                     </label>
@@ -870,7 +956,7 @@ export default function CookingClassesPage() {
               )}
             </div>
 
-            {/* (7) Select Attendance — only show dates for selected events */}
+            {/* Select Attendance — only show dates for selected events */}
             <div className="mb-5">
               <label className="block text-sm font-semibold text-[#1A1612] mb-2">
                 Select Attendance <span className="text-red-500">*</span>
@@ -878,7 +964,10 @@ export default function CookingClassesPage() {
               {page1.selectedEvents.length === 0 ? (
                 <p className="text-xs text-[#8C8278] italic">Please select an event above to see available dates.</p>
               ) : filteredDates.length === 0 ? (
-                <p className="text-xs text-[#8C8278] italic">No dates available for the selected event(s).</p>
+                <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+                  <p className="text-xs text-amber-700 font-medium">No dates available for the selected event(s).</p>
+                  <p className="text-xs text-amber-600 mt-1">Please contact our office for scheduling information.</p>
+                </div>
               ) : (
                 <div className="space-y-3">
                   {filteredDates.map(row => {
@@ -912,12 +1001,36 @@ export default function CookingClassesPage() {
               )}
             </div>
 
+            {/* (NEW) Continue button — disabled when event selected but no dates configured */}
             <button
-              onClick={handlePage1Next}
-              className="w-full bg-[#C4622D] text-white py-3 rounded-xl font-semibold text-sm hover:bg-[#A04E22] transition-colors mt-2"
+              onClick={() => {
+                if (hasNoDates) {
+                  setShowNoDatesPopup(true);
+                  return;
+                }
+                handlePage1Next();
+              }}
+              disabled={hasNoDates}
+              className={`w-full py-3 rounded-xl font-semibold text-sm transition-colors mt-2 ${
+                hasNoDates
+                  ? 'bg-[#DDD5C8] text-[#8C8278] cursor-not-allowed'
+                  : 'bg-[#C4622D] text-white hover:bg-[#A04E22]'
+              }`}
             >
               Continue →
             </button>
+            {hasNoDates && (
+              <p className="text-xs text-amber-600 text-center mt-2">
+                Registration is unavailable — no dates have been scheduled for this event.{' '}
+                <button
+                  type="button"
+                  onClick={() => setShowNoDatesPopup(true)}
+                  className="underline font-medium hover:text-[#C4622D]"
+                >
+                  Contact our office
+                </button>
+              </p>
+            )}
           </div>
         )}
 
@@ -1071,7 +1184,6 @@ export default function CookingClassesPage() {
                     </label>
                     <div className="grid grid-cols-3 gap-3">
                       <div>
-                        {/* (2) Title as dropdown for contact1 */}
                         <select
                           value={page3.contact1.title}
                           onChange={e => updateContact('contact1', 'title', e.target.value)}
@@ -1143,7 +1255,7 @@ export default function CookingClassesPage() {
                   </div>
                 </div>
 
-                {/* (3) 2nd Contact — optional */}
+                {/* 2nd Contact — optional */}
                 <div className="mb-4">
                   <h3 className="text-lg font-bold text-[#1A1612] pb-2 border-b border-[#EDE7DA] mb-1">
                     Provide the Details of a 2nd Contact person
@@ -1156,7 +1268,6 @@ export default function CookingClassesPage() {
                     </label>
                     <div className="grid grid-cols-3 gap-3">
                       <div>
-                        {/* (2) Title as dropdown for contact2 */}
                         <select
                           value={page3.contact2.title}
                           onChange={e => updateContact('contact2', 'title', e.target.value)}
@@ -1275,6 +1386,11 @@ export default function CookingClassesPage() {
                 <div className="space-y-3 mb-6">
                   {page4.children.map((child, idx) => {
                     const isOpen = !collapsedChildren[idx];
+                    // (4) Determine if this child has a name entered (makes DOB/Gender/Dietary mandatory)
+                    const hasName = child.fullName.trim().length > 0;
+                    // (5) Age validation message
+                    const ageNum = child.dob ? calculateAge(child.dob) : null;
+                    const ageError = page4Errors[`child_${idx}_age`];
                     return (
                       <div key={idx} className="border border-[#DDD5C8] rounded-xl overflow-hidden">
                         {/* Card header */}
@@ -1283,7 +1399,9 @@ export default function CookingClassesPage() {
                           onClick={() => setCollapsedChildren(prev => ({ ...prev, [idx]: !prev[idx] }))}
                           className="w-full flex items-center justify-between px-4 py-3 bg-[#F5F0E8] hover:bg-[#EDE7DA] transition-colors"
                         >
-                          <span className="text-sm font-semibold text-[#1A1612]">Child ({idx + 1})</span>
+                          <span className="text-sm font-semibold text-[#1A1612]">
+                            Child ({idx + 1}){child.fullName.trim() ? ` — ${child.fullName.trim()}` : ''}
+                          </span>
                           <svg
                             className={`w-4 h-4 text-[#8C8278] transition-transform ${isOpen ? 'rotate-180' : ''}`}
                             fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
@@ -1307,37 +1425,54 @@ export default function CookingClassesPage() {
                                 />
                               </div>
                               <div>
-                                <label className="block text-xs font-medium text-[#5C5347] mb-1">DOB</label>
+                                {/* (4) DOB mandatory if name entered */}
+                                <label className="block text-xs font-medium text-[#5C5347] mb-1">
+                                  DOB {hasName && <span className="text-red-500">*</span>}
+                                </label>
                                 <input
                                   type="date"
                                   value={child.dob}
                                   onChange={e => updateChild(idx, 'dob', e.target.value)}
-                                  className="w-full border border-[#DDD5C8] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                                  className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] ${page4Errors[`child_${idx}_dob`] ? 'border-red-400' : 'border-[#DDD5C8]'}`}
                                 />
+                                {page4Errors[`child_${idx}_dob`] && (
+                                  <p className="text-xs text-red-500 mt-0.5">{page4Errors[`child_${idx}_dob`]}</p>
+                                )}
                               </div>
                             </div>
-                            {/* Row 2: Age + Gender + Grade */}
+                            {/* Row 2: Age (read-only, auto-calculated) + Gender + Grade */}
                             <div className="grid grid-cols-3 gap-3">
                               <div>
+                                {/* (5) Age is read-only, auto-calculated from DOB */}
                                 <label className="block text-xs font-medium text-[#5C5347] mb-1">Age</label>
                                 <input
                                   type="text"
                                   value={child.age}
-                                  onChange={e => updateChild(idx, 'age', e.target.value)}
-                                  className="w-full border border-[#DDD5C8] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                                  readOnly
+                                  placeholder="Auto"
+                                  className="w-full border border-[#DDD5C8] rounded-lg px-3 py-2 text-sm bg-[#F5F0E8] text-[#5C5347] cursor-not-allowed"
                                 />
+                                {ageError && (
+                                  <p className="text-xs text-red-500 mt-0.5">{ageError}</p>
+                                )}
                               </div>
                               <div>
-                                <label className="block text-xs font-medium text-[#5C5347] mb-1">Gender</label>
+                                {/* (4) Gender mandatory if name entered */}
+                                <label className="block text-xs font-medium text-[#5C5347] mb-1">
+                                  Gender {hasName && <span className="text-red-500">*</span>}
+                                </label>
                                 <select
                                   value={child.gender}
                                   onChange={e => updateChild(idx, 'gender', e.target.value)}
-                                  className="w-full border border-[#DDD5C8] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+                                  className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white ${page4Errors[`child_${idx}_gender`] ? 'border-red-400' : 'border-[#DDD5C8]'}`}
                                 >
                                   <option value="">Select...</option>
                                   <option value="Female">Female</option>
                                   <option value="Male">Male</option>
                                 </select>
+                                {page4Errors[`child_${idx}_gender`] && (
+                                  <p className="text-xs text-red-500 mt-0.5">{page4Errors[`child_${idx}_gender`]}</p>
+                                )}
                               </div>
                               <div>
                                 <label className="block text-xs font-medium text-[#5C5347] mb-1">Grade</label>
@@ -1351,17 +1486,23 @@ export default function CookingClassesPage() {
                             </div>
                             {/* Row 3: Dietary Restrictions */}
                             <div>
-                              <label className="block text-xs font-medium text-[#5C5347] mb-1">Dietary Restrictions</label>
+                              {/* (4) Dietary mandatory if name entered */}
+                              <label className="block text-xs font-medium text-[#5C5347] mb-1">
+                                Dietary Restrictions {hasName && <span className="text-red-500">*</span>}
+                              </label>
                               <select
                                 value={child.dietaryRestrictions}
                                 onChange={e => updateChild(idx, 'dietaryRestrictions', e.target.value)}
-                                className="w-full border border-[#DDD5C8] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+                                className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white ${page4Errors[`child_${idx}_dietary`] ? 'border-red-400' : 'border-[#DDD5C8]'}`}
                               >
                                 <option value="">Select...</option>
                                 {DIETARY_OPTIONS.map(opt => (
                                   <option key={opt} value={opt}>{opt}</option>
                                 ))}
                               </select>
+                              {page4Errors[`child_${idx}_dietary`] && (
+                                <p className="text-xs text-red-500 mt-0.5">{page4Errors[`child_${idx}_dietary`]}</p>
+                              )}
                             </div>
                           </div>
                         )}
@@ -1416,11 +1557,26 @@ export default function CookingClassesPage() {
         {currentPage === 5 && (
           <div className="bg-white rounded-2xl border border-[#EDE7DA] p-6 shadow-sm">
             <h2 className="text-xl font-bold text-[#1A1612] mb-2">Payment</h2>
-            {settings?.class_fee && settings.class_fee > 0 && (
-              <p className="text-sm text-[#5C5347] mb-6">
-                Registration fee: <span className="font-bold text-[#C4622D]">R{settings.class_fee.toFixed(2)}</span>
-              </p>
-            )}
+            {/* (6) Show calculated amount: participants × event fee */}
+            {(() => {
+              const fee = getEventClassFee();
+              const count = getParticipantCount();
+              const total = getAmountDue();
+              return total > 0 ? (
+                <div className="bg-[#FDF6EE] border border-[#EDE7DA] rounded-xl p-4 mb-6">
+                  {fee > 0 && count > 0 ? (
+                    <p className="text-sm text-[#5C5347]">
+                      {count} participant{count !== 1 ? 's' : ''} × <span className="font-semibold">R{fee.toFixed(2)}</span> per participant ={' '}
+                      <span className="font-bold text-[#C4622D] text-base">R{total.toFixed(2)}</span> due
+                    </p>
+                  ) : (
+                    <p className="text-sm text-[#5C5347]">
+                      Registration fee: <span className="font-bold text-[#C4622D]">R{total.toFixed(2)}</span>
+                    </p>
+                  )}
+                </div>
+              ) : null;
+            })()}
 
             {/* Summary */}
             <div className="bg-[#FAF5EE] rounded-xl p-4 mb-6 text-sm">
