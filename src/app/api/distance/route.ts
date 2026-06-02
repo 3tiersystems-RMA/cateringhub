@@ -38,6 +38,19 @@ export async function GET(req: NextRequest) {
     const upstream = await fetch(url.toString());
     const responseData = await upstream.json();
 
+    // Check top-level status first (REQUEST_DENIED, INVALID_REQUEST, MAX_ELEMENTS_EXCEEDED, etc.)
+    const topStatus: string = responseData?.status ?? 'UNKNOWN';
+    if (topStatus !== 'OK') {
+      return NextResponse.json(
+        {
+          error: 'Distance Matrix API error',
+          googleStatus: topStatus,   // e.g. REQUEST_DENIED, INVALID_REQUEST
+          rawResponse: responseData, // remove in production
+        },
+        { status: 422 }
+      );
+    }
+
     const el = responseData?.rows?.[0]?.elements?.[0];
     if (!el || el.status !== 'OK') {
       return NextResponse.json(
