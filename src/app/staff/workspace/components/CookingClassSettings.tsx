@@ -90,6 +90,8 @@ export default function CookingClassSettings({ isSuperAdmin = false }: CookingCl
   const [saveSuccess, setSaveSuccess] = useState('');
   const [saveError, setSaveError] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [savingFormStatus, setSavingFormStatus] = useState(false);
+  const [statusSaveMsg, setStatusSaveMsg] = useState('');
 
   const [flyerUrl, setFlyerUrl] = useState('');
   const [sheetId, setSheetId] = useState('');
@@ -329,7 +331,7 @@ export default function CookingClassSettings({ isSuperAdmin = false }: CookingCl
       } else {
         const { error } = await supabase
           .from('cooking_class_settings')
-          .insert(payload);
+          .insert({ ...payload, class_fee: 0 });
         if (error) throw error;
       }
       setSaveSuccess('Settings saved successfully!');
@@ -338,6 +340,38 @@ export default function CookingClassSettings({ isSuperAdmin = false }: CookingCl
       setSaveError(err?.message || 'Failed to save settings');
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleToggleOnlineFormStatus(newStatus: 'active' | 'inactive') {
+    setOnlineFormStatus(newStatus);
+    setSavingFormStatus(true);
+    setStatusSaveMsg('');
+    try {
+      if (settings?.id) {
+        const { error } = await supabase
+          .from('cooking_class_settings')
+          .update({ online_form_status: newStatus, updated_at: new Date().toISOString() })
+          .eq('id', settings.id);
+        if (error) throw error;
+        setSettings(prev => prev ? { ...prev, online_form_status: newStatus } : prev);
+        setStatusSaveMsg('Saved');
+      } else {
+        const { data, error } = await supabase
+          .from('cooking_class_settings')
+          .insert({ online_form_status: newStatus, class_fee: 0, sheet_name: 'Registrations' })
+          .select()
+          .single();
+        if (error) throw error;
+        if (data) setSettings(data);
+        setStatusSaveMsg('Saved');
+      }
+    } catch (err: any) {
+      setStatusSaveMsg('Error: ' + (err?.message || 'Failed to save'));
+      setOnlineFormStatus(newStatus === 'active' ? 'inactive' : 'active');
+    } finally {
+      setSavingFormStatus(false);
+      setTimeout(() => setStatusSaveMsg(''), 3000);
     }
   }
 
@@ -728,11 +762,12 @@ export default function CookingClassSettings({ isSuperAdmin = false }: CookingCl
             <p className="text-xs text-[#8C8278] mb-4">
               Controls whether customers can access the online booking form for in-person classes.
             </p>
-            <div className="flex gap-3">
+            <div className="flex gap-3 items-center">
               <button
                 type="button"
-                onClick={() => setOnlineFormStatus('active')}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl border-2 text-sm font-semibold transition-colors ${
+                disabled={savingFormStatus}
+                onClick={() => handleToggleOnlineFormStatus('active')}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl border-2 text-sm font-semibold transition-colors disabled:opacity-60 ${
                   onlineFormStatus === 'active' ?'border-green-500 bg-green-50 text-green-700' :'border-[#DDD5C8] text-[#8C8278] hover:border-green-400'
                 }`}
               >
@@ -741,18 +776,25 @@ export default function CookingClassSettings({ isSuperAdmin = false }: CookingCl
               </button>
               <button
                 type="button"
-                onClick={() => setOnlineFormStatus('inactive')}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl border-2 text-sm font-semibold transition-colors ${
+                disabled={savingFormStatus}
+                onClick={() => handleToggleOnlineFormStatus('inactive')}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl border-2 text-sm font-semibold transition-colors disabled:opacity-60 ${
                   onlineFormStatus === 'inactive' ?'border-red-400 bg-red-50 text-red-600' :'border-[#DDD5C8] text-[#8C8278] hover:border-red-300'
                 }`}
               >
                 <span className={`w-2.5 h-2.5 rounded-full ${onlineFormStatus === 'inactive' ? 'bg-red-500' : 'bg-[#DDD5C8]'}`} />
                 Inactive
               </button>
+              {savingFormStatus && <span className="text-xs text-[#8C8278]">Saving…</span>}
+              {statusSaveMsg && !savingFormStatus && (
+                <span className={`text-xs font-medium ${statusSaveMsg.startsWith('Error') ? 'text-red-500' : 'text-green-600'}`}>
+                  {statusSaveMsg.startsWith('Error') ? statusSaveMsg : '✓ Saved'}
+                </span>
+              )}
             </div>
             {onlineFormStatus === 'inactive' && (
               <p className="text-xs text-amber-600 mt-3 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                ⚠️ The booking form is currently <strong>inactive</strong>. Customers will see a notice instead of the registration form.
+                ⚠️ The booking form is currently <strong>inactive</strong>. Customers will see "No online registration available — please contact our office for further information."
               </p>
             )}
           </div>

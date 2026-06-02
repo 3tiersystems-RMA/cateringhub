@@ -150,7 +150,6 @@ export default function CookingClassesPage() {
   const [submitError, setSubmitError] = useState('');
   const [registrationId, setRegistrationId] = useState<string | null>(null);
   const [paymentLaunched, setPaymentLaunched] = useState(false);
-  const [showInactivePopup, setShowInactivePopup] = useState(false);
   // (NEW) Popup when selected event has no dates configured
   const [showNoDatesPopup, setShowNoDatesPopup] = useState(false);
 
@@ -236,9 +235,6 @@ export default function CookingClassesPage() {
         .single();
       if (data) {
         setSettings(data);
-        if (data.online_form_status === 'inactive') {
-          setShowInactivePopup(true);
-        }
       }
     } catch {
       // settings not found, use defaults
@@ -789,29 +785,6 @@ export default function CookingClassesPage() {
 
   return (
     <div className="min-h-screen bg-[#FAF5EE]">
-      {/* Inactive Form Popup */}
-      {showInactivePopup && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-          <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 text-center">
-            <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-6 h-6 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <h3 className="text-base font-bold text-[#1A1612] mb-3">Booking Form Unavailable</h3>
-            <p className="text-sm text-[#5C5347] leading-relaxed mb-6">
-              We will publish a new schedule for the Next available Baking &amp; Cooking classes soon - please contact our office for more information.
-            </p>
-            <Link
-              href="/homepage"
-              className="inline-block w-full bg-[#C4622D] text-white py-3 rounded-xl font-semibold text-sm hover:bg-[#A04E22] transition-colors"
-            >
-              OK
-            </Link>
-          </div>
-        </div>
-      )}
-
       {/* (NEW) Contact Our Office Popup — shown when selected event has no dates */}
       {showNoDatesPopup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
@@ -849,6 +822,29 @@ export default function CookingClassesPage() {
         </div>
       </header>
 
+      {/* Inactive notice — replaces the entire form */}
+      {!loadingSettings && settings?.online_form_status === 'inactive' && (
+        <div className="max-w-2xl mx-auto px-4 py-16 flex flex-col items-center text-center">
+          <div className="w-16 h-16 bg-[#FDF0E8] rounded-full flex items-center justify-center mb-6">
+            <svg className="w-8 h-8 text-[#C4622D]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-bold text-[#1A1612] mb-3">No Online Registration Available</h2>
+          <p className="text-[#5C5347] text-base leading-relaxed max-w-sm">
+            No online registration available — please contact our office for further information.
+          </p>
+          <Link
+            href="/homepage"
+            className="mt-8 inline-block bg-[#C4622D] text-white px-8 py-3 rounded-xl font-semibold text-sm hover:bg-[#A04E22] transition-colors"
+          >
+            Back to Home
+          </Link>
+        </div>
+      )}
+
+      {/* Form — only shown when online_form_status is active */}
+      {(loadingSettings || settings?.online_form_status !== 'inactive') && (
       <div className="max-w-2xl mx-auto px-4 py-8">
         {/* Progress indicator */}
         {currentPage < 6 && (
@@ -1744,6 +1740,7 @@ export default function CookingClassesPage() {
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }
