@@ -48,8 +48,6 @@ export default function FeaturedMenu() {
           return;
         }
 
-        console.log('FeaturedMenu: query returned', count, 'total,', data?.length, 'rows:', data);
-
         const items = await Promise.all(
           (data || []).map(async (p) => {
             let imageUrl = 'https://images.unsplash.com/photo-1594040815648-9251e9baabc8';
@@ -75,7 +73,6 @@ export default function FeaturedMenu() {
         );
         setFeatured(items);
       } catch (err) {
-        console.log('FeaturedMenu fetch error:', err);
         setFeatured([]);
       } finally {
         setLoading(false);

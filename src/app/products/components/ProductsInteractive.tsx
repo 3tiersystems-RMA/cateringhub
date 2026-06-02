@@ -330,7 +330,6 @@ function ProductsContent() {
           setActiveCategory(categoryParam);
         }
       } catch (err) {
-        console.log('Error fetching products:', err);
         setProducts([]);
       } finally {
         setLoading(false);

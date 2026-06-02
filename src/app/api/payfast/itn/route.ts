@@ -7,16 +7,6 @@ import {
   IS_TEST,
 } from "@/lib/payfast";
 
-/** Safe ITN log fields only — never log full POST (contains PII / payment data). */
-function itnLogFields(pfData: Record<string, string>) {
-  return {
-    m_payment_id: pfData.m_payment_id,
-    payment_status: pfData.payment_status,
-    pf_payment_id: pfData.pf_payment_id,
-    amount_gross: pfData.amount_gross,
-  };
-}
-
 export async function POST(req: NextRequest) {
   const responseOk = new NextResponse("OK", { status: 200 });
 
@@ -26,8 +16,6 @@ export async function POST(req: NextRequest) {
     formData.forEach((value, key) => {
       pfData[key] = String(value);
     });
-
-    console.log("[PayFast ITN] Received:", itnLogFields(pfData));
 
     const receivedSig = pfData.signature;
     if (!receivedSig) {
@@ -78,7 +66,6 @@ export async function POST(req: NextRequest) {
     }
 
     if (orderRow.payment_status === "paid") {
-      console.log("[PayFast ITN] Order already paid, ignoring duplicate:", paymentId);
       return responseOk;
     }
 
@@ -101,7 +88,7 @@ export async function POST(req: NextRequest) {
     const paymentStatus = pfData.payment_status;
 
     switch (paymentStatus) {
-      case "COMPLETE": console.log("[PayFast ITN] Payment COMPLETE:", paymentId);
+      case "COMPLETE":
         await supabaseAdmin
           .from("orders")
           .update({
@@ -113,18 +100,18 @@ export async function POST(req: NextRequest) {
           .eq("m_payment_id", paymentId);
         break;
 
-      case "FAILED": console.warn("[PayFast ITN] Payment FAILED:", paymentId);
+      case "FAILED":
         await supabaseAdmin
           .from("orders")
           .update({ payment_status: "failed" })
           .eq("m_payment_id", paymentId);
         break;
 
-      case "PENDING": console.warn("[PayFast ITN] Payment PENDING:", paymentId);
+      case "PENDING":
         break;
 
       default:
-        console.warn("[PayFast ITN] Unknown status:", paymentStatus, paymentId);
+        break;
     }
   } catch (err) {
     console.error("[PayFast ITN] Exception:", err instanceof Error ? err.message : err);

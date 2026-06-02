@@ -1,11 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  buildPaymentPayload,
-  getPayFastBaseUrl,
-  PAYFAST_MODE,
-  pfConfig,
-  validateBuyerEmailForPayFast,
-} from "@/lib/payfast";
+import { buildPaymentPayload, getPayFastBaseUrl, PAYFAST_MODE, validateBuyerEmailForPayFast,  } from "@/lib/payfast";
 
 export async function POST(req: NextRequest) {
   try {
@@ -37,10 +31,6 @@ export async function POST(req: NextRequest) {
       { ...order, amount },
       buyer,
       baseUrl
-    );
-
-    console.log(
-      `[PayFast initiate] env=${PAYFAST_MODE} gateway=${pfConfig.gatewayHost} merchant_id=${payload.params.merchant_id} paymentId=${order.paymentId}`
     );
 
     return NextResponse.json({
