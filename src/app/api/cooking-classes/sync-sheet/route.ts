@@ -65,19 +65,69 @@ export async function POST(req: NextRequest) {
       dateMap[d.id] = `${dateStr} (${startH} - ${endH})`;
     });
 
-    // Build row data
+    // ── Helpers ──────────────────────────────────────────────────────────────
     const events = (reg.selected_events || [])
       .map((e: string) => eventMap[e] || e)
       .join(', ');
+
     const dates = (reg.adult_class_dates || [])
       .map((d: string) => dateMap[d] || d)
       .join(', ');
+
     const submittedAt = new Date(reg.created_at).toLocaleString('en-ZA', {
       timeZone: 'Africa/Johannesburg',
     });
 
+    // ── Emergency contacts ────────────────────────────────────────────────────
+    const ec1 = reg.emergency_contact1 || {};
+    const ec2 = reg.emergency_contact2 || {};
+
+    // ── Children (up to 10) ───────────────────────────────────────────────────
+    const children: Array<{
+      fullName: string;
+      dob: string;
+      age: string;
+      gender: string;
+      grade: string;
+      dietaryRestrictions: string;
+    }> = Array.isArray(reg.children) ? reg.children : [];
+
+    // Pad to 10 children so columns are always consistent
+    const childrenPadded = Array.from({ length: 10 }, (_, i) => children[i] || {
+      fullName: '',
+      dob: '',
+      age: '',
+      gender: '',
+      grade: '',
+      dietaryRestrictions: '',
+    });
+
+    // ── Build child columns (6 columns × 10 children = 60 columns) ───────────
+    const childColumns: string[] = [];
+    childrenPadded.forEach(child => {
+      childColumns.push(
+        child.fullName || '',
+        child.dob || '',
+        child.age || '',
+        child.gender || '',
+        child.grade || '',
+        child.dietaryRestrictions || '',
+      );
+    });
+
+    // ── Build the full row in Google Sheet column sequence ────────────────────
+    // Sequence mirrors the multi-page form:
+    // [Page 1] Timestamp | Title | First Name | Surname | Email | Cellphone | Event | Date(s)
+    // [Page 2] Relationship | First Time Portal | Allergies/Illness | RSA ID/Passport
+    // [Page 3] EC1 Title | EC1 First Name | EC1 Surname | EC1 Cell | EC1 Relationship to Child
+    //          EC2 Title | EC2 First Name | EC2 Surname | EC2 Cell | EC2 Relationship to Child
+    // [Page 4] Child 1-10 (Full Name | DOB | Age | Gender | Grade | Dietary) × 10
+    //          Attend School Holiday
+    // [Page 5] Payment Method | Payment Status | Amount
+    // [Meta]   Registration ID
     const rowValues = [
       [
+        // ── Page 1 — Personal Details ──────────────────────────────────────
         submittedAt,
         reg.title || '',
         reg.first_name || '',
@@ -86,9 +136,39 @@ export async function POST(req: NextRequest) {
         reg.cellphone || '',
         events,
         dates,
+
+        // ── Page 2 — Relationship & Important Information ──────────────────
+        reg.relationship || '',
+        reg.first_time_portal || '',
+        reg.allergies_illness || '',
+        reg.rsa_id_passport || '',
+
+        // ── Page 3 — Emergency Contact 1 ──────────────────────────────────
+        ec1.title || '',
+        ec1.firstName || '',
+        ec1.surname || '',
+        ec1.cellNo || '',
+        ec1.relationshipToChild || '',
+
+        // ── Page 3 — Emergency Contact 2 ──────────────────────────────────
+        ec2.title || '',
+        ec2.firstName || '',
+        ec2.surname || '',
+        ec2.cellNo || '',
+        ec2.relationshipToChild || '',
+
+        // ── Page 4 — Children (10 × 6 columns) ────────────────────────────
+        ...childColumns,
+
+        // ── Page 4 — School Holiday ────────────────────────────────────────
+        reg.attend_school_holiday || '',
+
+        // ── Page 5 — Payment ───────────────────────────────────────────────
         reg.payment_method === 'payfast' ? 'PayFast' : 'EFT',
         reg.payment_status || '',
         reg.amount ? `R${Number(reg.amount).toFixed(2)}` : '',
+
+        // ── Meta ───────────────────────────────────────────────────────────
         reg.id,
       ],
     ];
@@ -155,7 +235,6 @@ async function getOAuthAccessToken(): Promise<string> {
   const tokenData = await tokenRes.json();
 
   if (!tokenData.access_token) {
-    // Build a detailed error message so we can diagnose the exact cause
     const googleError = tokenData.error || 'unknown_error';
     const googleDesc = tokenData.error_description || '';
     const hint = getTokenErrorHint(googleError);

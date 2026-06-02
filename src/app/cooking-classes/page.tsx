@@ -640,6 +640,37 @@ export default function CookingClassesPage() {
           cellphone: page1.cellphone,
           selected_events: page1.selectedEvents,
           adult_class_dates: page1.selectedDates,
+          // Page 2 — Relationship & Important Information
+          relationship: page2.relationship,
+          first_time_portal: page2.firstTimePortal,
+          allergies_illness: page2.allergiesIllness,
+          rsa_id_passport: page2.rsaIdPassport,
+          // Page 3 — Emergency Contacts
+          emergency_contact1: {
+            title: page3.contact1.title,
+            firstName: page3.contact1.firstName,
+            surname: page3.contact1.surname,
+            cellNo: page3.contact1.cellNo,
+            relationshipToChild: page3.contact1.relationshipToChild,
+          },
+          emergency_contact2: {
+            title: page3.contact2.title,
+            firstName: page3.contact2.firstName,
+            surname: page3.contact2.surname,
+            cellNo: page3.contact2.cellNo,
+            relationshipToChild: page3.contact2.relationshipToChild,
+          },
+          // Page 4 — Children & School Holiday
+          children: page4.children.map(c => ({
+            fullName: c.fullName,
+            dob: c.dob,
+            age: c.age,
+            gender: c.gender,
+            grade: c.grade,
+            dietaryRestrictions: c.dietaryRestrictions,
+          })),
+          attend_school_holiday: page4.attendSchoolHoliday,
+          // Page 5 — Payment
           payment_method: page5.paymentMethod,
           payment_status: page5.paymentMethod === 'eft' ? 'awaiting_confirmation' : 'pending',
           proof_of_payment_url: proofUrl,
