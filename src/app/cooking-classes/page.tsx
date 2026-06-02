@@ -97,9 +97,9 @@ interface BookingCount {
 
 // (1) Updated: added 'Dr', removed 'Other'
 const TITLE_OPTIONS = ['Dr', 'Ms', 'Mr', 'Mrs'];
-const RELATIONSHIP_OPTIONS = ['Father', 'Mother', 'Grandparent', 'Guardian', 'Au pair', 'Other'];
-const RELATIONSHIP_TO_CHILD_OPTIONS = ['Father', 'Mother', 'Grandparent', 'Guardian', 'Au pair', 'Other', 'Sibling', 'Friend'];
-const DIETARY_OPTIONS = ['None', 'Vegetarian', 'Vegan', 'Gluten-free', 'Lactose Intolerant', 'Peanut Allergy', 'Other'];
+const RELATIONSHIP_OPTIONS = ['Father', 'Mother', 'Grandparent', 'Guardian', 'Au pair'];
+const RELATIONSHIP_TO_CHILD_OPTIONS = ['Father', 'Mother', 'Grandparent', 'Guardian', 'Au pair', 'Sibling', 'Friend'];
+const DIETARY_OPTIONS = ['None', 'Vegetarian', 'Vegan', 'Gluten-free', 'Lactose Intolerant', 'Peanut Allergy'];
 
 const EMPTY_CHILD: ChildRow = { fullName: '', dob: '', age: '', gender: '', grade: '', dietaryRestrictions: '' };
 const EMPTY_CONTACT: ContactPerson = { title: '', firstName: '', surname: '', cellNo: '', relationshipToChild: '' };
