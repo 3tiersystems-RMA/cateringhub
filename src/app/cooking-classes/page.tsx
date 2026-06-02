@@ -34,6 +34,10 @@ interface ContactPerson {
 interface FormPage3 {
   contact1: ContactPerson;
   contact2: ContactPerson;
+  medicalDoctorFirstName: string;
+  medicalDoctorSurname: string;
+  medicalAidName: string;
+  medicalAidNumber: string;
 }
 
 interface ChildRow {
@@ -48,6 +52,10 @@ interface ChildRow {
 interface FormPage4 {
   children: ChildRow[];
   attendSchoolHoliday: string;
+  picturesTaken: string;
+  indemnityConsent: boolean;
+  indemnityFile: File | null;
+  indemnityFilePreview: string;
 }
 
 interface FormPage5 {
@@ -161,6 +169,7 @@ export default function CookingClassesPage() {
   // Collapsible states
   const [importantInfoOpen, setImportantInfoOpen] = useState(true);
   const [emergencyContactOpen, setEmergencyContactOpen] = useState(true);
+  const [medicalDetailsOpen, setMedicalDetailsOpen] = useState(false);
   const [cookingClassesOpen, setCookingClassesOpen] = useState(true);
   const [collapsedChildren, setCollapsedChildren] = useState<Record<number, boolean>>(
     Object.fromEntries(Array.from({ length: 10 }, (_, i) => [i, true]))
@@ -187,11 +196,19 @@ export default function CookingClassesPage() {
   const [page3, setPage3] = useState<FormPage3>({
     contact1: { ...EMPTY_CONTACT },
     contact2: { ...EMPTY_CONTACT },
+    medicalDoctorFirstName: '',
+    medicalDoctorSurname: '',
+    medicalAidName: '',
+    medicalAidNumber: '',
   });
 
   const [page4, setPage4] = useState<FormPage4>({
     children: Array.from({ length: 10 }, () => ({ ...EMPTY_CHILD })),
     attendSchoolHoliday: '',
+    picturesTaken: '',
+    indemnityConsent: false,
+    indemnityFile: null,
+    indemnityFilePreview: '',
   });
 
   const [page5, setPage5] = useState<FormPage5>({
@@ -491,7 +508,10 @@ export default function CookingClassesPage() {
       }
     });
 
-    if (!page4.attendSchoolHoliday) errors.attendSchoolHoliday = 'Please answer this question';
+    // School Holiday is now optional — no validation required
+    if (!page4.picturesTaken) errors.picturesTaken = 'Please indicate your consent for pictures';
+    if (!page4.indemnityConsent) errors.indemnityConsent = 'Please consent to the Indemnity Form clauses';
+    if (!page4.indemnityFile) errors.indemnityFile = 'Please upload your signed Indemnity Form';
     setPage4Errors(errors);
     return Object.keys(errors).length === 0;
   }
@@ -583,6 +603,17 @@ export default function CookingClassesPage() {
     const reader = new FileReader();
     reader.onload = (ev) => {
       setPage5(prev => ({ ...prev, proofPreview: ev.target?.result as string }));
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function handleIndemnityUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPage4(prev => ({ ...prev, indemnityFile: file }));
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setPage4(prev => ({ ...prev, indemnityFilePreview: ev.target?.result as string }));
     };
     reader.readAsDataURL(file);
   }
@@ -1362,6 +1393,74 @@ export default function CookingClassesPage() {
                     </div>
                   </div>
                 </div>
+
+                {/* Medical Details — collapsible */}
+                <div className="mt-6">
+                  <button
+                    type="button"
+                    onClick={() => setMedicalDetailsOpen(o => !o)}
+                    className="w-full flex items-center justify-between bg-[#4A4540] text-white px-5 py-4 rounded-xl font-medium text-sm"
+                  >
+                    <span>Medical Details</span>
+                    <svg
+                      className={`w-6 h-6 transition-transform ${medicalDetailsOpen ? 'rotate-180' : ''}`}
+                      fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {medicalDetailsOpen && (
+                    <div className="pt-6 space-y-6">
+                      {/* Medical Doctor */}
+                      <div>
+                        <h4 className="text-base font-bold text-[#1A1612] mb-3">Medical Doctor</h4>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <input
+                              type="text"
+                              value={page3.medicalDoctorFirstName}
+                              onChange={e => setPage3(p => ({ ...p, medicalDoctorFirstName: e.target.value }))}
+                              className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D]"
+                            />
+                            <p className="text-xs text-[#5C5347] mt-1">First Name</p>
+                          </div>
+                          <div>
+                            <input
+                              type="text"
+                              value={page3.medicalDoctorSurname}
+                              onChange={e => setPage3(p => ({ ...p, medicalDoctorSurname: e.target.value }))}
+                              className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D]"
+                            />
+                            <p className="text-xs text-[#5C5347] mt-1">Surname</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Medical Aid */}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <h4 className="text-base font-bold text-[#1A1612] mb-3">Medical Aid Name</h4>
+                          <input
+                            type="text"
+                            value={page3.medicalAidName}
+                            onChange={e => setPage3(p => ({ ...p, medicalAidName: e.target.value }))}
+                            className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D]"
+                          />
+                        </div>
+                        <div>
+                          <h4 className="text-base font-bold text-[#1A1612] mb-3">Medical Aid Number</h4>
+                          <input
+                            type="text"
+                            value={page3.medicalAidNumber}
+                            onChange={e => setPage3(p => ({ ...p, medicalAidNumber: e.target.value }))}
+                            className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D]"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
@@ -1538,7 +1637,7 @@ export default function CookingClassesPage() {
                 {/* Attend School Holiday programme */}
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-[#8C8278] mb-3">
-                    Attend our School Holiday programme <span className="text-red-500">*</span>
+                    Attend our School Holiday programme
                   </label>
                   <div className="grid grid-cols-2 gap-x-8">
                     {['Yes', 'No'].map(opt => (
@@ -1555,7 +1654,105 @@ export default function CookingClassesPage() {
                       </label>
                     ))}
                   </div>
-                  {page4Errors.attendSchoolHoliday && <p className="text-xs text-red-500 mt-2">{page4Errors.attendSchoolHoliday}</p>}
+                </div>
+
+                {/* Pictures & Indemnity section */}
+                <div className="mt-6 space-y-6">
+                  {/* Pictures Taken consent */}
+                  <div>
+                    <p className="text-sm text-[#1A1612] mb-4 leading-relaxed">
+                      Pictures taken of my/our child at the Business cooking classes can be used / not be used as per my/our consent below:
+                    </p>
+                    <label className="block text-sm font-medium text-[#1A1612] mb-3">
+                      Pictures taken <span className="text-red-500">*</span>
+                    </label>
+                    <div className="grid grid-cols-2 gap-x-8">
+                      {[
+                        { value: 'yes', label: 'Yes, I give consent' },
+                        { value: 'no', label: 'No, I do not consent' },
+                      ].map(opt => (
+                        <label key={opt.value} className="flex items-center gap-3 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="picturesTaken"
+                            value={opt.value}
+                            checked={page4.picturesTaken === opt.value}
+                            onChange={() => setPage4(p => ({ ...p, picturesTaken: opt.value }))}
+                            className="w-5 h-5 border-2 border-[#DDD5C8] text-[#C4622D] focus:ring-[#C4622D]"
+                          />
+                          <span className="text-sm text-[#1A1612]">{opt.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                    {page4Errors.picturesTaken && <p className="text-xs text-red-500 mt-2">{page4Errors.picturesTaken}</p>}
+                  </div>
+
+                  <hr className="border-[#EDE7DA]" />
+
+                  {/* Indemnity Form Consent */}
+                  <div>
+                    <div className="flex items-start gap-3">
+                      <label className="block text-sm font-medium text-[#1A1612] whitespace-nowrap">
+                        Indemnity Form Consent <span className="text-red-500">*</span>
+                      </label>
+                      <label className="flex items-start gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={page4.indemnityConsent}
+                          onChange={e => setPage4(p => ({ ...p, indemnityConsent: e.target.checked }))}
+                          className="w-4 h-4 mt-0.5 border-2 border-[#DDD5C8] text-[#C4622D] focus:ring-[#C4622D] rounded flex-shrink-0"
+                        />
+                        <span className="text-sm text-[#1A1612]">I Consent to the clauses in the Business Indemnity Form</span>
+                      </label>
+                    </div>
+                    {page4Errors.indemnityConsent && <p className="text-xs text-red-500 mt-2">{page4Errors.indemnityConsent}</p>}
+                  </div>
+
+                  {/* SIGNED Indemnity Form upload */}
+                  <div>
+                    <label className="block text-sm font-semibold text-[#1A1612] mb-3">
+                      SIGNED Indemnity Form <span className="text-red-500">*</span>
+                    </label>
+                    <div
+                      className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer ${page4Errors.indemnityFile ? 'border-red-400 bg-red-50' : 'border-[#DDD5C8] bg-[#F8F5FF] hover:border-[#C4622D]/50'}`}
+                      onClick={() => document.getElementById('indemnity-file-input')?.click()}
+                    >
+                      {page4.indemnityFilePreview ? (
+                        <div>
+                          {page4.indemnityFile?.type?.startsWith('image/') ? (
+                            <img src={page4.indemnityFilePreview} alt="Signed indemnity form preview" className="max-h-32 mx-auto rounded-lg mb-3 object-contain" />
+                          ) : (
+                            <div className="text-4xl mb-3">📄</div>
+                          )}
+                          <p className="text-sm text-[#5C5347] font-medium">{page4.indemnityFile?.name}</p>
+                          <button
+                            type="button"
+                            onClick={e => { e.stopPropagation(); setPage4(p => ({ ...p, indemnityFile: null, indemnityFilePreview: '' })); }}
+                            className="text-xs text-red-500 hover:underline mt-1"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ) : (
+                        <div>
+                          <svg className="w-12 h-12 text-[#9CA3AF] mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                          </svg>
+                          <p className="text-base font-bold text-[#1A1612] mb-1">Browse Files</p>
+                          <p className="text-sm text-[#8C8278]">Drag and drop files here</p>
+                        </div>
+                      )}
+                      <input
+                        id="indemnity-file-input"
+                        type="file"
+                        accept="image/*,.pdf"
+                        onChange={handleIndemnityUpload}
+                        className="hidden"
+                      />
+                    </div>
+                    <p className="text-xs text-[#5C5347] mt-2">Upload your SIGNED Cardamom Kitchen cooking classes Indemnity Form</p>
+                    {page4Errors.indemnityFile && <p className="text-xs text-red-500 mt-1">{page4Errors.indemnityFile}</p>}
+                  </div>
                 </div>
               </div>
             )}
