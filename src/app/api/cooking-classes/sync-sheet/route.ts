@@ -116,15 +116,18 @@ export async function POST(req: NextRequest) {
     });
 
     // ── Build the full row in Google Sheet column sequence ────────────────────
-    // Sequence mirrors the multi-page form:
-    // [Page 1] Timestamp | Title | First Name | Surname | Email | Cellphone | Event | Date(s)
-    // [Page 2] Relationship | First Time Portal | Allergies/Illness | RSA ID/Passport
-    // [Page 3] EC1 Title | EC1 First Name | EC1 Surname | EC1 Cell | EC1 Relationship to Child
-    //          EC2 Title | EC2 First Name | EC2 Surname | EC2 Cell | EC2 Relationship to Child
-    // [Page 4] Child 1-10 (Full Name | DOB | Age | Gender | Grade | Dietary) × 10
-    //          Attend School Holiday
-    // [Page 5] Payment Method | Payment Status | Amount
-    // [Meta]   Registration ID
+    // Column sequence mirrors the multi-page form layout:
+    //
+    // [Page 1]  Timestamp | Title | First Name | Surname | Email | Cellphone | Event | Date(s)
+    // [Page 2]  Relationship | First Time Portal | Allergies/Illness | RSA ID/Passport
+    // [Page 3]  EC1 Title | EC1 First Name | EC1 Surname | EC1 Cell | EC1 Relationship to Child
+    //           EC2 Title | EC2 First Name | EC2 Surname | EC2 Cell | EC2 Relationship to Child
+    //           Medical Doctor First Name | Medical Doctor Surname | Medical Aid Name | Medical Aid Number
+    // [Page 4]  Child 1-10 (Full Name | DOB | Age | Gender | Grade | Dietary) × 10
+    //           Attend School Holiday
+    //           Pictures Taken | Indemnity Consent
+    // [Page 5]  Payment Method | Payment Status | Amount
+    // [Meta]    Registration ID
     const rowValues = [
       [
         // ── Page 1 — Personal Details ──────────────────────────────────────
@@ -157,11 +160,19 @@ export async function POST(req: NextRequest) {
         ec2.cellNo || '',
         ec2.relationshipToChild || '',
 
+        // ── Page 3 — Medical Details ───────────────────────────────────────
+        reg.medical_doctor_first_name || '',
+        reg.medical_doctor_surname || '',
+        reg.medical_aid_name || '',
+        reg.medical_aid_number || '',
+
         // ── Page 4 — Children (10 × 6 columns) ────────────────────────────
         ...childColumns,
 
-        // ── Page 4 — School Holiday ────────────────────────────────────────
+        // ── Page 4 — School Holiday & Consent ─────────────────────────────
         reg.attend_school_holiday || '',
+        reg.pictures_taken || '',
+        reg.indemnity_consent ? 'Yes' : 'No',
 
         // ── Page 5 — Payment ───────────────────────────────────────────────
         reg.payment_method === 'payfast' ? 'PayFast' : 'EFT',
@@ -173,7 +184,7 @@ export async function POST(req: NextRequest) {
       ],
     ];
 
-    // Append to Google Sheet via Sheets API
+    // Append to Google Sheet via Sheets API — use the configured tab name
     const sheetsUrl = `https://sheets.googleapis.com/v4/spreadsheets/${settings.sheet_id}/values/${encodeURIComponent(settings.sheet_name)}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
 
     const sheetsRes = await fetch(sheetsUrl, {
@@ -248,15 +259,13 @@ async function getOAuthAccessToken(): Promise<string> {
 
 function getTokenErrorHint(error: string): string {
   switch (error) {
-    case 'invalid_client':
-      return 'The GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET is incorrect. Re-check the values in your Google Cloud Console → Credentials.';
     case 'invalid_grant':
-      return 'The GOOGLE_REFRESH_TOKEN has expired or been revoked. Go to OAuth Playground (developers.google.com/oauthplayground), re-authorise with your own credentials enabled, and copy the new refresh token.';
+      return 'The refresh token has expired or been revoked. Re-authorise the Google account in the workspace settings.';
+    case 'invalid_client':
+      return 'Check GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables.';
     case 'unauthorized_client':
-      return 'The OAuth client is not authorised for this grant type. Make sure the OAuth consent screen is published and the client type is "Web application".';
-    case 'access_denied':
-      return 'Access was denied. Make sure the Google account used in OAuth Playground has access to the Google Sheet and that the Sheets API scope was selected.';
+      return 'The OAuth client is not authorised for this grant type. Verify your Google Cloud Console settings.';
     default:
-      return 'Verify that GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_REFRESH_TOKEN are all correctly copied from Google Cloud Console and OAuth Playground.';
+      return 'Check your Google OAuth environment variables and ensure the refresh token is valid.';
   }
 }

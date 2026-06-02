@@ -248,11 +248,13 @@ export default function CookingClassesPage() {
   // (NEW) When firstTimePortal changes, auto-expand/collapse Important Info and Medical Details
   useEffect(() => {
     if (page2.firstTimePortal === 'No') {
-      setImportantInfoOpen(true);
-      setMedicalDetailsOpen(true);
-    } else if (page2.firstTimePortal === 'Yes') {
+      // First Time = No: Passport/ID optional, skip to Page 4 — collapse all info cards
       setImportantInfoOpen(false);
       setMedicalDetailsOpen(false);
+    } else if (page2.firstTimePortal === 'Yes') {
+      // First Time = Yes: open all card views on Page 2 and Page 3
+      setImportantInfoOpen(true);
+      setMedicalDetailsOpen(true);
     }
   }, [page2.firstTimePortal]);
 
@@ -468,8 +470,8 @@ export default function CookingClassesPage() {
     const errors: Record<string, string> = {};
     if (!page2.relationship) errors.relationship = 'Please select your relationship';
     if (!page2.firstTimePortal) errors.firstTimePortal = 'Please answer this question';
-    // RSA ID / Passport is optional if First Time = Yes
-    if (page2.firstTimePortal !== 'Yes' && !page2.rsaIdPassport.trim()) errors.rsaIdPassport = 'RSA ID / Passport No is required';
+    // RSA ID / Passport is optional if First Time = No
+    if (page2.firstTimePortal !== 'No' && !page2.rsaIdPassport.trim()) errors.rsaIdPassport = 'RSA ID / Passport No is required';
     setPage2Errors(errors);
     return Object.keys(errors).length === 0;
   }
@@ -551,8 +553,8 @@ export default function CookingClassesPage() {
 
   function handlePage2Next() {
     if (validatePage2()) {
-      // If First Time = Yes, skip directly to page 4
-      if (page2.firstTimePortal === 'Yes') {
+      // If First Time = No, skip directly to page 4
+      if (page2.firstTimePortal === 'No') {
         setCurrentPage(4);
       } else {
         setCurrentPage(3);
@@ -707,6 +709,11 @@ export default function CookingClassesPage() {
             cellNo: page3.contact2.cellNo,
             relationshipToChild: page3.contact2.relationshipToChild,
           },
+          // Page 3 — Medical Details
+          medical_doctor_first_name: page3.medicalDoctorFirstName,
+          medical_doctor_surname: page3.medicalDoctorSurname,
+          medical_aid_name: page3.medicalAidName,
+          medical_aid_number: page3.medicalAidNumber,
           // Page 4 — Children & School Holiday
           children: page4.children.map(c => ({
             fullName: c.fullName,
@@ -717,6 +724,8 @@ export default function CookingClassesPage() {
             dietaryRestrictions: c.dietaryRestrictions,
           })),
           attend_school_holiday: page4.attendSchoolHoliday,
+          pictures_taken: page4.picturesTaken,
+          indemnity_consent: page4.indemnityConsent,
           // Page 5 — Payment
           payment_method: page5.paymentMethod,
           payment_status: page5.paymentMethod === 'eft' ? 'awaiting_confirmation' : 'pending',
@@ -1228,8 +1237,8 @@ export default function CookingClassesPage() {
                   {/* RSA ID / Passport No */}
                   <div className="mb-2">
                     <label className="block text-sm font-medium text-[#1A1612] mb-2">
-                      RSA ID / Passport No {page2.firstTimePortal !== 'Yes' && <span className="text-red-500">*</span>}
-                      {page2.firstTimePortal === 'Yes' && <span className="text-[#8C8278] text-xs font-normal ml-1">(optional)</span>}
+                      RSA ID / Passport No {page2.firstTimePortal !== 'No' && <span className="text-red-500">*</span>}
+                      {page2.firstTimePortal === 'No' && <span className="text-[#8C8278] text-xs font-normal ml-1">(optional)</span>}
                     </label>
                     <input
                       type="text"
@@ -1827,7 +1836,11 @@ export default function CookingClassesPage() {
 
             <div className="flex gap-3 mt-6">
               <button
-                onClick={() => { setCurrentPage(3); window.scrollTo(0, 0); }}
+                onClick={() => {
+                  const backPage = page2.firstTimePortal === 'No' ? 2 : 3;
+                  setCurrentPage(backPage);
+                  window.scrollTo(0, 0);
+                }}
                 className="flex-1 border border-[#DDD5C8] text-[#5C5347] py-3 rounded-xl font-semibold text-sm hover:bg-[#FAF5EE] transition-colors"
               >
                 ← Back
