@@ -47,8 +47,12 @@ export function useDeliveryCalculator({ minimumFee = 0 }: UseDeliveryCalculatorO
       try {
         const params = new URLSearchParams({ destination: customerAddress });
         const res = await fetch(`/api/distance?${params}`);
-        if (!res.ok) throw new Error('Distance API error');
         const data = await res.json();
+        if (!res.ok) {
+          // Surface the Google Maps status for easier diagnosis
+          const googleStatus = data?.googleStatus ? ` (Google: ${data.googleStatus})` : '';
+          throw new Error(data.error ? `${data.error}${googleStatus}` : 'Distance API error');
+        }
         if (data.error) throw new Error(data.error);
         const el = data?.rows?.[0]?.elements?.[0];
         if (!el || el.status !== 'OK') {

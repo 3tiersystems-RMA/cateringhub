@@ -38,6 +38,18 @@ export async function GET(req: NextRequest) {
     const upstream = await fetch(url.toString());
     const responseData = await upstream.json();
 
+    const el = responseData?.rows?.[0]?.elements?.[0];
+    if (!el || el.status !== 'OK') {
+      return NextResponse.json(
+        {
+          error: 'Route not found',
+          googleStatus: el?.status ?? 'NO_ELEMENT',  // e.g. NOT_FOUND, ZERO_RESULTS
+          rawResponse: responseData,                  // remove this in production
+        },
+        { status: 422 }
+      );
+    }
+
     return NextResponse.json(responseData);
   } catch {
     return NextResponse.json({ error: 'Distance calculation failed' }, { status: 500 });
