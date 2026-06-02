@@ -20,7 +20,7 @@ export default function DeliveryCalculator({
   onCancel,
 }: DeliveryCalculatorProps) {
   const [customerAddress, setCustomerAddress] = useState('');
-  const { calculate, result, loading, error, reset, defaultDespatchAddress, settingsLoading } =
+  const { calculate, result, loading, error, errorCode, reset, defaultDespatchAddress, settingsLoading } =
     useDeliveryCalculator({ minimumFee });
 
   if (despatchMethod === 'collection') {
@@ -65,6 +65,9 @@ export default function DeliveryCalculator({
       </div>
     );
   }
+
+  // Determine if the error is an API configuration issue
+  const isApiNotConfigured = error === 'API_NOT_CONFIGURED' || errorCode === 'API_NOT_CONFIGURED';
 
   // Delivery view
   return (
@@ -123,7 +126,20 @@ export default function DeliveryCalculator({
         )}
       </button>
 
-      {error && (
+      {/* API not configured — distinct banner */}
+      {isApiNotConfigured && !result && (
+        <div className="bg-amber-50 border border-amber-300 rounded-xl px-4 py-3 space-y-1">
+          <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide">
+            Delivery calculation unavailable
+          </p>
+          <p className="text-xs text-amber-700">
+            The delivery distance service is not configured. Please contact us directly to confirm your delivery charge, or choose collection.
+          </p>
+        </div>
+      )}
+
+      {/* Generic error (non-API-config) without fallback */}
+      {error && !isApiNotConfigured && !result && (
         <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3">
           <p className="text-xs text-red-600">{error}</p>
         </div>
@@ -131,17 +147,35 @@ export default function DeliveryCalculator({
 
       {result && (
         <>
+          {/* Fallback notice — shown when default delivery charge was applied */}
+          {result.isFallback && (
+            <div className="bg-amber-50 border border-amber-300 rounded-xl px-4 py-3 space-y-1">
+              <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide">
+                {isApiNotConfigured ? 'Delivery calculation unavailable' : 'Estimated delivery charge'}
+              </p>
+              <p className="text-xs text-amber-700">
+                {isApiNotConfigured
+                  ? 'The delivery distance service is not configured. A standard delivery charge has been applied. Our team has been notified and will confirm the final amount with you.'
+                  : 'The exact delivery distance could not be calculated. A standard delivery charge has been applied. Our team has been notified and will confirm the final amount with you.'}
+              </p>
+            </div>
+          )}
+
           <div className="bg-white rounded-2xl border border-[#DDD5C8] p-4 space-y-2 text-sm">
+            {!result.isFallback && (
+              <>
+                <div className="flex justify-between text-[#5C5347]">
+                  <span>Distance</span>
+                  <span>{result.distanceText}</span>
+                </div>
+                <div className="flex justify-between text-[#5C5347]">
+                  <span>Est. drive time</span>
+                  <span>{result.durationText}</span>
+                </div>
+              </>
+            )}
             <div className="flex justify-between text-[#5C5347]">
-              <span>Distance</span>
-              <span>{result.distanceText}</span>
-            </div>
-            <div className="flex justify-between text-[#5C5347]">
-              <span>Est. drive time</span>
-              <span>{result.durationText}</span>
-            </div>
-            <div className="flex justify-between text-[#5C5347]">
-              <span>Delivery fee</span>
+              <span>Delivery fee{result.isFallback ? ' (standard rate)' : ''}</span>
               <span className="font-semibold text-[#C4622D]">R {result.deliveryCost.toFixed(2)}</span>
             </div>
             <div className="flex justify-between font-semibold text-[#1A1612] text-base pt-2 border-t border-[#DDD5C8]">

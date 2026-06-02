@@ -26,7 +26,12 @@ export async function GET() {
     });
 
     // Use maybeSingle() — returns null (not an error) when no row exists
-    const { data, error } = await supabase?.from('correspondence_settings')?.select('default_despatch_address, cost_per_km')?.order('updated_at', { ascending: false })?.limit(1)?.maybeSingle();
+    const { data, error } = await supabase
+      ?.from('correspondence_settings')
+      ?.select('default_despatch_address, cost_per_km, default_delivery_charge, admin_email')
+      ?.order('updated_at', { ascending: false })
+      ?.limit(1)
+      ?.maybeSingle();
 
     if (error) {
       console.error('[delivery-settings] Supabase query error:', {
@@ -52,10 +57,15 @@ export async function GET() {
     const defaultDespatchAddress = data?.default_despatch_address ?? null;
     const ratePerKm =
       data?.cost_per_km != null ? parseFloat(String(data?.cost_per_km)) : null;
+    const defaultDeliveryCharge =
+      data?.default_delivery_charge != null
+        ? parseFloat(String(data?.default_delivery_charge))
+        : null;
+    const adminEmail = data?.admin_email ?? null;
 
     // Return whatever is available — let the frontend decide how to handle nulls
     return NextResponse?.json(
-      { defaultDespatchAddress, ratePerKm },
+      { defaultDespatchAddress, ratePerKm, defaultDeliveryCharge, adminEmail },
       {
         headers: {
           'Cache-Control': 'no-store',

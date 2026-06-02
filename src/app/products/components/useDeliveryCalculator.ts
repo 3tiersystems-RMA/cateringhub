@@ -5,6 +5,8 @@ import { useState, useEffect, useCallback } from 'react';
 interface DeliverySettings {
   defaultDespatchAddress: string;
   ratePerKm: number;
+  defaultDeliveryCharge: number | null;
+  adminEmail: string | null;
 }
 
 export interface DeliveryResult {
@@ -14,6 +16,7 @@ export interface DeliveryResult {
   durationText: string;
   deliveryCost: number;
   total: number;
+  isFallback?: boolean;
 }
 
 interface UseDeliveryCalculatorOptions {
@@ -25,6 +28,7 @@ export function useDeliveryCalculator({ minimumFee = 0 }: UseDeliveryCalculatorO
   const [result, setResult] = useState<DeliveryResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/delivery-settings')
@@ -33,7 +37,12 @@ export function useDeliveryCalculator({ minimumFee = 0 }: UseDeliveryCalculatorO
         if (d.error) {
           setError(`Delivery settings: ${d.error}`);
         } else {
-          setSettings(d);
+          setSettings({
+            defaultDespatchAddress: d.defaultDespatchAddress,
+            ratePerKm: d.ratePerKm,
+            defaultDeliveryCharge: d.defaultDeliveryCharge ?? null,
+            adminEmail: d.adminEmail ?? null,
+          });
         }
       })
       .catch(() => setError('Could not load delivery settings. Please try again.'));
@@ -44,15 +53,48 @@ export function useDeliveryCalculator({ minimumFee = 0 }: UseDeliveryCalculatorO
       if (!settings) return;
       setLoading(true);
       setError(null);
+      setErrorCode(null);
       try {
         const params = new URLSearchParams({ destination: customerAddress });
         const res = await fetch(`/api/distance?${params}`);
         const data = await res.json();
+
         if (!res.ok) {
-          // Surface the Google Maps status for easier diagnosis
-          const googleStatus = data?.googleStatus ? ` (Google: ${data.googleStatus})` : '';
-          throw new Error(data.error ? `${data.error}${googleStatus}` : 'Distance API error');
+          const code: string = data?.errorCode ?? '';
+          setErrorCode(code);
+
+          // Fall back to default delivery charge if available
+          if (settings.defaultDeliveryCharge != null) {
+            const fallbackCost = Math.max(settings.defaultDeliveryCharge, minimumFee);
+            setResult({
+              distanceKm: 0,
+              durationMin: 0,
+              distanceText: 'N/A',
+              durationText: 'N/A',
+              deliveryCost: fallbackCost,
+              total: orderSubtotal + fallbackCost,
+              isFallback: true,
+            });
+            // Set a user-friendly error message alongside the fallback result
+            if (code === 'API_NOT_CONFIGURED') {
+              setError('API_NOT_CONFIGURED');
+            } else if (code === 'ROUTE_NOT_FOUND') {
+              setError('Route not found. Please check the delivery address. A default delivery charge has been applied.');
+            } else {
+              setError('Delivery distance could not be calculated. A default delivery charge has been applied.');
+            }
+          } else {
+            // No fallback available — surface the error
+            if (code === 'API_NOT_CONFIGURED') {
+              setError('API_NOT_CONFIGURED');
+            } else {
+              const googleStatus = data?.googleStatus ? ` (Google: ${data.googleStatus})` : '';
+              setError(data.error ? `${data.error}${googleStatus}` : 'Distance API error');
+            }
+          }
+          return;
         }
+
         if (data.error) throw new Error(data.error);
         const el = data?.rows?.[0]?.elements?.[0];
         if (!el || el.status !== 'OK') {
@@ -68,13 +110,30 @@ export function useDeliveryCalculator({ minimumFee = 0 }: UseDeliveryCalculatorO
           durationText: el.duration.text,
           deliveryCost,
           total: orderSubtotal + deliveryCost,
+          isFallback: false,
         });
       } catch (err) {
-        setError(
+        const message =
           err instanceof Error
             ? err.message
-            : 'Could not calculate delivery. Please check the address.'
-        );
+            : 'Could not calculate delivery. Please check the address.';
+
+        // Attempt fallback on unexpected errors too
+        if (settings.defaultDeliveryCharge != null) {
+          const fallbackCost = Math.max(settings.defaultDeliveryCharge, minimumFee);
+          setResult({
+            distanceKm: 0,
+            durationMin: 0,
+            distanceText: 'N/A',
+            durationText: 'N/A',
+            deliveryCost: fallbackCost,
+            total: orderSubtotal + fallbackCost,
+            isFallback: true,
+          });
+          setError('Delivery distance could not be calculated. A default delivery charge has been applied.');
+        } else {
+          setError(message);
+        }
       } finally {
         setLoading(false);
       }
@@ -85,6 +144,7 @@ export function useDeliveryCalculator({ minimumFee = 0 }: UseDeliveryCalculatorO
   const reset = useCallback(() => {
     setResult(null);
     setError(null);
+    setErrorCode(null);
   }, []);
 
   return {
@@ -92,6 +152,7 @@ export function useDeliveryCalculator({ minimumFee = 0 }: UseDeliveryCalculatorO
     result,
     loading,
     error,
+    errorCode,
     reset,
     defaultDespatchAddress: settings?.defaultDespatchAddress ?? null,
     settingsLoading: !settings && !error,
