@@ -462,7 +462,7 @@ export default function EventManagement({ canCreate = true, canDelete = true }: 
                     </h3>
                     <button
                       onClick={() => setShowForm(false)}
-                      className="p-1.5 rounded-lg text-[#8C8278] hover:bg-[#F5F0E8] transition-colors"
+                      className="p-1.5 rounded-lg text-[#8C8278] hover:bg-[#e9e0cf] transition-colors"
                     >
                       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -568,7 +568,7 @@ export default function EventManagement({ canCreate = true, canDelete = true }: 
                             setForm((f) => ({ ...f, image_url: '' }));
                           }}
                           className={`flex-1 py-2 text-xs font-semibold transition-colors ${
-                            imageInputMode === 'device' ? 'bg-[#C4622D] text-white' : 'bg-white text-[#5C5347] hover:bg-[#F5F0E8]'
+                            imageInputMode === 'device' ? 'bg-[#C4622D] text-white' : 'bg-white text-[#5C5347] hover:bg-[#e9e0cf]'
                           }`}
                         >
                           Upload from Device
@@ -581,7 +581,7 @@ export default function EventManagement({ canCreate = true, canDelete = true }: 
                             setPendingImagePreview(null);
                           }}
                           className={`flex-1 py-2 text-xs font-semibold transition-colors ${
-                            imageInputMode === 'url' ? 'bg-[#C4622D] text-white' : 'bg-white text-[#5C5347] hover:bg-[#F5F0E8]'
+                            imageInputMode === 'url' ? 'bg-[#C4622D] text-white' : 'bg-white text-[#5C5347] hover:bg-[#e9e0cf]'
                           }`}
                         >
                           Enter Image URL
@@ -727,7 +727,7 @@ export default function EventManagement({ canCreate = true, canDelete = true }: 
                     )}
 
                     {/* Published toggle */}
-                    <div className="flex items-center justify-between bg-[#F5F0E8] rounded-xl px-4 py-3">
+                    <div className="flex items-center justify-between bg-[#e9e0cf] rounded-xl px-4 py-3">
                       <div>
                         <p className="text-sm font-semibold text-[#1A1612]">Published</p>
                         <p className="text-xs text-[#8C8278]">Visible to the public on the Events page</p>
@@ -751,7 +751,7 @@ export default function EventManagement({ canCreate = true, canDelete = true }: 
                   <div className="px-6 py-4 border-t border-[#EDE7DA] flex gap-3">
                     <button
                       onClick={() => setShowForm(false)}
-                      className="flex-1 border border-[#DDD5C8] text-[#5C5347] py-2.5 rounded-xl text-sm font-semibold hover:bg-[#F5F0E8] transition-colors"
+                      className="flex-1 border border-[#DDD5C8] text-[#5C5347] py-2.5 rounded-xl text-sm font-semibold hover:bg-[#e9e0cf] transition-colors"
                     >
                       Cancel
                     </button>
@@ -785,7 +785,7 @@ export default function EventManagement({ canCreate = true, canDelete = true }: 
                   <div className="flex gap-3">
                     <button
                       onClick={() => setConfirmDeleteId(null)}
-                      className="flex-1 border border-[#DDD5C8] text-[#5C5347] py-2.5 rounded-xl text-sm font-semibold hover:bg-[#F5F0E8] transition-colors"
+                      className="flex-1 border border-[#DDD5C8] text-[#5C5347] py-2.5 rounded-xl text-sm font-semibold hover:bg-[#e9e0cf] transition-colors"
                     >
                       Cancel
                     </button>
@@ -823,7 +823,7 @@ export default function EventManagement({ canCreate = true, canDelete = true }: 
                       className="bg-white rounded-2xl border border-[#EDE7DA] overflow-hidden flex flex-col sm:flex-row"
                     >
                       {/* Image */}
-                      <div className="sm:w-32 h-28 sm:h-auto flex-shrink-0 bg-[#F5F0E8] flex items-center justify-center">
+                      <div className="sm:w-32 h-28 sm:h-auto flex-shrink-0 bg-[#e9e0cf] flex items-center justify-center">
                         {ev.imageUrl ? (
                           <img
                             src={ev.imageUrl}
@@ -908,7 +908,7 @@ export default function EventManagement({ canCreate = true, canDelete = true }: 
                           </button>
                           <button
                             onClick={() => handleOpenEdit(ev)}
-                            className="text-xs px-3 py-1.5 rounded-lg font-medium bg-[#F5F0E8] text-[#5C5347] hover:bg-[#EDE7DA] border border-[#DDD5C8] transition-colors"
+                            className="text-xs px-3 py-1.5 rounded-lg font-medium bg-[#e9e0cf] text-[#5C5347] hover:bg-[#EDE7DA] border border-[#DDD5C8] transition-colors"
                           >
                             Edit
                           </button>

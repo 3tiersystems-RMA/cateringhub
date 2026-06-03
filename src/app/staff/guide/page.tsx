@@ -4,7 +4,7 @@ import { APP_NAME } from '@/lib/constants';
 
 export default function SuperAdminGuidePage() {
   return (
-    <div className="min-h-screen bg-[#F5F0E8]">
+    <div className="min-h-screen bg-[#e9e0cf]">
       {/* Header */}
       <header className="bg-white border-b border-[#DDD5C8] sticky top-0 z-40">
         <div className="max-w-4xl mx-auto px-4 md:px-8 h-16 flex items-center justify-between">
@@ -15,7 +15,7 @@ export default function SuperAdminGuidePage() {
           </div>
           <Link
             href="/staff/workspace"
-            className="text-sm font-medium text-[#C4622D] hover:text-[#A04E22] transition-colors px-3 py-1.5 rounded-lg hover:bg-[#F5F0E8]"
+            className="text-sm font-medium text-[#C4622D] hover:text-[#A04E22] transition-colors px-3 py-1.5 rounded-lg hover:bg-[#e9e0cf]"
           >
             ← Back to Workspace
           </Link>
@@ -56,7 +56,7 @@ export default function SuperAdminGuidePage() {
               <h3 className="font-semibold text-blue-800 text-sm mb-1">Admin</h3>
               <p className="text-xs text-blue-700">All business &amp; content management (products, menu, vouchers, media, reporting) plus everything Staff can do. No staff management or system settings.</p>
             </div>
-            <div className="bg-[#F5F0E8] border border-[#DDD5C8] rounded-xl p-4">
+            <div className="bg-[#e9e0cf] border border-[#DDD5C8] rounded-xl p-4">
               <div className="text-2xl mb-2">👤</div>
               <h3 className="font-semibold text-[#5C5347] text-sm mb-1">Staff</h3>
               <p className="text-xs text-[#8C8278]">Daily operations: Orders, Customer Order History, Meal Voucher Scanner, Weekly Menu, and viewing Documents &amp; Cooking Classes — plus edit-only access to Products, Media Products and Events. No add/delete on catalog items, and no settings.</p>
@@ -92,7 +92,7 @@ export default function SuperAdminGuidePage() {
             ))}
           </ol>
 
-          <div className="bg-[#F5F0E8] border border-[#DDD5C8] rounded-xl p-4 mb-4">
+          <div className="bg-[#e9e0cf] border border-[#DDD5C8] rounded-xl p-4 mb-4">
             <p className="text-sm font-semibold text-[#3D3530] mb-1">🔁 Promote an Existing User</p>
             <p className="text-xs text-[#5C5347] leading-relaxed">
               If someone already has an account, use the <strong>Promote Existing User</strong> button (next to
@@ -120,7 +120,7 @@ export default function SuperAdminGuidePage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-[#F5F0E8]">
+                <tr className="bg-[#e9e0cf]">
                   <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider rounded-tl-xl">Feature</th>
                   <th className="text-center px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider">Staff</th>
                   <th className="text-center px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider">Admin</th>
@@ -264,7 +264,7 @@ SET role = 'super_admin'
 WHERE email = 'your-email@example.com';`}</pre>
           </div>
 
-          <div className="bg-[#F5F0E8] border border-[#DDD5C8] rounded-xl p-4">
+          <div className="bg-[#e9e0cf] border border-[#DDD5C8] rounded-xl p-4">
             <p className="text-sm font-semibold text-[#3D3530] mb-1">📋 Steps to assign Super Admin:</p>
             <ol className="text-xs text-[#5C5347] space-y-1.5 leading-relaxed">
               <li>1. Log in to your Supabase project dashboard.</li>

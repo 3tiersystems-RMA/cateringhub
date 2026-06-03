@@ -266,7 +266,7 @@ export default function CorrespondenceSettings({ readOnly = false }: { readOnly?
                 <p className="text-xs text-[#8C8278] mb-2">Upload your company logo to appear on email forms.</p>
                 {form.logo_url ? (
                   <div className="flex items-center gap-4">
-                    <div className="w-24 h-16 rounded-xl border border-[#DDD5C8] overflow-hidden bg-[#F5F0E8] flex items-center justify-center">
+                    <div className="w-24 h-16 rounded-xl border border-[#DDD5C8] overflow-hidden bg-[#e9e0cf] flex items-center justify-center">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={form.logo_url} alt="Correspondence logo" className="max-w-full max-h-full object-contain p-1" />
                     </div>

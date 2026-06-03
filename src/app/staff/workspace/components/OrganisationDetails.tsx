@@ -236,7 +236,7 @@ function BankingPanel({ entityId }: { entityId: string }) {
             <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-[#C4622D] text-white text-sm font-semibold rounded-lg hover:bg-[#A04E22] transition-colors disabled:opacity-50">
               {saving ? 'Saving…' : editing ? 'Update' : 'Save'}
             </button>
-            <button onClick={() => setShowForm(false)} className="px-4 py-2 bg-white border border-[#DDD5C8] text-[#5C5347] text-sm font-semibold rounded-lg hover:bg-[#F5F0E8] transition-colors">Cancel</button>
+            <button onClick={() => setShowForm(false)} className="px-4 py-2 bg-white border border-[#DDD5C8] text-[#5C5347] text-sm font-semibold rounded-lg hover:bg-[#e9e0cf] transition-colors">Cancel</button>
           </div>
         </div>
       )}
@@ -256,7 +256,7 @@ function BankingPanel({ entityId }: { entityId: string }) {
                   <div className="flex items-center gap-2 flex-wrap mb-2">
                     <span className="font-semibold text-sm text-[#1A1612]">{item.bank_name}</span>
                     {item.is_default && <DefaultBadge />}
-                    {item.account_type && <span className="text-xs text-[#8C8278] bg-[#F5F0E8] border border-[#E8DDD0] px-2 py-0.5 rounded-full">{item.account_type}</span>}
+                    {item.account_type && <span className="text-xs text-[#8C8278] bg-[#e9e0cf] border border-[#E8DDD0] px-2 py-0.5 rounded-full">{item.account_type}</span>}
                   </div>
                   {/* EFT-style display matching customer correspondence */}
                   <div className="bg-white border border-[#E8DDD0] rounded-lg p-3 text-xs space-y-1 font-mono">
@@ -268,9 +268,9 @@ function BankingPanel({ entityId }: { entityId: string }) {
                 </div>
                 <div className="flex flex-col gap-1.5 flex-shrink-0">
                   {!item.is_default && (
-                    <button onClick={() => handleSetDefault(item.id)} className="text-xs text-[#5C5347] border border-[#DDD5C8] px-2.5 py-1 rounded-lg hover:bg-[#F5F0E8] hover:border-[#C4622D] hover:text-[#C4622D] transition-colors whitespace-nowrap">Set Default</button>
+                    <button onClick={() => handleSetDefault(item.id)} className="text-xs text-[#5C5347] border border-[#DDD5C8] px-2.5 py-1 rounded-lg hover:bg-[#e9e0cf] hover:border-[#C4622D] hover:text-[#C4622D] transition-colors whitespace-nowrap">Set Default</button>
                   )}
-                  <button onClick={() => openEdit(item)} className="text-xs text-[#5C5347] border border-[#DDD5C8] px-2.5 py-1 rounded-lg hover:bg-[#F5F0E8] transition-colors">Edit</button>
+                  <button onClick={() => openEdit(item)} className="text-xs text-[#5C5347] border border-[#DDD5C8] px-2.5 py-1 rounded-lg hover:bg-[#e9e0cf] transition-colors">Edit</button>
                   <button onClick={() => handleDelete(item.id)} disabled={deletingId === item.id} className="text-xs text-red-600 border border-red-200 px-2.5 py-1 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50">
                     {deletingId === item.id ? '…' : 'Delete'}
                   </button>
@@ -456,7 +456,7 @@ function WarehousePanel({ entityId, allEntityIds }: { entityId: string; allEntit
             <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-[#C4622D] text-white text-sm font-semibold rounded-lg hover:bg-[#A04E22] transition-colors disabled:opacity-50">
               {saving ? 'Saving…' : editing ? 'Update' : 'Save'}
             </button>
-            <button onClick={() => setShowForm(false)} className="px-4 py-2 bg-white border border-[#DDD5C8] text-[#5C5347] text-sm font-semibold rounded-lg hover:bg-[#F5F0E8] transition-colors">Cancel</button>
+            <button onClick={() => setShowForm(false)} className="px-4 py-2 bg-white border border-[#DDD5C8] text-[#5C5347] text-sm font-semibold rounded-lg hover:bg-[#e9e0cf] transition-colors">Cancel</button>
           </div>
         </div>
       )}
@@ -530,9 +530,9 @@ function WarehousePanel({ entityId, allEntityIds }: { entityId: string; allEntit
                     </div>
                     <div className="flex flex-col gap-1.5 flex-shrink-0">
                       {!item.is_default && (
-                        <button onClick={() => handleSetDefault(item.id)} className="text-xs text-[#5C5347] border border-[#DDD5C8] px-2.5 py-1 rounded-lg hover:bg-[#F5F0E8] hover:border-[#C4622D] hover:text-[#C4622D] transition-colors whitespace-nowrap">Set Default</button>
+                        <button onClick={() => handleSetDefault(item.id)} className="text-xs text-[#5C5347] border border-[#DDD5C8] px-2.5 py-1 rounded-lg hover:bg-[#e9e0cf] hover:border-[#C4622D] hover:text-[#C4622D] transition-colors whitespace-nowrap">Set Default</button>
                       )}
-                      <button onClick={() => openEdit(item)} className="text-xs text-[#5C5347] border border-[#DDD5C8] px-2.5 py-1 rounded-lg hover:bg-[#F5F0E8] transition-colors">Edit</button>
+                      <button onClick={() => openEdit(item)} className="text-xs text-[#5C5347] border border-[#DDD5C8] px-2.5 py-1 rounded-lg hover:bg-[#e9e0cf] transition-colors">Edit</button>
                       <button onClick={() => handleDelete(item.id)} disabled={deletingId === item.id} className="text-xs text-red-600 border border-red-200 px-2.5 py-1 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50">
                         {deletingId === item.id ? '…' : 'Delete'}
                       </button>
@@ -544,8 +544,8 @@ function WarehousePanel({ entityId, allEntityIds }: { entityId: string; allEntit
               {/* Collapsed state: show action buttons inline for non-default */}
               {!isExpanded && !item.is_default && (
                 <div className="px-4 pb-3 flex items-center gap-1.5 justify-end">
-                  <button onClick={(e) => { e.stopPropagation(); handleSetDefault(item.id); }} className="text-xs text-[#5C5347] border border-[#DDD5C8] px-2.5 py-1 rounded-lg hover:bg-[#F5F0E8] hover:border-[#C4622D] hover:text-[#C4622D] transition-colors whitespace-nowrap">Set Default</button>
-                  <button onClick={(e) => { e.stopPropagation(); openEdit(item); }} className="text-xs text-[#5C5347] border border-[#DDD5C8] px-2.5 py-1 rounded-lg hover:bg-[#F5F0E8] transition-colors">Edit</button>
+                  <button onClick={(e) => { e.stopPropagation(); handleSetDefault(item.id); }} className="text-xs text-[#5C5347] border border-[#DDD5C8] px-2.5 py-1 rounded-lg hover:bg-[#e9e0cf] hover:border-[#C4622D] hover:text-[#C4622D] transition-colors whitespace-nowrap">Set Default</button>
+                  <button onClick={(e) => { e.stopPropagation(); openEdit(item); }} className="text-xs text-[#5C5347] border border-[#DDD5C8] px-2.5 py-1 rounded-lg hover:bg-[#e9e0cf] transition-colors">Edit</button>
                   <button onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }} disabled={deletingId === item.id} className="text-xs text-red-600 border border-red-200 px-2.5 py-1 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50">
                     {deletingId === item.id ? '…' : 'Delete'}
                   </button>
@@ -687,7 +687,7 @@ function ContactsPanel({ entityId }: { entityId: string }) {
             <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-[#C4622D] text-white text-sm font-semibold rounded-lg hover:bg-[#A04E22] transition-colors disabled:opacity-50">
               {saving ? 'Saving…' : editing ? 'Update' : 'Save'}
             </button>
-            <button onClick={() => setShowForm(false)} className="px-4 py-2 bg-white border border-[#DDD5C8] text-[#5C5347] text-sm font-semibold rounded-lg hover:bg-[#F5F0E8] transition-colors">Cancel</button>
+            <button onClick={() => setShowForm(false)} className="px-4 py-2 bg-white border border-[#DDD5C8] text-[#5C5347] text-sm font-semibold rounded-lg hover:bg-[#e9e0cf] transition-colors">Cancel</button>
           </div>
         </div>
       )}
@@ -735,7 +735,7 @@ function ContactsPanel({ entityId }: { entityId: string }) {
                   )}
                 </div>
                 <div className="flex flex-col gap-1.5 flex-shrink-0">
-                  <button onClick={() => openEdit(item)} className="text-xs text-[#5C5347] border border-[#DDD5C8] px-2.5 py-1 rounded-lg hover:bg-[#F5F0E8] transition-colors">Edit</button>
+                  <button onClick={() => openEdit(item)} className="text-xs text-[#5C5347] border border-[#DDD5C8] px-2.5 py-1 rounded-lg hover:bg-[#e9e0cf] transition-colors">Edit</button>
                   <button onClick={() => handleDelete(item.id)} disabled={deletingId === item.id} className="text-xs text-red-600 border border-red-200 px-2.5 py-1 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50">
                     {deletingId === item.id ? '…' : 'Delete'}
                   </button>
@@ -972,7 +972,7 @@ export default function OrganisationDetails() {
             <button onClick={handleAddEntity} disabled={addingEntity} className="px-4 py-2 bg-[#C4622D] text-white text-sm font-semibold rounded-lg hover:bg-[#A04E22] transition-colors disabled:opacity-50">
               {addingEntity ? 'Adding…' : 'Add Entity'}
             </button>
-            <button onClick={() => setShowAddEntity(false)} className="px-4 py-2 bg-white border border-[#DDD5C8] text-[#5C5347] text-sm font-semibold rounded-lg hover:bg-[#F5F0E8] transition-colors">Cancel</button>
+            <button onClick={() => setShowAddEntity(false)} className="px-4 py-2 bg-white border border-[#DDD5C8] text-[#5C5347] text-sm font-semibold rounded-lg hover:bg-[#e9e0cf] transition-colors">Cancel</button>
           </div>
         </div>
       )}
@@ -1014,7 +1014,7 @@ export default function OrganisationDetails() {
                     <button onClick={handleEditEntitySave} disabled={savingEntityName} className="px-4 py-2 bg-[#C4622D] text-white text-sm font-semibold rounded-lg hover:bg-[#A04E22] transition-colors disabled:opacity-50">
                       {savingEntityName ? 'Saving…' : 'Save'}
                     </button>
-                    <button onClick={handleEditEntityCancel} className="px-4 py-2 bg-white border border-[#DDD5C8] text-[#5C5347] text-sm font-semibold rounded-lg hover:bg-[#F5F0E8] transition-colors">Cancel</button>
+                    <button onClick={handleEditEntityCancel} className="px-4 py-2 bg-white border border-[#DDD5C8] text-[#5C5347] text-sm font-semibold rounded-lg hover:bg-[#e9e0cf] transition-colors">Cancel</button>
                   </div>
                 </div>
               ) : null}

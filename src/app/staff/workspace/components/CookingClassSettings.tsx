@@ -757,7 +757,7 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
       )}
 
       {/* Sub-tabs */}
-      <div className="flex gap-1 mb-6 bg-[#F5F0E8] rounded-xl p-1 w-fit">
+      <div className="flex gap-1 mb-6 bg-[#e9e0cf] rounded-xl p-1 w-fit">
         {isAdminOrAbove && (
           <button
             onClick={() => setActiveSubTab('settings')}
@@ -852,7 +852,7 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
               <div>
                 <label className="block text-xs font-semibold text-[#5C5347] mb-1">Upload Flyer Image</label>
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <span className="bg-[#F5F0E8] border border-[#DDD5C8] text-[#5C5347] px-4 py-2 rounded-xl text-sm font-medium hover:bg-[#EDE7DA] transition-colors">
+                  <span className="bg-[#e9e0cf] border border-[#DDD5C8] text-[#5C5347] px-4 py-2 rounded-xl text-sm font-medium hover:bg-[#EDE7DA] transition-colors">
                     {uploading ? 'Uploading...' : 'Choose File'}
                   </span>
                   <input
@@ -1202,7 +1202,7 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
                         <button
                           onClick={() => handleSyncToSheet(reg.id)}
                           disabled={syncingId === reg.id}
-                          className="text-xs bg-[#F5F0E8] border border-[#DDD5C8] text-[#5C5347] px-3 py-1.5 rounded-lg hover:bg-[#EDE7DA] transition-colors font-medium disabled:opacity-50"
+                          className="text-xs bg-[#e9e0cf] border border-[#DDD5C8] text-[#5C5347] px-3 py-1.5 rounded-lg hover:bg-[#EDE7DA] transition-colors font-medium disabled:opacity-50"
                         >
                           {syncingId === reg.id ? 'Syncing...' : 'Sync to Sheet'}
                         </button>

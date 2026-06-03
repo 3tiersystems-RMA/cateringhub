@@ -450,7 +450,7 @@ export default function CookingClassAnalytics() {
                     <span className="text-xs text-[#8C8278]">{s.booked} booked</span>
                     <span className="text-xs font-medium text-[#1A1612]">{s.fillPct}% full</span>
                   </div>
-                  <div className="h-2 bg-[#F5F0E8] rounded-full overflow-hidden">
+                  <div className="h-2 bg-[#e9e0cf] rounded-full overflow-hidden">
                     <div
                       className="h-full rounded-full transition-all"
                       style={{
@@ -483,8 +483,8 @@ export default function CookingClassAnalytics() {
           <p className="text-xs text-[#8C8278] mb-4">Highest-value paid registrations</p>
           <div className="space-y-2">
             {topSpenders.map((r, i) => (
-              <div key={r.id} className="flex items-center gap-3 py-2 border-b border-[#F5F0E8] last:border-0">
-                <div className="w-7 h-7 rounded-full bg-[#F5F0E8] border border-[#DDD5C8] flex items-center justify-center flex-shrink-0">
+              <div key={r.id} className="flex items-center gap-3 py-2 border-b border-[#e9e0cf] last:border-0">
+                <div className="w-7 h-7 rounded-full bg-[#e9e0cf] border border-[#DDD5C8] flex items-center justify-center flex-shrink-0">
                   <span className="text-xs font-bold text-[#C4622D]">{i + 1}</span>
                 </div>
                 <div className="flex-1 min-w-0">

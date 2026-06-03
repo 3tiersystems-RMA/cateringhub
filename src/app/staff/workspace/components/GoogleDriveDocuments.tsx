@@ -263,7 +263,7 @@ function EditModal({
         <div className="flex gap-3 mt-6">
           <button
             onClick={onClose}
-            className="flex-1 border border-[#DDD5C8] text-[#5C5347] px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#F5F0E8] transition-colors"
+            className="flex-1 border border-[#DDD5C8] text-[#5C5347] px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#e9e0cf] transition-colors"
           >
             Cancel
           </button>
@@ -317,7 +317,7 @@ function DocRow({
           </div>
         </div>
 
-        <span className="hidden sm:inline-flex text-xs text-[#8C8278] bg-[#F5F0E8] px-2 py-0.5 rounded-full border border-[#EDE7DA] flex-shrink-0 self-center">
+        <span className="hidden sm:inline-flex text-xs text-[#8C8278] bg-[#e9e0cf] px-2 py-0.5 rounded-full border border-[#EDE7DA] flex-shrink-0 self-center">
           {TYPE_LABELS[doc.type]}
         </span>
 
@@ -375,7 +375,7 @@ function DocRow({
       </div>
 
       {expanded && (
-        <div className="relative bg-[#F5F0E8]" style={{ paddingBottom: '56.25%' }}>
+        <div className="relative bg-[#e9e0cf]" style={{ paddingBottom: '56.25%' }}>
           <iframe
             src={doc.embedUrl}
             title={doc.title}
@@ -410,7 +410,7 @@ function FolderGroup({
     <div className="bg-[#FDFAF6] rounded-2xl border border-[#DDD5C8] overflow-hidden">
       <button
         onClick={() => setCollapsed((v) => !v)}
-        className="w-full flex items-center gap-2.5 px-4 py-3 bg-[#F5F0E8] border-b border-[#EDE7DA] hover:bg-[#EDE7DA] transition-colors"
+        className="w-full flex items-center gap-2.5 px-4 py-3 bg-[#e9e0cf] border-b border-[#EDE7DA] hover:bg-[#EDE7DA] transition-colors"
       >
         <FolderIcon size={18} />
         <span className="flex-1 text-left text-sm font-bold text-[#3D3530]">{folderName}</span>

@@ -167,7 +167,7 @@ serve(async (req) => {
           <!-- Order Summary Card -->
           <tr>
             <td style="padding: 0 32px 20px 32px;">
-              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #F5F0E8; border-radius: 10px; overflow: hidden; border: 1px solid #E8E0D4;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #e9e0cf; border-radius: 10px; overflow: hidden; border: 1px solid #E8E0D4;">
                 <tr>
                   <td style="background-color: #EDE7DA; padding: 10px 16px; border-bottom: 1px solid #E8E0D4;">
                     <p style="margin: 0; font-size: 11px; font-weight: 700; color: #8C8278; text-transform: uppercase; letter-spacing: 1px;">Order Summary</p>
@@ -241,7 +241,7 @@ serve(async (req) => {
                   <td style="padding: 0;">
                     <table width="100%" cellpadding="0" cellspacing="0">
                       <thead>
-                        <tr style="background-color: #F5F0E8;">
+                        <tr style="background-color: #e9e0cf;">
                           <th style="padding: 8px 12px; text-align: left; font-size: 11px; color: #8C8278; font-weight: 600; border-bottom: 1px solid #f0ebe4;">Item</th>
                           <th style="padding: 8px 12px; text-align: center; font-size: 11px; color: #8C8278; font-weight: 600; border-bottom: 1px solid #f0ebe4;">Qty</th>
                           <th style="padding: 8px 12px; text-align: right; font-size: 11px; color: #8C8278; font-weight: 600; border-bottom: 1px solid #f0ebe4;">Price</th>
@@ -318,7 +318,7 @@ serve(async (req) => {
 
           <!-- Footer -->
           <tr>
-            <td style="background-color: #F5F0E8; padding: 16px 32px; border-top: 1px solid #E8E0D4; text-align: center;">
+            <td style="background-color: #e9e0cf; padding: 16px 32px; border-top: 1px solid #E8E0D4; text-align: center;">
               <p style="margin: 0; color: #B5ADA5; font-size: 12px;">© ${new Date().getFullYear()} ${brandName}. This is your automated order receipt.</p>
             </td>
           </tr>
@@ -373,7 +373,7 @@ serve(async (req) => {
           <!-- Customer Info -->
           <tr>
             <td style="padding: 0 32px 16px 32px;">
-              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #F5F0E8; border-radius: 10px; overflow: hidden; border: 1px solid #E8E0D4;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #e9e0cf; border-radius: 10px; overflow: hidden; border: 1px solid #E8E0D4;">
                 <tr>
                   <td style="background-color: #EDE7DA; padding: 10px 16px; border-bottom: 1px solid #E8E0D4;">
                     <p style="margin: 0; font-size: 11px; font-weight: 700; color: #8C8278; text-transform: uppercase; letter-spacing: 1px;">Customer Details</p>
@@ -436,7 +436,7 @@ serve(async (req) => {
           <!-- Transaction Summary -->
           <tr>
             <td style="padding: 0 32px 16px 32px;">
-              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #F5F0E8; border-radius: 10px; overflow: hidden; border: 1px solid #E8E0D4;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #e9e0cf; border-radius: 10px; overflow: hidden; border: 1px solid #E8E0D4;">
                 <tr>
                   <td style="background-color: #EDE7DA; padding: 10px 16px; border-bottom: 1px solid #E8E0D4;">
                     <p style="margin: 0; font-size: 11px; font-weight: 700; color: #8C8278; text-transform: uppercase; letter-spacing: 1px;">Transaction Summary</p>
@@ -486,7 +486,7 @@ serve(async (req) => {
                   <td style="padding: 0;">
                     <table width="100%" cellpadding="0" cellspacing="0">
                       <thead>
-                        <tr style="background-color: #F5F0E8;">
+                        <tr style="background-color: #e9e0cf;">
                           <th style="padding: 8px 12px; text-align: left; font-size: 11px; color: #8C8278; font-weight: 600; border-bottom: 1px solid #f0ebe4;">Item</th>
                           <th style="padding: 8px 12px; text-align: center; font-size: 11px; color: #8C8278; font-weight: 600; border-bottom: 1px solid #f0ebe4;">Qty</th>
                           <th style="padding: 8px 12px; text-align: right; font-size: 11px; color: #8C8278; font-weight: 600; border-bottom: 1px solid #f0ebe4;">Price</th>
@@ -552,7 +552,7 @@ serve(async (req) => {
 
           <!-- Footer -->
           <tr>
-            <td style="background-color: #F5F0E8; padding: 16px 32px; border-top: 1px solid #E8E0D4; text-align: center;">
+            <td style="background-color: #e9e0cf; padding: 16px 32px; border-top: 1px solid #E8E0D4; text-align: center;">
               <p style="margin: 0; color: #B5ADA5; font-size: 12px;">© ${new Date().getFullYear()} ${brandName}. Automated checkout notification.</p>
             </td>
           </tr>

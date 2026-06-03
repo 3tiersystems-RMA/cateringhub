@@ -86,7 +86,7 @@ export default function ServicesSection() {
   if (sectionVisible === false) return null;
 
   return (
-    <section id="services" ref={sectionRef} className="py-24 md:py-32 bg-[#F5F0E8]">
+    <section id="services" ref={sectionRef} className="py-24 md:py-32 bg-[#e9e0cf]">
       <div className="max-w-7xl mx-auto px-4 md:px-8">
         {/* Header */}
         <div className="srv-reveal reveal hidden-init flex flex-col md:flex-row md:items-end justify-between gap-6 mb-14">

@@ -453,7 +453,7 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
                   }`}
                 >
                   {/* Avatar */}
-                  <div className="w-10 h-10 rounded-full bg-[#F5F0E8] border border-[#DDD5C8] flex items-center justify-center flex-shrink-0">
+                  <div className="w-10 h-10 rounded-full bg-[#e9e0cf] border border-[#DDD5C8] flex items-center justify-center flex-shrink-0">
                     <span className="text-sm font-bold text-[#C4622D]">
                       {reg.first_name?.[0]?.toUpperCase()}{reg.surname?.[0]?.toUpperCase()}
                     </span>
@@ -475,10 +475,10 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
                     {isUpcoming && (
                       <span className="text-xs bg-blue-100 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full">Upcoming</span>
                     )}
-                    <span className="text-xs bg-[#F5F0E8] text-[#5C5347] border border-[#DDD5C8] px-2 py-0.5 rounded-full">
+                    <span className="text-xs bg-[#e9e0cf] text-[#5C5347] border border-[#DDD5C8] px-2 py-0.5 rounded-full">
                       {sessions.length} session{sessions.length !== 1 ? 's' : ''}
                     </span>
-                    <span className="text-xs bg-[#F5F0E8] text-[#5C5347] border border-[#DDD5C8] px-2 py-0.5 rounded-full">
+                    <span className="text-xs bg-[#e9e0cf] text-[#5C5347] border border-[#DDD5C8] px-2 py-0.5 rounded-full">
                       {participantCount} participant{participantCount !== 1 ? 's' : ''}
                     </span>
                   </div>
@@ -694,7 +694,7 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
                         <div className="space-y-4">
                           {/* Registrant as participant */}
                           <div className="border border-[#EDE7DA] rounded-xl overflow-hidden">
-                            <div className="bg-[#F5F0E8] px-4 py-2.5 flex items-center gap-2">
+                            <div className="bg-[#e9e0cf] px-4 py-2.5 flex items-center gap-2">
                               <span className="text-sm font-semibold text-[#1A1612]">
                                 {reg.title ? `${reg.title} ` : ''}{reg.first_name} {reg.surname}
                               </span>
@@ -716,7 +716,7 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
                             const childAge = child.age != null && child.age !== '' ? String(child.age) : calcAge(child.dob);
                             return (
                               <div key={idx} className="border border-[#EDE7DA] rounded-xl overflow-hidden">
-                                <div className="bg-[#F5F0E8] px-4 py-2.5 flex items-center gap-2">
+                                <div className="bg-[#e9e0cf] px-4 py-2.5 flex items-center gap-2">
                                   <span className="w-6 h-6 rounded-full bg-[#C4622D] text-white text-xs font-bold flex items-center justify-center">{idx + 1}</span>
                                   <span className="text-sm font-semibold text-[#1A1612]">{childName}</span>
                                   {childAge !== '—' && (
@@ -803,7 +803,7 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
 
                           {/* Summary */}
                           {sessions.length > 0 && (
-                            <div className="bg-[#F5F0E8] rounded-xl p-4 flex flex-wrap gap-4">
+                            <div className="bg-[#e9e0cf] rounded-xl p-4 flex flex-wrap gap-4">
                               <div>
                                 <p className="text-xs text-[#8C8278]">Total Sessions</p>
                                 <p className="text-lg font-bold text-[#1A1612]">{sessions.length}</p>

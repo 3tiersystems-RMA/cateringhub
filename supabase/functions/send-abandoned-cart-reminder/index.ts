@@ -93,7 +93,7 @@ serve(async (req) => {
             <!-- Cart Summary -->
             <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e8ddd0;border-radius:6px;margin-bottom:24px;">
               <tr>
-                <td style="background-color:#f5f0e8;padding:10px 12px;border-bottom:1px solid #e8ddd0;">
+                <td style="background-color:#e9e0cf;padding:10px 12px;border-bottom:1px solid #e8ddd0;">
                   <p style="margin:0;font-size:13px;font-weight:700;color:#1A1612;text-transform:uppercase;letter-spacing:0.5px;">Your Cart</p>
                 </td>
               </tr>
@@ -139,7 +139,7 @@ serve(async (req) => {
 
         <!-- Footer -->
         <tr>
-          <td style="background-color:#f5f0e8;padding:16px 32px;border-top:1px solid #e8ddd0;text-align:center;">
+          <td style="background-color:#e9e0cf;padding:16px 32px;border-top:1px solid #e8ddd0;text-align:center;">
             <p style="margin:0;color:#8C8278;font-size:12px;">© ${new Date().getFullYear()} Cardamom Kitchen. All rights reserved.</p>
           </td>
         </tr>

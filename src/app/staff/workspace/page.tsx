@@ -473,7 +473,7 @@ function RoleBadge({ role }: { role: StaffRole }) {
   const config: Record<StaffRole, { label: string; className: string }> = {
     super_admin: { label: 'Super Admin', className: 'bg-purple-100 text-purple-700 border border-purple-200' },
     admin: { label: 'Admin', className: 'bg-blue-100 text-blue-700 border border-blue-200' },
-    staff: { label: 'Staff', className: 'bg-[#F5F0E8] text-[#5C5347] border border-[#DDD5C8]' },
+    staff: { label: 'Staff', className: 'bg-[#e9e0cf] text-[#5C5347] border border-[#DDD5C8]' },
   };
   const { label, className } = config[role] || config.staff;
   return (
@@ -511,7 +511,7 @@ function InactivityWarningModal({
           You have been inactive for 3 minutes. You will be automatically logged out in 2 minutes.
         </p>
         <div className="flex justify-center mb-6">
-          <div className="bg-[#F5F0E8] border border-[#DDD5C8] rounded-xl px-6 py-3 text-center">
+          <div className="bg-[#e9e0cf] border border-[#DDD5C8] rounded-xl px-6 py-3 text-center">
             <p className="text-xs text-[#8C8278] mb-1 font-medium uppercase tracking-wide">Logging out in</p>
             <p className="text-3xl font-bold text-[#C4622D] tabular-nums">{timeStr}</p>
           </div>
