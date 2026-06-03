@@ -1092,6 +1092,7 @@ export default function CookingClassesPage() {
                 autoComplete="off"
                 value={page1.emailConfirm}
                 onChange={e => setPage1(p => ({ ...p, emailConfirm: e.target.value }))}
+                onPaste={e => e.preventDefault()}
                 placeholder="Re-enter your email address to confirm"
                 className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] ${page1Errors.emailConfirm ? 'border-red-400' : 'border-[#DDD5C8]'}`}
               />
