@@ -260,6 +260,7 @@ function BankingPanel({ entityId }: { entityId: string }) {
                   </div>
                   {/* EFT-style display matching customer correspondence */}
                   <div className="bg-white border border-[#E8DDD0] rounded-lg p-3 text-xs space-y-1 font-mono">
+                    <div className="flex gap-2"><span className="text-[#8C8278] w-28 flex-shrink-0">Bank Name:</span><span className="text-[#1A1612] font-semibold">{item.bank_name}</span></div>
                     <div className="flex gap-2"><span className="text-[#8C8278] w-28 flex-shrink-0">Account Name:</span><span className="text-[#1A1612] font-semibold">{item.account_name}</span></div>
                     <div className="flex gap-2"><span className="text-[#8C8278] w-28 flex-shrink-0">Account No:</span><span className="text-[#1A1612] font-semibold">{item.account_number}</span></div>
                     <div className="flex gap-2"><span className="text-[#8C8278] w-28 flex-shrink-0">Branch Code:</span><span className="text-[#1A1612]">{item.branch_code}</span></div>
