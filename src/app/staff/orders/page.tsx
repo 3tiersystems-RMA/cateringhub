@@ -480,6 +480,49 @@ export default function StaffOrdersPage() {
           </div>
         </div>
 
+        {/* Payment Status Stats */}
+        <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-3 mb-3">
+          {(Object.keys(PAYMENT_STATUS_LABELS) as PaymentStatus[]).map((status) => {
+            const count = orders.filter((o) => o.payment_status === status).length;
+            const colorMap: Record<PaymentStatus, string> = {
+              pending: 'text-amber-600',
+              paid: 'text-green-600',
+              failed: 'text-red-600',
+              awaiting_payment: 'text-blue-600',
+              refunded: 'text-gray-500',
+              discounted: 'text-purple-600',
+              unpaid: 'text-red-700',
+            };
+            return (
+              <div key={status} className="bg-white border border-[#E8DDD0] rounded-xl p-4">
+                <p className="text-xs text-[#8C7B6B] uppercase tracking-wide font-medium leading-tight">{PAYMENT_STATUS_LABELS[status]}</p>
+                <p className={`text-2xl font-bold mt-1 ${colorMap[status] ?? 'text-[#2C2420]'}`}>{count}</p>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Fulfillment Status Stats */}
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 mb-6">
+          {(Object.keys(FULFILLMENT_STATUS_LABELS) as FulfillmentStatus[]).map((status) => {
+            const count = orders.filter((o) => o.fulfillment_status === status).length;
+            const colorMap: Record<FulfillmentStatus, string> = {
+              new: 'text-blue-600',
+              confirmed: 'text-purple-600',
+              preparing: 'text-orange-500',
+              ready: 'text-teal-600',
+              delivered: 'text-green-600',
+              cancelled: 'text-red-600',
+            };
+            return (
+              <div key={status} className="bg-white border border-[#E8DDD0] rounded-xl p-4">
+                <p className="text-xs text-[#8C7B6B] uppercase tracking-wide font-medium leading-tight">{FULFILLMENT_STATUS_LABELS[status]}</p>
+                <p className={`text-2xl font-bold mt-1 ${colorMap[status]}`}>{count}</p>
+              </div>
+            );
+          })}
+        </div>
+
         {/* Filters */}
         <div className="bg-white rounded-2xl border border-[#DDD5C8] p-4 mb-6">
           <div className="flex flex-col sm:flex-row gap-3">
