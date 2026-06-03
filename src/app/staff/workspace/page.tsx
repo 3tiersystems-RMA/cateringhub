@@ -17,6 +17,7 @@ import CookingClassCustomers from '@/app/staff/workspace/components/CookingClass
 import CookingClassAnalytics from '@/app/staff/workspace/components/CookingClassAnalytics';
 import EventRegistrations from '@/app/staff/workspace/components/EventRegistrations';
 import OrganisationDetails from '@/app/staff/workspace/components/OrganisationDetails';
+import CorrespondenceSettings from '@/app/staff/workspace/components/CorrespondenceSettings';
 import { calculateOrderTotal, isFulfillmentStatusLocked } from '@/lib/order-totals';
 
 
@@ -3244,6 +3245,529 @@ export default function StaffWorkspacePage() {
             {/* ── ORGANISATION DETAILS TAB ── */}
             {activeTab === 'organisation_details' && (
               <OrganisationDetails />
+            )}
+
+            {/* ── CORRESPONDENCE SETTINGS TAB ── */}
+            {activeTab === 'correspondence_settings' && (
+              <CorrespondenceSettings readOnly={!canDo(userProfile?.role, 'correspondence_settings', 'edit')} />
+            )}
+
+            {/* ── SOCIAL MEDIA TAB ── */}
+            {activeTab === 'social_media' && (
+              <div className="p-6">
+                <div className="mb-6">
+                  <h2 className="text-xl font-bold text-[#1A1612]">Social Media Links</h2>
+                  <p className="text-sm text-[#8C8278] mt-0.5">Manage your social media presence</p>
+                </div>
+                {socialLinksLoading ? (
+                  <div className="flex items-center justify-center py-12"><div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>
+                ) : (
+                  <div className="bg-white rounded-2xl border border-[#EDE7DA] p-6 max-w-xl">
+                    <div className="space-y-4">
+                      {socialLinks.map(link => (
+                        <div key={link.id}>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1 capitalize">{link.platform}</label>
+                          <input
+                            type="url"
+                            value={socialLinksForm[link.platform] ?? link.url}
+                            onChange={e => setSocialLinksForm(f => ({ ...f, [link.platform]: e.target.value }))}
+                            placeholder={`https://...`}
+                            className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    {socialLinksError && <p className="text-sm text-red-600 mt-3">{socialLinksError}</p>}
+                    {socialLinksSuccess && <p className="text-sm text-green-600 mt-3">{socialLinksSuccess}</p>}
+                    <div className="mt-5">
+                      <button
+                        onClick={handleSaveSocialLinks}
+                        disabled={socialLinksSaving}
+                        className="bg-[#C4622D] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
+                      >
+                        {socialLinksSaving ? 'Saving…' : 'Save Links'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── SECTION VISIBILITY TAB ── */}
+            {activeTab === 'section_visibility' && (
+              <div className="p-6">
+                <div className="mb-6">
+                  <h2 className="text-xl font-bold text-[#1A1612]">Section Visibility</h2>
+                  <p className="text-sm text-[#8C8278] mt-0.5">Show or hide homepage sections</p>
+                </div>
+                {homepageSectionsLoading ? (
+                  <div className="flex items-center justify-center py-12"><div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>
+                ) : (
+                  <div className="bg-white rounded-2xl border border-[#EDE7DA] overflow-hidden max-w-xl">
+                    {homepageSections.map((section, idx) => (
+                      <div key={section.id} className={`flex items-center justify-between px-5 py-4 ${idx !== homepageSections.length - 1 ? 'border-b border-[#F0EBE3]' : ''}`}>
+                        <span className="text-sm font-medium text-[#1A1612]">{section.section_label}</span>
+                        <button
+                          onClick={() => handleToggleHomepageSection(section.section_key, !section.is_visible)}
+                          disabled={!!homepageSectionsSaving[section.section_key]}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none disabled:opacity-50 ${section.is_visible ? 'bg-[#C4622D]' : 'bg-[#DDD5C8]'}`}
+                        >
+                          <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${section.is_visible ? 'translate-x-6' : 'translate-x-1'}`} />
+                        </button>
+                      </div>
+                    ))}
+                    {homepageSections.length === 0 && (
+                      <div className="p-8 text-center text-sm text-[#8C8278]">No sections found.</div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── PACKAGE VISIBILITY TAB ── */}
+            {activeTab === 'package_visibility' && (
+              <div className="p-6">
+                <div className="mb-6">
+                  <h2 className="text-xl font-bold text-[#1A1612]">Package Visibility</h2>
+                  <p className="text-sm text-[#8C8278] mt-0.5">Control which packages are visible to customers</p>
+                </div>
+                {packageVisibilityLoading ? (
+                  <div className="flex items-center justify-center py-12"><div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>
+                ) : (
+                  <div className="bg-white rounded-2xl border border-[#EDE7DA] overflow-hidden max-w-xl">
+                    {packageVisibility.map((pkg, idx) => (
+                      <div key={pkg.id} className={`flex items-center justify-between px-5 py-4 ${idx !== packageVisibility.length - 1 ? 'border-b border-[#F0EBE3]' : ''}`}>
+                        <span className="text-sm font-medium text-[#1A1612]">{pkg.package_name}</span>
+                        <button
+                          onClick={() => handleTogglePackageVisibility(pkg.id, !pkg.is_visible)}
+                          disabled={!!packageVisibilitySaving[pkg.id]}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none disabled:opacity-50 ${pkg.is_visible ? 'bg-[#C4622D]' : 'bg-[#DDD5C8]'}`}
+                        >
+                          <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${pkg.is_visible ? 'translate-x-6' : 'translate-x-1'}`} />
+                        </button>
+                      </div>
+                    ))}
+                    {packageVisibility.length === 0 && (
+                      <div className="p-8 text-center text-sm text-[#8C8278]">No packages found.</div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── HOMEPAGE CARDS TAB ── */}
+            {activeTab === 'homepage_cards' && (
+              <div className="p-6">
+                <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
+                  <div>
+                    <h2 className="text-xl font-bold text-[#1A1612]">Home Page Cards</h2>
+                    <p className="text-sm text-[#8C8278] mt-0.5">{homepageCards.length} cards</p>
+                  </div>
+                  <div className="relative">
+                    <input type="text" placeholder="Search cards…" value={homepageCardSearchQuery} onChange={e => setHomepageCardSearchQuery(e.target.value)} className="border border-[#DDD5C8] rounded-xl px-3 py-2 pr-8 text-sm focus:outline-none focus:border-[#C4622D] bg-white" />
+                    {homepageCardSearchQuery && (
+                      <button type="button" onClick={() => setHomepageCardSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-[#B5ADA5] hover:text-[#5C5347] transition-colors" aria-label="Clear search">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4"><path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" /></svg>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Ticker Banner */}
+                <div className="mb-6 bg-white rounded-2xl border border-[#EDE7DA] p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <h3 className="text-sm font-bold text-[#1A1612]">Ticker Banner</h3>
+                      <p className="text-xs text-[#8C8278] mt-0.5">Scrolling announcement bar at the top of the homepage</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {tickerBannerLoading ? (
+                        <div className="w-4 h-4 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <button
+                          onClick={async () => {
+                            setTickerBannerSaving(true);
+                            await supabase.from('homepage_section_settings').update({ is_visible: !tickerBannerVisible }).eq('section_key', 'ticker_banner');
+                            setTickerBannerVisible(v => !v);
+                            setTickerBannerSaving(false);
+                          }}
+                          disabled={tickerBannerSaving}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none disabled:opacity-50 ${tickerBannerVisible ? 'bg-[#C4622D]' : 'bg-[#DDD5C8]'}`}
+                        >
+                          <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${tickerBannerVisible ? 'translate-x-6' : 'translate-x-1'}`} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {tickerBannerEditing ? (
+                      <>
+                        <input
+                          type="text"
+                          value={tickerBannerText}
+                          onChange={e => setTickerBannerText(e.target.value)}
+                          className="flex-1 border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                        />
+                        <button onClick={handleSaveTickerBanner} disabled={tickerBannerSaving} className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50">
+                          {tickerBannerSaving ? 'Saving…' : 'Save'}
+                        </button>
+                        <button onClick={() => setTickerBannerEditing(false)} className="border border-[#DDD5C8] text-[#5C5347] px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#FAF5EE] transition-colors">Cancel</button>
+                      </>
+                    ) : (
+                      <>
+                        <p className="flex-1 text-sm text-[#1A1612]">{tickerBannerText}</p>
+                        {tickerBannerSuccess && <span className="text-xs text-green-600">{tickerBannerSuccess}</span>}
+                        <button onClick={() => setTickerBannerEditing(true)} className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl font-semibold hover:bg-[#FDF6EE] transition-colors">Edit</button>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {cardsLoading ? (
+                  <div className="flex items-center justify-center py-12"><div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>
+                ) : (
+                  <div className="space-y-3">
+                    {homepageCards.filter(c => !homepageCardSearchQuery || c.title.toLowerCase().includes(homepageCardSearchQuery.toLowerCase())).map(card => (
+                      <div key={card.id} className="bg-white rounded-2xl border border-[#EDE7DA] p-5">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex items-start gap-3 flex-1 min-w-0">
+                            <span className="text-2xl flex-shrink-0">{CARD_TYPE_ICONS[card.card_type]}</span>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="font-semibold text-[#1A1612]">{card.title}</p>
+                                <span className="text-xs bg-[#F5F0E8] text-[#5C5347] px-2 py-0.5 rounded-full">{CARD_TYPE_LABELS[card.card_type]}</span>
+                              </div>
+                              {card.subtitle && <p className="text-xs text-[#8C8278] mt-0.5">{card.subtitle}</p>}
+                              {card.description && <p className="text-xs text-[#8C8278] mt-0.5 line-clamp-2">{card.description}</p>}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3 flex-shrink-0">
+                            <button
+                              onClick={() => handleToggleCardVisible(card)}
+                              disabled={togglingCardId === card.id}
+                              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none disabled:opacity-50 ${card.is_visible ? 'bg-[#C4622D]' : 'bg-[#DDD5C8]'}`}
+                            >
+                              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${card.is_visible ? 'translate-x-6' : 'translate-x-1'}`} />
+                            </button>
+                            {can('homepage_cards', 'edit') && (
+                              <button onClick={() => openEditCard(card)} className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl font-semibold hover:bg-[#FDF6EE] transition-colors">Edit</button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Edit Card Modal */}
+                {editingCard && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+                      <div className="p-5 border-b border-[#EDE7DA] flex items-center justify-between">
+                        <h3 className="text-base font-bold text-[#1A1612]">Edit Card — {CARD_TYPE_LABELS[editingCard.card_type]}</h3>
+                        <button onClick={() => setEditingCard(null)} className="text-[#8C8278] hover:text-[#1A1612]">✕</button>
+                      </div>
+                      <div className="p-5 space-y-4">
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Title *</label>
+                          <input type="text" value={cardForm.title ?? ''} onChange={e => setCardForm(f => ({ ...f, title: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Subtitle</label>
+                          <input type="text" value={cardForm.subtitle ?? ''} onChange={e => setCardForm(f => ({ ...f, subtitle: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Description</label>
+                          <textarea value={cardForm.description ?? ''} onChange={e => setCardForm(f => ({ ...f, description: e.target.value }))} rows={3} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] resize-none" />
+                        </div>
+                        {editingCard.card_type === 'todays_special' && (
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-xs font-semibold text-[#5C5347] mb-1">Price (R)</label>
+                              <input type="number" value={cardForm.price ?? ''} onChange={e => setCardForm(f => ({ ...f, price: Number(e.target.value) }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-semibold text-[#5C5347] mb-1">Price Unit</label>
+                              <input type="text" value={cardForm.price_unit ?? ''} onChange={e => setCardForm(f => ({ ...f, price_unit: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                            </div>
+                          </div>
+                        )}
+                        {editingCard.card_type === 'customer_review' && (
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-xs font-semibold text-[#5C5347] mb-1">Reviewer Name</label>
+                              <input type="text" value={cardForm.reviewer_name ?? ''} onChange={e => setCardForm(f => ({ ...f, reviewer_name: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-semibold text-[#5C5347] mb-1">Reviewer Event</label>
+                              <input type="text" value={cardForm.reviewer_event ?? ''} onChange={e => setCardForm(f => ({ ...f, reviewer_event: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                            </div>
+                          </div>
+                        )}
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Badge Label</label>
+                          <input type="text" value={cardForm.badge_label ?? ''} onChange={e => setCardForm(f => ({ ...f, badge_label: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Card Image</label>
+                          {cardImagePreview && (
+                            <img src={cardImagePreview} alt="Card preview" className="w-24 h-24 object-cover rounded-xl mb-2" />
+                          )}
+                          <input ref={cardImageRef} type="file" accept="image/*" onChange={e => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            setCardImageFile(file);
+                            const reader = new FileReader();
+                            reader.onload = ev => setCardImagePreview(ev.target?.result as string);
+                            reader.readAsDataURL(file);
+                          }} className="text-sm text-[#5C5347]" />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input type="checkbox" id="card-visible" checked={cardForm.is_visible ?? true} onChange={e => setCardForm(f => ({ ...f, is_visible: e.target.checked }))} className="rounded" />
+                          <label htmlFor="card-visible" className="text-sm text-[#5C5347]">Visible</label>
+                        </div>
+                        {cardFormError && <p className="text-sm text-red-600">{cardFormError}</p>}
+                        {cardFormSuccess && <p className="text-sm text-green-600">{cardFormSuccess}</p>}
+                      </div>
+                      <div className="p-5 border-t border-[#EDE7DA] flex gap-3">
+                        <button onClick={handleSaveCard} disabled={savingCard} className="bg-[#C4622D] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50">
+                          {savingCard ? (uploadingCardImage ? 'Uploading…' : 'Saving…') : 'Save Changes'}
+                        </button>
+                        <button onClick={() => setEditingCard(null)} className="px-6 py-2.5 rounded-xl text-sm font-semibold border border-[#DDD5C8] text-[#5C5347] hover:bg-[#FAF5EE] transition-colors">Cancel</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── TESTIMONIALS TAB ── */}
+            {activeTab === 'testimonials' && (
+              <div className="p-6">
+                <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
+                  <div>
+                    <h2 className="text-xl font-bold text-[#1A1612]">Testimonials</h2>
+                    <p className="text-sm text-[#8C8278] mt-0.5">{testimonials.length} testimonials</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="relative">
+                      <input type="text" placeholder="Search testimonials…" value={testimonialSearchQuery} onChange={e => setTestimonialSearchQuery(e.target.value)} className="border border-[#DDD5C8] rounded-xl px-3 py-2 pr-8 text-sm focus:outline-none focus:border-[#C4622D] bg-white" />
+                      {testimonialSearchQuery && (
+                        <button type="button" onClick={() => setTestimonialSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-[#B5ADA5] hover:text-[#5C5347] transition-colors" aria-label="Clear search">
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4"><path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" /></svg>
+                        </button>
+                      )}
+                    </div>
+                    {can('testimonials', 'create') && (
+                      <button onClick={() => { setEditingTestimonial(null); setTestimonialForm({ quote: '', name: '', role: '', avatar_url: '', rating: 5, is_active: true, display_order: '0' }); setTestimonialFormError(''); setTestimonialFormSuccess(''); setShowTestimonialForm(true); }} className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors">+ Add Testimonial</button>
+                    )}
+                  </div>
+                </div>
+                {testimonialsLoading ? (
+                  <div className="flex items-center justify-center py-12"><div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>
+                ) : (
+                  <div className="space-y-3">
+                    {testimonials.filter(t => !testimonialSearchQuery || t.name.toLowerCase().includes(testimonialSearchQuery.toLowerCase()) || t.quote.toLowerCase().includes(testimonialSearchQuery.toLowerCase())).map(t => (
+                      <div key={t.id} className="bg-white rounded-2xl border border-[#EDE7DA] p-5">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap mb-1">
+                              <p className="font-semibold text-[#1A1612]">{t.name}</p>
+                              {t.role && <span className="text-xs text-[#8C8278]">— {t.role}</span>}
+                              <span className="text-xs text-amber-500">{'★'.repeat(t.rating)}</span>
+                              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${t.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{t.is_active ? 'Active' : 'Hidden'}</span>
+                            </div>
+                            <p className="text-sm text-[#5C5347] line-clamp-3 italic">"{t.quote}"</p>
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            {can('testimonials', 'edit') && (
+                              <button onClick={() => { setEditingTestimonial(t); setTestimonialForm({ quote: t.quote, name: t.name, role: t.role, avatar_url: t.avatar_url || '', rating: t.rating, is_active: t.is_active, display_order: String(t.display_order) }); setTestimonialFormError(''); setTestimonialFormSuccess(''); setShowTestimonialForm(true); }} className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl font-semibold hover:bg-[#FDF6EE] transition-colors">Edit</button>
+                            )}
+                            {can('testimonials', 'delete') && (
+                              <button onClick={() => handleDeleteTestimonial(t)} className="text-xs text-red-500 border border-red-300 px-3 py-1.5 rounded-xl font-semibold hover:bg-red-50 transition-colors">Delete</button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    {testimonials.length === 0 && (
+                      <div className="bg-white rounded-2xl border border-[#EDE7DA] p-8 text-center"><p className="text-[#8C8278] text-sm">No testimonials yet.</p></div>
+                    )}
+                  </div>
+                )}
+
+                {/* Add/Edit Testimonial Modal */}
+                {showTestimonialForm && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+                      <div className="p-5 border-b border-[#EDE7DA] flex items-center justify-between">
+                        <h3 className="text-base font-bold text-[#1A1612]">{editingTestimonial ? 'Edit Testimonial' : 'Add Testimonial'}</h3>
+                        <button onClick={() => setShowTestimonialForm(false)} className="text-[#8C8278] hover:text-[#1A1612]">✕</button>
+                      </div>
+                      <div className="p-5 space-y-4">
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Quote *</label>
+                          <textarea value={testimonialForm.quote} onChange={e => setTestimonialForm(f => ({ ...f, quote: e.target.value }))} rows={4} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] resize-none" placeholder="Customer testimonial…" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-semibold text-[#5C5347] mb-1">Name *</label>
+                            <input type="text" value={testimonialForm.name} onChange={e => setTestimonialForm(f => ({ ...f, name: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-[#5C5347] mb-1">Role / Event</label>
+                            <input type="text" value={testimonialForm.role} onChange={e => setTestimonialForm(f => ({ ...f, role: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" placeholder="e.g. Wedding Client" />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-semibold text-[#5C5347] mb-1">Rating (1–5)</label>
+                            <input type="number" min={1} max={5} value={testimonialForm.rating} onChange={e => setTestimonialForm(f => ({ ...f, rating: Number(e.target.value) }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-[#5C5347] mb-1">Display Order</label>
+                            <input type="number" value={testimonialForm.display_order} onChange={e => setTestimonialForm(f => ({ ...f, display_order: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Avatar URL</label>
+                          <input type="url" value={testimonialForm.avatar_url} onChange={e => setTestimonialForm(f => ({ ...f, avatar_url: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" placeholder="https://…" />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input type="checkbox" id="t-active" checked={testimonialForm.is_active} onChange={e => setTestimonialForm(f => ({ ...f, is_active: e.target.checked }))} className="rounded" />
+                          <label htmlFor="t-active" className="text-sm text-[#5C5347]">Active (visible on site)</label>
+                        </div>
+                        {testimonialFormError && <p className="text-sm text-red-600">{testimonialFormError}</p>}
+                        {testimonialFormSuccess && <p className="text-sm text-green-600">{testimonialFormSuccess}</p>}
+                      </div>
+                      <div className="p-5 border-t border-[#EDE7DA] flex gap-3">
+                        <button onClick={handleSaveTestimonial} disabled={savingTestimonial} className="bg-[#C4622D] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50">
+                          {savingTestimonial ? 'Saving…' : (editingTestimonial ? 'Save Changes' : 'Add Testimonial')}
+                        </button>
+                        <button onClick={() => setShowTestimonialForm(false)} className="px-6 py-2.5 rounded-xl text-sm font-semibold border border-[#DDD5C8] text-[#5C5347] hover:bg-[#FAF5EE] transition-colors">Cancel</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── GALLERY TAB ── */}
+            {activeTab === 'gallery' && (
+              <div className="p-6">
+                <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
+                  <div>
+                    <h2 className="text-xl font-bold text-[#1A1612]">Gallery</h2>
+                    <p className="text-sm text-[#8C8278] mt-0.5">{galleryImages.length} images</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-[#5C5347]">Gallery Section</span>
+                      <button
+                        onClick={() => handleToggleGallerySectionVisible(!gallerySectionVisible)}
+                        disabled={gallerySettingsSaving}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none disabled:opacity-50 ${gallerySectionVisible ? 'bg-[#C4622D]' : 'bg-[#DDD5C8]'}`}
+                      >
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${gallerySectionVisible ? 'translate-x-6' : 'translate-x-1'}`} />
+                      </button>
+                    </div>
+                    {can('gallery', 'create') && (
+                      <button onClick={() => { setEditingGalleryImage(null); setGalleryForm({ title: '', description: '', sort_order: '0', is_visible: true }); setGalleryFormError(''); setGalleryFormSuccess(''); setGalleryImageFile(null); setGalleryImagePreview(null); setShowGalleryForm(true); }} className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors">+ Add Image</button>
+                    )}
+                  </div>
+                </div>
+                {galleryLoading ? (
+                  <div className="flex items-center justify-center py-12"><div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>
+                ) : (
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {galleryImages.map(img => (
+                      <div key={img.id} className="bg-white rounded-2xl border border-[#EDE7DA] overflow-hidden">
+                        {img.imageUrl ? (
+                          <img src={img.imageUrl} alt={img.title} className="w-full h-40 object-cover" />
+                        ) : (
+                          <div className="w-full h-40 bg-[#F5F0E8] flex items-center justify-center"><span className="text-3xl">🖼️</span></div>
+                        )}
+                        <div className="p-3">
+                          <p className="text-sm font-semibold text-[#1A1612] truncate">{img.title}</p>
+                          {img.description && <p className="text-xs text-[#8C8278] mt-0.5 line-clamp-2">{img.description}</p>}
+                          <div className="flex items-center justify-between mt-2">
+                            <button
+                              onClick={() => handleToggleGalleryImageVisible(img)}
+                              disabled={togglingGalleryId === img.id}
+                              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none disabled:opacity-50 ${img.is_visible ? 'bg-[#C4622D]' : 'bg-[#DDD5C8]'}`}
+                            >
+                              <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${img.is_visible ? 'translate-x-5' : 'translate-x-1'}`} />
+                            </button>
+                            <div className="flex gap-1">
+                              {can('gallery', 'edit') && (
+                                <button onClick={() => { setEditingGalleryImage(img); setGalleryForm({ title: img.title, description: img.description || '', sort_order: String(img.sort_order), is_visible: img.is_visible }); setGalleryFormError(''); setGalleryFormSuccess(''); setGalleryImageFile(null); setGalleryImagePreview(img.imageUrl || null); setShowGalleryForm(true); }} className="text-xs text-[#C4622D] border border-[#C4622D] px-2 py-1 rounded-lg font-semibold hover:bg-[#FDF6EE] transition-colors">Edit</button>
+                              )}
+                              {can('gallery', 'delete') && (
+                                <button onClick={() => handleDeleteGalleryImage(img)} className="text-xs text-red-500 border border-red-300 px-2 py-1 rounded-lg font-semibold hover:bg-red-50 transition-colors">Del</button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    {galleryImages.length === 0 && (
+                      <div className="col-span-full bg-white rounded-2xl border border-[#EDE7DA] p-8 text-center"><p className="text-[#8C8278] text-sm">No gallery images yet.</p></div>
+                    )}
+                  </div>
+                )}
+
+                {/* Add/Edit Gallery Image Modal */}
+                {showGalleryForm && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+                      <div className="p-5 border-b border-[#EDE7DA] flex items-center justify-between">
+                        <h3 className="text-base font-bold text-[#1A1612]">{editingGalleryImage ? 'Edit Image' : 'Add Gallery Image'}</h3>
+                        <button onClick={() => setShowGalleryForm(false)} className="text-[#8C8278] hover:text-[#1A1612]">✕</button>
+                      </div>
+                      <div className="p-5 space-y-4">
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Title *</label>
+                          <input type="text" value={galleryForm.title} onChange={e => setGalleryForm(f => ({ ...f, title: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Description</label>
+                          <textarea value={galleryForm.description} onChange={e => setGalleryForm(f => ({ ...f, description: e.target.value }))} rows={3} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] resize-none" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Sort Order</label>
+                          <input type="number" value={galleryForm.sort_order} onChange={e => setGalleryForm(f => ({ ...f, sort_order: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Image {editingGalleryImage ? '(leave empty to keep current)' : '*'}</label>
+                          {galleryImagePreview && (
+                            <img src={galleryImagePreview} alt="Preview" className="w-24 h-24 object-cover rounded-xl mb-2" />
+                          )}
+                          <input ref={galleryImageRef} type="file" accept="image/*" onChange={e => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            setGalleryImageFile(file);
+                            const reader = new FileReader();
+                            reader.onload = ev => setGalleryImagePreview(ev.target?.result as string);
+                            reader.readAsDataURL(file);
+                          }} className="text-sm text-[#5C5347]" />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input type="checkbox" id="g-visible" checked={galleryForm.is_visible} onChange={e => setGalleryForm(f => ({ ...f, is_visible: e.target.checked }))} className="rounded" />
+                          <label htmlFor="g-visible" className="text-sm text-[#5C5347]">Visible</label>
+                        </div>
+                        {galleryFormError && <p className="text-sm text-red-600">{galleryFormError}</p>}
+                        {galleryFormSuccess && <p className="text-sm text-green-600">{galleryFormSuccess}</p>}
+                      </div>
+                      <div className="p-5 border-t border-[#EDE7DA] flex gap-3">
+                        <button onClick={handleSaveGalleryImage} disabled={savingGallery} className="bg-[#C4622D] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50">
+                          {savingGallery ? (uploadingGalleryImage ? 'Uploading…' : 'Saving…') : (editingGalleryImage ? 'Save Changes' : 'Add Image')}
+                        </button>
+                        <button onClick={() => setShowGalleryForm(false)} className="px-6 py-2.5 rounded-xl text-sm font-semibold border border-[#DDD5C8] text-[#5C5347] hover:bg-[#FAF5EE] transition-colors">Cancel</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
 
             {/* ── PRODUCTS TAB ── */}
