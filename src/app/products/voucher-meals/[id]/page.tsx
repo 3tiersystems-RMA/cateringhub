@@ -132,7 +132,7 @@ export default function VoucherMealDetailPage() {
     <>
       <Header />
       <CartSidebar />
-      <main className="pt-20 min-h-screen bg-[#ddd4cb]">
+      <main className="pt-20 min-h-screen bg-[#e9e0cf]">
         <div className="max-w-6xl mx-auto px-4 md:px-8 py-10">
           {/* Back link */}
           <button

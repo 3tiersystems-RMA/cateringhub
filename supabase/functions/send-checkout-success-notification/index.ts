@@ -133,8 +133,8 @@ serve(async (req) => {
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Order Confirmation — ${brandName}</title>
 </head>
-<body style="margin: 0; padding: 0; background-color: #ddd4cb; font-family: Arial, sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #ddd4cb; padding: 40px 16px;">
+<body style="margin: 0; padding: 0; background-color: #e9e0cf; font-family: Arial, sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #e9e0cf; padding: 40px 16px;">
     <tr>
       <td align="center">
         <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 16px; overflow: hidden; max-width: 600px; box-shadow: 0 4px 24px rgba(0,0,0,0.08);">
@@ -339,8 +339,8 @@ serve(async (req) => {
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Checkout Success Notification</title>
 </head>
-<body style="margin: 0; padding: 0; background-color: #ddd4cb; font-family: Arial, sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #ddd4cb; padding: 40px 16px;">
+<body style="margin: 0; padding: 0; background-color: #e9e0cf; font-family: Arial, sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #e9e0cf; padding: 40px 16px;">
     <tr>
       <td align="center">
         <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 16px; overflow: hidden; max-width: 600px; box-shadow: 0 4px 24px rgba(0,0,0,0.08);">

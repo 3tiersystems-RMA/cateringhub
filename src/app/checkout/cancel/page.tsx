@@ -14,7 +14,7 @@ function CancelContent() {
     parseCheckoutReturnParams(searchParams);
 
   return (
-    <main className="pt-20 min-h-screen bg-[#ddd4cb] flex items-center justify-center px-4">
+    <main className="pt-20 min-h-screen bg-[#e9e0cf] flex items-center justify-center px-4">
       <div className="max-w-md w-full">
         <div className="bg-white rounded-3xl shadow-xl p-8 text-center space-y-6">
           {/* Cancel Icon */}
@@ -82,7 +82,7 @@ export default function CheckoutCancelPage() {
       <Header />
       <Suspense
         fallback={
-          <main className="pt-20 min-h-screen bg-[#ddd4cb] flex items-center justify-center">
+          <main className="pt-20 min-h-screen bg-[#e9e0cf] flex items-center justify-center">
             <div className="animate-spin w-8 h-8 border-4 border-[#C4622D] border-t-transparent rounded-full" />
           </main>
         }

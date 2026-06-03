@@ -438,7 +438,7 @@ function EventsContent() {
 
 export default function EventsPage() {
   return (
-    <div className="min-h-screen bg-[#DDD4CB] flex flex-col">
+    <div className="min-h-screen bg-[#e9e0cf] flex flex-col">
       <Header />
       <Suspense fallback={
         <div className="flex justify-center py-40">

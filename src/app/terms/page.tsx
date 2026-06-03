@@ -57,7 +57,7 @@ export default function TermsPage() {
   return (
     <>
       <Header />
-      <main className="min-h-screen bg-[#DDD4CB]">
+      <main className="min-h-screen bg-[#e9e0cf]">
         <div className="max-w-6xl mx-auto px-4 md:px-8 pt-28 pb-16">
 
           {/* Page Title */}
