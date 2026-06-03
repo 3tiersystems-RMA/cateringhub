@@ -428,14 +428,35 @@ export default function CookingClassesPage() {
     return settings?.class_fee || 0;
   }
 
+  // Get per-session breakdown: one entry per selected date
+  function getSessionBreakdown(): { dateLabel: string; fee: number; participants: number; amount: number }[] {
+    const count = getParticipantCount();
+    if (page1.selectedDates.length === 0) return [];
+    return page1.selectedDates.map(dateLabel => {
+      const row = eventDates.find(r => formatEventDate(r) === dateLabel);
+      let fee = 0;
+      if (row && row.class_fee != null && row.class_fee > 0) {
+        fee = row.class_fee;
+      } else {
+        fee = settings?.class_fee || 0;
+      }
+      return { dateLabel, fee, participants: count, amount: fee * count };
+    });
+  }
+
   // (6) Count filled participants
   function getParticipantCount(): number {
     return page4.children.filter(c => c.fullName.trim()).length;
   }
 
-  // (6) Amount due = participants × event class_fee
+  // (6) Amount due = sum of all session amounts
   function getAmountDue(): number {
-    const fee = getEventClassFee();
+    const breakdown = getSessionBreakdown();
+    if (breakdown.length > 0) {
+      const total = breakdown.reduce((sum, s) => sum + s.amount, 0);
+      if (total > 0) return total;
+    }
+    let fee = getEventClassFee();
     const count = getParticipantCount();
     if (fee > 0 && count > 0) return fee * count;
     return settings?.class_fee || 0;
@@ -1895,14 +1916,45 @@ export default function CookingClassesPage() {
         {currentPage === 5 && (
           <div className="bg-white rounded-2xl border border-[#EDE7DA] p-6 shadow-sm">
             <h2 className="text-xl font-bold text-[#1A1612] mb-2">Payment</h2>
-            {/* (6) Show calculated amount: participants × event fee */}
+            {/* Per-session billing breakdown */}
             {(() => {
-              const fee = getEventClassFee();
-              const count = getParticipantCount();
+              const breakdown = getSessionBreakdown();
               const total = getAmountDue();
+              const count = getParticipantCount();
+              let fee = getEventClassFee();
               return total > 0 ? (
                 <div className="bg-[#FDF6EE] border border-[#EDE7DA] rounded-xl p-4 mb-6">
-                  {fee > 0 && count > 0 ? (
+                  {breakdown.length > 1 ? (
+                    // Multiple sessions — show per-session rows + Total
+                    <div>
+                      <div className="space-y-2 mb-3">
+                        {breakdown.map((session, idx) => (
+                          <div key={idx} className="flex items-start justify-between gap-2 text-sm">
+                            <div className="flex-1 min-w-0">
+                              <span className="text-[#5C5347] font-medium block truncate">{session.dateLabel}</span>
+                              <span className="text-xs text-[#8C8278]">
+                                {session.participants} participant{session.participants !== 1 ? 's' : ''} × R{session.fee.toFixed(2)}
+                              </span>
+                            </div>
+                            <span className="font-semibold text-[#1A1612] whitespace-nowrap">R{session.amount.toFixed(2)}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="border-t border-[#DDD5C8] pt-3 flex items-center justify-between">
+                        <span className="text-sm font-bold text-[#1A1612]">Total Amount Due</span>
+                        <span className="text-base font-bold text-[#C4622D]">R{total.toFixed(2)}</span>
+                      </div>
+                      <p className="text-xs text-[#8C8278] mt-2">
+                        You are liable for the total of all booked sessions for every participant.
+                      </p>
+                    </div>
+                  ) : breakdown.length === 1 ? (
+                    // Single session
+                    <p className="text-sm text-[#5C5347]">
+                      {breakdown[0].participants} participant{breakdown[0].participants !== 1 ? 's' : ''} × <span className="font-semibold">R{breakdown[0].fee.toFixed(2)}</span> per participant ={' '}
+                      <span className="font-bold text-[#C4622D] text-base">R{total.toFixed(2)}</span> due
+                    </p>
+                  ) : fee > 0 && count > 0 ? (
                     <p className="text-sm text-[#5C5347]">
                       {count} participant{count !== 1 ? 's' : ''} × <span className="font-semibold">R{fee.toFixed(2)}</span> per participant ={' '}
                       <span className="font-bold text-[#C4622D] text-base">R{total.toFixed(2)}</span> due
