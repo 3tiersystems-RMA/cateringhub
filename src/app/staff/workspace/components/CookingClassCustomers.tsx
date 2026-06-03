@@ -78,6 +78,9 @@ const PAYMENT_STATUS_COLORS: Record<string, string> = {
   awaiting_payment: 'bg-blue-100 text-blue-700 border-blue-200',
 };
 
+// Fallback statuses in case DB has no distinct values yet
+const FALLBACK_STATUSES = ['pending', 'paid', 'failed', 'awaiting_payment', 'awaiting_confirmation'];
+
 function formatDate(dateStr: string | null | undefined) {
   if (!dateStr) return '—';
   try {
@@ -117,6 +120,13 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
+
+  // Edit payment status state
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editPaymentStatus, setEditPaymentStatus] = useState('');
+  const [paymentStatusOptions, setPaymentStatusOptions] = useState<string[]>(FALLBACK_STATUSES);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -188,6 +198,11 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
       }));
 
       setRegistrations(enriched);
+
+      // 6. Build distinct payment status options from DB values + fallbacks
+      const dbStatuses = [...new Set(regs.map((r: Registration) => r.payment_status).filter(Boolean))] as string[];
+      const merged = [...new Set([...FALLBACK_STATUSES, ...dbStatuses])].sort();
+      setPaymentStatusOptions(merged);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to load registrations');
     } finally {
@@ -208,7 +223,17 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
   });
 
   const toggleExpand = (id: string) => {
-    setExpandedId(prev => prev === id ? null : id);
+    setExpandedId(prev => {
+      if (prev === id) {
+        // Collapsing — cancel any active edit for this card
+        if (editingId === id) {
+          setEditingId(null);
+          setSaveError('');
+        }
+        return null;
+      }
+      return id;
+    });
     setActiveSection(prev => ({ ...prev, [id]: prev[id] || 'registrant' }));
   };
 
@@ -263,6 +288,43 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
       setDeleteError(err instanceof Error ? err.message : 'Failed to delete record');
     } finally {
       setDeleting(false);
+    }
+  };
+
+  // ── Edit payment status handlers ─────────────────────────────────────────────
+  const openEdit = (reg: Registration, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingId(reg.id);
+    setEditPaymentStatus(reg.payment_status);
+    setSaveError('');
+    // Ensure registrant tab is active so the dropdown is visible
+    setActiveSection(prev => ({ ...prev, [reg.id]: 'registrant' }));
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setSaveError('');
+  };
+
+  const savePaymentStatus = async (regId: string) => {
+    setSaving(true);
+    setSaveError('');
+    try {
+      const { error: updateErr } = await supabase
+        .from('cooking_class_registrations')
+        .update({ payment_status: editPaymentStatus, updated_at: new Date().toISOString() })
+        .eq('id', regId);
+      if (updateErr) throw updateErr;
+
+      // Update local state
+      setRegistrations(prev =>
+        prev.map(r => r.id === regId ? { ...r, payment_status: editPaymentStatus } : r)
+      );
+      setEditingId(null);
+    } catch (err: unknown) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to update payment status');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -361,6 +423,7 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
             const sessions = reg.session_dates || [];
             const isPast = sessions.some(s => s.event_date && new Date(s.event_date) < new Date());
             const isUpcoming = sessions.some(s => s.event_date && new Date(s.event_date) >= new Date());
+            const isEditing = editingId === reg.id;
 
             return (
               <div key={reg.id} className="bg-white border border-[#EDE7DA] rounded-2xl overflow-hidden">
@@ -409,6 +472,42 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
                     <span className={`text-xs font-medium px-2.5 py-1 rounded-full border ${PAYMENT_STATUS_COLORS[reg.payment_status] || 'bg-gray-100 text-gray-600 border-gray-200'}`}>
                       {reg.payment_status.replace(/_/g, ' ')}
                     </span>
+
+                    {/* EDIT button — visible to all admin staff, only when expanded */}
+                    {isExpanded && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (isEditing) {
+                            cancelEdit();
+                          } else {
+                            openEdit(reg, e);
+                          }
+                        }}
+                        className={`flex-shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors ${
+                          isEditing
+                            ? 'bg-gray-100 border border-gray-300 text-gray-600 hover:bg-gray-200' :'bg-[#FDF6EE] border border-[#C4622D]/30 text-[#C4622D] hover:bg-[#C4622D]/10 hover:border-[#C4622D]/50'
+                        }`}
+                        title={isEditing ? 'Cancel editing' : 'Edit payment status'}
+                      >
+                        {isEditing ? (
+                          <>
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                            Cancel
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                            Edit
+                          </>
+                        )}
+                      </button>
+                    )}
 
                     {/* Super Admin DELETE button */}
                     {isSuperAdmin && (
@@ -473,7 +572,62 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
                           <Field label="Indemnity Consent" value={reg.indemnity_consent ? 'Yes' : 'No'} />
                           <Field label="Payment Method" value={reg.payment_method} />
                           <Field label="Amount Paid" value={formatCurrency(reg.amount)} highlight />
-                          <Field label="Payment Status" value={reg.payment_status?.replace(/_/g, ' ')} />
+
+                          {/* Payment Status — editable dropdown when in edit mode */}
+                          <div>
+                            <p className="text-xs text-[#8C8278] mb-0.5 capitalize">Payment Status</p>
+                            {isEditing ? (
+                              <div className="flex flex-col gap-2">
+                                <select
+                                  value={editPaymentStatus}
+                                  onChange={e => setEditPaymentStatus(e.target.value)}
+                                  className="border border-[#C4622D] rounded-lg px-2 py-1.5 text-sm text-[#1A1612] bg-white focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30 w-full"
+                                  onClick={e => e.stopPropagation()}
+                                >
+                                  {paymentStatusOptions.map(opt => (
+                                    <option key={opt} value={opt}>
+                                      {opt.replace(/_/g, ' ')}
+                                    </option>
+                                  ))}
+                                </select>
+                                <div className="flex gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={e => { e.stopPropagation(); savePaymentStatus(reg.id); }}
+                                    disabled={saving}
+                                    className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg bg-[#C4622D] text-white text-xs font-semibold hover:bg-[#A8501F] transition-colors disabled:opacity-50"
+                                  >
+                                    {saving ? (
+                                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                    ) : (
+                                      <>
+                                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                        </svg>
+                                        Save
+                                      </>
+                                    )}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={e => { e.stopPropagation(); cancelEdit(); }}
+                                    disabled={saving}
+                                    className="flex-1 px-3 py-1.5 rounded-lg border border-[#DDD5C8] text-xs font-medium text-[#5C5347] hover:bg-[#FAF5EE] transition-colors disabled:opacity-50"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                                {saveError && (
+                                  <p className="text-xs text-red-600">{saveError}</p>
+                                )}
+                              </div>
+                            ) : (
+                              <p className="text-sm font-medium text-[#1A1612]">
+                                {reg.payment_status?.replace(/_/g, ' ') || '—'}
+                              </p>
+                            )}
+                          </div>
+
                           <Field label="Registered On" value={formatDate(reg.created_at)} />
                           {reg.notes && <Field label="Notes" value={reg.notes} span2 />}
                           {/* Emergency Contacts */}
