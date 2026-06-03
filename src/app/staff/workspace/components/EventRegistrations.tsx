@@ -1181,7 +1181,7 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
                                   <div>
                                     <h4 className="text-xs font-semibold text-[#8C7B6B] uppercase tracking-wide mb-2 flex items-center gap-2">
                                       <span className="w-5 h-5 bg-[#C4622D] text-white rounded-full flex items-center justify-center text-xs">R</span>
-                                      Registrant (Adult Participant)
+                                      Registrant (Guardian / Responsible Person)
                                     </h4>
                                     <div className="overflow-x-auto rounded-lg border border-[#E8DDD0]">
                                       <table className="w-full text-xs">
