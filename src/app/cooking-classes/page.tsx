@@ -662,18 +662,44 @@ export default function CookingClassesPage() {
     setSubmitError('');
 
     try {
-      let proofUrl: string | null = null;
-      let proofPath: string | null = null;
+      // ── Upload indemnity file to Google Drive ──────────────────────────────
+      let indemnityFileUrl: string | null = null;
+      if (page4.indemnityFile) {
+        const indemnityForm = new FormData();
+        indemnityForm.append('file', page4.indemnityFile);
+        indemnityForm.append(
+          'fileName',
+          `Indemnity_${page1.firstName}_${page1.surname}_${Date.now()}.${page4.indemnityFile.name.split('.').pop()}`
+        );
+        const driveRes = await fetch('/api/cooking-classes/upload-to-drive', {
+          method: 'POST',
+          body: indemnityForm,
+        });
+        if (driveRes.ok) {
+          const driveData = await driveRes.json();
+          indemnityFileUrl = driveData.viewUrl || null;
+        }
+      }
 
+      // ── Upload proof of payment to Google Drive (EFT only) ────────────────
+      let proofDriveUrl: string | null = null;
       if (page5.paymentMethod === 'eft' && page5.proofFile) {
-        const ext = page5.proofFile.name.split('.').pop();
-        const path = `proof-${Date.now()}.${ext}`;
-        const { error: uploadErr } = await supabase.storage
-          .from('cooking-class-proofs')
-          .upload(path, page5.proofFile);
-        if (uploadErr) throw new Error('Failed to upload proof of payment');
-        proofPath = path;
-        proofUrl = null;
+        const proofForm = new FormData();
+        proofForm.append('file', page5.proofFile);
+        proofForm.append(
+          'fileName',
+          `ProofOfPayment_${page1.firstName}_${page1.surname}_${Date.now()}.${page5.proofFile.name.split('.').pop()}`
+        );
+        const driveRes = await fetch('/api/cooking-classes/upload-to-drive', {
+          method: 'POST',
+          body: proofForm,
+        });
+        if (driveRes.ok) {
+          const driveData = await driveRes.json();
+          proofDriveUrl = driveData.viewUrl || null;
+        } else {
+          throw new Error('Failed to upload proof of payment to Google Drive');
+        }
       }
 
       // (6) Use calculated amount due
@@ -726,11 +752,13 @@ export default function CookingClassesPage() {
           attend_school_holiday: page4.attendSchoolHoliday,
           pictures_taken: page4.picturesTaken,
           indemnity_consent: page4.indemnityConsent,
+          indemnity_file_url: indemnityFileUrl,
           // Page 5 — Payment
           payment_method: page5.paymentMethod,
           payment_status: page5.paymentMethod === 'eft' ? 'awaiting_confirmation' : 'pending',
-          proof_of_payment_url: proofUrl,
-          proof_of_payment_path: proofPath,
+          proof_of_payment_url: null,
+          proof_of_payment_path: null,
+          proof_of_payment_drive_url: proofDriveUrl,
           amount: amountDue,
         })
         .select('id')

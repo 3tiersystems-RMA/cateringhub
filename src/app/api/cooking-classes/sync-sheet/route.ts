@@ -125,8 +125,8 @@ export async function POST(req: NextRequest) {
     //           Medical Doctor First Name | Medical Doctor Surname | Medical Aid Name | Medical Aid Number
     // [Page 4]  Child 1-10 (Full Name | DOB | Age | Gender | Grade | Dietary) × 10
     //           Attend School Holiday
-    //           Pictures Taken | Indemnity Consent
-    // [Page 5]  Payment Method | Payment Status | Amount
+    //           Pictures Taken | Indemnity Consent | Indemnity File (Drive URL)
+    // [Page 5]  Payment Method | Payment Status | Amount | Proof of Payment (Drive URL)
     // [Meta]    Registration ID
     const rowValues = [
       [
@@ -173,11 +173,13 @@ export async function POST(req: NextRequest) {
         reg.attend_school_holiday || '',
         reg.pictures_taken || '',
         reg.indemnity_consent ? 'Yes' : 'No',
+        reg.indemnity_file_url || '',
 
         // ── Page 5 — Payment ───────────────────────────────────────────────
         reg.payment_method === 'payfast' ? 'PayFast' : 'EFT',
         reg.payment_status || '',
         reg.amount ? `R${Number(reg.amount).toFixed(2)}` : '',
+        reg.proof_of_payment_drive_url || '',
 
         // ── Meta ───────────────────────────────────────────────────────────
         reg.id,

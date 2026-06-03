@@ -103,10 +103,11 @@ function HeroSectionInner() {
       if (product) {
         let imageUrl = '';
         if (product.image_path) {
-          const { data: urlData } = await supabase.storage.
+          // product-images is a public bucket — a signed URL 400s here. Use the public URL.
+          const { data: urlData } = supabase.storage.
           from('product-images').
-          createSignedUrl(product.image_path, 3600);
-          imageUrl = urlData?.signedUrl ?? '';
+          getPublicUrl(product.image_path);
+          imageUrl = urlData?.publicUrl ?? '';
         }
         const cartProduct: CartProduct = {
           id: product.id,

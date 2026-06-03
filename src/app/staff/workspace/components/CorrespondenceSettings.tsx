@@ -34,7 +34,7 @@ const defaultSettings: Omit<CorrespondenceSettingsData, 'id'> = {
   default_delivery_charge: null,
 };
 
-export default function CorrespondenceSettings() {
+export default function CorrespondenceSettings({ readOnly = false }: { readOnly?: boolean }) {
   const supabase = createClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bankingDetailsRef = useRef<HTMLTextAreaElement>(null);
@@ -237,7 +237,13 @@ export default function CorrespondenceSettings() {
               </div>
             )}
 
-            <div className="space-y-6">
+            {readOnly && (
+              <div className="mb-4 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-700">
+                You have view-only access to Correspondence Settings. Only a Super Admin can change these values.
+              </div>
+            )}
+
+            <fieldset disabled={readOnly} className="space-y-6 border-0 p-0 m-0 disabled:opacity-100">
 
               {/* Form Header Title */}
               <div>
@@ -469,26 +475,28 @@ export default function CorrespondenceSettings() {
               </div>
 
               {/* Save Button */}
-              <div className="flex justify-end pt-2">
-                <button
-                  onClick={handleSave}
-                  disabled={saving || uploadingLogo}
-                  className="bg-[#C4622D] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50 flex items-center gap-2"
-                >
-                  {saving ? (
-                    <>
-                      <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                      </svg>
-                      Saving…
-                    </>
-                  ) : (
-                    'Save Settings'
-                  )}
-                </button>
-              </div>
-            </div>
+              {!readOnly && (
+                <div className="flex justify-end pt-2">
+                  <button
+                    onClick={handleSave}
+                    disabled={saving || uploadingLogo}
+                    className="bg-[#C4622D] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {saving ? (
+                      <>
+                        <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                        </svg>
+                        Saving…
+                      </>
+                    ) : (
+                      'Save Settings'
+                    )}
+                  </button>
+                </div>
+              )}
+            </fieldset>
           </div>
         )}
       </div>

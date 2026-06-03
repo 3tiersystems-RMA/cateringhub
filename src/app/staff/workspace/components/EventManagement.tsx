@@ -82,7 +82,7 @@ function fromSASTDateTimeInputToUTCISO(input: string): string | null {
   return d.toISOString();
 }
 
-export default function EventManagement() {
+export default function EventManagement({ canCreate = true, canDelete = true }: { canCreate?: boolean; canDelete?: boolean }) {
   const supabase = createClient();
   const imageInputRef = useRef<HTMLInputElement>(null);
 
@@ -100,6 +100,7 @@ export default function EventManagement() {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [listError, setListError] = useState('');
   // 'device' | 'url'
   const [imageInputMode, setImageInputMode] = useState<'device' | 'url'>('device');
   const [isOpen, setIsOpen] = useState(false);
@@ -276,12 +277,14 @@ export default function EventManagement() {
     };
 
     if (editingEvent) {
-      const { error } = await supabase.from('events').update(payload).eq('id', editingEvent.id);
+      const { data, error } = await supabase.from('events').update(payload).eq('id', editingEvent.id).select('id');
       if (error) { setFormError(error.message); setSaving(false); return; }
+      if (!data || data.length === 0) { setFormError('Update was blocked — you may not have permission to edit events.'); setSaving(false); return; }
       setFormSuccess('Event updated successfully.');
     } else {
-      const { error } = await supabase.from('events').insert([payload]);
+      const { data, error } = await supabase.from('events').insert([payload]).select('id');
       if (error) { setFormError(error.message); setSaving(false); return; }
+      if (!data || data.length === 0) { setFormError('Could not create the event. Please try again.'); setSaving(false); return; }
       setFormSuccess('Event created successfully.');
     }
 
@@ -295,8 +298,12 @@ export default function EventManagement() {
 
   const handleDelete = async (id: string) => {
     setDeletingId(id);
-    const { error } = await supabase.from('events').delete().eq('id', id);
-    if (!error) {
+    setListError('');
+    const { data, error } = await supabase.from('events').delete().eq('id', id).select('id');
+    if (error || !data || data.length === 0) {
+      setListError(error?.message || 'Delete was blocked — you may not have permission to delete events.');
+      await loadEvents();
+    } else {
       setEvents((prev) => prev.filter((e) => e.id !== id));
     }
     setDeletingId(null);
@@ -304,11 +311,16 @@ export default function EventManagement() {
   };
 
   const handleTogglePublish = async (ev: Event) => {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('events')
       .update({ is_published: !ev.is_published })
-      .eq('id', ev.id);
-    if (!error) {
+      .eq('id', ev.id)
+      .select('id');
+    setListError('');
+    if (error || !data || data.length === 0) {
+      setListError(error?.message || 'Could not change the publish status — you may not have permission.');
+      await loadEvents();
+    } else {
       setEvents((prev) =>
         prev.map((e) => (e.id === ev.id ? { ...e, is_published: !ev.is_published } : e))
       );
@@ -418,16 +430,27 @@ export default function EventManagement() {
                   </button>
                 )}
               </div>
-              <button
-                onClick={handleOpenCreate}
-                className="flex items-center gap-2 bg-[#C4622D] text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                </svg>
-                Add Event
-              </button>
+              {canCreate && (
+                <button
+                  onClick={handleOpenCreate}
+                  className="flex items-center gap-2 bg-[#C4622D] text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                  </svg>
+                  Add Event
+                </button>
+              )}
             </div>
+
+            {listError && (
+              <div className="mb-4 bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm flex items-center justify-between gap-3">
+                <span>{listError}</span>
+                <button onClick={() => setListError('')} className="text-red-400 hover:text-red-600 flex-shrink-0" aria-label="Dismiss">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+            )}
 
             {/* Form Modal */}
             {showForm && (
@@ -889,12 +912,14 @@ export default function EventManagement() {
                           >
                             Edit
                           </button>
-                          <button
-                            onClick={() => setConfirmDeleteId(ev.id)}
-                            className="text-xs px-3 py-1.5 rounded-lg font-medium bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 transition-colors"
-                          >
-                            Delete
-                          </button>
+                          {canDelete && (
+                            <button
+                              onClick={() => setConfirmDeleteId(ev.id)}
+                              className="text-xs px-3 py-1.5 rounded-lg font-medium bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 transition-colors"
+                            >
+                              Delete
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>

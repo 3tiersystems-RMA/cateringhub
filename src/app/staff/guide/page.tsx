@@ -59,7 +59,7 @@ export default function SuperAdminGuidePage() {
             <div className="bg-[#F5F0E8] border border-[#DDD5C8] rounded-xl p-4">
               <div className="text-2xl mb-2">👤</div>
               <h3 className="font-semibold text-[#5C5347] text-sm mb-1">Staff</h3>
-              <p className="text-xs text-[#8C8278]">Daily operations only: Order Management, Customer Order History, Voucher Scanner, and viewing Documents.</p>
+              <p className="text-xs text-[#8C8278]">Daily operations: Orders, Customer Order History, Meal Voucher Scanner, Weekly Menu, and viewing Documents &amp; Cooking Classes — plus edit-only access to Products, Media Products and Events. No add/delete on catalog items, and no settings.</p>
             </div>
           </div>
         </section>
@@ -128,35 +128,56 @@ export default function SuperAdminGuidePage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#EDE7DA]">
-                {[
+                {([
                   { feature: 'Log in to Staff Portal', staff: true, admin: true, superAdmin: true },
-                  { feature: 'Order Management (view & update status)', staff: true, admin: true, superAdmin: true },
-                  { feature: 'Customer Order History (lookup)', staff: true, admin: true, superAdmin: true },
-                  { feature: 'Voucher Scanner (redeem meals)', staff: true, admin: true, superAdmin: true },
-                  { feature: 'View Documents', staff: true, admin: true, superAdmin: true },
-                  { feature: 'Products, Menu, Categories & Pricing', staff: false, admin: true, superAdmin: true },
-                  { feature: 'Media, Gallery, Homepage & Testimonials', staff: false, admin: true, superAdmin: true },
-                  { feature: 'Vouchers, Discounts, Reporting & Analytics', staff: false, admin: true, superAdmin: true },
+                  { feature: 'Order Management (view & update fulfillment status)', staff: true, admin: true, superAdmin: true },
+                  { feature: 'Edit Order Payment Status', staff: false, admin: true, superAdmin: true },
                   { feature: 'Delete Orders', staff: false, admin: false, superAdmin: true },
-                  { feature: 'Add / Edit / Remove Documents', staff: false, admin: false, superAdmin: true },
+                  { feature: 'Customer Order History (lookup)', staff: true, admin: true, superAdmin: true },
+                  { feature: 'Meal Voucher Scanner (redeem meals)', staff: true, admin: true, superAdmin: true },
+                  { feature: 'View Documents', staff: true, admin: true, superAdmin: true },
+                  { feature: 'Add / Edit / Remove Documents', staff: false, admin: true, superAdmin: true },
+                  { feature: 'Weekly Menu (add, edit, close & delete)', staff: true, admin: true, superAdmin: true },
+                  { feature: 'Products & Menu Pricing', staff: 'Edit', admin: true, superAdmin: true },
+                  { feature: 'Media → Products', staff: 'Edit', admin: true, superAdmin: true },
+                  { feature: 'Events (Media Library)', staff: 'Edit', admin: true, superAdmin: true },
+                  { feature: 'Cooking Classes', staff: 'View', admin: true, superAdmin: true },
+                  { feature: 'Categories', staff: false, admin: true, superAdmin: true },
+                  { feature: 'Gallery, Homepage Cards & Testimonials', staff: false, admin: true, superAdmin: true },
+                  { feature: 'Discount Vouchers', staff: false, admin: true, superAdmin: true },
+                  { feature: 'Abandoned Carts', staff: false, admin: true, superAdmin: true },
+                  { feature: 'Reporting & Analytics', staff: false, admin: true, superAdmin: true },
+                  { feature: 'Package & Section Visibility', staff: false, admin: true, superAdmin: true },
+                  { feature: 'Correspondence Settings', staff: false, admin: 'View', superAdmin: true },
+                  { feature: 'Social Media Settings', staff: false, admin: false, superAdmin: true },
                   { feature: 'Staff Management (invite, edit, deactivate)', staff: false, admin: false, superAdmin: true },
-                  { feature: 'System Settings (social media, visibility, correspondence)', staff: false, admin: false, superAdmin: true },
-                ]?.map(({ feature, staff, admin, superAdmin }) => (
-                  <tr key={feature} className="hover:bg-[#FAFAF8]">
-                    <td className="px-4 py-3 text-[#3D3530] font-medium">{feature}</td>
-                    <td className="px-4 py-3 text-center">
-                      {staff ? <span className="text-green-600 font-bold">✓</span> : <span className="text-[#DDD5C8] font-bold">—</span>}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      {admin ? <span className="text-green-600 font-bold">✓</span> : <span className="text-[#DDD5C8] font-bold">—</span>}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      {superAdmin ? <span className="text-purple-600 font-bold">✓</span> : <span className="text-[#DDD5C8] font-bold">—</span>}
-                    </td>
-                  </tr>
-                ))}
+                ] as { feature: string; staff: boolean | string; admin: boolean | string; superAdmin: boolean }[])?.map(({ feature, staff, admin, superAdmin }) => {
+                  const cell = (val: boolean | string, isSuper = false) => {
+                    if (typeof val === 'string') {
+                      return <span className="text-amber-600 font-semibold text-xs">{val}</span>;
+                    }
+                    if (val) {
+                      return <span className={`${isSuper ? 'text-purple-600' : 'text-green-600'} font-bold`}>✓</span>;
+                    }
+                    return <span className="text-[#DDD5C8] font-bold">—</span>;
+                  };
+                  return (
+                    <tr key={feature} className="hover:bg-[#FAFAF8]">
+                      <td className="px-4 py-3 text-[#3D3530] font-medium">{feature}</td>
+                      <td className="px-4 py-3 text-center">{cell(staff)}</td>
+                      <td className="px-4 py-3 text-center">{cell(admin)}</td>
+                      <td className="px-4 py-3 text-center">{cell(superAdmin, true)}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-[#8C8278]">
+            <span className="flex items-center gap-1.5"><span className="text-green-600 font-bold">✓</span> Full access</span>
+            <span className="flex items-center gap-1.5"><span className="text-amber-600 font-semibold">Edit</span> View &amp; edit only (cannot add or delete)</span>
+            <span className="flex items-center gap-1.5"><span className="text-amber-600 font-semibold">View</span> Read-only</span>
+            <span className="flex items-center gap-1.5"><span className="text-[#DDD5C8] font-bold">—</span> No access</span>
           </div>
         </section>
 

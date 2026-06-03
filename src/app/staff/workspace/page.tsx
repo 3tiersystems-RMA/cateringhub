@@ -29,18 +29,22 @@ type StaffRole = 'admin' | 'staff' | 'super_admin';
 //   • staff       → daily operations only (orders, lookups, scanner, docs)
 //   • admin       → operations + all business & content management
 //   • super_admin → everything, incl. staff accounts & system settings
+// Tab VISIBILITY — which roles can open each tab. Action-level permissions
+// (view/edit/create/delete/…) are handled separately by canDo() below, so a role
+// can be granted a tab in "view only" or "view + edit" mode per the client matrix.
 const TAB_ACCESS: Record<WorkspaceTab, StaffRole[]> = {
-  // Operational — everyone (incl. staff)
-  orders: ['super_admin', 'admin', 'staff'],
-  customer_order_history: ['super_admin', 'admin', 'staff'],
-  media: ['super_admin', 'admin', 'staff'], // Document Management
+  // Operational — all roles
+  orders: ['super_admin', 'admin', 'staff'],            // staff: view + status update
+  customer_order_history: ['super_admin', 'admin', 'staff'], // staff: read-only
+  media: ['super_admin', 'admin', 'staff'],             // Document Mgmt — staff: view only
+  weekly_menu: ['super_admin', 'admin', 'staff'],       // staff: full CRUD
+  products: ['super_admin', 'admin', 'staff'],          // staff: view + edit only
+  media_products: ['super_admin', 'admin', 'staff'],    // staff: view + edit only
+  vouchers: ['super_admin', 'admin', 'staff'],          // Meal Vouchers — staff: view + redeem
+  media_events: ['super_admin', 'admin', 'staff'],      // Events — staff: view + edit
+  cooking_classes: ['super_admin', 'admin', 'staff'],   // staff: view only
   // Business & content — admin and above
-  products: ['super_admin', 'admin'],
   categories: ['super_admin', 'admin'],
-  media_products: ['super_admin', 'admin'],
-  weekly_menu: ['super_admin', 'admin', 'staff'],
-  cooking_classes: ['super_admin', 'admin'],
-  vouchers: ['super_admin', 'admin'],
   discount_vouchers: ['super_admin', 'admin'],
   abandoned_carts: ['super_admin', 'admin'],
   reporting: ['super_admin', 'admin'],
@@ -49,13 +53,48 @@ const TAB_ACCESS: Record<WorkspaceTab, StaffRole[]> = {
   gallery: ['super_admin', 'admin'],
   testimonials: ['super_admin', 'admin'],
   package_visibility: ['super_admin', 'admin'],
-  media_events: ['super_admin', 'admin'],
+  section_visibility: ['super_admin', 'admin'],         // admin: full
+  correspondence_settings: ['super_admin', 'admin'],    // admin: view only (enforced in canDo)
   // System & sensitive — super_admin only
   staff: ['super_admin'],
   social_media: ['super_admin'],
-  section_visibility: ['super_admin'],
-  correspondence_settings: ['super_admin'],
 };
+
+// Action-level permission model. super_admin = everything; admin = full CRUD on
+// every accessible tab EXCEPT correspondence settings (view only); staff = the
+// per-tab actions defined below (any accessible tab not listed = view only).
+type PermAction = 'view' | 'create' | 'edit' | 'delete' | 'status' | 'redeem';
+
+const STAFF_TAB_ACTIONS: Partial<Record<WorkspaceTab, PermAction[]>> = {
+  orders: ['view', 'status'],
+  customer_order_history: ['view'],
+  media: ['view'],
+  weekly_menu: ['view', 'create', 'edit', 'delete'],
+  products: ['view', 'edit'],
+  media_products: ['view', 'edit'],
+  vouchers: ['view', 'redeem'],
+  media_events: ['view', 'edit'],
+  cooking_classes: ['view'],
+};
+
+function roleCanAccessTab(role: string | undefined | null, tab: WorkspaceTab): boolean {
+  if (!role) return false;
+  return TAB_ACCESS[tab]?.includes(role as StaffRole) ?? false;
+}
+
+// Single source of truth for "can this role perform <action> on <tab>?"
+function canDo(role: string | undefined | null, tab: WorkspaceTab, action: PermAction): boolean {
+  if (!roleCanAccessTab(role, tab)) return false;
+  if (role === 'super_admin') return true;
+  if (role === 'admin') {
+    if (tab === 'correspondence_settings') return action === 'view';
+    return true;
+  }
+  if (role === 'staff') {
+    return (STAFF_TAB_ACTIONS[tab] ?? ['view']).includes(action);
+  }
+  return false;
+}
 
 // Where each role lands when they open the workspace (must be a tab they can access).
 const DEFAULT_TAB_BY_ROLE: Record<StaffRole, WorkspaceTab> = {
@@ -63,11 +102,6 @@ const DEFAULT_TAB_BY_ROLE: Record<StaffRole, WorkspaceTab> = {
   admin: 'products',
   staff: 'orders',
 };
-
-function roleCanAccessTab(role: string | undefined | null, tab: WorkspaceTab): boolean {
-  if (!role) return false;
-  return TAB_ACCESS[tab]?.includes(role as StaffRole) ?? false;
-}
 
 // ─── Orders types ─────────────────────────────────────────────────────────────
 type PaymentStatus = 'pending' | 'paid' | 'failed' | 'awaiting_payment' | 'refunded';
@@ -255,9 +289,10 @@ interface Voucher {
   customer_phone: string;
   total_meals: number;
   meals_remaining: number;
-  status: 'redeemed' | 'expired' | 'unpaid' | 'paid';
+  status: 'active' | 'redeemed' | 'expired' | 'unpaid' | 'paid';
   purchased_at: string;
   notes: string | null;
+  package_type: string | null;
 }
 
 interface DiscountVoucher {
@@ -805,7 +840,7 @@ export default function StaffWorkspacePage() {
   const [dvLoading, setDvLoading] = useState(false);
   const [showDvForm, setShowDvForm] = useState(false);
   const [editingDv, setEditingDv] = useState<DiscountVoucher | null>(null);
-  const [dvForm, setDvForm] = useState({ dv_code: '', dv_type: 'Discount' as 'Discount' | 'Gift', dv_amount: '', status: 'Active\' as \'Active\' | \'Inactive', expiry_date: '', created_at: '' });
+  const [dvForm, setDvForm] = useState({ dv_code: '', dv_type: 'Discount' as 'Discount' | 'Gift', dv_amount: '', status: 'Active' as 'Active' | 'Inactive', expiry_date: '', created_at: '' });
   const [dvFormError, setDvFormError] = useState('');
   const [dvFormSuccess, setDvFormSuccess] = useState('');
   const [savingDv, setSavingDv] = useState(false);
@@ -863,6 +898,7 @@ export default function StaffWorkspacePage() {
   const [galleryImageFile, setGalleryImageFile] = useState<File | null>(null);
   const [galleryImagePreview, setGalleryImagePreview] = useState<string | null>(null);
   const [uploadingGalleryImage, setUploadingGalleryImage] = useState(false);
+  const [togglingGalleryId, setTogglingGalleryId] = useState<string | null>(null);
   const galleryImageRef = useRef<HTMLInputElement>(null);
   // Orders tab state
   const [wsOrders, setWsOrders] = useState<Order[]>([]);
@@ -888,6 +924,7 @@ export default function StaffWorkspacePage() {
   const [abandonedCartsLoading, setAbandonedCartsLoading] = useState(false);
   const [abandonedCartsError, setAbandonedCartsError] = useState('');
   const [triggeringReminders, setTriggeringReminders] = useState(false);
+  const [reminderPaused, setReminderPaused] = useState('');
   const [reminderResult, setReminderResult] = useState<{ processed: number; results: Array<{ token: string; status: string; email?: string }> } | null>(null);
   const [abandonedCartsOpen, setAbandonedCartsOpen] = useState(false);
   const [deletingCartId, setDeletingCartId] = useState<string | null>(null);
@@ -1471,9 +1508,13 @@ export default function StaffWorkspacePage() {
     };
     let saveError: any = null;
     if (editingGalleryImage) {
-      ({ error: saveError } = await supabase.from('gallery_images').update(payload).eq('id', editingGalleryImage.id));
+      const { data: upd, error } = await supabase.from('gallery_images').update(payload).eq('id', editingGalleryImage.id).select('id');
+      saveError = error;
+      if (!error && (!upd || upd.length === 0)) saveError = { message: 'Update was blocked — you may not have permission to edit gallery images.' };
     } else {
-      ({ error: saveError } = await supabase.from('gallery_images').insert(payload));
+      const { data: ins, error } = await supabase.from('gallery_images').insert(payload).select('id');
+      saveError = error;
+      if (!error && (!ins || ins.length === 0)) saveError = { message: 'Could not add the image. Please try again.' };
     }
     if (saveError) { setGalleryFormError(saveError.message); }
     else {
@@ -1492,15 +1533,26 @@ export default function StaffWorkspacePage() {
       message: `Delete "${img.title}" from the gallery? This cannot be undone.`,
       onConfirm: async () => {
         setDeleteModal(prev => ({ ...prev, open: false }));
-        await supabase.from('gallery_images').delete().eq('id', img.id);
+        const { data, error } = await supabase.from('gallery_images').delete().eq('id', img.id).select('id');
+        if (error || !data || data.length === 0) {
+          showGlobalError('Could not delete the image — you may not have permission, or it was already removed.', 'Gallery Error');
+        } else if (img.image_path) {
+          // Remove the underlying file so we don't leave orphaned objects in storage.
+          await supabase.storage.from('gallery-images').remove([img.image_path]);
+        }
         await loadGallery();
       },
     });
   };
 
   const handleToggleGalleryImageVisible = async (img: typeof galleryImages[0]) => {
-    await supabase.from('gallery_images').update({ is_visible: !img.is_visible }).eq('id', img.id);
+    setTogglingGalleryId(img.id);
+    const { data, error } = await supabase.from('gallery_images').update({ is_visible: !img.is_visible }).eq('id', img.id).select('id');
+    if (error || !data || data.length === 0) {
+      showGlobalError('Could not update image visibility — please try again.', 'Gallery Error');
+    }
     await loadGallery();
+    setTogglingGalleryId(null);
   };
 
   const VOUCHER_PACKAGE_PRICES_WS: Record<string, number> = {
@@ -1566,9 +1618,17 @@ export default function StaffWorkspacePage() {
   const handleTriggerReminders = async () => {
     setTriggeringReminders(true);
     setReminderResult(null);
+    setAbandonedCartsError('');
+    setReminderPaused('');
     try {
       const res = await fetch('/api/abandoned-cart/trigger', { method: 'POST' });
       const data = await res.json();
+      // The reminder pipeline can be intentionally paused (503 + message). Treat
+      // that as an informational state, not a hard error.
+      if (res.status === 503 || (data && data.message && !data.processed)) {
+        setReminderPaused(data.message || 'Abandoned cart reminders are currently paused.');
+        return;
+      }
       if (!res.ok) throw new Error(data.error || 'Failed to trigger reminders');
       setReminderResult(data);
       await loadAbandonedCarts();
@@ -1593,29 +1653,41 @@ export default function StaffWorkspacePage() {
 
   const handleTogglePackageVisibility = async (id: string, newValue: boolean) => {
     setPackageVisibilitySaving(prev => ({ ...prev, [id]: true }));
-    await supabase
+    // .select() confirms the write actually applied; a 0-row/error result means it was
+    // blocked, so we surface an error and reload instead of leaving the UI out of sync.
+    const { data, error } = await supabase
       .from('package_visibility')
       .update({ is_visible: newValue, updated_at: new Date().toISOString() })
-      .eq('id', id);
-    setPackageVisibility(prev =>
-      prev.map(p => p.id === id ? { ...p, is_visible: newValue } : p)
-    );
+      .eq('id', id)
+      .select('id');
+    if (error || !data || data.length === 0) {
+      showGlobalError('Could not update package visibility — please try again.', 'Package Visibility Error');
+      await loadPackageVisibility();
+    } else {
+      setPackageVisibility(prev =>
+        prev.map(p => p.id === id ? { ...p, is_visible: newValue } : p)
+      );
+    }
     setPackageVisibilitySaving(prev => ({ ...prev, [id]: false }));
   };
   // ── End Package Visibility ─────────────────────────────────────────────────
 
   const handleDeleteAbandonedCart = async () => {
     if (!cartToDelete) return;
-    setDeletingCartId(cartToDelete.id);
+    const target = cartToDelete;
+    setDeletingCartId(target.id);
     setCartToDelete(null);
-    const { error } = await supabase
+    setAbandonedCartsError('');
+    const { data, error } = await supabase
       .from('guest_carts')
       .delete()
-      .eq('id', cartToDelete.id);
-    if (error) {
-      setAbandonedCartsError(error.message);
+      .eq('id', target.id)
+      .select('id');
+    if (error || !data || data.length === 0) {
+      setAbandonedCartsError(error?.message || 'Delete was blocked — you may not have permission to delete carts.');
+      await loadAbandonedCarts();
     } else {
-      setAbandonedCarts(prev => prev.filter(c => c.id !== cartToDelete.id));
+      setAbandonedCarts(prev => prev.filter(c => c.id !== target.id));
     }
     setDeletingCartId(null);
   };
@@ -2138,9 +2210,15 @@ export default function StaffWorkspacePage() {
     if (image_path) payload.image_path = image_path;
     let saveError: any = null;
     if (editingProduct) {
-      ({ error: saveError } = await supabase.from('products').update(payload).eq('id', editingProduct.id));
+      // .select() confirms a row was actually updated — a 0-row result means the write
+      // was blocked (e.g. by RLS) and would otherwise look like a false success.
+      const { data: upd, error } = await supabase.from('products').update(payload).eq('id', editingProduct.id).select('id');
+      saveError = error;
+      if (!error && (!upd || upd.length === 0)) saveError = { message: 'Update was blocked — you may not have permission to edit products.' };
     } else {
-      ({ error: saveError } = await supabase.from('products').insert(payload));
+      const { data: ins, error } = await supabase.from('products').insert(payload).select('id');
+      saveError = error;
+      if (!error && (!ins || ins.length === 0)) saveError = { message: 'Could not create the product. Please try again.' };
     }
     if (saveError) { showProductFormError(saveError.message); }
     else {
@@ -2160,7 +2238,10 @@ export default function StaffWorkspacePage() {
       message: `Delete "${product.name}"? This cannot be undone.`,
       onConfirm: async () => {
         setDeleteModal(prev => ({ ...prev, open: false }));
-        await supabase.from('products').delete().eq('id', product.id);
+        const { data, error } = await supabase.from('products').delete().eq('id', product.id).select('id');
+        if (error || !data || data.length === 0) {
+          showProductFormError('Could not delete the product — you may not have permission, or it was already removed.');
+        }
         await loadProducts();
       },
     });
@@ -2353,20 +2434,24 @@ export default function StaffWorkspacePage() {
       image_url = urlData?.publicUrl || null;
       setUploadingCardImage(false);
     }
-    const { error } = await supabase.from('homepage_cards').update({
+    const { data: upd, error } = await supabase.from('homepage_cards').update({
       ...cardForm,
       image_url,
       image_path,
       updated_at: new Date().toISOString(),
-    }).eq('id', editingCard.id);
+    }).eq('id', editingCard.id).select('id');
     if (error) { setCardFormError(error.message); }
+    else if (!upd || upd.length === 0) { setCardFormError('Update was blocked — you may not have permission to edit homepage cards.'); }
     else { setCardFormSuccess('Card updated!'); setEditingCard(null); await loadHomepageCards(); }
     setSavingCard(false);
   };
 
   const handleToggleCardVisible = async (card: HomepageCard) => {
     setTogglingCardId(card.id);
-    await supabase.from('homepage_cards').update({ is_visible: !card.is_visible }).eq('id', card.id);
+    const { data, error } = await supabase.from('homepage_cards').update({ is_visible: !card.is_visible }).eq('id', card.id).select('id');
+    if (error || !data || data.length === 0) {
+      showGlobalError('Could not update card visibility — please try again.', 'Homepage Card Error');
+    }
     await loadHomepageCards();
     setTogglingCardId(null);
   };
@@ -2410,9 +2495,13 @@ export default function StaffWorkspacePage() {
     };
     let saveError: any = null;
     if (editingWeeklyEntry) {
-      ({ error: saveError } = await supabase.from('weekly_menu').update(payload).eq('id', editingWeeklyEntry.id));
+      const { data: upd, error } = await supabase.from('weekly_menu').update(payload).eq('id', editingWeeklyEntry.id).select('id');
+      saveError = error;
+      if (!error && (!upd || upd.length === 0)) saveError = { message: 'Update was blocked — you may not have permission to edit the weekly menu.' };
     } else {
-      ({ error: saveError } = await supabase.from('weekly_menu').insert(payload));
+      const { data: ins, error } = await supabase.from('weekly_menu').insert(payload).select('id');
+      saveError = error;
+      if (!error && (!ins || ins.length === 0)) saveError = { message: 'Could not add the menu entry. Please try again.' };
     }
     if (saveError) { showWeeklyMenuFormError(saveError.message); }
     else {
@@ -2431,7 +2520,10 @@ export default function StaffWorkspacePage() {
       message: `Delete "${entry.meal_name || entry.day_name}"? This cannot be undone.`,
       onConfirm: async () => {
         setDeleteModal(prev => ({ ...prev, open: false }));
-        await supabase.from('weekly_menu').delete().eq('id', entry.id);
+        const { data, error } = await supabase.from('weekly_menu').delete().eq('id', entry.id).select('id');
+        if (error || !data || data.length === 0) {
+          showGlobalError(error?.message || 'Delete was blocked — you may not have permission to edit the weekly menu.', 'Weekly Menu Error');
+        }
         await loadWeeklyMenu();
       },
     });
@@ -2441,10 +2533,26 @@ export default function StaffWorkspacePage() {
     setClosingDayDate(date);
     setSavingClosedDay(true);
     const existing = weeklyMenuEntries.find(e => e.meal_date === date);
+    let err: any = null;
     if (existing) {
-      await supabase.from('weekly_menu').update({ is_closed: true, meal_name: null, description: null }).eq('id', existing.id);
+      const { data, error } = await supabase.from('weekly_menu').update({ is_closed: true, meal_name: null, description: null }).eq('id', existing.id).select('id');
+      err = error || (!data || data.length === 0 ? { message: 'blocked' } : null);
     } else {
-      await supabase.from('weekly_menu').insert({ meal_date: date, day_name: dayName, is_closed: true });
+      const { data, error } = await supabase.from('weekly_menu').insert({ meal_date: date, day_name: dayName, is_closed: true }).select('id');
+      err = error || (!data || data.length === 0 ? { message: 'blocked' } : null);
+    }
+    if (err) showGlobalError('Could not mark the day as closed — you may not have permission.', 'Weekly Menu Error');
+    await loadWeeklyMenu();
+    setSavingClosedDay(false);
+    setClosingDayDate(null);
+  };
+
+  const handleReopenDay = async (entry: WeeklyMenuEntry) => {
+    setClosingDayDate(entry.meal_date);
+    setSavingClosedDay(true);
+    const { data, error } = await supabase.from('weekly_menu').update({ is_closed: false, closed_reason: null }).eq('id', entry.id).select('id');
+    if (error || !data || data.length === 0) {
+      showGlobalError('Could not reopen the day — you may not have permission.', 'Weekly Menu Error');
     }
     await loadWeeklyMenu();
     setSavingClosedDay(false);
@@ -2494,7 +2602,10 @@ export default function StaffWorkspacePage() {
       message: `Delete voucher ${voucher.voucher_code}? This cannot be undone.`,
       onConfirm: async () => {
         setDeleteModal(prev => ({ ...prev, open: false }));
-        await supabase.from('vouchers').delete().eq('id', voucher.id);
+        const { data: del, error } = await supabase.from('vouchers').delete().eq('id', voucher.id).select('id');
+        if (error || !del || del.length === 0) {
+          showGlobalError(error?.message || 'Delete was blocked — you may not have permission to delete vouchers.');
+        }
         await loadVouchers();
       },
     });
@@ -2520,12 +2631,17 @@ export default function StaffWorkspacePage() {
     };
     let saveError: any = null;
     if (editingMv) {
-      ({ error: saveError } = await supabase.from('vouchers').update(payload).eq('id', editingMv.id));
+      const { data: upd, error } = await supabase.from('vouchers').update(payload).eq('id', editingMv.id).select('id');
+      saveError = error;
+      if (!error && (!upd || upd.length === 0)) saveError = { message: 'Update was blocked — you may not have permission to edit vouchers.' };
     } else {
-      ({ error: saveError } = await supabase.from('vouchers').insert(payload));
+      const { data: ins, error } = await supabase.from('vouchers').insert(payload).select('id');
+      saveError = error;
+      if (!error && (!ins || ins.length === 0)) saveError = { message: 'Could not add the voucher. Please try again.' };
     }
-    if (saveError) { setMvFormError(saveError.message); }
-    else {
+    if (saveError) {
+      setMvFormError(/duplicate|unique/i.test(saveError.message || '') ? 'That voucher code already exists. Use a unique code.' : saveError.message);
+    } else {
       setMvFormSuccess(editingMv ? 'Voucher updated!' : 'Voucher added!');
       setShowMvForm(false);
       setShowMvEditModal(false);
@@ -2536,23 +2652,30 @@ export default function StaffWorkspacePage() {
   };
 
   const handleSaveDv = async () => {
+    setDvFormError(''); setDvFormSuccess('');
     if (!dvForm.dv_code.trim() || !dvForm.dv_amount) { setDvFormError('Code and amount are required.'); return; }
+    if (Number(dvForm.dv_amount) <= 0) { setDvFormError('Amount must be greater than zero.'); return; }
+    if (!dvForm.expiry_date) { setDvFormError('Expiry date is required.'); return; }
     setSavingDv(true);
     const payload: any = {
       dv_code: dvForm.dv_code.trim().toUpperCase(),
-      dv_type: dvForm.dv_type,
       dv_amount: Number(dvForm.dv_amount),
       status: dvForm.status,
-      expiry_date: dvForm.expiry_date || null,
+      expiry_date: dvForm.expiry_date,
     };
     let saveError: any = null;
     if (editingDv) {
-      ({ error: saveError } = await supabase.from('discount_vouchers').update(payload).eq('id', editingDv.id));
+      const { data: upd, error } = await supabase.from('discount_vouchers').update(payload).eq('id', editingDv.id).select('id');
+      saveError = error;
+      if (!error && (!upd || upd.length === 0)) saveError = { message: 'Update was blocked — you may not have permission to edit vouchers.' };
     } else {
-      ({ error: saveError } = await supabase.from('discount_vouchers').insert(payload));
+      const { data: ins, error } = await supabase.from('discount_vouchers').insert(payload).select('id');
+      saveError = error;
+      if (!error && (!ins || ins.length === 0)) saveError = { message: 'Could not add the voucher. Please try again.' };
     }
-    if (saveError) { setDvFormError(saveError.message); }
-    else {
+    if (saveError) {
+      setDvFormError(/duplicate|unique/i.test(saveError.message || '') ? 'That voucher code already exists. Use a unique code.' : saveError.message);
+    } else {
       setDvFormSuccess(editingDv ? 'Voucher updated!' : 'Voucher added!');
       setShowDvForm(false);
       setEditingDv(null);
@@ -2568,7 +2691,10 @@ export default function StaffWorkspacePage() {
       message: `Delete voucher ${dv.dv_code}? This cannot be undone.`,
       onConfirm: async () => {
         setDeleteModal(prev => ({ ...prev, open: false }));
-        await supabase.from('discount_vouchers').delete().eq('id', dv.id);
+        const { data: del, error } = await supabase.from('discount_vouchers').delete().eq('id', dv.id).select('id');
+        if (error || !del || del.length === 0) {
+          showGlobalError(error?.message || 'Delete was blocked — you may not have permission to delete vouchers.');
+        }
         await loadDiscountVouchers();
       },
     });
@@ -2588,9 +2714,13 @@ export default function StaffWorkspacePage() {
     };
     let saveError: any = null;
     if (editingTestimonial) {
-      ({ error: saveError } = await supabase.from('testimonials').update(payload).eq('id', editingTestimonial.id));
+      const { data: upd, error } = await supabase.from('testimonials').update(payload).eq('id', editingTestimonial.id).select('id');
+      saveError = error;
+      if (!error && (!upd || upd.length === 0)) saveError = { message: 'Update was blocked — you may not have permission to edit testimonials.' };
     } else {
-      ({ error: saveError } = await supabase.from('testimonials').insert(payload));
+      const { data: ins, error } = await supabase.from('testimonials').insert(payload).select('id');
+      saveError = error;
+      if (!error && (!ins || ins.length === 0)) saveError = { message: 'Could not add the testimonial. Please try again.' };
     }
     if (saveError) { setTestimonialFormError(saveError.message); }
     else {
@@ -2679,6 +2809,7 @@ export default function StaffWorkspacePage() {
     if (tab === 'section_visibility') loadHomepageSections();
     if (tab === 'abandoned_carts') loadAbandonedCarts();
     if (tab === 'package_visibility') loadPackageVisibility();
+    if (tab === 'media_products') { loadProducts(); loadCategoryNames(); }
     if (tab === 'customer_order_history') {
       setCohLookupInput('');
       setCohLookupError('');
@@ -2691,6 +2822,8 @@ export default function StaffWorkspacePage() {
   // Role-scoped tab visibility helpers for the sidebar.
   const canTab = (tab: WorkspaceTab) => roleCanAccessTab(userProfile?.role, tab);
   const canAnyTab = (...tabs: WorkspaceTab[]) => tabs.some(canTab);
+  // Action-level gate per the client role matrix (view/create/edit/delete/status/redeem).
+  const can = (tab: WorkspaceTab, action: PermAction) => canDo(userProfile?.role, tab, action);
   // Role gate for standalone /staff/* pages linked from the sidebar.
   const canRole = (...roles: StaffRole[]) =>
     !!userProfile?.role && roles.includes(userProfile.role as StaffRole);
@@ -3016,7 +3149,7 @@ export default function StaffWorkspacePage() {
 
             {/* ── COOKING CLASSES TAB ── */}
             {activeTab === 'cooking_classes' && (
-              <CookingClassSettings isSuperAdmin={userProfile?.role === 'super_admin'} />
+              <CookingClassSettings isSuperAdmin={userProfile?.role === 'super_admin'} readOnly={!can('cooking_classes', 'edit')} />
             )}
 
             {/* ── PRODUCTS TAB ── */}
@@ -3036,7 +3169,9 @@ export default function StaffWorkspacePage() {
                         </button>
                       )}
                     </div>
-                    <button onClick={openAddForm} className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors">+ Add Product</button>
+                    {can('products', 'create') && (
+                      <button onClick={openAddForm} className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors">+ Add Product</button>
+                    )}
                   </div>
                 </div>
 
@@ -3110,8 +3245,12 @@ export default function StaffWorkspacePage() {
                               <td className="px-4 py-3 text-[#5C5347] text-sm">{product.visual_type || '—'}</td>
                               <td className="px-4 py-3 text-right">
                                 <div className="flex items-center justify-end gap-2">
-                                  <button onClick={() => openEditForm(product)} className="text-xs bg-[#C4622D] text-white px-3 py-1.5 rounded-xl font-semibold hover:bg-[#A04E22] transition-colors">Edit</button>
-                                  <button onClick={() => handleDeleteProduct(product)} className="text-xs bg-white text-red-600 border border-red-300 px-3 py-1.5 rounded-xl font-semibold hover:bg-red-50 transition-colors">Delete</button>
+                                  {can('products', 'edit') && (
+                                    <button onClick={() => openEditForm(product)} className="text-xs bg-[#C4622D] text-white px-3 py-1.5 rounded-xl font-semibold hover:bg-[#A04E22] transition-colors">Edit</button>
+                                  )}
+                                  {can('products', 'delete') && (
+                                    <button onClick={() => handleDeleteProduct(product)} className="text-xs bg-white text-red-600 border border-red-300 px-3 py-1.5 rounded-xl font-semibold hover:bg-red-50 transition-colors">Delete</button>
+                                  )}
                                 </div>
                               </td>
                             </tr>
@@ -3475,12 +3614,18 @@ export default function StaffWorkspacePage() {
                                     <div className="pt-2 space-y-2">
                                       <div>
                                         <p className="text-xs text-[#B5ADA5] mb-1">Payment Status</p>
-                                        <select value={order.payment_status} onChange={e => handleWsPaymentUpdate(order.id, e.target.value as PaymentStatus)} disabled={updateState.paymentSaving} className="border border-[#DDD5C8] rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white disabled:opacity-50 w-full">
-                                          {PAYMENT_OPTIONS.map(s => <option key={s} value={s}>{PAYMENT_STATUS_LABELS[s]}</option>)}
-                                        </select>
-                                        {updateState.paymentSaving && <p className="text-xs text-[#8C8278] mt-1">Saving…</p>}
-                                        {updateState.paymentSuccess && <p className="text-xs text-green-600 mt-1">✓ Saved</p>}
-                                        {updateState.paymentError && <p className="text-xs text-red-500 mt-1">{updateState.paymentError}</p>}
+                                        {can('orders', 'edit') ? (
+                                          <>
+                                            <select value={order.payment_status} onChange={e => handleWsPaymentUpdate(order.id, e.target.value as PaymentStatus)} disabled={updateState.paymentSaving} className="border border-[#DDD5C8] rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white disabled:opacity-50 w-full">
+                                              {PAYMENT_OPTIONS.map(s => <option key={s} value={s}>{PAYMENT_STATUS_LABELS[s]}</option>)}
+                                            </select>
+                                            {updateState.paymentSaving && <p className="text-xs text-[#8C8278] mt-1">Saving…</p>}
+                                            {updateState.paymentSuccess && <p className="text-xs text-green-600 mt-1">✓ Saved</p>}
+                                            {updateState.paymentError && <p className="text-xs text-red-500 mt-1">{updateState.paymentError}</p>}
+                                          </>
+                                        ) : (
+                                          <span className="inline-block text-sm font-medium text-[#1A1612] border border-[#EDE7DA] rounded-xl px-3 py-1.5 bg-[#FAF5EE] w-full">{PAYMENT_STATUS_LABELS[order.payment_status]}</span>
+                                        )}
                                       </div>
                                       <div>
                                         <p className="text-xs text-[#B5ADA5] mb-1">Fulfillment Status</p>
@@ -3514,7 +3659,7 @@ export default function StaffWorkspacePage() {
 
             {/* ── CORRESPONDENCE SETTINGS TAB ── */}
             {activeTab === 'correspondence_settings' && (
-              <CorrespondenceSettings />
+              <CorrespondenceSettings readOnly={!can('correspondence_settings', 'edit')} />
             )}
 
             {/* ── PACKAGE VISIBILITY TAB ── */}
@@ -3565,13 +3710,13 @@ export default function StaffWorkspacePage() {
                   <h2 className="text-xl font-bold text-[#1A1612]">Document Management</h2>
                   <p className="text-sm text-[#8C8278] mt-0.5">Manage and view documents from Google Drive</p>
                 </div>
-                <GoogleDriveDocuments isSuperAdmin={userProfile?.role === 'super_admin' || user?.email === 'admin@cardamomkitchen.co.za'} />
+                <GoogleDriveDocuments canManage={can('media', 'create')} />
               </div>
             )}
 
             {/* ── EVENTS TAB ── */}
             {activeTab === 'media_events' && (
-              <EventManagement />
+              <EventManagement canCreate={can('media_events', 'create')} canDelete={can('media_events', 'delete')} />
             )}
 
             {/* ── WEEKLY MENU TAB ── */}
@@ -3616,14 +3761,21 @@ export default function StaffWorkspacePage() {
                               {entry.price && <p className="text-xs font-semibold text-[#C4622D] mt-1">R{entry.price.toFixed(2)}</p>}
                             </div>
                           )}
-                          <div className="flex gap-2">
-                            <button onClick={() => entry ? openEditWeeklyMenuForm(entry) : openAddWeeklyMenuForm(day.date, day.dayName)} className="flex-1 text-xs bg-[#C4622D] text-white py-1.5 rounded-lg hover:bg-[#A04E22] transition-colors font-medium">
-                              {entry ? 'Edit' : 'Add'}
-                            </button>
-                            {!entry?.is_closed && (
-                              <button onClick={() => handleCloseDay(day.date, day.dayName)} disabled={closingDayDate === day.date} className="text-xs border border-[#DDD5C8] text-[#5C5347] px-2 py-1.5 rounded-lg hover:bg-[#F5F0E8] transition-colors disabled:opacity-50">Close</button>
-                            )}
-                          </div>
+                          {can('weekly_menu', 'edit') && (
+                            <div className="flex gap-2">
+                              <button onClick={() => entry ? openEditWeeklyMenuForm(entry) : openAddWeeklyMenuForm(day.date, day.dayName)} className="flex-1 text-xs bg-[#C4622D] text-white py-1.5 rounded-lg hover:bg-[#A04E22] transition-colors font-medium">
+                                {entry ? 'Edit' : 'Add'}
+                              </button>
+                              {entry?.is_closed ? (
+                                <button onClick={() => handleReopenDay(entry)} disabled={closingDayDate === entry.meal_date} className="text-xs border border-green-300 text-green-700 px-2 py-1.5 rounded-lg hover:bg-green-50 transition-colors disabled:opacity-50">Reopen</button>
+                              ) : (
+                                <button onClick={() => handleCloseDay(day.date, day.dayName)} disabled={closingDayDate === day.date} className="text-xs border border-[#DDD5C8] text-[#5C5347] px-2 py-1.5 rounded-lg hover:bg-[#F5F0E8] transition-colors disabled:opacity-50">Close</button>
+                              )}
+                              {entry && can('weekly_menu', 'delete') && (
+                                <button onClick={() => handleDeleteWeeklyEntry(entry)} className="text-xs border border-red-300 text-red-600 px-2 py-1.5 rounded-lg hover:bg-red-50 transition-colors">Delete</button>
+                              )}
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -3741,7 +3893,9 @@ export default function StaffWorkspacePage() {
                         {status.charAt(0).toUpperCase() + status.slice(1)}
                       </button>
                     ))}
-                    <button onClick={() => { setEditingMv(null); setMvForm({ voucher_code: `MV-${Date.now().toString(36).toUpperCase()}`, customer_name: '', customer_email: '', customer_phone: '', total_meals: '', meals_remaining: '', status: 'unpaid', notes: '', package_type: 'none', purchased_at: '' }); setMvFormError(''); setMvFormSuccess(''); setShowMvForm(true); }} className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors">+ Add Voucher</button>
+                    {can('vouchers', 'create') && (
+                      <button onClick={() => { setEditingMv(null); setMvForm({ voucher_code: `MV-${Date.now().toString(36).toUpperCase()}`, customer_name: '', customer_email: '', customer_phone: '', total_meals: '', meals_remaining: '', status: 'unpaid', notes: '', package_type: 'none', purchased_at: '' }); setMvFormError(''); setMvFormSuccess(''); setShowMvForm(true); }} className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors">+ Add Voucher</button>
+                    )}
                   </div>
                 </div>
                 {mvLoading ? (
@@ -3772,31 +3926,38 @@ export default function StaffWorkspacePage() {
                           <p className="text-xs text-[#8C8278]">Date purchased: {v.purchased_at ? new Date(v.purchased_at).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '/') : '—'}</p>
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
-                          {v.status === 'unpaid' && (
+                          {v.status === 'unpaid' && can('vouchers', 'edit') && (
                             <button onClick={() => handleMarkVoucherPaid(v)} disabled={markingVoucherPaidId === v.id} className="text-xs bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50">Mark Paid</button>
                           )}
-                          <button
-                            onClick={() => {
-                              setEditingMv(v);
-                              setMvForm({
-                                voucher_code: v.voucher_code,
-                                customer_name: v.customer_name,
-                                customer_email: v.customer_email,
-                                customer_phone: v.customer_phone || '',
-                                total_meals: String(v.total_meals),
-                                meals_remaining: String(v.meals_remaining),
-                                status: v.status,
-                                notes: v.notes || '',
-                                package_type: v.package_type || 'none',
-                                purchased_at: v.purchased_at || '',
-                              });
-                              setMvFormError('');
-                              setMvFormSuccess('');
-                              setShowMvForm(true);
-                            }}
-                            className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-lg hover:bg-[#FDF6EE] transition-colors font-medium"
-                          >Edit</button>
-                          <button onClick={() => handleDeleteVoucher(v)} className="text-xs text-red-500 border border-red-300 px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors font-medium">Delete</button>
+                          {can('vouchers', 'edit') && (
+                            <button
+                              onClick={() => {
+                                setEditingMv(v);
+                                setMvForm({
+                                  voucher_code: v.voucher_code,
+                                  customer_name: v.customer_name,
+                                  customer_email: v.customer_email,
+                                  customer_phone: v.customer_phone || '',
+                                  total_meals: String(v.total_meals),
+                                  meals_remaining: String(v.meals_remaining),
+                                  status: v.status,
+                                  notes: v.notes || '',
+                                  package_type: v.package_type || 'none',
+                                  purchased_at: v.purchased_at || '',
+                                });
+                                setMvFormError('');
+                                setMvFormSuccess('');
+                                setShowMvForm(true);
+                              }}
+                              className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-lg hover:bg-[#FDF6EE] transition-colors font-medium"
+                            >Edit</button>
+                          )}
+                          {can('vouchers', 'delete') && (
+                            <button onClick={() => handleDeleteVoucher(v)} className="text-xs text-red-500 border border-red-300 px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors font-medium">Delete</button>
+                          )}
+                          {!can('vouchers', 'edit') && !can('vouchers', 'delete') && (
+                            <span className="text-xs text-[#B5ADA5] italic">View only · redeem via Scanner</span>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -4115,7 +4276,14 @@ export default function StaffWorkspacePage() {
                         <div className="p-3">
                           <p className="text-sm font-medium text-[#1A1612] truncate">{img.title}</p>
                           <div className="flex items-center justify-between mt-2">
-                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${img.is_visible ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{img.is_visible ? 'Visible' : 'Hidden'}</span>
+                            <button
+                              onClick={() => handleToggleGalleryImageVisible(img)}
+                              disabled={togglingGalleryId === img.id}
+                              title="Click to toggle visibility on the homepage gallery"
+                              className={`text-xs px-2 py-0.5 rounded-full font-medium transition-colors disabled:opacity-50 ${img.is_visible ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-red-100 text-red-700 hover:bg-red-200'}`}
+                            >
+                              {img.is_visible ? 'Visible' : 'Hidden'}
+                            </button>
                             <div className="flex gap-2">
                               <button onClick={() => openEditGalleryForm(img)} className="text-xs text-[#C4622D] hover:underline font-medium">Edit</button>
                               <button onClick={() => handleDeleteGalleryImage(img)} className="text-xs text-red-500 hover:underline font-medium">Delete</button>
@@ -4126,6 +4294,280 @@ export default function StaffWorkspacePage() {
                     ))}
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* ── GALLERY ADD/EDIT FORM MODAL ── */}
+            {showGalleryForm && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+                <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+                  <div className="p-6 border-b border-[#EDE7DA] flex items-center justify-between">
+                    <h3 className="text-base font-bold text-[#1A1612]">{editingGalleryImage ? 'Edit Gallery Image' : 'Add Gallery Image'}</h3>
+                    <button onClick={() => { setShowGalleryForm(false); setEditingGalleryImage(null); }} className="text-[#8C8278] hover:text-[#1A1612] text-lg leading-none">✕</button>
+                  </div>
+                  <div className="p-6 space-y-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-[#5C5347] mb-1">Image {editingGalleryImage ? '(leave blank to keep current)' : <span className="text-red-500">*</span>}</label>
+                      {galleryImagePreview && (
+                        <img src={galleryImagePreview} alt="Preview" className="w-full h-40 object-cover rounded-xl border border-[#EDE7DA] mb-2" />
+                      )}
+                      <input
+                        ref={galleryImageRef}
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,image/gif"
+                        onChange={e => {
+                          const file = e.target.files?.[0];
+                          if (file) { setGalleryImageFile(file); setGalleryImagePreview(URL.createObjectURL(file)); }
+                        }}
+                        className="w-full text-sm text-[#5C5347] file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-[#C4622D] file:text-white hover:file:bg-[#A04E22] file:cursor-pointer"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-[#5C5347] mb-1">Title <span className="text-red-500">*</span></label>
+                      <input
+                        type="text"
+                        value={galleryForm.title}
+                        onChange={e => setGalleryForm(f => ({ ...f, title: e.target.value }))}
+                        placeholder="e.g. Seafood Platter"
+                        className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-[#5C5347] mb-1">Description</label>
+                      <textarea
+                        value={galleryForm.description}
+                        onChange={e => setGalleryForm(f => ({ ...f, description: e.target.value }))}
+                        placeholder="Optional description"
+                        rows={2}
+                        className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] resize-none"
+                      />
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="flex-1">
+                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Sort Order</label>
+                        <input
+                          type="number"
+                          value={galleryForm.sort_order}
+                          onChange={e => setGalleryForm(f => ({ ...f, sort_order: e.target.value }))}
+                          className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                        />
+                      </div>
+                      <label className="flex items-center gap-2 text-sm text-[#5C5347] cursor-pointer select-none mt-5">
+                        <input
+                          type="checkbox"
+                          checked={galleryForm.is_visible}
+                          onChange={e => setGalleryForm(f => ({ ...f, is_visible: e.target.checked }))}
+                          className="w-4 h-4 accent-[#C4622D]"
+                        />
+                        Visible on homepage
+                      </label>
+                    </div>
+                    {galleryFormError && <p className="text-xs text-red-500">{galleryFormError}</p>}
+                    {galleryFormSuccess && <p className="text-xs text-green-600">{galleryFormSuccess}</p>}
+                  </div>
+                  <div className="p-6 pt-0 flex justify-end gap-3">
+                    <button
+                      onClick={() => { setShowGalleryForm(false); setEditingGalleryImage(null); }}
+                      className="px-4 py-2 rounded-xl border border-[#DDD5C8] text-sm text-[#5C5347] hover:bg-[#F5F0E8] transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleSaveGalleryImage}
+                      disabled={savingGallery || uploadingGalleryImage}
+                      className="px-5 py-2 rounded-xl bg-[#C4622D] text-white text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
+                    >
+                      {uploadingGalleryImage ? 'Uploading…' : savingGallery ? 'Saving…' : editingGalleryImage ? 'Update' : 'Add Image'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── DISCOUNT VOUCHER ADD/EDIT FORM MODAL ── */}
+            {showDvForm && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+                <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+                  <div className="p-6 border-b border-[#EDE7DA] flex items-center justify-between">
+                    <h3 className="text-base font-bold text-[#1A1612]">{editingDv ? 'Edit Discount Voucher' : 'Add Discount Voucher'}</h3>
+                    <button onClick={() => { setShowDvForm(false); setEditingDv(null); }} className="text-[#8C8278] hover:text-[#1A1612] text-lg leading-none">✕</button>
+                  </div>
+                  <div className="p-6 space-y-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-[#5C5347] mb-1">Voucher Code <span className="text-red-500">*</span></label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={dvForm.dv_code}
+                          onChange={e => setDvForm(f => ({ ...f, dv_code: e.target.value.toUpperCase() }))}
+                          placeholder="e.g. DV-2026-A24FJ8"
+                          className="flex-1 border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] font-mono"
+                        />
+                        {!editingDv && (
+                          <button
+                            type="button"
+                            onClick={() => setDvForm(f => ({ ...f, dv_code: `DV-2026-${Math.random().toString(36).slice(2, 8).toUpperCase()}` }))}
+                            className="px-3 py-2 rounded-xl border border-[#DDD5C8] text-xs text-[#5C5347] hover:bg-[#F5F0E8] transition-colors whitespace-nowrap"
+                          >
+                            Generate
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-[#5C5347] mb-1">Amount (R) <span className="text-red-500">*</span></label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={dvForm.dv_amount}
+                        onChange={e => setDvForm(f => ({ ...f, dv_amount: e.target.value }))}
+                        placeholder="e.g. 50.00"
+                        className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                      />
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="flex-1">
+                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Status</label>
+                        <select
+                          value={dvForm.status}
+                          onChange={e => setDvForm(f => ({ ...f, status: e.target.value as 'Active' | 'Inactive' }))}
+                          className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+                        >
+                          <option value="Active">Active</option>
+                          <option value="Inactive">Inactive</option>
+                        </select>
+                      </div>
+                      <div className="flex-1">
+                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Expiry Date <span className="text-red-500">*</span></label>
+                        <input
+                          type="date"
+                          value={dvForm.expiry_date}
+                          onChange={e => setDvForm(f => ({ ...f, expiry_date: e.target.value }))}
+                          className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                        />
+                      </div>
+                    </div>
+                    {dvFormError && <p className="text-xs text-red-500">{dvFormError}</p>}
+                    {dvFormSuccess && <p className="text-xs text-green-600">{dvFormSuccess}</p>}
+                  </div>
+                  <div className="p-6 pt-0 flex justify-end gap-3">
+                    <button
+                      onClick={() => { setShowDvForm(false); setEditingDv(null); }}
+                      className="px-4 py-2 rounded-xl border border-[#DDD5C8] text-sm text-[#5C5347] hover:bg-[#F5F0E8] transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleSaveDv}
+                      disabled={savingDv}
+                      className="px-5 py-2 rounded-xl bg-[#C4622D] text-white text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
+                    >
+                      {savingDv ? 'Saving…' : editingDv ? 'Update' : 'Add Voucher'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── TESTIMONIAL ADD/EDIT FORM MODAL ── */}
+            {showTestimonialForm && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+                <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+                  <div className="p-6 border-b border-[#EDE7DA] flex items-center justify-between">
+                    <h3 className="text-base font-bold text-[#1A1612]">{editingTestimonial ? 'Edit Testimonial' : 'Add Testimonial'}</h3>
+                    <button onClick={() => { setShowTestimonialForm(false); setEditingTestimonial(null); }} className="text-[#8C8278] hover:text-[#1A1612] text-lg leading-none">✕</button>
+                  </div>
+                  <div className="p-6 space-y-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-[#5C5347] mb-1">Name <span className="text-red-500">*</span></label>
+                      <input
+                        type="text"
+                        value={testimonialForm.name}
+                        onChange={e => setTestimonialForm(f => ({ ...f, name: e.target.value }))}
+                        placeholder="e.g. Laila"
+                        className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-[#5C5347] mb-1">Role / Title</label>
+                      <input
+                        type="text"
+                        value={testimonialForm.role}
+                        onChange={e => setTestimonialForm(f => ({ ...f, role: e.target.value }))}
+                        placeholder="e.g. Service, Health, Cooking & Baking Classes"
+                        className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-[#5C5347] mb-1">Quote <span className="text-red-500">*</span></label>
+                      <textarea
+                        value={testimonialForm.quote}
+                        onChange={e => setTestimonialForm(f => ({ ...f, quote: e.target.value }))}
+                        placeholder="What the customer said…"
+                        rows={4}
+                        className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] resize-none"
+                      />
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="flex-1">
+                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Rating</label>
+                        <select
+                          value={testimonialForm.rating}
+                          onChange={e => setTestimonialForm(f => ({ ...f, rating: Number(e.target.value) }))}
+                          className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+                        >
+                          {[5, 4, 3, 2, 1].map(r => <option key={r} value={r}>{r} ★</option>)}
+                        </select>
+                      </div>
+                      <div className="flex-1">
+                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Display Order</label>
+                        <input
+                          type="number"
+                          value={testimonialForm.display_order}
+                          onChange={e => setTestimonialForm(f => ({ ...f, display_order: e.target.value }))}
+                          className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-[#5C5347] mb-1">Avatar URL <span className="text-[#B5ADA5] font-normal">(optional)</span></label>
+                      <input
+                        type="text"
+                        value={testimonialForm.avatar_url}
+                        onChange={e => setTestimonialForm(f => ({ ...f, avatar_url: e.target.value }))}
+                        placeholder="https://…"
+                        className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                      />
+                    </div>
+                    <label className="flex items-center gap-2 text-sm text-[#5C5347] cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={testimonialForm.is_active}
+                        onChange={e => setTestimonialForm(f => ({ ...f, is_active: e.target.checked }))}
+                        className="w-4 h-4 accent-[#C4622D]"
+                      />
+                      Active (show on the homepage)
+                    </label>
+                    {testimonialFormError && <p className="text-xs text-red-500">{testimonialFormError}</p>}
+                    {testimonialFormSuccess && <p className="text-xs text-green-600">{testimonialFormSuccess}</p>}
+                  </div>
+                  <div className="p-6 pt-0 flex justify-end gap-3">
+                    <button
+                      onClick={() => { setShowTestimonialForm(false); setEditingTestimonial(null); }}
+                      className="px-4 py-2 rounded-xl border border-[#DDD5C8] text-sm text-[#5C5347] hover:bg-[#F5F0E8] transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleSaveTestimonial}
+                      disabled={savingTestimonial}
+                      className="px-5 py-2 rounded-xl bg-[#C4622D] text-white text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
+                    >
+                      {savingTestimonial ? 'Saving…' : editingTestimonial ? 'Update' : 'Add Testimonial'}
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -4206,6 +4648,26 @@ export default function StaffWorkspacePage() {
                   </div>
                   <button onClick={handleTriggerReminders} disabled={triggeringReminders} className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50">{triggeringReminders ? 'Sending…' : 'Send Reminders'}</button>
                 </div>
+                {reminderPaused && (
+                  <div className="mb-4 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center justify-between gap-3">
+                    <p className="text-sm text-amber-700">{reminderPaused}</p>
+                    <button onClick={() => setReminderPaused('')} className="text-amber-500 hover:text-amber-700 flex-shrink-0" aria-label="Dismiss">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                  </div>
+                )}
+                {reminderResult && (
+                  <div className="mb-4 bg-green-50 border border-green-200 rounded-xl px-4 py-3 flex items-center justify-between gap-3">
+                    <p className="text-sm text-green-700">
+                      {reminderResult.processed === 0
+                        ? 'No carts were eligible for a reminder right now.'
+                        : `Sent ${(reminderResult.results || []).filter(r => r.status === 'sent').length} of ${reminderResult.processed} reminder${reminderResult.processed !== 1 ? 's' : ''}.`}
+                    </p>
+                    <button onClick={() => setReminderResult(null)} className="text-green-500 hover:text-green-700 flex-shrink-0" aria-label="Dismiss">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                  </div>
+                )}
                 {abandonedCartsLoading ? (
                   <div className="flex items-center justify-center py-12"><div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>
                 ) : abandonedCartsError ? (
@@ -4289,15 +4751,70 @@ export default function StaffWorkspacePage() {
             {/* ── MEDIA PRODUCTS TAB ── */}
             {activeTab === 'media_products' && (
               <div className="p-6">
-                <div className="mb-6">
-                  <h2 className="text-xl font-bold text-[#1A1612]">Add Products</h2>
-                  <p className="text-sm text-[#8C8278] mt-0.5">Manage products available in the store</p>
+                <div className="flex items-start justify-between gap-4 mb-6 flex-wrap">
+                  <div>
+                    <h2 className="text-xl font-bold text-[#1A1612]">Product Media</h2>
+                    <p className="text-sm text-[#8C8278] mt-0.5">{products.length} product{products.length !== 1 ? 's' : ''} in the catalogue · manage images &amp; details</p>
+                  </div>
+                  {can('media_products', 'create') && (
+                    <button onClick={() => { setActiveTab('products'); openAddForm(); }} className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors">+ Add Product</button>
+                  )}
                 </div>
-                <div className="bg-white rounded-2xl border border-[#EDE7DA] p-8 text-center">
-                  <span className="text-4xl">🛍️</span>
-                  <p className="text-[#8C8278] mt-3 text-sm">Switch to the Products tab to manage your product catalog.</p>
-                  <button onClick={() => handleTabChange('products')} className="mt-4 bg-[#C4622D] text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors">Go to Products</button>
+
+                <div className="relative mb-5 max-w-xs">
+                  <input type="text" placeholder="Search products…" value={productSearchQuery} onChange={e => setProductSearchQuery(e.target.value)} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 pr-8 text-sm focus:outline-none focus:border-[#C4622D] bg-white" />
+                  {productSearchQuery && (
+                    <button type="button" onClick={() => setProductSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-[#B5ADA5] hover:text-[#5C5347] transition-colors" aria-label="Clear search">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4"><path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" /></svg>
+                    </button>
+                  )}
                 </div>
+
+                {productsLoading ? (
+                  <div className="flex items-center justify-center py-16"><div className="w-8 h-8 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>
+                ) : (() => {
+                  const filteredProducts = products.filter(p => !productSearchQuery || p.name.toLowerCase().includes(productSearchQuery.toLowerCase()) || p.category.toLowerCase().includes(productSearchQuery.toLowerCase()));
+                  if (filteredProducts.length === 0) {
+                    return (
+                      <div className="bg-white rounded-2xl border border-[#EDE7DA] p-10 text-center">
+                        <span className="text-4xl">🛍️</span>
+                        <p className="text-[#8C8278] mt-3 text-sm">{productSearchQuery ? 'No products match your search.' : 'No products yet. Click "+ Add Product" to create one.'}</p>
+                      </div>
+                    );
+                  }
+                  return (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {filteredProducts.map(p => (
+                        <div key={p.id} className="bg-white rounded-2xl border border-[#EDE7DA] overflow-hidden flex flex-col">
+                          <div className="relative h-40 bg-[#F5F0E8] flex items-center justify-center">
+                            {p.imageUrl ? (
+                              <img src={p.imageUrl} alt={p.name} className={`w-full h-full ${p.image_fit === 'contain' ? 'object-contain' : 'object-cover'}`} />
+                            ) : (
+                              <span className="text-4xl">🍽️</span>
+                            )}
+                            <div className="absolute top-2 left-2 flex gap-1.5">
+                              <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${p.available ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{p.available ? 'Available' : 'Hidden'}</span>
+                              {p.featured && <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-[#FDF6EE] text-[#C4622D] border border-[#F0D9C8]">Featured</span>}
+                            </div>
+                          </div>
+                          <div className="p-4 flex flex-col flex-1">
+                            <p className="text-sm font-bold text-[#1A1612] line-clamp-1">{p.name}</p>
+                            <p className="text-xs text-[#8C8278] mt-0.5">{p.category}{p.package_type && p.package_type !== 'none' ? ` · ${p.package_type}` : ''}</p>
+                            <p className="text-sm font-semibold text-[#C4622D] mt-1">{p.price > 0 ? `R${Number(p.price).toFixed(2)}` : '—'}{p.unit ? <span className="text-xs text-[#8C8278] font-normal"> / {p.unit}</span> : null}</p>
+                            <div className="flex items-center gap-2 mt-3 pt-3 border-t border-[#F0EBE2]">
+                              {can('media_products', 'edit') && (
+                                <button onClick={() => { setActiveTab('products'); openEditForm(p); }} className="flex-1 text-xs bg-[#C4622D] text-white px-3 py-1.5 rounded-lg font-semibold hover:bg-[#A04E22] transition-colors">Edit</button>
+                              )}
+                              {can('media_products', 'delete') && (
+                                <button onClick={() => handleDeleteProduct(p)} className="flex-1 text-xs bg-white text-red-600 border border-red-300 px-3 py-1.5 rounded-lg font-semibold hover:bg-red-50 transition-colors">Delete</button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
               </div>
             )}
 

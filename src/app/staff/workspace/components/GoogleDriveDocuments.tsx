@@ -19,7 +19,7 @@ interface DriveDoc {
 }
 
 interface GoogleDriveDocumentsProps {
-  isSuperAdmin: boolean;
+  canManage: boolean;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -283,12 +283,12 @@ function EditModal({
 // ─── DocRow ───────────────────────────────────────────────────────────────────
 function DocRow({
   doc,
-  isSuperAdmin,
+  canManage,
   onRemove,
   onEdit,
 }: {
   doc: DriveDoc;
-  isSuperAdmin: boolean;
+  canManage: boolean;
   onRemove: (id: string) => void;
   onEdit: (doc: DriveDoc) => void;
 }) {
@@ -346,8 +346,8 @@ function DocRow({
             </svg>
           </a>
 
-          {/* Edit — Super Admin only */}
-          {isSuperAdmin && (
+          {/* Edit — managers (admin & super_admin) only */}
+          {canManage && (
             <button
               onClick={() => onEdit(doc)}
               title="Edit file name or folder"
@@ -359,8 +359,8 @@ function DocRow({
             </button>
           )}
 
-          {/* Remove — Super Admin only */}
-          {isSuperAdmin && (
+          {/* Remove — managers (admin & super_admin) only */}
+          {canManage && (
             <button
               onClick={() => onRemove(doc.id)}
               title="Remove document"
@@ -394,13 +394,13 @@ function DocRow({
 function FolderGroup({
   folderName,
   items,
-  isSuperAdmin,
+  canManage,
   onRemove,
   onEdit,
 }: {
   folderName: string;
   items: DriveDoc[];
-  isSuperAdmin: boolean;
+  canManage: boolean;
   onRemove: (id: string) => void;
   onEdit: (doc: DriveDoc) => void;
 }) {
@@ -429,7 +429,7 @@ function FolderGroup({
             <DocRow
               key={doc.id}
               doc={doc}
-              isSuperAdmin={isSuperAdmin}
+              canManage={canManage}
               onRemove={onRemove}
               onEdit={onEdit}
             />
@@ -441,7 +441,7 @@ function FolderGroup({
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
-export default function GoogleDriveDocuments({ isSuperAdmin }: GoogleDriveDocumentsProps) {
+export default function GoogleDriveDocuments({ canManage }: GoogleDriveDocumentsProps) {
   const supabase = createClient();
   const [documents, setDocuments] = useState<DriveDoc[]>([]);
   const [urlInput, setUrlInput] = useState('');
@@ -584,7 +584,7 @@ export default function GoogleDriveDocuments({ isSuperAdmin }: GoogleDriveDocume
       .select('id');
 
     if (error || !data || data.length === 0) {
-      setFormError('Could not remove the document — only a Super Admin can remove documents.');
+      setFormError('Could not remove the document — you may not have permission to remove documents.');
       await loadDocuments();
       return;
     }
@@ -628,8 +628,8 @@ export default function GoogleDriveDocuments({ isSuperAdmin }: GoogleDriveDocume
         />
       )}
 
-      {/* ── Add Document Form — Super Admin only ── */}
-      {isSuperAdmin && (
+      {/* ── Add Document Form — managers (admin & super_admin) only ── */}
+      {canManage && (
         <div className="bg-white rounded-2xl border border-[#DDD5C8] p-5">
           <div className="flex items-center gap-2 mb-4">
             <svg className="h-5 w-5 flex-shrink-0" viewBox="0 0 87.3 78" fill="none">
@@ -756,7 +756,7 @@ export default function GoogleDriveDocuments({ isSuperAdmin }: GoogleDriveDocume
           </div>
           <p className="text-sm font-semibold text-[#8C8278]">No documents added yet</p>
           <p className="text-xs text-[#B5ADA5] mt-1">
-            {isSuperAdmin
+            {canManage
               ? 'Paste a public Google Drive file link above to add a document.'
               : 'No documents have been shared yet.'}
           </p>
@@ -768,7 +768,7 @@ export default function GoogleDriveDocuments({ isSuperAdmin }: GoogleDriveDocume
               key={folder}
               folderName={folder}
               items={grouped[folder]}
-              isSuperAdmin={isSuperAdmin}
+              canManage={canManage}
               onRemove={handleRemove}
               onEdit={setEditingDoc}
             />

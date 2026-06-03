@@ -59,6 +59,7 @@ interface EventDateRow {
 
 interface CookingClassSettingsProps {
   isSuperAdmin?: boolean;
+  readOnly?: boolean;
 }
 
 const DEFAULT_LOCATION = '12 Cardamom Street, Cape Town, 7441';
@@ -82,7 +83,7 @@ const EMPTY_DATE_ROW = (eventId = '', sortOrder = 0): Omit<EventDateRow, 'id'> =
   class_fee: '',
 });
 
-export default function CookingClassSettings({ isSuperAdmin = false }: CookingClassSettingsProps) {
+export default function CookingClassSettings({ isSuperAdmin = false, readOnly = false }: CookingClassSettingsProps) {
   const supabase = createClient();
   const [settings, setSettings] = useState<ClassSettings | null>(null);
   const [loading, setLoading] = useState(true);
@@ -288,6 +289,7 @@ export default function CookingClassSettings({ isSuperAdmin = false }: CookingCl
   }
 
   async function handleFlyerFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    if (readOnly) return;
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
@@ -310,6 +312,7 @@ export default function CookingClassSettings({ isSuperAdmin = false }: CookingCl
   }
 
   async function handleSaveSettings() {
+    if (readOnly) return;
     setSaving(true);
     setSaveSuccess('');
     setSaveError('');
@@ -376,6 +379,7 @@ export default function CookingClassSettings({ isSuperAdmin = false }: CookingCl
   }
 
   async function handleAddEvent() {
+    if (readOnly) return;
     if (!newEventName.trim()) return;
     setSavingEvent(true);
     setEventMsg('');
@@ -397,6 +401,7 @@ export default function CookingClassSettings({ isSuperAdmin = false }: CookingCl
   }
 
   async function handleDeleteEvent(id: string) {
+    if (readOnly) return;
     try {
       await supabase.from('cooking_class_events').delete().eq('id', id);
       await loadEvents();
@@ -406,6 +411,7 @@ export default function CookingClassSettings({ isSuperAdmin = false }: CookingCl
   }
 
   async function handleToggleEventActive(ev: ClassEvent) {
+    if (readOnly) return;
     try {
       await supabase
         .from('cooking_class_events')
@@ -418,6 +424,7 @@ export default function CookingClassSettings({ isSuperAdmin = false }: CookingCl
   }
 
   async function handleAddStatus() {
+    if (readOnly) return;
     if (!newStatusLabel.trim()) return;
     setSavingStatus(true);
     setStatusMsg('');
@@ -438,6 +445,7 @@ export default function CookingClassSettings({ isSuperAdmin = false }: CookingCl
   }
 
   async function handleDeleteStatus(id: string) {
+    if (readOnly) return;
     try {
       await supabase.from('cooking_class_session_statuses').delete().eq('id', id);
       await loadSessionStatuses();
@@ -463,6 +471,7 @@ export default function CookingClassSettings({ isSuperAdmin = false }: CookingCl
   }
 
   async function handleSaveGeneralDates() {
+    if (readOnly) return;
     setSavingGeneralDates(true);
     setGeneralDatesMsg('');
     try {
@@ -498,6 +507,7 @@ export default function CookingClassSettings({ isSuperAdmin = false }: CookingCl
   }
 
   async function handleSaveEventDates(eventId: string) {
+    if (readOnly) return;
     setSavingEventDates(prev => ({ ...prev, [eventId]: true }));
     setEventDatesMsg(prev => ({ ...prev, [eventId]: '' }));
     try {
@@ -534,6 +544,7 @@ export default function CookingClassSettings({ isSuperAdmin = false }: CookingCl
   }
 
   async function handleSyncToSheet(regId: string) {
+    if (readOnly) return;
     setSyncingId(regId);
     setSyncMsg('');
     try {
@@ -554,6 +565,7 @@ export default function CookingClassSettings({ isSuperAdmin = false }: CookingCl
   }
 
   async function handleMarkPaid(regId: string) {
+    if (readOnly) return;
     await supabase
       .from('cooking_class_registrations')
       .update({ payment_status: 'paid' })
@@ -735,6 +747,12 @@ export default function CookingClassSettings({ isSuperAdmin = false }: CookingCl
         <h2 className="text-xl font-bold text-[#1A1612]">Cooking &amp; Baking Classes</h2>
         <p className="text-sm text-[#8C8278] mt-0.5">Manage class settings, flyer, events, and registrations</p>
       </div>
+
+      {readOnly && (
+        <div className="mb-6 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-700">
+          You have view-only access to Cooking &amp; Baking Classes. Changes can only be made by an Admin or Super Admin.
+        </div>
+      )}
 
       {/* Sub-tabs */}
       <div className="flex gap-1 mb-6 bg-[#F5F0E8] rounded-xl p-1 w-fit">
