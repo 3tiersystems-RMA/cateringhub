@@ -702,6 +702,7 @@ export default function StaffWorkspacePage() {
   const [siteContentOpen, setSiteContentOpen] = useState(false);
   const [vouchersMenuOpen, setVouchersMenuOpen] = useState(false);
   const [mediaMenuOpen, setMediaMenuOpen] = useState(false);
+  const [cookingClassesOpen, setCookingClassesOpen] = useState(false);
 
   // ── Package Visibility state ──────────────────────────────────────────────
   const [packageVisibility, setPackageVisibility] = useState<{ id: string; package_name: string; is_visible: boolean }[]>([]);
@@ -3008,42 +3009,59 @@ export default function StaffWorkspacePage() {
               )}
 
               {/* ── Cooking & Baking Classes ── */}
-              {canTab('cooking_classes') && (
-                <button
-                  onClick={() => { handleTabChange('cooking_classes'); }}
-                  className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
-                    activeTab === 'cooking_classes' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
-                  }`}
-                >
-                  <span className="text-base">👨‍🍳</span>
-                  <span>Cooking &amp; Baking Classes</span>
-                </button>
-              )}
-
-              {/* ── Class Customers (sub-menu) ── */}
-              {canTab('cooking_class_customers') && (
-                <button
-                  onClick={() => { handleTabChange('cooking_class_customers'); }}
-                  className={`flex items-center gap-3 pl-10 pr-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${
-                    activeTab === 'cooking_class_customers' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
-                  }`}
-                >
-                  <span className="text-sm">🧑‍🤝‍🧑</span>
-                  <span>Class Customers</span>
-                </button>
-              )}
-
-              {/* ── Analytics (sub-menu) ── */}
-              {canTab('cooking_class_analytics') && (
-                <button
-                  onClick={() => { handleTabChange('cooking_class_analytics'); }}
-                  className={`flex items-center gap-3 pl-10 pr-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${
-                    activeTab === 'cooking_class_analytics' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
-                  }`}
-                >
-                  <span className="text-sm">📊</span>
-                  <span>Analytics</span>
-                </button>
+              {canAnyTab('cooking_classes', 'cooking_class_customers', 'cooking_class_analytics') && (
+                <>
+                  <button
+                    onClick={() => setCookingClassesOpen(prev => !prev)}
+                    className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
+                      ['cooking_classes', 'cooking_class_customers', 'cooking_class_analytics'].includes(activeTab) ? 'text-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
+                    }`}
+                  >
+                    <span className="text-base">👨‍🍳</span>
+                    <span className="flex-1">Cooking &amp; Baking Classes</span>
+                    <span className="text-xs">{cookingClassesOpen ? '▲' : '▼'}</span>
+                  </button>
+                  {cookingClassesOpen && (
+                    <div className="pl-4 border-l-2 border-[#E8DDD0] ml-4">
+                      {/* ── Settings (sub-menu) ── */}
+                      {canTab('cooking_classes') && (
+                        <button
+                          onClick={() => { handleTabChange('cooking_classes'); }}
+                          className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${
+                            activeTab === 'cooking_classes' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
+                          }`}
+                        >
+                          <span className="text-sm">⚙️</span>
+                          <span>Settings</span>
+                        </button>
+                      )}
+                      {/* ── Class Customers (sub-menu) ── */}
+                      {canTab('cooking_class_customers') && (
+                        <button
+                          onClick={() => { handleTabChange('cooking_class_customers'); }}
+                          className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${
+                            activeTab === 'cooking_class_customers' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
+                          }`}
+                        >
+                          <span className="text-sm">🧑‍🤝‍🧑</span>
+                          <span>Class Customers</span>
+                        </button>
+                      )}
+                      {/* ── Analytics (sub-menu) ── */}
+                      {canTab('cooking_class_analytics') && (
+                        <button
+                          onClick={() => { handleTabChange('cooking_class_analytics'); }}
+                          className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${
+                            activeTab === 'cooking_class_analytics' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
+                          }`}
+                        >
+                          <span className="text-sm">📊</span>
+                          <span>Analytics</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </>
               )}
 
               {/* ── Products & Pricing ── */}
