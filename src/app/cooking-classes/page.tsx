@@ -225,6 +225,9 @@ export default function CookingClassesPage() {
 
   // (NEW) Seats limit popup
   const [showSeatsFullPopup, setShowSeatsFullPopup] = useState(false);
+  // (NEW) Limited seats warning — shown once per booking session when seats < 10
+  const [showLimitedSeatsWarning, setShowLimitedSeatsWarning] = useState(false);
+  const [limitedSeatsWarningShown, setLimitedSeatsWarningShown] = useState(false);
 
   useEffect(() => {
     loadSettings();
@@ -1649,7 +1652,13 @@ export default function CookingClassesPage() {
                           type="button"
                           onClick={() => {
                             if (isDisabledBySeats) {
-                              setShowSeatsFullPopup(true);
+                              // Show "Limited seats available" warning once if seats < 10
+                              if (availableSeats !== null && availableSeats < 10 && !limitedSeatsWarningShown) {
+                                setShowLimitedSeatsWarning(true);
+                                setLimitedSeatsWarningShown(true);
+                              } else {
+                                setShowSeatsFullPopup(true);
+                              }
                               return;
                             }
                             setCollapsedChildren(prev => ({ ...prev, [idx]: !prev[idx] }));
@@ -2112,6 +2121,29 @@ export default function CookingClassesPage() {
           </div>
         )}
       </div>
+      )}
+
+      {/* (NEW) Limited Seats Warning — shown once per session when seats < 10 */}
+      {showLimitedSeatsWarning && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-8 text-center">
+            <div className="w-14 h-14 bg-[#FDF0E8] rounded-full flex items-center justify-center mx-auto mb-5">
+              <svg className="w-7 h-7 text-[#C4622D]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-bold text-[#1A1612] mb-3">Limited seats available</h3>
+            <p className="text-sm text-[#5C5347] leading-relaxed mb-6">
+              There are limited seats available for this session. Please register only the participants that can be accommodated.
+            </p>
+            <button
+              onClick={() => setShowLimitedSeatsWarning(false)}
+              className="w-full bg-[#C4622D] text-white py-3 rounded-xl font-semibold text-sm hover:bg-[#A04E22] transition-colors"
+            >
+              OK
+            </button>
+          </div>
+        </div>
       )}
 
       {/* (NEW) Seats Full Popup */}
