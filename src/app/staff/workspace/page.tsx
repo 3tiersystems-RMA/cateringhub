@@ -2988,6 +2988,11 @@ export default function StaffWorkspacePage() {
                         <span className="text-base">✉️</span><span>Correspondence Settings</span>
                         </button>
                       )}
+                      {canTab('section_visibility') && (
+                        <button onClick={() => { handleTabChange('section_visibility'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'section_visibility' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
+                        <span className="text-base">👁️</span><span>Section Visibility</span>
+                        </button>
+                      )}
                       {canTab('package_visibility') && (
                         <button onClick={() => { handleTabChange('package_visibility'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'package_visibility' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
                         <span className="text-base">📦</span><span>Package Visibility</span>
@@ -3006,11 +3011,6 @@ export default function StaffWorkspacePage() {
                       {canTab('gallery') && (
                         <button onClick={() => { handleTabChange('gallery'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'gallery' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
                         <span className="text-base">🖼️</span><span>Gallery</span>
-                        </button>
-                      )}
-                      {canTab('section_visibility') && (
-                        <button onClick={() => { handleTabChange('section_visibility'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'section_visibility' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
-                        <span className="text-base">👁️</span><span>Section Visibility</span>
                         </button>
                       )}
                     </div>
@@ -3216,7 +3216,7 @@ export default function StaffWorkspacePage() {
 
             {/* ── COOKING CLASSES TAB ── */}
             {activeTab === 'cooking_classes' && (
-              <CookingClassSettings isSuperAdmin={userProfile?.role === 'super_admin'} readOnly={!can('cooking_classes', 'edit')} />
+              <CookingClassSettings isSuperAdmin={userProfile?.role === 'super_admin'} readOnly={!can('cooking_classes', 'edit')} isAdminOrAbove={canRole('admin', 'super_admin')} />
             )}
 
             {/* ── COOKING CLASS CUSTOMERS TAB ── */}

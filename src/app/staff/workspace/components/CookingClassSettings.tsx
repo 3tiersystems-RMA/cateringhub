@@ -60,6 +60,7 @@ interface EventDateRow {
 interface CookingClassSettingsProps {
   isSuperAdmin?: boolean;
   readOnly?: boolean;
+  isAdminOrAbove?: boolean;
 }
 
 const DEFAULT_LOCATION = '12 Cardamom Street, Cape Town, 7441';
@@ -83,7 +84,7 @@ const EMPTY_DATE_ROW = (eventId = '', sortOrder = 0): Omit<EventDateRow, 'id'> =
   class_fee: '',
 });
 
-export default function CookingClassSettings({ isSuperAdmin = false, readOnly = false }: CookingClassSettingsProps) {
+export default function CookingClassSettings({ isSuperAdmin = false, readOnly = false, isAdminOrAbove = false }: CookingClassSettingsProps) {
   const supabase = createClient();
   const [settings, setSettings] = useState<ClassSettings | null>(null);
   const [loading, setLoading] = useState(true);
@@ -131,7 +132,7 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [loadingRegs, setLoadingRegs] = useState(false);
   const [regsError, setRegsError] = useState('');
-  const [activeSubTab, setActiveSubTab] = useState<'settings' | 'registrations'>('settings');
+  const [activeSubTab, setActiveSubTab] = useState<'settings' | 'registrations'>(isAdminOrAbove ? 'settings' : 'registrations');
 
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const [syncMsg, setSyncMsg] = useState('');
@@ -757,12 +758,14 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
 
       {/* Sub-tabs */}
       <div className="flex gap-1 mb-6 bg-[#F5F0E8] rounded-xl p-1 w-fit">
-        <button
-          onClick={() => setActiveSubTab('settings')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeSubTab === 'settings' ? 'bg-white text-[#C4622D] shadow-sm' : 'text-[#5C5347] hover:text-[#C4622D]'}`}
-        >
-          ⚙️ Settings
-        </button>
+        {isAdminOrAbove && (
+          <button
+            onClick={() => setActiveSubTab('settings')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeSubTab === 'settings' ? 'bg-white text-[#C4622D] shadow-sm' : 'text-[#5C5347] hover:text-[#C4622D]'}`}
+          >
+            ⚙️ Settings
+          </button>
+        )}
         <button
           onClick={() => setActiveSubTab('registrations')}
           className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeSubTab === 'registrations' ? 'bg-white text-[#C4622D] shadow-sm' : 'text-[#5C5347] hover:text-[#C4622D]'}`}

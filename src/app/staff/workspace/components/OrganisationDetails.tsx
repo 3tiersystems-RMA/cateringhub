@@ -336,6 +336,8 @@ function WarehousePanel({ entityId }: { entityId: string }) {
     setSaving(true);
     setError('');
     try {
+      // Always clear all other defaults for this entity before saving if is_default is true.
+      // This guarantees only one Default can ever exist per entity.
       if (form.is_default) {
         await supabase.from('org_warehouses').update({ is_default: false }).eq('entity_id', entityId);
       }
@@ -354,6 +356,8 @@ function WarehousePanel({ entityId }: { entityId: string }) {
   };
 
   const handleSetDefault = async (id: string) => {
+    // Clear all defaults for this entity first, then set the selected one.
+    // This ensures only one Default exists at any time.
     await supabase.from('org_warehouses').update({ is_default: false }).eq('entity_id', entityId);
     await supabase.from('org_warehouses').update({ is_default: true }).eq('id', id);
     load();
@@ -409,6 +413,11 @@ function WarehousePanel({ entityId }: { entityId: string }) {
             <input type="checkbox" checked={form.is_default} onChange={e => setForm(p => ({ ...p, is_default: e.target.checked }))} className="w-4 h-4 rounded border-[#DDD5C8] text-[#C4622D] focus:ring-[#C4622D]/30" />
             <span className="text-sm text-[#5C5347] font-medium">Set as Default warehouse / site</span>
           </label>
+          {form.is_default && items.some(i => i.is_default && i.id !== editing?.id) && (
+            <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              ⚠️ The current Default will be replaced. Only one Default is allowed per entity.
+            </p>
+          )}
           <div className="flex gap-2 pt-1">
             <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-[#C4622D] text-white text-sm font-semibold rounded-lg hover:bg-[#A04E22] transition-colors disabled:opacity-50">
               {saving ? 'Saving…' : editing ? 'Update' : 'Save'}
