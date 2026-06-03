@@ -266,6 +266,7 @@ export default function EventRegistrations() {
   // Participant Bookings sort state
   const [participantSortKey, setParticipantSortKey] = useState<ParticipantSortKey | null>(null);
   const [participantSortDir, setParticipantSortDir] = useState<SortDir>('asc');
+  const [participantEventFilter, setParticipantEventFilter] = useState<string>('all');
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -467,7 +468,12 @@ export default function EventRegistrations() {
     }
   };
 
-  const sortedParticipantRows = [...participantBookingRows].sort((a, b) => {
+  // Filter participant rows by selected event before sorting
+  const filteredParticipantRows = participantEventFilter === 'all'
+    ? participantBookingRows
+    : participantBookingRows.filter(r => r.eventName === participantEventFilter);
+
+  const sortedParticipantRows = [...filteredParticipantRows].sort((a, b) => {
     if (!participantSortKey) return 0;
     let aVal = '';
     let bVal = '';
@@ -651,17 +657,37 @@ export default function EventRegistrations() {
             </div>
           ) : error ? (
             <div className="p-6 text-center text-red-600 text-sm">{error}</div>
-          ) : sortedParticipantRows.length === 0 ? (
-            <div className="p-12 text-center">
-              <p className="text-3xl mb-2">👧</p>
-              <p className="text-[#5C5347] font-medium">No participant data found</p>
-              <p className="text-sm text-[#8C7B6B] mt-1">Participants will appear here once registrations with children are added</p>
-            </div>
           ) : (
             <>
+              {/* Event filter dropdown for Participant Bookings */}
+              <div className="px-5 py-3 bg-[#FAF5EE] border-b border-[#E8DDD0] flex items-center gap-3 flex-wrap">
+                <label className="text-sm font-medium text-[#5C5347] whitespace-nowrap">Filter by Event:</label>
+                <select
+                  value={participantEventFilter}
+                  onChange={e => { setParticipantEventFilter(e.target.value); setParticipantSortKey(null); setParticipantSortDir('asc'); }}
+                  className="flex-1 max-w-xs px-3 py-1.5 text-sm border border-[#E8DDD0] rounded-lg bg-white text-[#2C2420] focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30"
+                >
+                  <option value="all">All Events</option>
+                  {eventOptions.map(ev => (
+                    <option key={ev} value={ev}>{ev}</option>
+                  ))}
+                </select>
+                {participantEventFilter !== 'all' && (
+                  <button onClick={() => { setParticipantEventFilter('all'); setParticipantSortKey(null); setParticipantSortDir('asc'); }} className="text-xs text-[#C4622D] hover:underline">Clear</button>
+                )}
+              </div>
+
+              {sortedParticipantRows.length === 0 ? (
+                <div className="p-12 text-center">
+                  <p className="text-3xl mb-2">👧</p>
+                  <p className="text-[#5C5347] font-medium">No participants found for this event</p>
+                  <p className="text-sm text-[#8C7B6B] mt-1">Try selecting a different event or &quot;All Events&quot;</p>
+                </div>
+              ) : (
+              <>
               <div className="px-5 py-2.5 bg-[#FAF5EE] border-b border-[#E8DDD0] flex items-center justify-between">
                 <p className="text-xs text-[#8C7B6B]">
-                  <span className="font-semibold text-[#2C2420]">{sortedParticipantRows.length}</span> participant{sortedParticipantRows.length !== 1 ? 's' : ''} across all sessions
+                  <span className="font-semibold text-[#2C2420]">{sortedParticipantRows.length}</span> participant{sortedParticipantRows.length !== 1 ? 's' : ''}{participantEventFilter !== 'all' ? ` for "${participantEventFilter}"` : ' across all sessions'}
                 </p>
                 {participantSortKey && (
                   <button
@@ -751,6 +777,8 @@ export default function EventRegistrations() {
                   </tbody>
                 </table>
               </div>
+            </>
+            )}
             </>
           )
 
