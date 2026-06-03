@@ -206,7 +206,7 @@ function HeroSectionInner() {
           <div className="lg:col-span-7 space-y-8">
             {/* Badge */}
             {showHeroBadge &&
-            <div className="reveal hidden-init hero-reveal inline-flex items-center gap-2 px-4 py-2 bg-[#C4622D]/15 border border-[#C4622D]/30 rounded-full backdrop-blur-sm">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#C4622D]/15 border border-[#C4622D]/30 rounded-full backdrop-blur-sm">
               <span className="w-1.5 h-1.5 rounded-full bg-[#C4622D] pulse-dot" />
               <span className="text-xs font-semibold tracking-widest uppercase text-[#D97B4A]">
                 {heroBadgeText}
