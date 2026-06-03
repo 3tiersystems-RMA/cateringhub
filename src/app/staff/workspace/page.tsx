@@ -3176,9 +3176,9 @@ export default function StaffWorkspacePage() {
                   {mediaMenuOpen && (
                     <div className="pl-4 border-l-2 border-[#E8DDD0] ml-4">
                       {canTab('cooking_class_customers') && (
-                        <button onClick={() => { handleTabChange('cooking_class_customers'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'cooking_class_customers' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
+                        <a href="https://forms.gle/uc61CVtHvX6nUAnr9" target="_blank" rel="noopener noreferrer" className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]`}>
                           <span className="text-base">🧑‍🤝‍🧑</span><span>Customer Onboarding</span>
-                        </button>
+                        </a>
                       )}
                       {canTab('media') && (
                         <button onClick={() => { handleTabChange('media'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'media' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
