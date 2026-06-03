@@ -14,13 +14,14 @@ import {  } from 'recharts';
 
 import CookingClassSettings from '@/app/staff/workspace/components/CookingClassSettings';
 import CookingClassCustomers from '@/app/staff/workspace/components/CookingClassCustomers';
+import CookingClassAnalytics from '@/app/staff/workspace/components/CookingClassAnalytics';
 import { calculateOrderTotal, isFulfillmentStatusLocked } from '@/lib/order-totals';
 
 
 
 
 type BucketType = 'product-images' | 'event-photos' | 'document-management';
-type WorkspaceTab = 'products' | 'media' | 'media_events' | 'media_products' | 'orders' | 'staff' | 'homepage_cards' | 'categories' | 'weekly_menu' | 'vouchers' | 'discount_vouchers' | 'testimonials' | 'reporting' | 'analytics' | 'social_media' | 'gallery' | 'section_visibility' | 'customer_order_history' | 'correspondence_settings' | 'abandoned_carts' | 'package_visibility' | 'cooking_classes' | 'cooking_class_customers';
+type WorkspaceTab = 'products' | 'media' | 'media_events' | 'media_products' | 'orders' | 'staff' | 'homepage_cards' | 'categories' | 'weekly_menu' | 'vouchers' | 'discount_vouchers' | 'testimonials' | 'reporting' | 'analytics' | 'social_media' | 'gallery' | 'section_visibility' | 'customer_order_history' | 'correspondence_settings' | 'abandoned_carts' | 'package_visibility' | 'cooking_classes' | 'cooking_class_customers' | 'cooking_class_analytics';
 
 type ProductCategory = string;
 type StaffRole = 'admin' | 'staff' | 'super_admin';
@@ -45,6 +46,7 @@ const TAB_ACCESS: Record<WorkspaceTab, StaffRole[]> = {
   media_events: ['super_admin', 'admin', 'staff'],      // Events — staff: view + edit
   cooking_classes: ['super_admin', 'admin', 'staff'],   // staff: view only
   cooking_class_customers: ['super_admin', 'admin', 'staff'], // staff: view only
+  cooking_class_analytics: ['super_admin', 'admin', 'staff'], // staff: view only
   // Business & content — admin and above
   categories: ['super_admin', 'admin'],
   discount_vouchers: ['super_admin', 'admin'],
@@ -78,6 +80,7 @@ const STAFF_TAB_ACTIONS: Partial<Record<WorkspaceTab, PermAction[]>> = {
   media_events: ['view', 'edit'],
   cooking_classes: ['view'],
   cooking_class_customers: ['view'],
+  cooking_class_analytics: ['view'],
 };
 
 function roleCanAccessTab(role: string | undefined | null, tab: WorkspaceTab): boolean {
@@ -3017,16 +3020,29 @@ export default function StaffWorkspacePage() {
                 </button>
               )}
 
-              {/* ── Cooking Class Customers ── */}
+              {/* ── Class Customers (sub-menu) ── */}
               {canTab('cooking_class_customers') && (
                 <button
                   onClick={() => { handleTabChange('cooking_class_customers'); }}
-                  className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
+                  className={`flex items-center gap-3 pl-10 pr-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${
                     activeTab === 'cooking_class_customers' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
                   }`}
                 >
-                  <span className="text-base">🧑‍🤝‍🧑</span>
+                  <span className="text-sm">🧑‍🤝‍🧑</span>
                   <span>Class Customers</span>
+                </button>
+              )}
+
+              {/* ── Analytics (sub-menu) ── */}
+              {canTab('cooking_class_analytics') && (
+                <button
+                  onClick={() => { handleTabChange('cooking_class_analytics'); }}
+                  className={`flex items-center gap-3 pl-10 pr-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${
+                    activeTab === 'cooking_class_analytics' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
+                  }`}
+                >
+                  <span className="text-sm">📊</span>
+                  <span>Analytics</span>
                 </button>
               )}
 
@@ -3165,7 +3181,12 @@ export default function StaffWorkspacePage() {
 
             {/* ── COOKING CLASS CUSTOMERS TAB ── */}
             {activeTab === 'cooking_class_customers' && (
-              <CookingClassCustomers />
+              <CookingClassCustomers isSuperAdmin={userProfile?.role === 'super_admin'} />
+            )}
+
+            {/* ── COOKING CLASS ANALYTICS TAB ── */}
+            {activeTab === 'cooking_class_analytics' && (
+              <CookingClassAnalytics />
             )}
 
             {/* ── PRODUCTS TAB ── */}

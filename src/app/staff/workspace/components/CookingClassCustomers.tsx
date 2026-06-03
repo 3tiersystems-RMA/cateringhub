@@ -66,6 +66,10 @@ interface SessionDate {
   class_fee: number | null;
 }
 
+interface CookingClassCustomersProps {
+  isSuperAdmin?: boolean;
+}
+
 const PAYMENT_STATUS_COLORS: Record<string, string> = {
   pending: 'bg-amber-100 text-amber-700 border-amber-200',
   paid: 'bg-green-100 text-green-700 border-green-200',
@@ -98,7 +102,7 @@ function calcAge(dob: string | null | undefined): string {
   } catch { return '—'; }
 }
 
-export default function CookingClassCustomers() {
+export default function CookingClassCustomers({ isSuperAdmin = false }: CookingClassCustomersProps) {
   const supabase = createClient();
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [loading, setLoading] = useState(true);
@@ -107,6 +111,12 @@ export default function CookingClassCustomers() {
   const [paymentFilter, setPaymentFilter] = useState<'all' | 'paid' | 'pending' | 'awaiting_payment' | 'failed'>('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<Record<string, 'registrant' | 'participants' | 'sessions' | 'medical'>>({});
+
+  // Delete state
+  const [deleteTarget, setDeleteTarget] = useState<Registration | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -208,6 +218,53 @@ export default function CookingClassCustomers() {
 
   const totalPaid = filtered.reduce((sum, r) => sum + (r.payment_status === 'paid' ? (r.amount || 0) : 0), 0);
   const totalPending = filtered.filter(r => r.payment_status !== 'paid').length;
+
+  // ── Delete handlers ──────────────────────────────────────────────────────────
+  const openDeleteModal = (reg: Registration, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setDeleteTarget(reg);
+    setDeleteConfirmText('');
+    setDeleteError('');
+  };
+
+  const closeDeleteModal = () => {
+    setDeleteTarget(null);
+    setDeleteConfirmText('');
+    setDeleteError('');
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    if (deleteConfirmText.trim().toUpperCase() !== 'DELETE') {
+      setDeleteError('Please type DELETE to confirm.');
+      return;
+    }
+    setDeleting(true);
+    setDeleteError('');
+    try {
+      // Delete booking counts first (FK dependency)
+      const { error: bookingErr } = await supabase
+        .from('cooking_class_booking_counts')
+        .delete()
+        .eq('registration_id', deleteTarget.id);
+      if (bookingErr) throw bookingErr;
+
+      // Delete the registration record
+      const { error: regErr } = await supabase
+        .from('cooking_class_registrations')
+        .delete()
+        .eq('id', deleteTarget.id);
+      if (regErr) throw regErr;
+
+      setRegistrations(prev => prev.filter(r => r.id !== deleteTarget.id));
+      if (expandedId === deleteTarget.id) setExpandedId(null);
+      closeDeleteModal();
+    } catch (err: unknown) {
+      setDeleteError(err instanceof Error ? err.message : 'Failed to delete record');
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -352,6 +409,22 @@ export default function CookingClassCustomers() {
                     <span className={`text-xs font-medium px-2.5 py-1 rounded-full border ${PAYMENT_STATUS_COLORS[reg.payment_status] || 'bg-gray-100 text-gray-600 border-gray-200'}`}>
                       {reg.payment_status.replace(/_/g, ' ')}
                     </span>
+
+                    {/* Super Admin DELETE button */}
+                    {isSuperAdmin && (
+                      <button
+                        type="button"
+                        onClick={(e) => openDeleteModal(reg, e)}
+                        className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-lg bg-red-50 border border-red-200 text-red-600 text-xs font-semibold hover:bg-red-100 hover:border-red-300 transition-colors"
+                        title="Delete this registration (Super Admin only)"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        Delete
+                      </button>
+                    )}
+
                     <svg
                       className={`w-4 h-4 text-[#8C8278] transition-transform flex-shrink-0 ${isExpanded ? 'rotate-180' : ''}`}
                       fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
@@ -604,6 +677,89 @@ export default function CookingClassCustomers() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* ── DELETE CONFIRMATION MODAL (Super Admin only) ── */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-red-200 w-full max-w-md">
+            {/* Modal Header */}
+            <div className="flex items-center gap-3 px-6 pt-6 pb-4 border-b border-red-100">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                <svg className="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-[#1A1612]">Delete Customer Record</h3>
+                <p className="text-xs text-red-600 font-medium">This action is permanent and cannot be undone</p>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="px-6 py-5">
+              <p className="text-sm text-[#5C5347] mb-1">You are about to permanently delete the complete record for:</p>
+              <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-4">
+                <p className="text-sm font-bold text-[#1A1612]">
+                  {deleteTarget.title ? `${deleteTarget.title} ` : ''}{deleteTarget.first_name} {deleteTarget.surname}
+                </p>
+                <p className="text-xs text-[#8C8278]">{deleteTarget.email} · {deleteTarget.cellphone}</p>
+                <p className="text-xs text-[#8C8278] mt-0.5">
+                  Registered: {formatDate(deleteTarget.created_at)} · Amount: {formatCurrency(deleteTarget.amount)}
+                </p>
+              </div>
+              <p className="text-xs text-[#8C8278] mb-3">
+                This will permanently remove the registration, all participant data, session bookings, and payment records associated with this customer.
+              </p>
+              <label className="block text-xs font-semibold text-[#5C5347] mb-1.5">
+                Type <span className="text-red-600 font-bold">DELETE</span> to confirm:
+              </label>
+              <input
+                type="text"
+                value={deleteConfirmText}
+                onChange={e => setDeleteConfirmText(e.target.value)}
+                placeholder="Type DELETE here"
+                className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-red-400 bg-white"
+                autoFocus
+              />
+              {deleteError && (
+                <p className="text-xs text-red-600 mt-2">{deleteError}</p>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex gap-3 px-6 pb-6">
+              <button
+                type="button"
+                onClick={closeDeleteModal}
+                disabled={deleting}
+                className="flex-1 px-4 py-2.5 rounded-xl border border-[#DDD5C8] text-sm font-medium text-[#5C5347] hover:bg-[#FAF5EE] transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={deleting || deleteConfirmText.trim().toUpperCase() !== 'DELETE'}
+                className="flex-1 px-4 py-2.5 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {deleting ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Deleting…
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    Delete Permanently
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
