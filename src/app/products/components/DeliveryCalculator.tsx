@@ -8,7 +8,7 @@ interface DeliveryCalculatorProps {
   despatchMethod: 'collection' | 'delivery';
   orderSubtotal: number;
   minimumFee?: number;
-  onConfirm: (result: { deliveryCost: number; total: number; distanceKm?: number; distanceText?: string; durationText?: string }) => void;
+  onConfirm: (result: { deliveryCost: number; total: number; distanceKm?: number; distanceText?: string; durationText?: string; deliveryAddress?: string }) => void;
   onCancel: () => void;
 }
 
@@ -192,7 +192,7 @@ export default function DeliveryCalculator({
               Change despatch method
             </button>
             <button
-              onClick={() => onConfirm(result as DeliveryResult)}
+              onClick={() => onConfirm({ ...(result as DeliveryResult), deliveryAddress: customerAddress })}
               className="w-full bg-[#C4622D] text-white py-3.5 rounded-full font-semibold text-sm hover:bg-[#A04E22] transition-all shadow-terra"
             >
               Confirm order

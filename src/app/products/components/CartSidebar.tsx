@@ -118,12 +118,16 @@ export default function CartSidebar() {
     setDespatchPhase("calculating");
   };
 
-  const handleDespatchConfirm = (result: { deliveryCost: number; total: number }) => {
+  const handleDespatchConfirm = (result: { deliveryCost: number; total: number; distanceKm?: number; distanceText?: string; durationText?: string; deliveryAddress?: string }) => {
     setDeliveryFee(result.deliveryCost);
     setDespatchConfirmed(true);
     setDespatchPhase("idle");
     // Now proceed to details step
-    setForm(getDetailsForm());
+    const baseForm = getDetailsForm();
+    setForm({
+      ...baseForm,
+      address: despatchMethod === "delivery" ? (result.deliveryAddress || "") : "",
+    });
     setPhoneErrorState("");
     setPayErrorState("");
     setStep("details");
@@ -417,7 +421,7 @@ export default function CartSidebar() {
               {step === "cart" && despatchPhase === "idle" && `Order Summary (${totalItems})`}
               {step === "cart" && despatchPhase === "choosing" && "Despatch Method"}
               {step === "cart" && despatchPhase === "calculating" && (despatchMethod === "collection" ? "Collection" : "Delivery")}
-              {step === "details" && "Event Details"}
+              {step === "details" && "Your Details"}
               {step === "payment" && "Secure Payment"}
               {step === "eft-success" && "Order Placed!"}
               {step === "confirmation" && "Order Confirmed!"}
@@ -513,6 +517,7 @@ export default function CartSidebar() {
             voucherData={voucherData}
             processing={processing}
             totalItems={totalItems}
+            despatchMethod={despatchMethod}
             onSubmit={voucherApplied ? handleVoucherDetailsConfirm : handleDetailsSubmit}
           />
         )}

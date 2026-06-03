@@ -14,6 +14,7 @@ interface CartStepDetailsProps {
   voucherData: VoucherData | null;
   processing: boolean;
   totalItems: number;
+  despatchMethod?: "collection" | "delivery" | null;
   onSubmit: (e: React.FormEvent) => void;
 }
 
@@ -27,6 +28,7 @@ export default function CartStepDetails({
   voucherData,
   processing,
   totalItems,
+  despatchMethod,
   onSubmit,
 }: CartStepDetailsProps) {
   const { captureCustomerInfo } = useCart();
@@ -104,15 +106,23 @@ export default function CartStepDetails({
             />
           </div>
           <div className="col-span-2">
-            <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">Delivery Address *</label>
+            <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">
+              Delivery Address {despatchMethod !== "collection" && "*"}
+            </label>
             <input
               type="text"
-              required
-              value={form.address}
+              required={despatchMethod !== "collection"}
+              disabled={despatchMethod === "collection"}
+              value={despatchMethod === "collection" ? "I will collect" : form.address}
               onChange={(e) => setForm({ ...form, address: e.target.value })}
               placeholder="123 Main St, Johannesburg, 2000"
-              className="w-full bg-white border border-[#DDD5C8] rounded-xl px-4 py-3 text-sm text-[#1A1612] placeholder-[#B5ADA5] focus:outline-none focus:border-[#C4622D] transition-colors"
+              className={`w-full border rounded-xl px-4 py-3 text-sm transition-colors ${
+                despatchMethod === "collection" ?"bg-[#EDE7DA] border-[#DDD5C8] text-[#B5ADA5] cursor-not-allowed" :"bg-white border-[#DDD5C8] text-[#1A1612] placeholder-[#B5ADA5] focus:outline-none focus:border-[#C4622D]"
+              }`}
             />
+            {despatchMethod === "collection" && (
+              <p className="mt-1 text-xs text-[#B5ADA5]">Not required — you selected collection</p>
+            )}
           </div>
           <div className="col-span-2">
             <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">Special Requests / Dietary Notes</label>
