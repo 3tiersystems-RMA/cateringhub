@@ -62,16 +62,7 @@ interface SessionDate {
   class_fee: number | null;
 }
 
-// Sessions Booked view: grouped by event → date → timeslot → participants
-interface SessionParticipant {
-  fullName: string;
-  dob: string | null;
-  age: string;
-  gender: string;
-  dietaryRequirements: string;
-}
-
-// Sessions Booked view: grouped by event → date → timeslot → participants
+// Sessions Booked view: grouped by event → date → timeslot → registrants
 interface SessionsBookedGroup {
   eventName: string;
   dates: {
@@ -79,7 +70,7 @@ interface SessionsBookedGroup {
     timeslots: {
       timeslot: string;
       dateId: string;
-      participants: SessionParticipant[];
+      registrants: { name: string; email: string; paymentStatus: string }[];
     }[];
   }[];
 }
@@ -119,9 +110,6 @@ function calcAge(dob: string | null | undefined): string {
 type FilterTab = 'event' | 'registrant' | 'venue' | 'sessions_booked';
 
 const PAGE_SIZE = 10;
-
-type SortField = 'dob' | 'age' | 'gender' | 'dietary';
-type SortDir = 'asc' | 'desc';
 
 // Elegant paginator component
 function Paginator({
@@ -252,9 +240,6 @@ export default function EventRegistrations() {
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Sort state for Sessions Booked participant tables (keyed by timeslot key)
-  const [sessionSort, setSessionSort] = useState<Record<string, { field: SortField; dir: SortDir }>>({});
-
   const loadData = useCallback(async () => {
     setLoading(true);
     setError('');
@@ -371,56 +356,29 @@ export default function EventRegistrations() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
-  // Build Sessions Booked grouped data — participants (children) per session
+  // FIX 3: Build Sessions Booked grouped data
   const sessionsBookedGroups: SessionsBookedGroup[] = (() => {
-    // Map: eventName → dateKey → timeslot → { dateId, participants[] }
-    const eventMap: Record<
-      string,
-      Record<
-        string,
-        Record<
-          string,
-          { dateId: string; participants: SessionParticipant[] }
-        >
-      >
-    > = {};
-
+    const eventMap: Record<string, Record<string, Record<string, { dateId: string; registrants: { name: string; email: string; paymentStatus: string }[] }>>> = {};
     registrations.forEach(r => {
-      const children: ChildParticipant[] = r.children || [];
-      if (children.length === 0) return; // skip registrations with no child participants
-
+      const name = `${r.title} ${r.first_name} ${r.surname}`.trim();
       (r.session_dates || []).forEach(sd => {
         const evName = sd.event_name || 'Unknown Event';
         const dateKey = formatDate(sd.event_date);
-        const timeslot =
-          sd.start_time && sd.end_time
-            ? `${sd.start_time} – ${sd.end_time}`
-            : sd.start_time || 'Time TBC';
-
+        const timeslot = sd.start_time && sd.end_time
+          ? `${sd.start_time} – ${sd.end_time}`
+          : sd.start_time || 'Time TBC';
         if (!eventMap[evName]) eventMap[evName] = {};
         if (!eventMap[evName][dateKey]) eventMap[evName][dateKey] = {};
         if (!eventMap[evName][dateKey][timeslot]) {
-          eventMap[evName][dateKey][timeslot] = { dateId: sd.id, participants: [] };
+          eventMap[evName][dateKey][timeslot] = { dateId: sd.id, registrants: [] };
         }
-
-        children.forEach(child => {
-          const dobRaw = child.dob || null;
-          const ageVal =
-            child.age != null ? String(child.age) : calcAge(dobRaw);
-          const dietary =
-            (child.allergies as string | undefined) || '—';
-
-          eventMap[evName][dateKey][timeslot].participants.push({
-            fullName: (child.full_name || child.name || '—') as string,
-            dob: dobRaw,
-            age: ageVal,
-            gender: (child.gender as string | undefined) || '—',
-            dietaryRequirements: dietary,
-          });
+        eventMap[evName][dateKey][timeslot].registrants.push({
+          name,
+          email: r.email,
+          paymentStatus: r.payment_status,
         });
       });
     });
-
     return Object.entries(eventMap)
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([eventName, dates]) => ({
@@ -434,46 +392,11 @@ export default function EventRegistrations() {
               .map(([timeslot, data]) => ({
                 timeslot,
                 dateId: data.dateId,
-                participants: data.participants,
+                registrants: data.registrants,
               })),
           })),
       }));
   })();
-
-  // Helper: toggle sort for a timeslot key
-  function toggleSort(slotKey: string, field: SortField) {
-    setSessionSort(prev => {
-      const current = prev[slotKey];
-      if (current?.field === field) {
-        return { ...prev, [slotKey]: { field, dir: current.dir === 'asc' ? 'desc' : 'asc' } };
-      }
-      return { ...prev, [slotKey]: { field, dir: 'asc' } };
-    });
-  }
-
-  // Helper: sort participants for a given slot
-  function sortedParticipants(participants: SessionParticipant[], slotKey: string): SessionParticipant[] {
-    const sort = sessionSort[slotKey];
-    if (!sort) return participants;
-    const { field, dir } = sort;
-    return [...participants].sort((a, b) => {
-      let cmp = 0;
-      if (field === 'dob') {
-        const da = a.dob ? new Date(a.dob).getTime() : 0;
-        const db = b.dob ? new Date(b.dob).getTime() : 0;
-        cmp = da - db;
-      } else if (field === 'age') {
-        const na = parseInt(a.age) || 0;
-        const nb = parseInt(b.age) || 0;
-        cmp = na - nb;
-      } else if (field === 'gender') {
-        cmp = a.gender.localeCompare(b.gender);
-      } else if (field === 'dietary') {
-        cmp = a.dietaryRequirements.localeCompare(b.dietaryRequirements);
-      }
-      return dir === 'asc' ? cmp : -cmp;
-    });
-  }
 
   const filterTabConfig: { key: FilterTab; label: string; icon: string }[] = [
     { key: 'event', label: 'By Event', icon: '🎓' },
@@ -537,7 +460,7 @@ export default function EventRegistrations() {
           ))}
         </div>
 
-        {/* Sessions Booked tab content */}
+        {/* FIX 3: Sessions Booked tab content */}
         {filterTab === 'sessions_booked' ? (
           loading ? (
             <div className="flex items-center justify-center py-16">
@@ -561,12 +484,7 @@ export default function EventRegistrations() {
                     </div>
                     <h3 className="text-base font-semibold text-[#2C2420]">{group.eventName}</h3>
                     <span className="ml-auto text-xs text-[#8C7B6B] bg-[#F5EFE8] border border-[#E8DDD0] px-2.5 py-1 rounded-full font-medium">
-                      {group.dates.reduce(
-                        (s, d) =>
-                          s + d.timeslots.reduce((ts, t) => ts + t.participants.length, 0),
-                        0
-                      )}{' '}
-                      participant{group.dates.reduce((s, d) => s + d.timeslots.reduce((ts, t) => ts + t.participants.length, 0), 0) !== 1 ? 's' : ''}
+                      {group.dates.reduce((s, d) => s + d.timeslots.reduce((ts, t) => ts + t.registrants.length, 0), 0)} bookings
                     </span>
                   </div>
 
@@ -581,87 +499,45 @@ export default function EventRegistrations() {
                         </div>
 
                         <div className="space-y-3 pl-4">
-                          {dateGroup.timeslots.map(slot => {
-                            const slotKey = `${group.eventName}|${dateGroup.date}|${slot.timeslot}`;
-                            const sorted = sortedParticipants(slot.participants, slotKey);
-                            const currentSort = sessionSort[slotKey];
-
-                            const SortIcon = ({ field }: { field: SortField }) => {
-                              if (currentSort?.field !== field) {
-                                return <span className="ml-1 text-[#C4B8A8] text-[10px]">⇅</span>;
-                              }
-                              return (
-                                <span className="ml-1 text-[#C4622D] text-[10px]">
-                                  {currentSort.dir === 'asc' ? '↑' : '↓'}
-                                </span>
-                              );
-                            };
-
-                            return (
-                              <div key={slot.timeslot} className="rounded-xl border border-[#E8DDD0] overflow-hidden">
-                                {/* Timeslot header */}
-                                <div className="flex items-center justify-between px-4 py-2.5 bg-gradient-to-r from-[#FAF5EE] to-[#F5EFE8] border-b border-[#E8DDD0]">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-[#C4622D]">🕐</span>
-                                    <span className="text-sm font-semibold text-[#2C2420]">{slot.timeslot}</span>
-                                  </div>
-                                  <span className="text-xs font-medium text-[#8C7B6B] bg-white border border-[#E8DDD0] px-2.5 py-0.5 rounded-full">
-                                    {slot.participants.length} participant{slot.participants.length !== 1 ? 's' : ''}
-                                  </span>
+                          {dateGroup.timeslots.map(slot => (
+                            <div key={slot.timeslot} className="rounded-xl border border-[#E8DDD0] overflow-hidden">
+                              {/* Timeslot header */}
+                              <div className="flex items-center justify-between px-4 py-2.5 bg-gradient-to-r from-[#FAF5EE] to-[#F5EFE8] border-b border-[#E8DDD0]">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[#C4622D]">🕐</span>
+                                  <span className="text-sm font-semibold text-[#2C2420]">{slot.timeslot}</span>
                                 </div>
-
-                                {/* Participants table */}
-                                {slot.participants.length === 0 ? (
-                                  <div className="px-4 py-3 text-xs text-[#8C7B6B] italic">No participants recorded for this session.</div>
-                                ) : (
-                                  <table className="w-full text-xs">
-                                    <thead>
-                                      <tr className="bg-[#F5EFE8] text-[#5C5347]">
-                                        <th className="px-4 py-2 text-left font-semibold w-6">#</th>
-                                        <th className="px-4 py-2 text-left font-semibold">Full Name</th>
-                                        <th
-                                          className="px-4 py-2 text-left font-semibold cursor-pointer select-none hover:text-[#C4622D] transition-colors whitespace-nowrap"
-                                          onClick={() => toggleSort(slotKey, 'dob')}
-                                        >
-                                          DOB <SortIcon field="dob" />
-                                        </th>
-                                        <th
-                                          className="px-4 py-2 text-left font-semibold cursor-pointer select-none hover:text-[#C4622D] transition-colors"
-                                          onClick={() => toggleSort(slotKey, 'age')}
-                                        >
-                                          Age <SortIcon field="age" />
-                                        </th>
-                                        <th
-                                          className="px-4 py-2 text-left font-semibold cursor-pointer select-none hover:text-[#C4622D] transition-colors"
-                                          onClick={() => toggleSort(slotKey, 'gender')}
-                                        >
-                                          Gender <SortIcon field="gender" />
-                                        </th>
-                                        <th
-                                          className="px-4 py-2 text-left font-semibold cursor-pointer select-none hover:text-[#C4622D] transition-colors whitespace-nowrap"
-                                          onClick={() => toggleSort(slotKey, 'dietary')}
-                                        >
-                                          Dietary Requirements <SortIcon field="dietary" />
-                                        </th>
-                                      </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-[#F0E8DE]">
-                                      {sorted.map((p, idx) => (
-                                        <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-[#FAF5EE]'}>
-                                          <td className="px-4 py-2 text-[#8C7B6B] font-medium">{idx + 1}</td>
-                                          <td className="px-4 py-2 font-medium text-[#2C2420]">{p.fullName}</td>
-                                          <td className="px-4 py-2 text-[#5C5347]">{p.dob ? formatDate(p.dob) : '—'}</td>
-                                          <td className="px-4 py-2 text-[#5C5347]">{p.age}</td>
-                                          <td className="px-4 py-2 text-[#5C5347] capitalize">{p.gender}</td>
-                                          <td className="px-4 py-2 text-[#5C5347]">{p.dietaryRequirements}</td>
-                                        </tr>
-                                      ))}
-                                    </tbody>
-                                  </table>
-                                )}
+                                <span className="text-xs font-medium text-[#8C7B6B] bg-white border border-[#E8DDD0] px-2.5 py-0.5 rounded-full">
+                                  {slot.registrants.length} registrant{slot.registrants.length !== 1 ? 's' : ''}
+                                </span>
                               </div>
-                            );
-                          })}
+                              {/* Registrants table */}
+                              <table className="w-full text-xs">
+                                <thead>
+                                  <tr className="bg-[#F5EFE8] text-[#5C5347]">
+                                    <th className="px-4 py-2 text-left font-semibold">#</th>
+                                    <th className="px-4 py-2 text-left font-semibold">Registrant Name</th>
+                                    <th className="px-4 py-2 text-left font-semibold">Email</th>
+                                    <th className="px-4 py-2 text-left font-semibold">Payment Status</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-[#F0E8DE]">
+                                  {slot.registrants.map((reg, idx) => (
+                                    <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-[#FAF5EE]'}>
+                                      <td className="px-4 py-2 text-[#8C7B6B] font-medium">{idx + 1}</td>
+                                      <td className="px-4 py-2 font-medium text-[#2C2420]">{reg.name}</td>
+                                      <td className="px-4 py-2 text-[#5C5347]">{reg.email}</td>
+                                      <td className="px-4 py-2">
+                                        <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded-full border capitalize ${PAYMENT_STATUS_COLORS[reg.paymentStatus] || 'bg-gray-100 text-gray-600 border-gray-200'}`}>
+                                          {reg.paymentStatus.replace(/_/g, ' ')}
+                                        </span>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          ))}
                         </div>
                       </div>
                     ))}
