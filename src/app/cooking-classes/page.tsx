@@ -799,7 +799,7 @@ export default function CookingClassesPage() {
             .map(c => ({
               fullName: c.fullName,
               dob: c.dob,
-              age: c.age,
+              age: c.dob ? String(calculateAge(c.dob) ?? '') : c.age,
               gender: c.gender,
               grade: c.grade,
               dietaryRestrictions: c.dietaryRestrictions,

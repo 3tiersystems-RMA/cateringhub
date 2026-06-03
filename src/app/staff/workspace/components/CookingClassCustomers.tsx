@@ -712,8 +712,8 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
 
                           {/* Children participants */}
                           {children.length > 0 ? children.map((child, idx) => {
-                            const childName = child.full_name || child.name || `Child ${idx + 1}`;
-                            const childAge = child.age ? String(child.age) : calcAge(child.dob);
+                            const childName = child.fullName || child.full_name || child.name || `Child ${idx + 1}`;
+                            const childAge = child.age != null && child.age !== '' ? String(child.age) : calcAge(child.dob);
                             return (
                               <div key={idx} className="border border-[#EDE7DA] rounded-xl overflow-hidden">
                                 <div className="bg-[#F5F0E8] px-4 py-2.5 flex items-center gap-2">
@@ -836,7 +836,7 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
                           <Field label="Doctor Surname" value={reg.medical_doctor_surname} />
                           <Field label="Allergies / Illness" value={reg.allergies_illness} />
                           {children.map((child, idx) => {
-                            const childName = child.full_name || child.name || `Child ${idx + 1}`;
+                            const childName = child.fullName || child.full_name || child.name || `Child ${idx + 1}`;
                             if (!child.allergies) return null;
                             return (
                               <Field key={idx} label={`${childName} – Allergies`} value={child.allergies} />
