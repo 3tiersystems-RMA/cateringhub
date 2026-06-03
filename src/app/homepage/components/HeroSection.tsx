@@ -206,12 +206,12 @@ function HeroSectionInner() {
           <div className="lg:col-span-7 space-y-8">
             {/* Badge */}
             {showHeroBadge &&
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#C4622D]/15 border border-[#C4622D]/30 rounded-full backdrop-blur-sm">
+            <Link href="/cooking-classes" className="inline-flex items-center gap-2 px-4 py-2 bg-[#C4622D]/15 border border-[#C4622D]/30 rounded-full backdrop-blur-sm cursor-pointer hover:bg-[#C4622D]/25 transition-all duration-300">
               <span className="w-1.5 h-1.5 rounded-full bg-[#C4622D] pulse-dot" />
               <span className="text-xs font-semibold tracking-widest uppercase text-[#D97B4A]">
                 {heroBadgeText}
               </span>
-            </div>
+            </Link>
             }
 
             {/* Headline */}
