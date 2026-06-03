@@ -286,7 +286,7 @@ function BankingPanel({ entityId }: { entityId: string }) {
 
 // ─── Warehouse / Site Panel ───────────────────────────────────────────────────
 
-function WarehousePanel({ entityId }: { entityId: string }) {
+function WarehousePanel({ entityId, allEntityIds }: { entityId: string; allEntityIds: string[] }) {
   const supabase = createClient();
   const [items, setItems] = useState<WarehouseSite[]>([]);
   const [loading, setLoading] = useState(true);
@@ -320,6 +320,26 @@ function WarehousePanel({ entityId }: { entityId: string }) {
 
   useEffect(() => { load(); }, [load]);
 
+  // Check if a default already exists in any OTHER entity across the organisation
+  const checkGlobalDefault = useCallback(async (): Promise<{ exists: boolean; entityName?: string }> => {
+    if (allEntityIds.length === 0) return { exists: false };
+    const otherEntityIds = allEntityIds.filter(id => id !== entityId);
+    if (otherEntityIds.length === 0) return { exists: false };
+    const { data } = await supabase
+      .from('org_warehouses')
+      .select('id, entity_id')
+      .in('entity_id', otherEntityIds)
+      .eq('is_default', true)
+      .limit(1);
+    return { exists: !!(data && data.length > 0) };
+  }, [supabase, entityId, allEntityIds]);
+
+  // Clear defaults across ALL entities in the organisation
+  const clearAllDefaults = useCallback(async () => {
+    if (allEntityIds.length === 0) return;
+    await supabase.from('org_warehouses').update({ is_default: false }).in('entity_id', allEntityIds);
+  }, [supabase, allEntityIds]);
+
   const openAdd = () => { setEditing(null); setForm(emptyWarehouse); setError(''); setShowForm(true); };
   const openEdit = (item: WarehouseSite) => {
     setEditing(item);
@@ -336,10 +356,22 @@ function WarehousePanel({ entityId }: { entityId: string }) {
     setSaving(true);
     setError('');
     try {
-      // Always clear all other defaults for this entity before saving if is_default is true.
-      // This guarantees only one Default can ever exist per entity.
       if (form.is_default) {
-        await supabase.from('org_warehouses').update({ is_default: false }).eq('entity_id', entityId);
+        // Check if a default already exists in another entity
+        const globalCheck = await checkGlobalDefault();
+        if (globalCheck.exists) {
+          setError('You can only have one default Warehouse/Site for your Organisation.');
+          setSaving(false);
+          return;
+        }
+        // Also check if a different item in THIS entity is already default (and we're not editing it)
+        const existingDefault = items.find(i => i.is_default && i.id !== editing?.id);
+        if (existingDefault) {
+          // Clear all defaults across all entities before setting new one
+          await clearAllDefaults();
+        } else {
+          await clearAllDefaults();
+        }
       }
       const payload = { entity_id: entityId, name: form.name.trim(), address: form.address.trim(), city: form.city?.trim() || null, province: form.province?.trim() || null, postal_code: form.postal_code?.trim() || null, country: form.country || 'South Africa', is_default: form.is_default };
       if (editing) {
@@ -356,10 +388,16 @@ function WarehousePanel({ entityId }: { entityId: string }) {
   };
 
   const handleSetDefault = async (id: string) => {
-    // Clear all defaults for this entity first, then set the selected one.
-    // This ensures only one Default exists at any time.
-    await supabase.from('org_warehouses').update({ is_default: false }).eq('entity_id', entityId);
+    // Block if a default already exists in another entity
+    const globalCheck = await checkGlobalDefault();
+    if (globalCheck.exists) {
+      setError('You can only have one default Warehouse/Site for your Organisation.');
+      return;
+    }
+    // Clear all defaults across all entities, then set this one
+    await clearAllDefaults();
     await supabase.from('org_warehouses').update({ is_default: true }).eq('id', id);
+    setError('');
     load();
   };
 
@@ -413,11 +451,6 @@ function WarehousePanel({ entityId }: { entityId: string }) {
             <input type="checkbox" checked={form.is_default} onChange={e => setForm(p => ({ ...p, is_default: e.target.checked }))} className="w-4 h-4 rounded border-[#DDD5C8] text-[#C4622D] focus:ring-[#C4622D]/30" />
             <span className="text-sm text-[#5C5347] font-medium">Set as Default warehouse / site</span>
           </label>
-          {form.is_default && items.some(i => i.is_default && i.id !== editing?.id) && (
-            <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-              ⚠️ The current Default will be replaced. Only one Default is allowed per entity.
-            </p>
-          )}
           <div className="flex gap-2 pt-1">
             <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-[#C4622D] text-white text-sm font-semibold rounded-lg hover:bg-[#A04E22] transition-colors disabled:opacity-50">
               {saving ? 'Saving…' : editing ? 'Update' : 'Save'}
@@ -425,6 +458,10 @@ function WarehousePanel({ entityId }: { entityId: string }) {
             <button onClick={() => setShowForm(false)} className="px-4 py-2 bg-white border border-[#DDD5C8] text-[#5C5347] text-sm font-semibold rounded-lg hover:bg-[#F5F0E8] transition-colors">Cancel</button>
           </div>
         </div>
+      )}
+
+      {error && !showForm && (
+        <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-3">{error}</p>
       )}
 
       {items.length === 0 ? (
@@ -691,8 +728,9 @@ function ContactsPanel({ entityId }: { entityId: string }) {
 
 // ─── Entity Card ──────────────────────────────────────────────────────────────
 
-function EntityCard({ entity, onDelete, onEditName }: { entity: OrgEntity; onDelete: (id: string) => void; onEditName: (entity: OrgEntity) => void }) {
+function EntityCard({ entity, onDelete, onEditName, allEntityIds, hasDefaultWarehouse }: { entity: OrgEntity; onDelete: (id: string) => void; onEditName: (entity: OrgEntity) => void; allEntityIds: string[]; hasDefaultWarehouse: boolean }) {
   const [activeSection, setActiveSection] = useState<SectionTab>('banking');
+  const [isOpen, setIsOpen] = useState(hasDefaultWarehouse);
 
   const sectionTabs: { key: SectionTab; label: string; icon: string }[] = [
     { key: 'banking', label: 'Banking Details', icon: '🏦' },
@@ -703,7 +741,10 @@ function EntityCard({ entity, onDelete, onEditName }: { entity: OrgEntity; onDel
   return (
     <div className="bg-white border border-[#E8DDD0] rounded-2xl overflow-hidden">
       {/* Entity header */}
-      <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-[#FAF5EE] to-[#F5EFE8] border-b border-[#E8DDD0]">
+      <div
+        className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-[#FAF5EE] to-[#F5EFE8] border-b border-[#E8DDD0] cursor-pointer select-none"
+        onClick={() => setIsOpen(prev => !prev)}
+      >
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#C4622D] to-[#E8845A] flex items-center justify-center text-white text-sm font-bold shadow-sm">
             {entity.name.charAt(0).toUpperCase()}
@@ -715,44 +756,54 @@ function EntityCard({ entity, onDelete, onEditName }: { entity: OrgEntity; onDel
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => onEditName(entity)}
+            onClick={(e) => { e.stopPropagation(); onEditName(entity); }}
             className="text-xs text-[#C4622D] border border-[#C4622D]/30 px-2.5 py-1 rounded-lg hover:bg-[#FAF5EE] transition-colors"
           >
             Edit Name
           </button>
           <button
-            onClick={() => onDelete(entity.id)}
+            onClick={(e) => { e.stopPropagation(); onDelete(entity.id); }}
             className="text-xs text-red-500 border border-red-200 px-2.5 py-1 rounded-lg hover:bg-red-50 transition-colors"
           >
             Remove Entity
           </button>
+          <svg
+            className={`w-4 h-4 text-[#8C8278] transition-transform flex-shrink-0 ${isOpen ? 'rotate-180' : ''}`}
+            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
         </div>
       </div>
 
-      {/* Section tabs */}
-      <div className="flex border-b border-[#E8DDD0] overflow-x-auto">
-        {sectionTabs.map(tab => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveSection(tab.key)}
-            className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium transition-colors border-b-2 -mb-px whitespace-nowrap ${
-              activeSection === tab.key
-                ? 'border-[#C4622D] text-[#C4622D] bg-[#FDF6EE]'
-                : 'border-transparent text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
-            }`}
-          >
-            <span>{tab.icon}</span>
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      {isOpen && (
+        <>
+          {/* Section tabs */}
+          <div className="flex border-b border-[#E8DDD0] overflow-x-auto">
+            {sectionTabs.map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveSection(tab.key)}
+                className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium transition-colors border-b-2 -mb-px whitespace-nowrap ${
+                  activeSection === tab.key
+                    ? 'border-[#C4622D] text-[#C4622D] bg-[#FDF6EE]'
+                    : 'border-transparent text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
+                }`}
+              >
+                <span>{tab.icon}</span>
+                {tab.label}
+              </button>
+            ))}
+          </div>
 
-      {/* Section content */}
-      <div className="p-5">
-        {activeSection === 'banking' && <BankingPanel entityId={entity.id} />}
-        {activeSection === 'warehouse' && <WarehousePanel entityId={entity.id} />}
-        {activeSection === 'contacts' && <ContactsPanel entityId={entity.id} />}
-      </div>
+          {/* Section content */}
+          <div className="p-5">
+            {activeSection === 'banking' && <BankingPanel entityId={entity.id} />}
+            {activeSection === 'warehouse' && <WarehousePanel entityId={entity.id} allEntityIds={allEntityIds} />}
+            {activeSection === 'contacts' && <ContactsPanel entityId={entity.id} />}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -772,6 +823,8 @@ export default function OrganisationDetails() {
   const [editingEntityName, setEditingEntityName] = useState('');
   const [savingEntityName, setSavingEntityName] = useState(false);
   const [editEntityError, setEditEntityError] = useState('');
+  // Track which entity IDs have a default warehouse/site
+  const [entityIdsWithDefaultWarehouse, setEntityIdsWithDefaultWarehouse] = useState<Set<string>>(new Set());
 
   const loadEntities = useCallback(async () => {
     setLoading(true);
@@ -779,7 +832,23 @@ export default function OrganisationDetails() {
       .from('org_entities')
       .select('*')
       .order('created_at', { ascending: true });
-    setEntities(data || []);
+    const entityList = data || [];
+    setEntities(entityList);
+
+    // Load which entities have a default warehouse/site
+    if (entityList.length > 0) {
+      const entityIds = entityList.map((e: OrgEntity) => e.id);
+      const { data: defaultWarehouses } = await supabase
+        .from('org_warehouses')
+        .select('entity_id')
+        .in('entity_id', entityIds)
+        .eq('is_default', true);
+      const withDefault = new Set<string>((defaultWarehouses || []).map((w: { entity_id: string }) => w.entity_id));
+      setEntityIdsWithDefaultWarehouse(withDefault);
+    } else {
+      setEntityIdsWithDefaultWarehouse(new Set());
+    }
+
     setLoading(false);
   }, [supabase]);
 
@@ -838,6 +907,8 @@ export default function OrganisationDetails() {
       </div>
     );
   }
+
+  const allEntityIds = entities.map(e => e.id);
 
   return (
     <div className="p-6 space-y-6">
@@ -924,7 +995,13 @@ export default function OrganisationDetails() {
                   </div>
                 </div>
               ) : null}
-              <EntityCard entity={entity} onDelete={handleDeleteEntity} onEditName={handleEditEntityStart} />
+              <EntityCard
+                entity={entity}
+                onDelete={handleDeleteEntity}
+                onEditName={handleEditEntityStart}
+                allEntityIds={allEntityIds}
+                hasDefaultWarehouse={entityIdsWithDefaultWarehouse.has(entity.id)}
+              />
             </div>
           ))}
         </div>
