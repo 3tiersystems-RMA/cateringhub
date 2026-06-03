@@ -126,6 +126,7 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
   // Collapsible state for event blocks and individual sessions
   const [collapsedEventBlocks, setCollapsedEventBlocks] = useState<Record<string, boolean>>({});
   const [collapsedSessions, setCollapsedSessions] = useState<Record<string, boolean>>({});
+  const [sheetSyncCollapsed, setSheetSyncCollapsed] = useState(true);
 
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [loadingRegs, setLoadingRegs] = useState(false);
@@ -863,35 +864,55 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
             </div>
           </div>
 
-          {/* (4) Google Sheet Sync — moved to top (above Events) */}
-          <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5">
-            <h3 className="text-base font-semibold text-[#1A1612] mb-1">Google Sheet Sync</h3>
-            <p className="text-xs text-[#8C8278] mb-4">Confirmed registrations will be written to this sheet automatically.</p>
+          {/* (4) Google Sheet Sync — Super Admin only, collapsible */}
+          {isSuperAdmin && (
+            <div className="bg-white rounded-2xl border border-[#EDE7DA] overflow-hidden">
+              {/* Collapsible header */}
+              <button
+                type="button"
+                onClick={() => setSheetSyncCollapsed(prev => !prev)}
+                className="w-full flex items-center justify-between px-5 py-4 hover:bg-[#FAF5EE] transition-colors"
+              >
+                <div className="text-left">
+                  <h3 className="text-base font-semibold text-[#1A1612]">Google Sheet Sync</h3>
+                  <p className="text-xs text-[#8C8278] mt-0.5">Confirmed registrations will be written to this sheet automatically.</p>
+                </div>
+                <div className="flex items-center gap-2 ml-4 flex-shrink-0">
+                  <span className="text-xs bg-amber-100 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full font-medium">Super Admin</span>
+                  <span className="text-[#8C8278] text-sm">{sheetSyncCollapsed ? '▶' : '▼'}</span>
+                </div>
+              </button>
 
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs font-semibold text-[#5C5347] mb-1">Google Sheet ID</label>
-                <input
-                  type="text"
-                  value={sheetId}
-                  onChange={e => setSheetId(e.target.value)}
-                  placeholder="e.g. 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"
-                  className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] font-mono"
-                />
-                <p className="text-xs text-[#8C8278] mt-1">Found in the spreadsheet URL between /d/ and /edit</p>
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-[#5C5347] mb-1">Sheet Tab Name</label>
-                <input
-                  type="text"
-                  value={sheetName}
-                  onChange={e => setSheetName(e.target.value)}
-                  placeholder="Registrations"
-                  className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
-                />
-              </div>
+              {/* Collapsible body */}
+              {!sheetSyncCollapsed && (
+                <div className="px-5 pb-5 pt-1 border-t border-[#EDE7DA]">
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-[#5C5347] mb-1">Google Sheet ID</label>
+                      <input
+                        type="text"
+                        value={sheetId}
+                        onChange={e => setSheetId(e.target.value)}
+                        placeholder="e.g. 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"
+                        className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] font-mono"
+                      />
+                      <p className="text-xs text-[#8C8278] mt-1">Found in the spreadsheet URL between /d/ and /edit</p>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-[#5C5347] mb-1">Sheet Tab Name</label>
+                      <input
+                        type="text"
+                        value={sheetName}
+                        onChange={e => setSheetName(e.target.value)}
+                        placeholder="Registrations"
+                        className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
+          )}
 
           {saveSuccess && (
             <div className="bg-green-50 border border-green-200 rounded-xl p-3">

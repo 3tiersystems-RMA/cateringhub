@@ -478,7 +478,6 @@ export default function EventRegistrations() {
     let aVal = '';
     let bVal = '';
     if (participantSortKey === 'datetime') {
-      // Sort by event date first, then timeslot
       const aDate = a.eventDate || '';
       const bDate = b.eventDate || '';
       const dateCmp = aDate.localeCompare(bDate);
@@ -508,6 +507,97 @@ export default function EventRegistrations() {
     const cmp = aVal.localeCompare(bVal);
     return participantSortDir === 'asc' ? cmp : -cmp;
   });
+
+  // Create PDF for Participant Bookings
+  const handleCreateParticipantPDF = () => {
+    const rows = sortedParticipantRows;
+    const eventLabel = participantEventFilter !== 'all' ? participantEventFilter : 'All Events';
+    const generatedAt = new Date().toLocaleString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+    const tableRows = rows.map((row, idx) => `
+      <tr style="background:${idx % 2 === 0 ? '#ffffff' : '#faf5ee'}">
+        <td style="padding:8px 12px;border-bottom:1px solid #f0e8de;color:#8c7b6b;font-size:12px">${idx + 1}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #f0e8de;font-size:12px;color:#c4622d;font-weight:500">${row.eventName}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #f0e8de;font-size:12px;color:#2c2420">
+          <div style="font-weight:500">${row.eventDate ? new Date(row.eventDate).toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</div>
+          <div style="color:#8c7b6b;font-size:11px">${row.timeslot}</div>
+        </td>
+        <td style="padding:8px 12px;border-bottom:1px solid #f0e8de;font-size:12px;font-weight:500;color:#2c2420">${row.fullName || '—'}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #f0e8de;font-size:12px;color:#5c5347">${row.dob ? new Date(row.dob).toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #f0e8de;font-size:12px;color:#5c5347;text-align:center">${row.age !== '—' ? row.age : '—'}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #f0e8de;font-size:12px;color:#5c5347;text-transform:capitalize">${row.gender || '—'}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #f0e8de;font-size:12px;color:#5c5347">${row.allergies || 'None'}</td>
+      </tr>
+    `).join('');
+
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Participant Bookings — ${eventLabel}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #2c2420; background: #fff; padding: 24px; }
+    .header { border-bottom: 2px solid #c4622d; padding-bottom: 16px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-end; }
+    .header-left h1 { font-size: 20px; font-weight: 700; color: #1a1612; }
+    .header-left p { font-size: 12px; color: #8c7b6b; margin-top: 4px; }
+    .header-right { text-align: right; font-size: 11px; color: #8c7b6b; }
+    .meta { display: flex; gap: 24px; margin-bottom: 16px; }
+    .meta-item { background: #faf5ee; border: 1px solid #e8ddd0; border-radius: 8px; padding: 8px 14px; }
+    .meta-item .label { font-size: 10px; color: #8c7b6b; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+    .meta-item .value { font-size: 14px; font-weight: 700; color: #c4622d; margin-top: 2px; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    thead tr { background: #f5efe8; }
+    thead th { padding: 10px 12px; text-align: left; font-size: 10px; font-weight: 700; color: #5c5347; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 2px solid #e8ddd0; }
+    .footer { margin-top: 20px; padding-top: 12px; border-top: 1px solid #e8ddd0; font-size: 10px; color: #8c7b6b; text-align: center; }
+    @media print {
+      body { padding: 16px; }
+      @page { margin: 1cm; size: A4 landscape; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-left">
+      <h1>Participant Bookings</h1>
+      <p>Event: ${eventLabel}</p>
+    </div>
+    <div class="header-right">
+      <div>Generated: ${generatedAt}</div>
+    </div>
+  </div>
+  <div class="meta">
+    <div class="meta-item"><div class="label">Total Participants</div><div class="value">${rows.length}</div></div>
+    <div class="meta-item"><div class="label">Event Filter</div><div class="value" style="font-size:12px;color:#5c5347">${eventLabel}</div></div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Event</th>
+        <th>Date &amp; Time</th>
+        <th>Full Name</th>
+        <th>Date of Birth</th>
+        <th>Age</th>
+        <th>Gender</th>
+        <th>Allergies</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${tableRows}
+    </tbody>
+  </table>
+  <div class="footer">Cardamom Kitchen — Cooking &amp; Baking Classes · Participant Bookings Report</div>
+  <script>window.onload = function() { window.print(); }<\/script>
+</body>
+</html>`;
+
+    const printWindow = window.open('', '_blank', 'width=1100,height=700');
+    if (printWindow) {
+      printWindow.document.write(html);
+      printWindow.document.close();
+    }
+  };
 
   const filterTabConfig: { key: FilterTab; label: string; icon: string }[] = [
     { key: 'event', label: 'By Event', icon: '🎓' },
@@ -684,6 +774,18 @@ export default function EventRegistrations() {
                 </select>
                 {participantEventFilter !== 'all' && (
                   <button onClick={() => { setParticipantEventFilter('all'); setParticipantSortKey(null); setParticipantSortDir('asc'); }} className="text-xs text-[#C4622D] hover:underline">Clear</button>
+                )}
+                {/* Create PDF button */}
+                {sortedParticipantRows.length > 0 && (
+                  <button
+                    onClick={handleCreateParticipantPDF}
+                    className="ml-auto flex items-center gap-1.5 bg-[#C4622D] text-white px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-[#A04E22] transition-colors"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
+                      <path fillRule="evenodd" d="M4.5 2A1.5 1.5 0 0 0 3 3.5v13A1.5 1.5 0 0 0 4.5 18h11a1.5 1.5 0 0 0 1.5-1.5V7.621a1.5 1.5 0 0 0-.44-1.06l-4.12-4.122A1.5 1.5 0 0 0 11.378 2H4.5Zm4.75 6.75a.75.75 0 0 1 1.5 0v2.546l.943-1.048a.75.75 0 1 1 1.114 1.004l-2.25 2.5a.75.75 0 0 1-1.114 0l-2.25-2.5a.75.75 0 1 1 1.114-1.004l.943 1.048V8.75Z" clipRule="evenodd" />
+                    </svg>
+                    Create PDF
+                  </button>
                 )}
               </div>
 
