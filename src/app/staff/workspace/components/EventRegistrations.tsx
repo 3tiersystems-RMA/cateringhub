@@ -62,7 +62,7 @@ interface SessionDate {
   class_fee: number | null;
 }
 
-// Sessions Booked view: grouped by event → date → timeslot → registrants
+// Registrant Bookings view: grouped by event → date → timeslot → registrants
 interface SessionsBookedGroup {
   eventName: string;
   dates: {
@@ -74,6 +74,21 @@ interface SessionsBookedGroup {
     }[];
   }[];
 }
+
+// Participant Bookings view: flat list of participants per session
+interface ParticipantBookingRow {
+  eventName: string;
+  eventDate: string | null;
+  timeslot: string;
+  fullName: string;
+  dob: string | null;
+  age: string;
+  gender: string;
+  allergies: string;
+}
+
+type ParticipantSortKey = 'dob' | 'age' | 'gender' | 'allergies';
+type SortDir = 'asc' | 'desc';
 
 const PAYMENT_STATUS_COLORS: Record<string, string> = {
   pending: 'bg-amber-100 text-amber-700 border-amber-200',
@@ -107,7 +122,7 @@ function calcAge(dob: string | null | undefined): string {
   } catch { return '—'; }
 }
 
-type FilterTab = 'event' | 'registrant' | 'venue' | 'sessions_booked';
+type FilterTab = 'event' | 'registrant' | 'venue' | 'sessions_booked' | 'participant_bookings';
 
 const PAGE_SIZE = 10;
 
@@ -216,6 +231,12 @@ function Paginator({
   );
 }
 
+// Sort icon helper
+function SortIcon({ col, sortKey, sortDir }: { col: ParticipantSortKey; sortKey: ParticipantSortKey | null; sortDir: SortDir }) {
+  if (sortKey !== col) return <span className="ml-1 text-[#C4B8A8]">⇅</span>;
+  return <span className="ml-1 text-[#C4622D]">{sortDir === 'asc' ? '↑' : '↓'}</span>;
+}
+
 export default function EventRegistrations() {
   const supabase = createClient();
   const [registrations, setRegistrations] = useState<RegistrationRow[]>([]);
@@ -239,6 +260,10 @@ export default function EventRegistrations() {
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
+
+  // Participant Bookings sort state
+  const [participantSortKey, setParticipantSortKey] = useState<ParticipantSortKey | null>(null);
+  const [participantSortDir, setParticipantSortDir] = useState<SortDir>('asc');
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -347,7 +372,7 @@ export default function EventRegistrations() {
     return true;
   });
 
-  // FIX 1: Only count child participants (not the registrant) in stats
+  // Only count child participants (not the registrant) in stats
   const totalParticipants = filtered.reduce((sum, r) => sum + (r.children || []).length, 0);
   const totalPaid = filtered.filter(r => r.payment_status === 'paid').length;
   const totalAmount = filtered.reduce((sum, r) => sum + (r.payment_status === 'paid' ? (r.amount || 0) : 0), 0);
@@ -356,7 +381,7 @@ export default function EventRegistrations() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
-  // FIX 3: Build Sessions Booked grouped data
+  // Build Registrant Bookings grouped data
   const sessionsBookedGroups: SessionsBookedGroup[] = (() => {
     const eventMap: Record<string, Record<string, Record<string, { dateId: string; registrants: { name: string; email: string; paymentStatus: string }[] }>>> = {};
     registrations.forEach(r => {
@@ -398,11 +423,80 @@ export default function EventRegistrations() {
       }));
   })();
 
+  // Build Participant Bookings flat list: all participants (children only) per session, no blank rows
+  const participantBookingRows: ParticipantBookingRow[] = (() => {
+    const rows: ParticipantBookingRow[] = [];
+    registrations.forEach(r => {
+      const children = (r.children || []).filter(c => {
+        const name = (c.full_name || c.name || '').trim();
+        return name.length > 0;
+      });
+      if (children.length === 0) return;
+      (r.session_dates || []).forEach(sd => {
+        const evName = sd.event_name || 'Unknown Event';
+        const timeslot = sd.start_time && sd.end_time
+          ? `${sd.start_time} – ${sd.end_time}`
+          : sd.start_time || 'Time TBC';
+        children.forEach(child => {
+          const ageStr = child.age != null ? String(child.age) : calcAge(child.dob);
+          rows.push({
+            eventName: evName,
+            eventDate: sd.event_date,
+            timeslot,
+            fullName: (child.full_name || child.name || '').trim(),
+            dob: child.dob || null,
+            age: ageStr,
+            gender: (child.gender || '').trim(),
+            allergies: (child.allergies || '').trim(),
+          });
+        });
+      });
+    });
+    return rows;
+  })();
+
+  // Sort participant bookings
+  const handleParticipantSort = (key: ParticipantSortKey) => {
+    if (participantSortKey === key) {
+      setParticipantSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setParticipantSortKey(key);
+      setParticipantSortDir('asc');
+    }
+  };
+
+  const sortedParticipantRows = [...participantBookingRows].sort((a, b) => {
+    if (!participantSortKey) return 0;
+    let aVal = '';
+    let bVal = '';
+    if (participantSortKey === 'dob') {
+      aVal = a.dob || '';
+      bVal = b.dob || '';
+    } else if (participantSortKey === 'age') {
+      const aNum = parseInt(a.age, 10);
+      const bNum = parseInt(b.age, 10);
+      if (!isNaN(aNum) && !isNaN(bNum)) {
+        return participantSortDir === 'asc' ? aNum - bNum : bNum - aNum;
+      }
+      aVal = a.age;
+      bVal = b.age;
+    } else if (participantSortKey === 'gender') {
+      aVal = a.gender.toLowerCase();
+      bVal = b.gender.toLowerCase();
+    } else if (participantSortKey === 'allergies') {
+      aVal = a.allergies.toLowerCase();
+      bVal = b.allergies.toLowerCase();
+    }
+    const cmp = aVal.localeCompare(bVal);
+    return participantSortDir === 'asc' ? cmp : -cmp;
+  });
+
   const filterTabConfig: { key: FilterTab; label: string; icon: string }[] = [
     { key: 'event', label: 'By Event', icon: '🎓' },
     { key: 'registrant', label: 'By Registrant', icon: '👤' },
     { key: 'venue', label: 'By Venue Location', icon: '📍' },
-    { key: 'sessions_booked', label: 'Sessions Booked', icon: '📅' },
+    { key: 'sessions_booked', label: 'Registrant Bookings', icon: '📅' },
+    { key: 'participant_bookings', label: 'Participant Bookings', icon: '👧' },
   ];
 
   return (
@@ -421,7 +515,7 @@ export default function EventRegistrations() {
         </button>
       </div>
 
-      {/* Summary stats — FIX 1: participants = children only */}
+      {/* Summary stats */}
       <div className="grid grid-cols-4 gap-4">
         <div className="bg-white border border-[#E8DDD0] rounded-xl p-4">
           <p className="text-xs text-[#8C7B6B] uppercase tracking-wide font-medium">Total Registrations</p>
@@ -443,12 +537,12 @@ export default function EventRegistrations() {
 
       {/* Filter Tabs */}
       <div className="bg-white border border-[#E8DDD0] rounded-xl overflow-hidden">
-        <div className="flex border-b border-[#E8DDD0]">
+        <div className="flex border-b border-[#E8DDD0] overflow-x-auto">
           {filterTabConfig.map(tab => (
             <button
               key={tab.key}
               onClick={() => setFilterTab(tab.key)}
-              className={`flex items-center gap-2 px-5 py-3 text-sm font-medium transition-colors border-b-2 -mb-px ${
+              className={`flex items-center gap-2 px-5 py-3 text-sm font-medium transition-colors border-b-2 -mb-px whitespace-nowrap ${
                 filterTab === tab.key
                   ? 'border-[#C4622D] text-[#C4622D] bg-[#FDF6EE]'
                   : 'border-transparent text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
@@ -460,7 +554,7 @@ export default function EventRegistrations() {
           ))}
         </div>
 
-        {/* FIX 3: Sessions Booked tab content */}
+        {/* Registrant Bookings tab content */}
         {filterTab === 'sessions_booked' ? (
           loading ? (
             <div className="flex items-center justify-center py-16">
@@ -546,6 +640,118 @@ export default function EventRegistrations() {
               ))}
             </div>
           )
+
+        /* Participant Bookings tab content */
+        ) : filterTab === 'participant_bookings' ? (
+          loading ? (
+            <div className="flex items-center justify-center py-16">
+              <div className="w-8 h-8 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : error ? (
+            <div className="p-6 text-center text-red-600 text-sm">{error}</div>
+          ) : sortedParticipantRows.length === 0 ? (
+            <div className="p-12 text-center">
+              <p className="text-3xl mb-2">👧</p>
+              <p className="text-[#5C5347] font-medium">No participant data found</p>
+              <p className="text-sm text-[#8C7B6B] mt-1">Participants will appear here once registrations with children are added</p>
+            </div>
+          ) : (
+            <>
+              <div className="px-5 py-2.5 bg-[#FAF5EE] border-b border-[#E8DDD0] flex items-center justify-between">
+                <p className="text-xs text-[#8C7B6B]">
+                  <span className="font-semibold text-[#2C2420]">{sortedParticipantRows.length}</span> participant{sortedParticipantRows.length !== 1 ? 's' : ''} across all sessions
+                </p>
+                {participantSortKey && (
+                  <button
+                    onClick={() => { setParticipantSortKey(null); setParticipantSortDir('asc'); }}
+                    className="text-xs text-[#C4622D] hover:underline"
+                  >
+                    Clear sort
+                  </button>
+                )}
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-[#F5EFE8] text-[#5C5347] text-xs uppercase tracking-wide">
+                      <th className="px-4 py-3 text-left font-semibold">#</th>
+                      <th className="px-4 py-3 text-left font-semibold">Event</th>
+                      <th className="px-4 py-3 text-left font-semibold">Date &amp; Time</th>
+                      <th className="px-4 py-3 text-left font-semibold">Full Name</th>
+                      <th
+                        className="px-4 py-3 text-left font-semibold cursor-pointer select-none hover:text-[#C4622D] transition-colors"
+                        onClick={() => handleParticipantSort('dob')}
+                      >
+                        DOB <SortIcon col="dob" sortKey={participantSortKey} sortDir={participantSortDir} />
+                      </th>
+                      <th
+                        className="px-4 py-3 text-left font-semibold cursor-pointer select-none hover:text-[#C4622D] transition-colors"
+                        onClick={() => handleParticipantSort('age')}
+                      >
+                        Age <SortIcon col="age" sortKey={participantSortKey} sortDir={participantSortDir} />
+                      </th>
+                      <th
+                        className="px-4 py-3 text-left font-semibold cursor-pointer select-none hover:text-[#C4622D] transition-colors"
+                        onClick={() => handleParticipantSort('gender')}
+                      >
+                        Gender <SortIcon col="gender" sortKey={participantSortKey} sortDir={participantSortDir} />
+                      </th>
+                      <th
+                        className="px-4 py-3 text-left font-semibold cursor-pointer select-none hover:text-[#C4622D] transition-colors"
+                        onClick={() => handleParticipantSort('allergies')}
+                      >
+                        Allergies <SortIcon col="allergies" sortKey={participantSortKey} sortDir={participantSortDir} />
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#F0E8DE]">
+                    {sortedParticipantRows.map((row, idx) => (
+                      <tr key={idx} className={idx % 2 === 0 ? 'bg-white hover:bg-[#FAF5EE]' : 'bg-[#FAF5EE] hover:bg-[#F5EFE8]'}>
+                        <td className="px-4 py-3 text-xs text-[#8C7B6B] font-medium">{idx + 1}</td>
+                        <td className="px-4 py-3">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-[#FDF6EE] to-[#F5EFE8] text-[#C4622D] text-xs font-medium rounded-lg border border-[#E8C9B0] shadow-sm">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#C4622D] flex-shrink-0" />
+                            {row.eventName}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="text-xs text-[#2C2420] font-medium">{formatDate(row.eventDate)}</div>
+                          <div className="text-xs text-[#8C7B6B] mt-0.5">{row.timeslot}</div>
+                        </td>
+                        <td className="px-4 py-3 font-medium text-[#2C2420]">{row.fullName || '—'}</td>
+                        <td className="px-4 py-3 text-[#5C5347] text-xs">{formatDate(row.dob)}</td>
+                        <td className="px-4 py-3 text-[#5C5347] text-xs">
+                          {row.age !== '—' ? (
+                            <span className="inline-flex items-center justify-center w-8 h-6 bg-[#F5EFE8] text-[#C4622D] text-xs font-semibold rounded-full border border-[#E8C9B0]">
+                              {row.age}
+                            </span>
+                          ) : '—'}
+                        </td>
+                        <td className="px-4 py-3 text-xs">
+                          {row.gender ? (
+                            <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded-full border capitalize ${
+                              row.gender.toLowerCase() === 'female' ?'bg-pink-50 text-pink-700 border-pink-200'
+                                : row.gender.toLowerCase() === 'male' ?'bg-blue-50 text-blue-700 border-blue-200' :'bg-gray-50 text-gray-600 border-gray-200'
+                            }`}>
+                              {row.gender}
+                            </span>
+                          ) : <span className="text-[#8C7B6B]">—</span>}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-[#5C5347]">
+                          {row.allergies ? (
+                            <span className="inline-block px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-xs font-medium">
+                              {row.allergies}
+                            </span>
+                          ) : <span className="text-[#8C7B6B]">None</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )
+
         ) : (
           <>
             {/* Filter controls */}
@@ -639,7 +845,6 @@ export default function EventRegistrations() {
                       const uniqueEvents = [...new Set(sessions.map(s => s.event_name).filter(Boolean))];
                       const uniqueVenues = [...new Set(sessions.map(s => s.location).filter(Boolean))];
                       const childCount = (reg.children || []).length;
-                      // FIX 1: participant count = children only (not the registrant)
                       const participantCount = childCount;
 
                       return (
@@ -661,7 +866,7 @@ export default function EventRegistrations() {
                               <div className="text-[#2C2420]">{reg.email}</div>
                               <div className="text-xs text-[#8C7B6B] mt-0.5">{reg.cellphone}</div>
                             </td>
-                            {/* FIX 4: Elegant Event(s) badge */}
+                            {/* Elegant Event(s) badge */}
                             <td className="px-4 py-3">
                               {uniqueEvents.length > 0 ? (
                                 <div className="flex flex-wrap gap-1.5">
@@ -714,7 +919,7 @@ export default function EventRegistrations() {
                             <td className="px-4 py-3 text-xs text-[#5C5347]">
                               {formatDate(reg.created_at)}
                             </td>
-                            {/* Participants toggle — FIX 1: children only */}
+                            {/* Participants toggle */}
                             <td className="px-4 py-3 text-center">
                               <button
                                 onClick={e => { e.stopPropagation(); setExpandedId(isExpanded ? null : reg.id); }}
@@ -916,7 +1121,7 @@ export default function EventRegistrations() {
               </div>
             )}
 
-            {/* FIX 5: Elegant themed paginator */}
+            {/* Elegant themed paginator */}
             {!loading && !error && filtered.length > 0 && (
               <>
                 <div className="px-5 py-2 bg-[#FAF5EE] border-t border-[#E8DDD0] text-xs text-[#8C7B6B]">
