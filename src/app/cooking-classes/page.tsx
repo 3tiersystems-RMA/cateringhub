@@ -1017,17 +1017,17 @@ export default function CookingClassesPage() {
         {/* ── PAGE 1 — Personal Details ─────────────────────────────────────── */}
         {currentPage === 1 && (
           <div className="bg-white rounded-2xl border border-[#EDE7DA] p-6 shadow-sm">
+            <h2 className="text-xl font-bold text-[#C4622D] mb-6 text-center">Registration Details</h2>
+
             {flyerUrl && (
               <div className="mb-6 rounded-xl overflow-hidden">
                 <img
                   src={flyerUrl}
                   alt="Cooking and Baking Class flyer showing class details and schedule"
-                  className="w-full object-contain max-h-80"
+                  className="w-full object-contain max-h-56"
                 />
               </div>
             )}
-
-            <h2 className="text-xl font-bold text-[#1A1612] mb-6">Registration Details</h2>
 
             {/* Full Name */}
             <div className="mb-5">
