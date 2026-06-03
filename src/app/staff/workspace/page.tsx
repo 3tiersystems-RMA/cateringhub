@@ -840,7 +840,7 @@ export default function StaffWorkspacePage() {
   const [dvLoading, setDvLoading] = useState(false);
   const [showDvForm, setShowDvForm] = useState(false);
   const [editingDv, setEditingDv] = useState<DiscountVoucher | null>(null);
-  const [dvForm, setDvForm] = useState({ dv_code: '', dv_type: 'Discount' as 'Discount' | 'Gift', dv_amount: '', status: 'Active' as 'Active' | 'Inactive', expiry_date: '', created_at: '' });
+  const [dvForm, setDvForm] = useState({ dv_code: '', dv_type: 'Discount' as 'Discount' | 'Gift', dv_amount: '', status: 'Active\' as \'Active\' | \'Inactive', expiry_date: '', created_at: '' });
   const [dvFormError, setDvFormError] = useState('');
   const [dvFormSuccess, setDvFormSuccess] = useState('');
   const [savingDv, setSavingDv] = useState(false);
@@ -1537,8 +1537,7 @@ export default function StaffWorkspacePage() {
         if (error || !data || data.length === 0) {
           showGlobalError('Could not delete the image — you may not have permission, or it was already removed.', 'Gallery Error');
         } else if (img.image_path) {
-          // Remove the underlying file so we don't leave orphaned objects in storage.
-          await supabase.storage.from('gallery-images').remove([img.image_path]);
+          // Remove the underlying file so we don't leave orphaned objects in storage.await supabase.storage.from('gallery-images').remove([img.image_path]);
         }
         await loadGallery();
       },
@@ -1556,18 +1555,14 @@ export default function StaffWorkspacePage() {
   };
 
   const VOUCHER_PACKAGE_PRICES_WS: Record<string, number> = {
-    'package-6': 690,
-    'package-10': 1350,
-    'package-12': 1320,
-    'package-24': 2520,
+    'package-6': 690,'package-10': 1350,'package-12': 1320,'package-24': 2520,
   };
 
   const loadWsOrders = async () => {
     setWsOrdersLoading(true);
     setWsOrdersError('');
     const { data, error } = await supabase
-      .from('orders')
-      .select('*') // includes subtotal, delivery_fee, notes, total for calculateOrderTotal
+      .from('orders').select('*') // includes subtotal, delivery_fee, notes, total for calculateOrderTotal
       .order('created_at', { ascending: false });
     if (error) { setWsOrdersError(error.message); }
     else {
