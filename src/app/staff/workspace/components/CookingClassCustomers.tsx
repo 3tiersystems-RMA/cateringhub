@@ -365,9 +365,9 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
             return (
               <div key={reg.id} className="bg-white border border-[#EDE7DA] rounded-2xl overflow-hidden">
                 {/* Row Header */}
-                <button
+                <div
                   onClick={() => toggleExpand(reg.id)}
-                  className="w-full flex items-center gap-4 px-5 py-4 hover:bg-[#FAF5EE] transition-colors text-left"
+                  className="w-full flex items-center gap-4 px-5 py-4 hover:bg-[#FAF5EE] transition-colors text-left cursor-pointer"
                 >
                   {/* Avatar */}
                   <div className="w-10 h-10 rounded-full bg-[#F5F0E8] border border-[#DDD5C8] flex items-center justify-center flex-shrink-0">
@@ -432,7 +432,7 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
                       <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                     </svg>
                   </div>
-                </button>
+                </div>
 
                 {/* Expanded Detail */}
                 {isExpanded && (
