@@ -212,6 +212,20 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  // Auto-clean blank participant rows from Supabase on mount
+  useEffect(() => {
+    fetch('/api/cooking-classes/cleanup-blank-participants', { method: 'POST' })
+      .then(res => res.json())
+      .then(data => {
+        if (data.updated > 0) {
+          // Reload data to reflect cleaned-up participants
+          loadData();
+        }
+      })
+      .catch(() => {/* non-blocking */});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const filtered = registrations.filter(r => {
     const fullName = `${r.first_name} ${r.surname}`.toLowerCase();
     const matchSearch = !searchQuery ||
@@ -419,7 +433,11 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
             const isExpanded = expandedId === reg.id;
             const section = activeSection[reg.id] || 'registrant';
             const children: ChildParticipant[] = Array.isArray(reg.children) ? reg.children : [];
-            const participantCount = 1 + children.length; // registrant + children
+            const filledChildren = children.filter(c => {
+              const name = (c.fullName || c.full_name || c.name || '').trim();
+              return name.length > 0;
+            });
+            const participantCount = filledChildren.length; // only filled participants, registrant excluded
             const sessions = reg.session_dates || [];
             const isPast = sessions.some(s => s.event_date && new Date(s.event_date) < new Date());
             const isUpcoming = sessions.some(s => s.event_date && new Date(s.event_date) >= new Date());

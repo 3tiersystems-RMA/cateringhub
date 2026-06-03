@@ -773,14 +773,16 @@ export default function CookingClassesPage() {
           medical_aid_name: page3.medicalAidName,
           medical_aid_number: page3.medicalAidNumber,
           // Page 4 — Children & School Holiday
-          children: page4.children.map(c => ({
-            fullName: c.fullName,
-            dob: c.dob,
-            age: c.age,
-            gender: c.gender,
-            grade: c.grade,
-            dietaryRestrictions: c.dietaryRestrictions,
-          })),
+          children: page4.children
+            .filter(c => c.fullName.trim().length > 0)
+            .map(c => ({
+              fullName: c.fullName,
+              dob: c.dob,
+              age: c.age,
+              gender: c.gender,
+              grade: c.grade,
+              dietaryRestrictions: c.dietaryRestrictions,
+            })),
           attend_school_holiday: page4.attendSchoolHoliday,
           pictures_taken: page4.picturesTaken,
           indemnity_consent: page4.indemnityConsent,
