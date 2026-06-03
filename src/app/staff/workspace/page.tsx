@@ -120,7 +120,7 @@ const DEFAULT_TAB_BY_ROLE: Record<StaffRole, WorkspaceTab> = {
 };
 
 // ─── Orders types ─────────────────────────────────────────────────────────────
-type PaymentStatus = 'pending' | 'paid' | 'failed' | 'awaiting_payment' | 'refunded';
+type PaymentStatus = 'pending' | 'paid' | 'failed' | 'awaiting_payment' | 'refunded' | 'awaiting_confirmation';
 type FulfillmentStatus = 'new' | 'confirmed' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
 
 interface OrderItem {
@@ -169,6 +169,7 @@ const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
   failed: 'Failed',
   awaiting_payment: 'Awaiting Payment',
   refunded: 'Refunded',
+  awaiting_confirmation: 'Awaiting Confirmation',
 };
 
 const PAYMENT_STATUS_COLORS: Record<PaymentStatus, string> = {
@@ -177,6 +178,7 @@ const PAYMENT_STATUS_COLORS: Record<PaymentStatus, string> = {
   failed: 'bg-red-100 text-red-700 border-red-200',
   awaiting_payment: 'bg-blue-100 text-blue-700 border-blue-200',
   refunded: 'bg-gray-100 text-gray-600 border-gray-200',
+  awaiting_confirmation: 'bg-indigo-100 text-indigo-700 border-indigo-200',
 };
 
 const FULFILLMENT_STATUS_LABELS: Record<FulfillmentStatus, string> = {
@@ -198,7 +200,7 @@ const FULFILLMENT_STATUS_COLORS: Record<FulfillmentStatus, string> = {
 };
 
 const FULFILLMENT_OPTIONS: FulfillmentStatus[] = ['new', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled'];
-const PAYMENT_OPTIONS: PaymentStatus[] = ['awaiting_payment', 'paid', 'refunded', 'pending', 'failed'];
+const PAYMENT_OPTIONS: PaymentStatus[] = ['awaiting_payment', 'awaiting_confirmation', 'paid', 'refunded', 'pending', 'failed'];
 
 interface StorageFile {
   name: string;
@@ -3214,7 +3216,12 @@ export default function StaffWorkspacePage() {
 
               {/* ── Guide (standalone help page) ── */}
               {canRole('super_admin', 'admin', 'staff') && (
-                <button onClick={() => router.push('/staff/guide')} className="flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]">
+                <button onClick={() => {
+  const role = userProfile?.role;
+  if (role === 'super_admin') router.push('/staff/guide');
+  else if (role === 'admin') router.push('/staff/guide/admin');
+  else router.push('/staff/guide/staff');
+}} className="flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]">
                   <span className="text-base">📖</span><span>User Guide</span>
                 </button>
               )}
@@ -3299,7 +3306,25 @@ export default function StaffWorkspacePage() {
                             </div>
                           </button>
                           {isExpanded && (
-                            <div className="border-t border-[#EDE7DA] px-5 py-5 bg-[#FDFAF6]">
+                            <div className="border-t border-[#EDE7DA]">
+                              {/* Black header bar — same style as EventRegistrations expanded card */}
+                              <div className="bg-black px-6 py-4 flex items-center gap-4">
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-bold text-white">{order.customer_name}</p>
+                                  <p className="text-xs text-gray-400 mt-0.5">{order.customer_email} · {order.customer_phone}</p>
+                                </div>
+                                <div className="flex items-center gap-3 flex-shrink-0">
+                                  <span className={`inline-block px-2.5 py-1 text-xs font-medium rounded-full border capitalize ${PAYMENT_STATUS_COLORS[order.payment_status]}`}>
+                                    {PAYMENT_STATUS_LABELS[order.payment_status]}
+                                  </span>
+                                  <span className={`inline-block px-2.5 py-1 text-xs font-medium rounded-full border capitalize ${FULFILLMENT_STATUS_COLORS[order.fulfillment_status]}`}>
+                                    {FULFILLMENT_STATUS_LABELS[order.fulfillment_status]}
+                                  </span>
+                                  <span className="text-sm font-bold text-white">{formatCurrency(calculateOrderTotal(order))}</span>
+                                  <span className="text-xs text-gray-400">{formatDate(order.created_at)}</span>
+                                </div>
+                              </div>
+                              <div className="px-5 py-5 bg-[#FDFAF6]">
                               {/* Super Admin Delete Button */}
                               {userProfile?.role === 'super_admin' && (
                                 <div className="mb-4 flex justify-end">
@@ -3432,6 +3457,7 @@ export default function StaffWorkspacePage() {
                                   </div>
                                 </div>
                               )}
+                              </div>
                             </div>
                           )}
                         </div>
@@ -3519,11 +3545,11 @@ export default function StaffWorkspacePage() {
                   <h2 className="text-xl font-bold text-[#1A1612]">Reports Dashboard</h2>
                   <p className="text-sm text-[#8C8278] mt-0.5">Order and voucher reports</p>
                 </div>
-                <div className="flex border-b border-[#E8DDD0] mb-5 overflow-x-auto">
+                <div className="flex flex-wrap gap-2 mb-5">
                   {([{ key: 'products_ordered', label: 'Products Ordered' }, { key: 'package_meals_ordered', label: 'Package Meals' }, { key: 'frozen_meals_ordered', label: 'Frozen Meals' }, { key: 'discount_vouchers_report', label: 'Discount Vouchers' }, { key: 'delivered_orders', label: 'Delivered Orders' }] as const).map(r => (
-                    <button key={r.key} onClick={() => setReportingView(r.key)} className={`text-sm px-5 py-2.5 font-medium border-b-2 transition-colors whitespace-nowrap ${reportingView === r.key ? 'border-[#C4622D] text-[#C4622D]' : 'border-transparent text-[#5C5347] hover:text-[#C4622D] hover:border-[#C4622D]/40'}`}>{r.label}</button>
+                    <button key={r.key} onClick={() => setReportingView(r.key)} className={`text-sm px-4 py-1.5 rounded-full font-medium transition-colors whitespace-nowrap border ${reportingView === r.key ? 'bg-[#C4622D] text-white border-[#C4622D]' : 'bg-white border-[#DDD5C8] text-[#5C5347] hover:bg-[#FDF6EE] hover:border-[#C4622D] hover:text-[#C4622D]'}`}>{r.label}</button>
                   ))}
-                  <button onClick={loadReporting} className="text-sm px-5 py-2.5 font-medium border-b-2 border-transparent text-[#5C5347] hover:text-[#C4622D] transition-colors">↻ Refresh</button>
+                  <button onClick={loadReporting} className="text-sm px-4 py-1.5 rounded-full font-medium border bg-white border-[#DDD5C8] text-[#5C5347] hover:bg-[#FDF6EE] hover:border-[#C4622D] hover:text-[#C4622D] transition-colors">↻ Refresh</button>
                 </div>
                 {(productsOrderedLoading || packageMealsLoading || frozenMealsLoading || discountVouchersReportLoading || deliveredOrdersLoading) ? (
                   <div className="flex items-center justify-center py-12"><div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>

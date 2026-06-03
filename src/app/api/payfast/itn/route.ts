@@ -92,10 +92,10 @@ export async function POST(req: NextRequest) {
         await supabaseAdmin
           .from("orders")
           .update({
-            payment_status: "paid",
+            payment_status: "awaiting_confirmation",
             payment_method: "payfast",
             payfast_transaction_id: pfData.pf_payment_id || null,
-            notes: `PayFast payment confirmed. PF ID: ${pfData.pf_payment_id || ""}`,
+            notes: `PayFast payment received. Awaiting confirmation. PF ID: ${pfData.pf_payment_id || ""}`,
           })
           .eq("m_payment_id", paymentId);
         break;
