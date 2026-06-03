@@ -51,16 +51,18 @@ export async function POST(req: NextRequest) {
         .eq('id', registrationId);
 
       // Trigger sheet sync
-      try {
-        const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://cateringhu2257.builtwithrocket.new';
-        await fetch(`${baseUrl}/api/cooking-classes/sync-sheet`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ registrationId }),
-        });
-      } catch (syncErr) {
-        console.error('[CC PayFast ITN] Sheet sync failed:', syncErr);
-      }
+      // ── TEMPORARILY DISABLED — Google Sheets sync deactivated until further notice ──
+      // try {
+      //   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://cateringhu2257.builtwithrocket.new';
+      //   await fetch(`${baseUrl}/api/cooking-classes/sync-sheet`, {
+      //     method: 'POST',
+      //     headers: { 'Content-Type': 'application/json' },
+      //     body: JSON.stringify({ registrationId }),
+      //   });
+      // } catch (syncErr) {
+      //   console.error('[CC PayFast ITN] Sheet sync failed:', syncErr);
+      // }
+      // ── END DISABLE BLOCK ─────────────────────────────────────────────────
     } else if (pfData.payment_status === 'FAILED' && registrationId) {
       await supabaseAdmin
         .from('cooking_class_registrations')

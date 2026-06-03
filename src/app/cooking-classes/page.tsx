@@ -825,7 +825,9 @@ export default function CookingClassesPage() {
       await recordBookingCounts(reg.id, page1.selectedDates);
 
       if (page5.paymentMethod === 'eft') {
-        await syncToSheet(reg.id);
+        // ── TEMPORARILY DISABLED — Google Sheets sync deactivated until further notice ──
+        // await syncToSheet(reg.id);
+        // ── END DISABLE BLOCK ─────────────────────────────────────────────
         setCurrentPage(6);
       } else {
         await initiatePayFast(reg.id);
@@ -839,15 +841,18 @@ export default function CookingClassesPage() {
   }
 
   async function syncToSheet(regId: string) {
-    try {
-      await fetch('/api/cooking-classes/sync-sheet', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ registrationId: regId }),
-      });
-    } catch {
-      // Non-blocking
-    }
+    // ── TEMPORARILY DISABLED — Google Sheets sync deactivated until further notice ──
+    // All attributes and logic preserved below for re-activation.
+    // try {
+    //   await fetch('/api/cooking-classes/sync-sheet', {
+    //     method: 'POST',
+    //     headers: { 'Content-Type': 'application/json' },
+    //     body: JSON.stringify({ registrationId: regId }),
+    //   });
+    // } catch {
+    //   // Non-blocking
+    // }
+    // ── END DISABLE BLOCK ─────────────────────────────────────────────────
   }
 
   async function initiatePayFast(regId: string) {
@@ -857,7 +862,9 @@ export default function CookingClassesPage() {
         .from('cooking_class_registrations')
         .update({ payment_status: 'paid' })
         .eq('id', regId);
-      await syncToSheet(regId);
+      // ── TEMPORARILY DISABLED — Google Sheets sync deactivated until further notice ──
+      // await syncToSheet(regId);
+      // ── END DISABLE BLOCK ─────────────────────────────────────────────────
       setCurrentPage(6);
       return;
     }

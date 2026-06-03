@@ -2,6 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 export async function POST(req: NextRequest) {
+  // ── TEMPORARILY DISABLED ─────────────────────────────────────────────────
+  // Google Sheets sync has been deactivated until further notice.
+  // All code, attributes, and configuration below remain intact for re-activation.
+  // To re-enable: remove the early-return block below.
+  return NextResponse.json(
+    { disabled: true, message: 'Google Sheets sync is temporarily disabled.' },
+    { status: 503 }
+  );
+  // ── END DISABLE BLOCK ─────────────────────────────────────────────────────
+
   try {
     const { registrationId } = await req.json();
     if (!registrationId) {

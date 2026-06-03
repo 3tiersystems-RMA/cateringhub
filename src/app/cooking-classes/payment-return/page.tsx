@@ -24,11 +24,13 @@ function PaymentReturnContent() {
     const { data } = await supabase?.from('cooking_class_registrations')?.select('payment_status, synced_to_sheet')?.eq('id', id)?.single();
 
     if (status === 'success' && data?.payment_status === 'paid' && !data?.synced_to_sheet) {
-      await fetch('/api/cooking-classes/sync-sheet', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ registrationId: id }),
-      });
+      // ── TEMPORARILY DISABLED — Google Sheets sync deactivated until further notice ──
+      // await fetch('/api/cooking-classes/sync-sheet', {
+      //   method: 'POST',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify({ registrationId: id }),
+      // });
+      // ── END DISABLE BLOCK ─────────────────────────────────────────────
     }
     setLoading(false);
   }
