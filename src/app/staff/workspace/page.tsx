@@ -3373,14 +3373,17 @@ export default function StaffWorkspacePage() {
                   </div>
                 </div>
 
-                {/* Ticker Banner */}
+                {/* Bookings Banner */}
                 <div className="mb-6 bg-white rounded-2xl border border-[#EDE7DA] p-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <div>
-                      <h3 className="text-sm font-bold text-[#1A1612]">Ticker Banner</h3>
-                      <p className="text-xs text-[#8C8278] mt-0.5">Scrolling announcement bar at the top of the homepage</p>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                      <div className="min-w-0">
+                        <h3 className="font-semibold text-[#1A1612]">Bookings Banner</h3>
+                        <p className="text-xs text-[#8C8278] mt-0.5">Scrolling announcement bar at the top of the homepage</p>
+                        <p className="text-xs text-[#8C8278] mt-0.5">{tickerBannerText}</p>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 flex-shrink-0">
                       {tickerBannerLoading ? (
                         <div className="w-4 h-4 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
                       ) : (
@@ -3397,30 +3400,24 @@ export default function StaffWorkspacePage() {
                           <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${tickerBannerVisible ? 'translate-x-6' : 'translate-x-1'}`} />
                         </button>
                       )}
+                      <button onClick={() => setTickerBannerEditing(true)} className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl font-semibold hover:bg-[#FDF6EE] transition-colors">Edit</button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    {tickerBannerEditing ? (
-                      <>
-                        <input
-                          type="text"
-                          value={tickerBannerText}
-                          onChange={e => setTickerBannerText(e.target.value)}
-                          className="flex-1 border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
-                        />
-                        <button onClick={handleSaveTickerBanner} disabled={tickerBannerSaving} className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50">
-                          {tickerBannerSaving ? 'Saving…' : 'Save'}
-                        </button>
-                        <button onClick={() => setTickerBannerEditing(false)} className="border border-[#DDD5C8] text-[#5C5347] px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#FAF5EE] transition-colors">Cancel</button>
-                      </>
-                    ) : (
-                      <>
-                        <p className="flex-1 text-sm text-[#1A1612]">{tickerBannerText}</p>
-                        {tickerBannerSuccess && <span className="text-xs text-green-600">{tickerBannerSuccess}</span>}
-                        <button onClick={() => setTickerBannerEditing(true)} className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl font-semibold hover:bg-[#FDF6EE] transition-colors">Edit</button>
-                      </>
-                    )}
-                  </div>
+                  {tickerBannerEditing && (
+                    <div className="flex items-center gap-3 mt-3 pt-3 border-t border-[#EDE7DA]">
+                      <input
+                        type="text"
+                        value={tickerBannerText}
+                        onChange={e => setTickerBannerText(e.target.value)}
+                        className="flex-1 border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                      />
+                      <button onClick={handleSaveTickerBanner} disabled={tickerBannerSaving} className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50">
+                        {tickerBannerSaving ? 'Saving…' : 'Save'}
+                      </button>
+                      <button onClick={() => setTickerBannerEditing(false)} className="border border-[#DDD5C8] text-[#5C5347] px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#FAF5EE] transition-colors">Cancel</button>
+                      {tickerBannerSuccess && <span className="text-xs text-green-600">{tickerBannerSuccess}</span>}
+                    </div>
+                  )}
                 </div>
 
                 {cardsLoading ? (
