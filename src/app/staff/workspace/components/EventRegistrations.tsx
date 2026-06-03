@@ -4,11 +4,13 @@ import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
 interface ChildParticipant {
+  fullName?: string;
   full_name?: string;
   name?: string;
   dob?: string;
   age?: string | number;
   gender?: string;
+  dietaryRestrictions?: string;
   allergies?: string;
   school?: string;
   grade?: string;
@@ -428,7 +430,7 @@ export default function EventRegistrations() {
     const rows: ParticipantBookingRow[] = [];
     registrations.forEach(r => {
       const children = (r.children || []).filter(c => {
-        const name = (c.full_name || c.name || '').trim();
+        const name = (c.fullName || c.full_name || c.name || '').trim();
         return name.length > 0;
       });
       if (children.length === 0) return;
@@ -443,11 +445,11 @@ export default function EventRegistrations() {
             eventName: evName,
             eventDate: sd.event_date,
             timeslot,
-            fullName: (child.full_name || child.name || '').trim(),
+            fullName: (child.fullName || child.full_name || child.name || '').trim(),
             dob: child.dob || null,
             age: ageStr,
             gender: (child.gender || '').trim(),
-            allergies: (child.allergies || '').trim(),
+            allergies: (child.dietaryRestrictions || child.allergies || '').trim(),
           });
         });
       });
