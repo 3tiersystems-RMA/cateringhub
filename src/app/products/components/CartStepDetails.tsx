@@ -113,15 +113,20 @@ export default function CartStepDetails({
               type="text"
               required={despatchMethod !== "collection"}
               disabled={despatchMethod === "collection"}
+              readOnly={despatchMethod === "delivery"}
               value={despatchMethod === "collection" ? "I will collect" : form.address}
-              onChange={(e) => setForm({ ...form, address: e.target.value })}
+              onChange={(e) => despatchMethod !== "delivery" && setForm({ ...form, address: e.target.value })}
               placeholder="123 Main St, Johannesburg, 2000"
               className={`w-full border rounded-xl px-4 py-3 text-sm transition-colors ${
-                despatchMethod === "collection" ?"bg-[#EDE7DA] border-[#DDD5C8] text-[#B5ADA5] cursor-not-allowed" :"bg-white border-[#DDD5C8] text-[#1A1612] placeholder-[#B5ADA5] focus:outline-none focus:border-[#C4622D]"
+                despatchMethod === "collection" ?"bg-[#EDE7DA] border-[#DDD5C8] text-[#B5ADA5] cursor-not-allowed"
+                  : despatchMethod === "delivery" ?"bg-[#EDE7DA] border-[#DDD5C8] text-[#1A1612] cursor-default select-none focus:outline-none" :"bg-white border-[#DDD5C8] text-[#1A1612] placeholder-[#B5ADA5] focus:outline-none focus:border-[#C4622D]"
               }`}
             />
             {despatchMethod === "collection" && (
               <p className="mt-1 text-xs text-[#B5ADA5]">Not required — you selected collection</p>
+            )}
+            {despatchMethod === "delivery" && (
+              <p className="mt-1 text-xs text-[#B5ADA5]">Auto-filled from your delivery address</p>
             )}
           </div>
           <div className="col-span-2">

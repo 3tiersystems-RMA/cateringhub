@@ -108,6 +108,16 @@ export default function DeliveryCalculator({
         </div>
       </div>
 
+      {/* Address format info card */}
+      <div className="bg-[#EDE7DA] border border-[#DDD5C8] rounded-2xl px-4 py-3">
+        <p className="text-sm text-[#5C5347] leading-snug">
+          <span className="font-bold">Note:</span> See above (our address) format.
+        </p>
+        <p className="text-sm text-[#5C5347] leading-snug mt-1">
+          Enter your street address, suburb, City and Province for the distance calculator to function optimally.
+        </p>
+      </div>
+
       <button
         onClick={() => calculate(customerAddress, orderSubtotal)}
         disabled={loading || !customerAddress.trim() || settingsLoading}
