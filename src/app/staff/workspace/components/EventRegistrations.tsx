@@ -702,15 +702,15 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
 
       {/* Filter Tabs */}
       <div className="bg-white border border-[#E8DDD0] rounded-xl overflow-hidden">
-        <div className="flex border-b border-[#E8DDD0] overflow-x-auto">
+        <div className="flex flex-wrap gap-2 px-4 py-3 border-b border-[#E8DDD0] bg-[#FAF5EE]">
           {filterTabConfig.map(tab => (
             <button
               key={tab.key}
               onClick={() => setFilterTab(tab.key)}
-              className={`flex items-center gap-2 px-5 py-3 text-sm font-medium transition-colors border-b-2 -mb-px whitespace-nowrap ${
+              className={`flex items-center gap-2 px-4 py-1.5 text-sm font-medium transition-colors rounded-full border whitespace-nowrap ${
                 filterTab === tab.key
-                  ? 'border-[#C4622D] text-[#C4622D] bg-[#FDF6EE]'
-                  : 'border-transparent text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
+                  ? 'bg-[#C4622D] text-white border-[#C4622D]'
+                  : 'bg-white border-[#DDD5C8] text-[#5C5347] hover:bg-[#FDF6EE] hover:border-[#C4622D] hover:text-[#C4622D]'
               }`}
             >
               <span>{tab.icon}</span>

@@ -17,6 +17,7 @@ import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as
 import CookingClassSettings from '@/app/staff/workspace/components/CookingClassSettings';
 import CookingClassCustomers from '@/app/staff/workspace/components/CookingClassCustomers';
 import CookingClassAnalytics from '@/app/staff/workspace/components/CookingClassAnalytics';
+import EventRegistrations from '@/app/staff/workspace/components/EventRegistrations';
 
 
 
@@ -3246,6 +3247,13 @@ export default function StaffWorkspacePage() {
               <CookingClassAnalytics />
             )}
 
+            {/* ── EVENT REGISTRATIONS TAB ── */}
+            {activeTab === 'event_registrations' && (
+              <div className="p-6">
+                <EventRegistrations isSuperAdmin={userProfile?.role === 'super_admin'} />
+              </div>
+            )}
+
             {/* ── ORDERS TAB ── */}
             {activeTab === 'orders' && (
               <div className="p-6">
@@ -3544,6 +3552,25 @@ export default function StaffWorkspacePage() {
                 <div className="mb-6">
                   <h2 className="text-xl font-bold text-[#1A1612]">Reports Dashboard</h2>
                   <p className="text-sm text-[#8C8278] mt-0.5">Order and voucher reports</p>
+                </div>
+                {/* Stats Cards */}
+                <div className="grid grid-cols-4 gap-4 mb-6">
+                  <div className="bg-white border border-[#E8DDD0] rounded-xl p-4">
+                    <p className="text-xs text-[#8C7B6B] uppercase tracking-wide font-medium">Products Ordered</p>
+                    <p className="text-2xl font-bold text-[#2C2420] mt-1">{productsOrderedRows.length}</p>
+                  </div>
+                  <div className="bg-white border border-[#E8DDD0] rounded-xl p-4">
+                    <p className="text-xs text-[#8C7B6B] uppercase tracking-wide font-medium">Package Meals</p>
+                    <p className="text-2xl font-bold text-[#C4622D] mt-1">{packageMealsRows.length}</p>
+                  </div>
+                  <div className="bg-white border border-[#E8DDD0] rounded-xl p-4">
+                    <p className="text-xs text-[#8C7B6B] uppercase tracking-wide font-medium">Delivered Orders</p>
+                    <p className="text-2xl font-bold text-green-600 mt-1">{deliveredOrdersRows.length}</p>
+                  </div>
+                  <div className="bg-white border border-[#E8DDD0] rounded-xl p-4">
+                    <p className="text-xs text-[#8C7B6B] uppercase tracking-wide font-medium">Discount Vouchers</p>
+                    <p className="text-2xl font-bold text-[#C4622D] mt-1">{discountVouchersReportRows.length}</p>
+                  </div>
                 </div>
                 <div className="flex flex-wrap gap-2 mb-5">
                   {([{ key: 'products_ordered', label: 'Products Ordered' }, { key: 'package_meals_ordered', label: 'Package Meals' }, { key: 'frozen_meals_ordered', label: 'Frozen Meals' }, { key: 'discount_vouchers_report', label: 'Discount Vouchers' }, { key: 'delivered_orders', label: 'Delivered Orders' }] as const).map(r => (
