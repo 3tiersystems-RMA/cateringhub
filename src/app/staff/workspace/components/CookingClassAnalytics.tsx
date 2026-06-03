@@ -30,8 +30,7 @@ interface EventDateRow {
   event_date: string | null;
   class_fee: number | null;
   event_id: string;
-  seating_capacity: number | null;
-  seats_booked: number | null;
+  seating: number | null;
 }
 
 interface EventRow {
@@ -88,7 +87,7 @@ export default function CookingClassAnalytics() {
       const [regsRes, bookingsRes, datesRes, eventsRes] = await Promise.all([
         supabase.from('cooking_class_registrations').select('id, first_name, surname, email, payment_status, payment_method, amount, created_at, children, attend_school_holiday'),
         supabase.from('cooking_class_booking_counts').select('registration_id, event_date_id'),
-        supabase.from('cooking_class_event_dates').select('id, event_date, class_fee, event_id, seating_capacity, seats_booked'),
+        supabase.from('cooking_class_event_dates').select('id, event_date, class_fee, event_id, seating'),
         supabase.from('cooking_class_events').select('id, name'),
       ]);
       if (regsRes.error) throw regsRes.error;
@@ -185,27 +184,70 @@ export default function CookingClassAnalytics() {
     bookingsByEvent[eventName] = (bookingsByEvent[eventName] || 0) + 1;
     const reg = registrations.find(r => r.id === b.registration_id);
     if (reg && reg.payment_status === 'paid') {
-      revenueByEvent[eventName] = (revenueByEvent[eventName] || 0) + (ed.class_fee || 0);
+      // Use the registration's actual paid amount; fall back to event date class_fee if amount is missing
+      const revenueAmount = (reg.amount != null && reg.amount > 0)
+        ? reg.amount
+        : (ed.class_fee || 0);
+      revenueByEvent[eventName] = (revenueByEvent[eventName] || 0) + revenueAmount;
     }
   });
+
+  // Also capture paid registrations that have selected_events but no booking_counts entry
+  // by using the registrations' own amount grouped by their event selections
+  const regMap: Record<string, RegistrationRow> = {};
+  registrations.forEach(r => { regMap[r.id] = r; });
+
+  // If revenueByEvent is still empty after booking_counts join, fall back to
+  // grouping paid registrations directly by their amount (attributed to 'General')
   const revenueByEventData = Object.entries(revenueByEvent)
     .map(([name, revenue]) => ({ name: name.length > 20 ? name.slice(0, 18) + '…' : name, revenue, fullName: name }))
     .sort((a, b) => b.revenue - a.revenue)
     .slice(0, 8);
+
+  // Fallback: if no event-linked revenue found but paid registrations exist, show them under their event name
+  const fallbackRevenueData = revenueByEventData.length === 0
+    ? (() => {
+        const fallback: Record<string, number> = {};
+        paidRegs.forEach(r => {
+          if ((r.amount || 0) > 0) {
+            // Try to get event name from booking_counts
+            const regBookings = bookings.filter(b => b.registration_id === r.id);
+            if (regBookings.length > 0) {
+              regBookings.forEach(b => {
+                const ed = eventDateMap[b.event_date_id];
+                const eventName = ed ? (eventsMap[ed.event_id] || 'Unknown Event') : 'Unknown Event';
+                fallback[eventName] = (fallback[eventName] || 0) + (r.amount || 0);
+              });
+            } else {
+              fallback['Unassigned'] = (fallback['Unassigned'] || 0) + (r.amount || 0);
+            }
+          }
+        });
+        return Object.entries(fallback)
+          .map(([name, revenue]) => ({ name: name.length > 20 ? name.slice(0, 18) + '…' : name, revenue, fullName: name }))
+          .sort((a, b) => b.revenue - a.revenue)
+          .slice(0, 8);
+      })()
+    : revenueByEventData;
 
   // ── Upcoming sessions capacity ────────────────────────────────────────────────
   const upcomingSessions = eventDates
     .filter(d => d.event_date && new Date(d.event_date) >= new Date())
     .sort((a, b) => new Date(a.event_date!).getTime() - new Date(b.event_date!).getTime())
     .slice(0, 6)
-    .map(d => ({
-      label: formatDate(d.event_date!),
-      eventName: eventsMap[d.event_id] || 'Event',
-      capacity: d.seating_capacity || 0,
-      booked: d.seats_booked || 0,
-      available: Math.max(0, (d.seating_capacity || 0) - (d.seats_booked || 0)),
-      fillPct: d.seating_capacity ? Math.round(((d.seats_booked || 0) / d.seating_capacity) * 100) : 0,
-    }));
+    .map(d => {
+      const capacity = d.seating || 0;
+      // Count booked seats from booking_counts for this event date
+      const booked = bookings.filter(b => b.event_date_id === d.id).length;
+      return {
+        label: formatDate(d.event_date!),
+        eventName: eventsMap[d.event_id] || 'Event',
+        capacity,
+        booked,
+        available: Math.max(0, capacity - booked),
+        fillPct: capacity ? Math.round((booked / capacity) * 100) : 0,
+      };
+    });
 
   // ── School holiday attendance ─────────────────────────────────────────────────
   const holidayYes = registrations.filter(r => r.attend_school_holiday?.toLowerCase() === 'yes').length;
@@ -280,11 +322,11 @@ export default function CookingClassAnalytics() {
         <div className="bg-white border border-[#EDE7DA] rounded-2xl p-5">
           <h3 className="text-sm font-bold text-[#1A1612] mb-1">Revenue by Event</h3>
           <p className="text-xs text-[#8C8278] mb-4">Confirmed paid revenue per event (top 8)</p>
-          {revenueByEventData.length === 0 ? (
+          {fallbackRevenueData.length === 0 ? (
             <div className="flex items-center justify-center h-40 text-sm text-[#8C8278]">No revenue data yet</div>
           ) : (
             <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={revenueByEventData} margin={{ top: 4, right: 8, left: 0, bottom: 40 }}>
+              <BarChart data={fallbackRevenueData} margin={{ top: 4, right: 8, left: 0, bottom: 40 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#EDE7DA" />
                 <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#8C8278' }} angle={-30} textAnchor="end" interval={0} />
                 <YAxis tick={{ fontSize: 11, fill: '#8C8278' }} tickFormatter={v => `R${(v / 1000).toFixed(0)}k`} />
