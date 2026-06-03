@@ -412,11 +412,19 @@ export default function CookingClassesPage() {
 
   // (6) Get the class_fee from the first matching event date for selected events
   function getEventClassFee(): number {
+    // First, try to match against the specifically selected date labels
+    if (page1.selectedDates.length > 0) {
+      const matchedRows = eventDates.filter(row => page1.selectedDates.includes(formatEventDate(row)));
+      for (const row of matchedRows) {
+        if (row.class_fee != null && row.class_fee > 0) return row.class_fee;
+      }
+    }
+    // Fallback: any date for the selected event
     const filtered = getFilteredDates();
     for (const row of filtered) {
       if (row.class_fee != null && row.class_fee > 0) return row.class_fee;
     }
-    // Fallback to settings class_fee
+    // Final fallback to settings class_fee
     return settings?.class_fee || 0;
   }
 
