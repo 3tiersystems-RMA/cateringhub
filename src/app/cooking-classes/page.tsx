@@ -936,7 +936,7 @@ export default function CookingClassesPage() {
             </div>
             <h3 className="text-lg font-bold text-[#1A1612] mb-3">Contact Our Office</h3>
             <p className="text-sm text-[#5C5347] leading-relaxed mb-6">
-              Contact our office about this Event — <span className="font-semibold text-[#1A1612]">087 265 2262</span> or drop us an email:{' '}
+              Enquire about the Event — <span className="font-semibold text-[#1A1612]">087 265 2262</span> or drop us an email:{' '}
               <a href="mailto:info@cardamomkitchen.co.za" className="font-semibold text-[#C4622D] hover:underline">
                 info@cardamomkitchen.co.za
               </a>
