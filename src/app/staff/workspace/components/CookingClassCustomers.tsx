@@ -448,7 +448,9 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
                 {/* Row Header */}
                 <div
                   onClick={() => toggleExpand(reg.id)}
-                  className="w-full flex items-center gap-4 px-5 py-4 hover:bg-[#FAF5EE] transition-colors text-left cursor-pointer"
+                  className={`w-full flex items-center gap-4 px-5 py-4 transition-colors text-left cursor-pointer ${
+                    isExpanded ? 'bg-black hover:bg-black' : 'hover:bg-[#FAF5EE]'
+                  }`}
                 >
                   {/* Avatar */}
                   <div className="w-10 h-10 rounded-full bg-[#F5F0E8] border border-[#DDD5C8] flex items-center justify-center flex-shrink-0">
@@ -459,10 +461,10 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
 
                   {/* Name + Email */}
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-[#1A1612] truncate">
+                    <p className={`text-sm font-semibold truncate ${isExpanded ? 'text-white' : 'text-[#1A1612]'}`}>
                       {reg.title ? `${reg.title} ` : ''}{reg.first_name} {reg.surname}
                     </p>
-                    <p className="text-xs text-[#8C8278] truncate">{reg.email} · {reg.cellphone}</p>
+                    <p className={`text-xs truncate ${isExpanded ? 'text-gray-400' : 'text-[#8C8278]'}`}>{reg.email} · {reg.cellphone}</p>
                   </div>
 
                   {/* Sessions badge */}
@@ -484,8 +486,8 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
                   {/* Amount + Payment Status */}
                   <div className="flex items-center gap-3 flex-shrink-0">
                     <div className="text-right hidden sm:block">
-                      <p className="text-sm font-bold text-[#1A1612]">{formatCurrency(reg.amount)}</p>
-                      <p className="text-xs text-[#8C8278]">{formatDate(reg.created_at)}</p>
+                      <p className={`text-sm font-bold ${isExpanded ? 'text-white' : 'text-[#1A1612]'}`}>{formatCurrency(reg.amount)}</p>
+                      <p className={`text-xs ${isExpanded ? 'text-gray-400' : 'text-[#8C8278]'}`}>{formatDate(reg.created_at)}</p>
                     </div>
                     <span className={`text-xs font-medium px-2.5 py-1 rounded-full border ${PAYMENT_STATUS_COLORS[reg.payment_status] || 'bg-gray-100 text-gray-600 border-gray-200'}`}>
                       {reg.payment_status.replace(/_/g, ' ')}
@@ -543,7 +545,7 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
                     )}
 
                     <svg
-                      className={`w-4 h-4 text-[#8C8278] transition-transform flex-shrink-0 ${isExpanded ? 'rotate-180' : ''}`}
+                      className={`w-4 h-4 transition-transform flex-shrink-0 ${isExpanded ? 'text-gray-400 rotate-180' : 'text-[#8C8278]'}`}
                       fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
                     >
                       <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
