@@ -16,13 +16,14 @@ import CookingClassSettings from '@/app/staff/workspace/components/CookingClassS
 import CookingClassCustomers from '@/app/staff/workspace/components/CookingClassCustomers';
 import CookingClassAnalytics from '@/app/staff/workspace/components/CookingClassAnalytics';
 import EventRegistrations from '@/app/staff/workspace/components/EventRegistrations';
+import OrganisationDetails from '@/app/staff/workspace/components/OrganisationDetails';
 import { calculateOrderTotal, isFulfillmentStatusLocked } from '@/lib/order-totals';
 
 
 
 
 type BucketType = 'product-images' | 'event-photos' | 'document-management';
-type WorkspaceTab = 'products' | 'media' | 'media_events' | 'media_products' | 'orders' | 'staff' | 'homepage_cards' | 'categories' | 'weekly_menu' | 'vouchers' | 'discount_vouchers' | 'testimonials' | 'reporting' | 'analytics' | 'social_media' | 'gallery' | 'section_visibility' | 'customer_order_history' | 'correspondence_settings' | 'abandoned_carts' | 'package_visibility' | 'cooking_classes' | 'cooking_class_customers' | 'cooking_class_analytics' | 'event_registrations';
+type WorkspaceTab = 'products' | 'media' | 'media_events' | 'media_products' | 'orders' | 'staff' | 'homepage_cards' | 'categories' | 'weekly_menu' | 'vouchers' | 'discount_vouchers' | 'testimonials' | 'reporting' | 'analytics' | 'social_media' | 'gallery' | 'section_visibility' | 'customer_order_history' | 'correspondence_settings' | 'abandoned_carts' | 'package_visibility' | 'cooking_classes' | 'cooking_class_customers' | 'cooking_class_analytics' | 'event_registrations' | 'organisation_details';
 
 type ProductCategory = string;
 type StaffRole = 'admin' | 'staff' | 'super_admin';
@@ -64,6 +65,7 @@ const TAB_ACCESS: Record<WorkspaceTab, StaffRole[]> = {
   // System & sensitive — super_admin only
   staff: ['super_admin'],
   social_media: ['super_admin'],
+  organisation_details: ['super_admin', 'admin'],
 };
 
 // Action-level permission model. super_admin = everything; admin = full CRUD on
@@ -2952,12 +2954,12 @@ export default function StaffWorkspacePage() {
             <nav className="py-4 space-y-0.5">
 
               {/* ── Site Content (collapsible) ── */}
-              {canAnyTab('staff', 'homepage_cards', 'gallery', 'section_visibility', 'correspondence_settings', 'package_visibility', 'testimonials', 'social_media') && (
+              {canAnyTab('staff', 'homepage_cards', 'gallery', 'section_visibility', 'correspondence_settings', 'package_visibility', 'testimonials', 'social_media', 'organisation_details') && (
                 <>
                   <button
                     onClick={() => setSiteContentOpen(prev => !prev)}
                     className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
-                      ['staff', 'homepage_cards', 'testimonials', 'social_media', 'gallery', 'section_visibility', 'correspondence_settings', 'package_visibility'].includes(activeTab) ? 'text-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
+                      ['staff', 'homepage_cards', 'testimonials', 'social_media', 'gallery', 'section_visibility', 'correspondence_settings', 'package_visibility', 'organisation_details'].includes(activeTab) ? 'text-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
                     }`}
                   >
                     <span className="text-base">📁</span>
@@ -2994,6 +2996,11 @@ export default function StaffWorkspacePage() {
                       {canTab('package_visibility') && (
                         <button onClick={() => { handleTabChange('package_visibility'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'package_visibility' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
                         <span className="text-base">📦</span><span>Package Visibility</span>
+                        </button>
+                      )}
+                      {canTab('organisation_details') && (
+                        <button onClick={() => { handleTabChange('organisation_details'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'organisation_details' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
+                          <span className="text-base">🏢</span><span>Organisation Details</span>
                         </button>
                       )}
                       {canTab('testimonials') && (
@@ -3227,6 +3234,11 @@ export default function StaffWorkspacePage() {
               <div className="p-6">
                 <EventRegistrations />
               </div>
+            )}
+
+            {/* ── ORGANISATION DETAILS TAB ── */}
+            {activeTab === 'organisation_details' && (
+              <OrganisationDetails />
             )}
 
             {/* ── PRODUCTS TAB ── */}

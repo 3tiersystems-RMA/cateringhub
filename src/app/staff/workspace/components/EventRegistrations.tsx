@@ -89,7 +89,7 @@ interface ParticipantBookingRow {
   allergies: string;
 }
 
-type ParticipantSortKey = 'dob' | 'age' | 'gender' | 'allergies';
+type ParticipantSortKey = 'dob' | 'age' | 'gender' | 'allergies' | 'datetime';
 type SortDir = 'asc' | 'desc';
 
 const PAYMENT_STATUS_COLORS: Record<string, string> = {
@@ -477,7 +477,17 @@ export default function EventRegistrations() {
     if (!participantSortKey) return 0;
     let aVal = '';
     let bVal = '';
-    if (participantSortKey === 'dob') {
+    if (participantSortKey === 'datetime') {
+      // Sort by event date first, then timeslot
+      const aDate = a.eventDate || '';
+      const bDate = b.eventDate || '';
+      const dateCmp = aDate.localeCompare(bDate);
+      if (dateCmp !== 0) return participantSortDir === 'asc' ? dateCmp : -dateCmp;
+      aVal = a.timeslot;
+      bVal = b.timeslot;
+      const cmp = aVal.localeCompare(bVal);
+      return participantSortDir === 'asc' ? cmp : -cmp;
+    } else if (participantSortKey === 'dob') {
       aVal = a.dob || '';
       bVal = b.dob || '';
     } else if (participantSortKey === 'age') {
@@ -704,7 +714,12 @@ export default function EventRegistrations() {
                     <tr className="bg-[#F5EFE8] text-[#5C5347] text-xs uppercase tracking-wide">
                       <th className="px-4 py-3 text-left font-semibold">#</th>
                       <th className="px-4 py-3 text-left font-semibold">Event</th>
-                      <th className="px-4 py-3 text-left font-semibold">Date &amp; Time</th>
+                      <th
+                        className="px-4 py-3 text-left font-semibold cursor-pointer select-none hover:text-[#C4622D] transition-colors"
+                        onClick={() => handleParticipantSort('datetime')}
+                      >
+                        Date &amp; Time <SortIcon col="datetime" sortKey={participantSortKey} sortDir={participantSortDir} />
+                      </th>
                       <th className="px-4 py-3 text-left font-semibold">Full Name</th>
                       <th
                         className="px-4 py-3 text-left font-semibold cursor-pointer select-none hover:text-[#C4622D] transition-colors"
