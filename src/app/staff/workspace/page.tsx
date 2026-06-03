@@ -2968,24 +2968,19 @@ export default function StaffWorkspacePage() {
                   </button>
                   {siteContentOpen && (
                     <div className="pl-4 border-l-2 border-[#E8DDD0] ml-4">
+                      {canTab('organisation_details') && (
+                        <button onClick={() => { handleTabChange('organisation_details'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'organisation_details' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
+                          <span className="text-base">🏢</span><span>Organisation Details</span>
+                        </button>
+                      )}
                       {canTab('staff') && (
                         <button onClick={() => { handleTabChange('staff'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'staff' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
                           <span className="text-base">👥</span><span>Staff Management</span>
                         </button>
                       )}
-                      {canTab('homepage_cards') && (
-                        <button onClick={() => { handleTabChange('homepage_cards'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'homepage_cards' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
-                        <span className="text-base">🏠</span><span>Home Page Cards</span>
-                        </button>
-                      )}
-                      {canTab('gallery') && (
-                        <button onClick={() => { handleTabChange('gallery'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'gallery' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
-                        <span className="text-base">🖼️</span><span>Gallery</span>
-                        </button>
-                      )}
-                      {canTab('section_visibility') && (
-                        <button onClick={() => { handleTabChange('section_visibility'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'section_visibility' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
-                        <span className="text-base">👁️</span><span>Section Visibility</span>
+                      {canTab('social_media') && (
+                        <button onClick={() => { handleTabChange('social_media'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'social_media' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
+                          <span className="text-base">🔗</span><span>Social Media</span>
                         </button>
                       )}
                       {canTab('correspondence_settings') && (
@@ -2998,9 +2993,9 @@ export default function StaffWorkspacePage() {
                         <span className="text-base">📦</span><span>Package Visibility</span>
                         </button>
                       )}
-                      {canTab('organisation_details') && (
-                        <button onClick={() => { handleTabChange('organisation_details'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'organisation_details' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
-                          <span className="text-base">🏢</span><span>Organisation Details</span>
+                      {canTab('homepage_cards') && (
+                        <button onClick={() => { handleTabChange('homepage_cards'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'homepage_cards' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
+                        <span className="text-base">🏠</span><span>Home Page Cards</span>
                         </button>
                       )}
                       {canTab('testimonials') && (
@@ -3008,9 +3003,14 @@ export default function StaffWorkspacePage() {
                           <span className="text-base">⭐</span><span>Testimonials</span>
                         </button>
                       )}
-                      {canTab('social_media') && (
-                        <button onClick={() => { handleTabChange('social_media'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'social_media' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
-                          <span className="text-base">🔗</span><span>Social Media</span>
+                      {canTab('gallery') && (
+                        <button onClick={() => { handleTabChange('gallery'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'gallery' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
+                        <span className="text-base">🖼️</span><span>Gallery</span>
+                        </button>
+                      )}
+                      {canTab('section_visibility') && (
+                        <button onClick={() => { handleTabChange('section_visibility'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'section_visibility' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
+                        <span className="text-base">👁️</span><span>Section Visibility</span>
                         </button>
                       )}
                     </div>

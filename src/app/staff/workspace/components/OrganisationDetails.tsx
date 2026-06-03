@@ -639,7 +639,7 @@ function ContactsPanel({ entityId }: { entityId: string }) {
 
 // ─── Entity Card ──────────────────────────────────────────────────────────────
 
-function EntityCard({ entity, onDelete }: { entity: OrgEntity; onDelete: (id: string) => void }) {
+function EntityCard({ entity, onDelete, onEditName }: { entity: OrgEntity; onDelete: (id: string) => void; onEditName: (entity: OrgEntity) => void }) {
   const [activeSection, setActiveSection] = useState<SectionTab>('banking');
 
   const sectionTabs: { key: SectionTab; label: string; icon: string }[] = [
@@ -661,12 +661,20 @@ function EntityCard({ entity, onDelete }: { entity: OrgEntity; onDelete: (id: st
             <p className="text-xs text-[#8C8278]">Entity</p>
           </div>
         </div>
-        <button
-          onClick={() => onDelete(entity.id)}
-          className="text-xs text-red-500 border border-red-200 px-2.5 py-1 rounded-lg hover:bg-red-50 transition-colors"
-        >
-          Remove Entity
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => onEditName(entity)}
+            className="text-xs text-[#C4622D] border border-[#C4622D]/30 px-2.5 py-1 rounded-lg hover:bg-[#FAF5EE] transition-colors"
+          >
+            Edit Name
+          </button>
+          <button
+            onClick={() => onDelete(entity.id)}
+            className="text-xs text-red-500 border border-red-200 px-2.5 py-1 rounded-lg hover:bg-red-50 transition-colors"
+          >
+            Remove Entity
+          </button>
+        </div>
       </div>
 
       {/* Section tabs */}
@@ -708,6 +716,10 @@ export default function OrganisationDetails() {
   const [addingEntity, setAddingEntity] = useState(false);
   const [addEntityError, setAddEntityError] = useState('');
   const [deletingEntityId, setDeletingEntityId] = useState<string | null>(null);
+  const [editingEntityId, setEditingEntityId] = useState<string | null>(null);
+  const [editingEntityName, setEditingEntityName] = useState('');
+  const [savingEntityName, setSavingEntityName] = useState(false);
+  const [editEntityError, setEditEntityError] = useState('');
 
   const loadEntities = useCallback(async () => {
     setLoading(true);
@@ -737,6 +749,28 @@ export default function OrganisationDetails() {
     await supabase.from('org_entities').delete().eq('id', id);
     setDeletingEntityId(null);
     loadEntities();
+  };
+
+  const handleEditEntityStart = (entity: OrgEntity) => {
+    setEditingEntityId(entity.id);
+    setEditingEntityName(entity.name);
+    setEditEntityError('');
+  };
+
+  const handleEditEntitySave = async () => {
+    if (!editingEntityName.trim()) { setEditEntityError('Entity name is required.'); return; }
+    setSavingEntityName(true);
+    setEditEntityError('');
+    const { error } = await supabase.from('org_entities').update({ name: editingEntityName.trim() }).eq('id', editingEntityId!);
+    if (error) { setEditEntityError('Failed to update: ' + error.message); }
+    else { setEditingEntityId(null); setEditingEntityName(''); loadEntities(); }
+    setSavingEntityName(false);
+  };
+
+  const handleEditEntityCancel = () => {
+    setEditingEntityId(null);
+    setEditingEntityName('');
+    setEditEntityError('');
   };
 
   if (loading) {
@@ -814,7 +848,31 @@ export default function OrganisationDetails() {
         <div className="space-y-5">
           {entities.map(entity => (
             <div key={entity.id} className={deletingEntityId === entity.id ? 'opacity-50 pointer-events-none' : ''}>
-              <EntityCard entity={entity} onDelete={handleDeleteEntity} />
+              {/* Inline entity name edit */}
+              {editingEntityId === entity.id ? (
+                <div className="bg-[#FAF5EE] border border-[#E8DDD0] rounded-xl p-4 space-y-3 mb-2">
+                  <h4 className="text-sm font-semibold text-[#1A1612]">Edit Entity Name</h4>
+                  {editEntityError && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{editEntityError}</p>}
+                  <div>
+                    <label className="block text-xs font-semibold text-[#5C5347] mb-1">Entity Name <span className="text-red-500">*</span></label>
+                    <input
+                      type="text"
+                      value={editingEntityName}
+                      onChange={e => setEditingEntityName(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') handleEditEntitySave(); if (e.key === 'Escape') handleEditEntityCancel(); }}
+                      autoFocus
+                      className="w-full border border-[#DDD5C8] rounded-lg px-3 py-2 text-sm text-[#1A1612] focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30 focus:border-[#C4622D]"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={handleEditEntitySave} disabled={savingEntityName} className="px-4 py-2 bg-[#C4622D] text-white text-sm font-semibold rounded-lg hover:bg-[#A04E22] transition-colors disabled:opacity-50">
+                      {savingEntityName ? 'Saving…' : 'Save'}
+                    </button>
+                    <button onClick={handleEditEntityCancel} className="px-4 py-2 bg-white border border-[#DDD5C8] text-[#5C5347] text-sm font-semibold rounded-lg hover:bg-[#F5F0E8] transition-colors">Cancel</button>
+                  </div>
+                </div>
+              ) : null}
+              <EntityCard entity={entity} onDelete={handleDeleteEntity} onEditName={handleEditEntityStart} />
             </div>
           ))}
         </div>
