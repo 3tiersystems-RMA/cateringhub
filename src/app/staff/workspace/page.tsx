@@ -3168,13 +3168,18 @@ export default function StaffWorkspacePage() {
               )}
 
               {/* ── Media Library (collapsible) ── */}
-              {canAnyTab('media', 'media_events') && (
+              {canAnyTab('media', 'media_events', 'cooking_class_customers') && (
                 <>
-                  <button onClick={() => setMediaMenuOpen(prev => !prev)} className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${['media', 'media_events', 'media_products'].includes(activeTab) ? 'text-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'}`}>
-                    <span className="text-base">🗂️</span><span className="flex-1">Media Library</span><span className="text-xs">{mediaMenuOpen ? '▲' : '▼'}</span>
+                  <button onClick={() => setMediaMenuOpen(prev => !prev)} className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${['media', 'media_events', 'media_products', 'cooking_class_customers'].includes(activeTab) ? 'text-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'}`}>
+                    <span className="text-base">🗂️</span><span className="flex-1">Customer Relations</span><span className="text-xs">{mediaMenuOpen ? '▲' : '▼'}</span>
                   </button>
                   {mediaMenuOpen && (
                     <div className="pl-4 border-l-2 border-[#E8DDD0] ml-4">
+                      {canTab('cooking_class_customers') && (
+                        <button onClick={() => { handleTabChange('cooking_class_customers'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'cooking_class_customers' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
+                          <span className="text-base">🧑‍🤝‍🧑</span><span>Customer Onboarding</span>
+                        </button>
+                      )}
                       {canTab('media') && (
                         <button onClick={() => { handleTabChange('media'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'media' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
                           <span className="text-base">📄</span><span>Document Management</span>
