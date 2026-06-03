@@ -17,6 +17,7 @@ function componentTaggerIsSafe() {
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // cache-bust: 2026-06-03
   productionBrowserSourceMaps: true,
   distDir: '.next',
   typescript: {
