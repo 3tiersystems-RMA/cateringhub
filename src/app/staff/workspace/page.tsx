@@ -3050,18 +3050,6 @@ export default function StaffWorkspacePage() {
                           <span>Class Customers</span>
                         </button>
                       )}
-                      {/* ── Analytics (sub-menu) ── */}
-                      {canTab('cooking_class_analytics') && (
-                        <button
-                          onClick={() => { handleTabChange('cooking_class_analytics'); }}
-                          className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${
-                            activeTab === 'cooking_class_analytics' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
-                          }`}
-                        >
-                          <span className="text-sm">📊</span>
-                          <span>Analytics</span>
-                        </button>
-                      )}
                       {/* ── Event Registrations (sub-menu) ── */}
                       {canTab('event_registrations') && (
                         <button
@@ -3072,6 +3060,18 @@ export default function StaffWorkspacePage() {
                         >
                           <span className="text-sm">📋</span>
                           <span>Event Registrations</span>
+                        </button>
+                      )}
+                      {/* ── Analytics (sub-menu) ── */}
+                      {canTab('cooking_class_analytics') && (
+                        <button
+                          onClick={() => { handleTabChange('cooking_class_analytics'); }}
+                          className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${
+                            activeTab === 'cooking_class_analytics' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
+                          }`}
+                        >
+                          <span className="text-sm">📊</span>
+                          <span>Analytics</span>
                         </button>
                       )}
                     </div>

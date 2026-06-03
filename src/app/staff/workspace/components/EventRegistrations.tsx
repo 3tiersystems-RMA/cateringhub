@@ -47,6 +47,7 @@ interface RegistrationRow {
   pictures_taken: string | null;
   indemnity_consent: boolean | null;
   notes: string | null;
+  first_time_portal?: string | null;
   // enriched
   session_dates?: SessionDate[];
 }
@@ -59,6 +60,19 @@ interface SessionDate {
   location: string | null;
   event_name: string | null;
   class_fee: number | null;
+}
+
+// Sessions Booked view: grouped by event → date → timeslot → registrants
+interface SessionsBookedGroup {
+  eventName: string;
+  dates: {
+    date: string;
+    timeslots: {
+      timeslot: string;
+      dateId: string;
+      registrants: { name: string; email: string; paymentStatus: string }[];
+    }[];
+  }[];
 }
 
 const PAYMENT_STATUS_COLORS: Record<string, string> = {
@@ -93,7 +107,114 @@ function calcAge(dob: string | null | undefined): string {
   } catch { return '—'; }
 }
 
-type FilterTab = 'event' | 'registrant' | 'venue';
+type FilterTab = 'event' | 'registrant' | 'venue' | 'sessions_booked';
+
+const PAGE_SIZE = 10;
+
+// Elegant paginator component
+function Paginator({
+  currentPage,
+  totalPages,
+  onPageChange,
+}: {
+  currentPage: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+}) {
+  if (totalPages <= 1) return null;
+
+  const getPageNumbers = () => {
+    const pages: (number | 'ellipsis')[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (currentPage > 3) pages.push('ellipsis');
+      const start = Math.max(2, currentPage - 1);
+      const end = Math.min(totalPages - 1, currentPage + 1);
+      for (let i = start; i <= end; i++) pages.push(i);
+      if (currentPage < totalPages - 2) pages.push('ellipsis');
+      pages.push(totalPages);
+    }
+    return pages;
+  };
+
+  const btnBase =
+    'inline-flex items-center justify-center h-8 min-w-[2rem] px-2 text-xs font-medium rounded-lg border transition-all duration-150 select-none';
+  const btnActive =
+    'bg-[#C4622D] text-white border-[#C4622D] shadow-sm shadow-[#C4622D]/30';
+  const btnInactive =
+    'bg-white text-[#5C5347] border-[#E8DDD0] hover:bg-[#FDF6EE] hover:border-[#C4622D] hover:text-[#C4622D]';
+  const btnDisabled =
+    'bg-[#FAF5EE] text-[#C4B8A8] border-[#E8DDD0] cursor-not-allowed opacity-60';
+
+  return (
+    <div className="flex items-center justify-between px-5 py-3 bg-gradient-to-r from-[#FAF5EE] to-[#F5EFE8] border-t border-[#E8DDD0]">
+      <p className="text-xs text-[#8C7B6B] font-medium">
+        Page <span className="text-[#C4622D] font-semibold">{currentPage}</span> of{' '}
+        <span className="font-semibold text-[#5C5347]">{totalPages}</span>
+      </p>
+      <div className="flex items-center gap-1">
+        {/* First */}
+        <button
+          onClick={() => onPageChange(1)}
+          disabled={currentPage === 1}
+          className={`${btnBase} ${currentPage === 1 ? btnDisabled : btnInactive} gap-0.5`}
+          title="First page"
+        >
+          <span>«</span>
+        </button>
+        {/* Prev */}
+        <button
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+          className={`${btnBase} ${currentPage === 1 ? btnDisabled : btnInactive} gap-0.5`}
+          title="Previous page"
+        >
+          <span>‹</span>
+          <span className="hidden sm:inline">Prev</span>
+        </button>
+
+        {/* Page numbers */}
+        <div className="flex items-center gap-1 mx-1">
+          {getPageNumbers().map((p, i) =>
+            p === 'ellipsis' ? (
+              <span key={`e-${i}`} className="px-1 text-[#8C7B6B] text-xs">…</span>
+            ) : (
+              <button
+                key={p}
+                onClick={() => onPageChange(p as number)}
+                className={`${btnBase} w-8 ${p === currentPage ? btnActive : btnInactive}`}
+              >
+                {p}
+              </button>
+            )
+          )}
+        </div>
+
+        {/* Next */}
+        <button
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className={`${btnBase} ${currentPage === totalPages ? btnDisabled : btnInactive} gap-0.5`}
+          title="Next page"
+        >
+          <span className="hidden sm:inline">Next</span>
+          <span>›</span>
+        </button>
+        {/* Last */}
+        <button
+          onClick={() => onPageChange(totalPages)}
+          disabled={currentPage === totalPages}
+          className={`${btnBase} ${currentPage === totalPages ? btnDisabled : btnInactive} gap-0.5`}
+          title="Last page"
+        >
+          <span>»</span>
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export default function EventRegistrations() {
   const supabase = createClient();
@@ -115,6 +236,9 @@ export default function EventRegistrations() {
 
   // Expanded row for participant details
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -202,6 +326,9 @@ export default function EventRegistrations() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  // Reset to page 1 when filters change
+  useEffect(() => { setCurrentPage(1); }, [filterTab, selectedEvent, registrantSearch, selectedVenue]);
+
   // Apply filters
   const filtered = registrations.filter(r => {
     if (filterTab === 'event' && selectedEvent !== 'all') {
@@ -220,13 +347,62 @@ export default function EventRegistrations() {
     return true;
   });
 
+  // FIX 1: Only count child participants (not the registrant) in stats
+  const totalParticipants = filtered.reduce((sum, r) => sum + (r.children || []).length, 0);
   const totalPaid = filtered.filter(r => r.payment_status === 'paid').length;
   const totalAmount = filtered.reduce((sum, r) => sum + (r.payment_status === 'paid' ? (r.amount || 0) : 0), 0);
+
+  // Pagination
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  // FIX 3: Build Sessions Booked grouped data
+  const sessionsBookedGroups: SessionsBookedGroup[] = (() => {
+    const eventMap: Record<string, Record<string, Record<string, { dateId: string; registrants: { name: string; email: string; paymentStatus: string }[] }>>> = {};
+    registrations.forEach(r => {
+      const name = `${r.title} ${r.first_name} ${r.surname}`.trim();
+      (r.session_dates || []).forEach(sd => {
+        const evName = sd.event_name || 'Unknown Event';
+        const dateKey = formatDate(sd.event_date);
+        const timeslot = sd.start_time && sd.end_time
+          ? `${sd.start_time} – ${sd.end_time}`
+          : sd.start_time || 'Time TBC';
+        if (!eventMap[evName]) eventMap[evName] = {};
+        if (!eventMap[evName][dateKey]) eventMap[evName][dateKey] = {};
+        if (!eventMap[evName][dateKey][timeslot]) {
+          eventMap[evName][dateKey][timeslot] = { dateId: sd.id, registrants: [] };
+        }
+        eventMap[evName][dateKey][timeslot].registrants.push({
+          name,
+          email: r.email,
+          paymentStatus: r.payment_status,
+        });
+      });
+    });
+    return Object.entries(eventMap)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([eventName, dates]) => ({
+        eventName,
+        dates: Object.entries(dates)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([date, timeslots]) => ({
+            date,
+            timeslots: Object.entries(timeslots)
+              .sort(([a], [b]) => a.localeCompare(b))
+              .map(([timeslot, data]) => ({
+                timeslot,
+                dateId: data.dateId,
+                registrants: data.registrants,
+              })),
+          })),
+      }));
+  })();
 
   const filterTabConfig: { key: FilterTab; label: string; icon: string }[] = [
     { key: 'event', label: 'By Event', icon: '🎓' },
     { key: 'registrant', label: 'By Registrant', icon: '👤' },
     { key: 'venue', label: 'By Venue Location', icon: '📍' },
+    { key: 'sessions_booked', label: 'Sessions Booked', icon: '📅' },
   ];
 
   return (
@@ -245,11 +421,15 @@ export default function EventRegistrations() {
         </button>
       </div>
 
-      {/* Summary stats */}
-      <div className="grid grid-cols-3 gap-4">
+      {/* Summary stats — FIX 1: participants = children only */}
+      <div className="grid grid-cols-4 gap-4">
         <div className="bg-white border border-[#E8DDD0] rounded-xl p-4">
           <p className="text-xs text-[#8C7B6B] uppercase tracking-wide font-medium">Total Registrations</p>
           <p className="text-2xl font-bold text-[#2C2420] mt-1">{filtered.length}</p>
+        </div>
+        <div className="bg-white border border-[#E8DDD0] rounded-xl p-4">
+          <p className="text-xs text-[#8C7B6B] uppercase tracking-wide font-medium">Child Participants</p>
+          <p className="text-2xl font-bold text-[#C4622D] mt-1">{totalParticipants}</p>
         </div>
         <div className="bg-white border border-[#E8DDD0] rounded-xl p-4">
           <p className="text-xs text-[#8C7B6B] uppercase tracking-wide font-medium">Paid</p>
@@ -280,374 +460,476 @@ export default function EventRegistrations() {
           ))}
         </div>
 
-        {/* Filter controls */}
-        <div className="px-5 py-3 bg-[#FAF5EE] border-b border-[#E8DDD0]">
-          {filterTab === 'event' && (
-            <div className="flex items-center gap-3">
-              <label className="text-sm font-medium text-[#5C5347] whitespace-nowrap">Filter by Event:</label>
-              <select
-                value={selectedEvent}
-                onChange={e => setSelectedEvent(e.target.value)}
-                className="flex-1 max-w-xs px-3 py-1.5 text-sm border border-[#E8DDD0] rounded-lg bg-white text-[#2C2420] focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30"
-              >
-                <option value="all">All Events</option>
-                {eventOptions.map(ev => (
-                  <option key={ev} value={ev}>{ev}</option>
-                ))}
-              </select>
-              {selectedEvent !== 'all' && (
-                <button onClick={() => setSelectedEvent('all')} className="text-xs text-[#C4622D] hover:underline">Clear</button>
-              )}
+        {/* FIX 3: Sessions Booked tab content */}
+        {filterTab === 'sessions_booked' ? (
+          loading ? (
+            <div className="flex items-center justify-center py-16">
+              <div className="w-8 h-8 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
             </div>
-          )}
-          {filterTab === 'registrant' && (
-            <div className="flex items-center gap-3">
-              <label className="text-sm font-medium text-[#5C5347] whitespace-nowrap">Search Registrant:</label>
-              <input
-                type="text"
-                value={registrantSearch}
-                onChange={e => setRegistrantSearch(e.target.value)}
-                placeholder="Name, email or phone..."
-                className="flex-1 max-w-sm px-3 py-1.5 text-sm border border-[#E8DDD0] rounded-lg bg-white text-[#2C2420] focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30"
-              />
-              {registrantSearch && (
-                <button onClick={() => setRegistrantSearch('')} className="text-xs text-[#C4622D] hover:underline">Clear</button>
-              )}
+          ) : error ? (
+            <div className="p-6 text-center text-red-600 text-sm">{error}</div>
+          ) : sessionsBookedGroups.length === 0 ? (
+            <div className="p-12 text-center">
+              <p className="text-3xl mb-2">📅</p>
+              <p className="text-[#5C5347] font-medium">No session bookings found</p>
             </div>
-          )}
-          {filterTab === 'venue' && (
-            <div className="flex items-center gap-3">
-              <label className="text-sm font-medium text-[#5C5347] whitespace-nowrap">Filter by Venue:</label>
-              <select
-                value={selectedVenue}
-                onChange={e => setSelectedVenue(e.target.value)}
-                className="flex-1 max-w-xs px-3 py-1.5 text-sm border border-[#E8DDD0] rounded-lg bg-white text-[#2C2420] focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30"
-              >
-                <option value="all">All Venues</option>
-                {venueOptions.map(v => (
-                  <option key={v} value={v}>{v}</option>
-                ))}
-              </select>
-              {selectedVenue !== 'all' && (
-                <button onClick={() => setSelectedVenue('all')} className="text-xs text-[#C4622D] hover:underline">Clear</button>
-              )}
-            </div>
-          )}
-        </div>
+          ) : (
+            <div className="divide-y divide-[#F0E8DE]">
+              {sessionsBookedGroups.map(group => (
+                <div key={group.eventName} className="p-5">
+                  {/* Event header */}
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#C4622D] to-[#E8845A] flex items-center justify-center text-white text-xs font-bold shadow-sm">
+                      {group.eventName.charAt(0)}
+                    </div>
+                    <h3 className="text-base font-semibold text-[#2C2420]">{group.eventName}</h3>
+                    <span className="ml-auto text-xs text-[#8C7B6B] bg-[#F5EFE8] border border-[#E8DDD0] px-2.5 py-1 rounded-full font-medium">
+                      {group.dates.reduce((s, d) => s + d.timeslots.reduce((ts, t) => ts + t.registrants.length, 0), 0)} bookings
+                    </span>
+                  </div>
 
-        {/* Table */}
-        {loading ? (
-          <div className="flex items-center justify-center py-16">
-            <div className="w-8 h-8 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
-          </div>
-        ) : error ? (
-          <div className="p-6 text-center text-red-600 text-sm">{error}</div>
-        ) : filtered.length === 0 ? (
-          <div className="p-12 text-center">
-            <p className="text-3xl mb-2">📋</p>
-            <p className="text-[#5C5347] font-medium">No registrations found</p>
-            <p className="text-sm text-[#8C7B6B] mt-1">Try adjusting your filter criteria</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-[#F5EFE8] text-[#5C5347] text-xs uppercase tracking-wide">
-                  <th className="px-4 py-3 text-left font-semibold">Registrant</th>
-                  <th className="px-4 py-3 text-left font-semibold">Contact</th>
-                  <th className="px-4 py-3 text-left font-semibold">Event(s)</th>
-                  <th className="px-4 py-3 text-left font-semibold">Venue</th>
-                  <th className="px-4 py-3 text-left font-semibold">Date(s)</th>
-                  <th className="px-4 py-3 text-left font-semibold">Payment</th>
-                  <th className="px-4 py-3 text-left font-semibold">Amount</th>
-                  <th className="px-4 py-3 text-left font-semibold">Registered</th>
-                  <th className="px-4 py-3 text-center font-semibold">Participants</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#F0E8DE]">
-                {filtered.map(reg => {
-                  const isExpanded = expandedId === reg.id;
-                  const sessions = reg.session_dates || [];
-                  const uniqueEvents = [...new Set(sessions.map(s => s.event_name).filter(Boolean))];
-                  const uniqueVenues = [...new Set(sessions.map(s => s.location).filter(Boolean))];
-                  const childCount = (reg.children || []).length;
-                  const participantCount = 1 + childCount; // registrant + children
-
-                  return (
-                    <>
-                      <tr
-                        key={reg.id}
-                        className={`hover:bg-[#FAF5EE] transition-colors cursor-pointer ${isExpanded ? 'bg-[#FDF6EE]' : 'bg-white'}`}
-                        onClick={() => setExpandedId(isExpanded ? null : reg.id)}
-                      >
-                        {/* Registrant Name */}
-                        <td className="px-4 py-3">
-                          <div className="font-semibold text-[#2C2420]">
-                            {reg.title} {reg.first_name} {reg.surname}
-                          </div>
-                          <div className="text-xs text-[#8C7B6B] mt-0.5">{reg.relationship || '—'}</div>
-                        </td>
-                        {/* Contact */}
-                        <td className="px-4 py-3">
-                          <div className="text-[#2C2420]">{reg.email}</div>
-                          <div className="text-xs text-[#8C7B6B] mt-0.5">{reg.cellphone}</div>
-                        </td>
-                        {/* Events */}
-                        <td className="px-4 py-3">
-                          {uniqueEvents.length > 0 ? (
-                            <div className="flex flex-wrap gap-1">
-                              {uniqueEvents.map((ev, i) => (
-                                <span key={i} className="inline-block px-2 py-0.5 bg-[#F5EFE8] text-[#C4622D] text-xs rounded-full border border-[#E8DDD0]">
-                                  {ev}
-                                </span>
-                              ))}
-                            </div>
-                          ) : <span className="text-[#8C7B6B]">—</span>}
-                        </td>
-                        {/* Venue */}
-                        <td className="px-4 py-3">
-                          {uniqueVenues.length > 0 ? (
-                            <div className="space-y-0.5">
-                              {uniqueVenues.map((v, i) => (
-                                <div key={i} className="text-xs text-[#5C5347] truncate max-w-[160px]" title={v ?? undefined}>{v}</div>
-                              ))}
-                            </div>
-                          ) : <span className="text-[#8C7B6B]">—</span>}
-                        </td>
-                        {/* Dates */}
-                        <td className="px-4 py-3">
-                          {sessions.length > 0 ? (
-                            <div className="space-y-0.5">
-                              {sessions.slice(0, 2).map((s, i) => (
-                                <div key={i} className="text-xs text-[#5C5347]">{formatDate(s.event_date)}</div>
-                              ))}
-                              {sessions.length > 2 && (
-                                <div className="text-xs text-[#8C7B6B]">+{sessions.length - 2} more</div>
-                              )}
-                            </div>
-                          ) : <span className="text-[#8C7B6B]">—</span>}
-                        </td>
-                        {/* Payment Status */}
-                        <td className="px-4 py-3">
-                          <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded-full border capitalize ${PAYMENT_STATUS_COLORS[reg.payment_status] || 'bg-gray-100 text-gray-600 border-gray-200'}`}>
-                            {reg.payment_status.replace(/_/g, ' ')}
+                  <div className="space-y-4 pl-11">
+                    {group.dates.map(dateGroup => (
+                      <div key={dateGroup.date}>
+                        {/* Date sub-header */}
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-xs font-semibold text-[#5C5347] bg-[#F5EFE8] border border-[#E8DDD0] px-3 py-1 rounded-full">
+                            📆 {dateGroup.date}
                           </span>
-                        </td>
-                        {/* Amount */}
-                        <td className="px-4 py-3 font-medium text-[#2C2420]">
-                          {formatCurrency(reg.amount)}
-                        </td>
-                        {/* Registered date */}
-                        <td className="px-4 py-3 text-xs text-[#5C5347]">
-                          {formatDate(reg.created_at)}
-                        </td>
-                        {/* Participants toggle */}
-                        <td className="px-4 py-3 text-center">
-                          <button
-                            onClick={e => { e.stopPropagation(); setExpandedId(isExpanded ? null : reg.id); }}
-                            className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-full border transition-colors ${
-                              isExpanded
-                                ? 'bg-[#C4622D] text-white border-[#C4622D]'
-                                : 'bg-white text-[#C4622D] border-[#C4622D] hover:bg-[#FDF6EE]'
-                            }`}
-                          >
-                            <span>{participantCount}</span>
-                            <span>{isExpanded ? '▲' : '▼'}</span>
-                          </button>
-                        </td>
-                      </tr>
+                        </div>
 
-                      {/* Expanded participant details */}
-                      {isExpanded && (
-                        <tr key={`${reg.id}-expanded`} className="bg-[#FDF6EE]">
-                          <td colSpan={9} className="px-6 py-5">
-                            <div className="space-y-5">
-                              {/* Registrant (Adult) participant row */}
-                              <div>
-                                <h4 className="text-xs font-semibold text-[#8C7B6B] uppercase tracking-wide mb-2 flex items-center gap-2">
-                                  <span className="w-5 h-5 bg-[#C4622D] text-white rounded-full flex items-center justify-center text-xs">R</span>
-                                  Registrant (Adult Participant)
-                                </h4>
-                                <div className="overflow-x-auto rounded-lg border border-[#E8DDD0]">
-                                  <table className="w-full text-xs">
-                                    <thead>
-                                      <tr className="bg-[#F5EFE8] text-[#5C5347]">
-                                        <th className="px-3 py-2 text-left font-semibold">Full Name</th>
-                                        <th className="px-3 py-2 text-left font-semibold">ID / Passport</th>
-                                        <th className="px-3 py-2 text-left font-semibold">Allergies / Illness</th>
-                                        <th className="px-3 py-2 text-left font-semibold">First Time</th>
-                                        <th className="px-3 py-2 text-left font-semibold">Photos Consent</th>
-                                        <th className="px-3 py-2 text-left font-semibold">Indemnity</th>
-                                        <th className="px-3 py-2 text-left font-semibold">Emergency Contact 1</th>
-                                        <th className="px-3 py-2 text-left font-semibold">Emergency Contact 2</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      <tr className="bg-white">
-                                        <td className="px-3 py-2 font-medium text-[#2C2420]">{reg.title} {reg.first_name} {reg.surname}</td>
-                                        <td className="px-3 py-2 text-[#5C5347]">{reg.rsa_id_passport || '—'}</td>
-                                        <td className="px-3 py-2 text-[#5C5347]">{reg.allergies_illness || '—'}</td>
-                                        <td className="px-3 py-2 text-[#5C5347]">{reg.first_time_portal || '—'}</td>
-                                        <td className="px-3 py-2 text-[#5C5347]">{reg.pictures_taken || '—'}</td>
-                                        <td className="px-3 py-2">
-                                          <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${reg.indemnity_consent ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
-                                            {reg.indemnity_consent ? 'Signed' : 'Pending'}
-                                          </span>
-                                        </td>
-                                        <td className="px-3 py-2 text-[#5C5347]">
-                                          {reg.emergency_contact1?.name ? (
-                                            <div>
-                                              <div className="font-medium">{reg.emergency_contact1.name}</div>
-                                              <div className="text-[#8C7B6B]">{reg.emergency_contact1.relationship} · {reg.emergency_contact1.phone || reg.emergency_contact1.cellphone}</div>
-                                            </div>
-                                          ) : '—'}
-                                        </td>
-                                        <td className="px-3 py-2 text-[#5C5347]">
-                                          {reg.emergency_contact2?.name ? (
-                                            <div>
-                                              <div className="font-medium">{reg.emergency_contact2.name}</div>
-                                              <div className="text-[#8C7B6B]">{reg.emergency_contact2.relationship} · {reg.emergency_contact2.phone || reg.emergency_contact2.cellphone}</div>
-                                            </div>
-                                          ) : '—'}
-                                        </td>
-                                      </tr>
-                                    </tbody>
-                                  </table>
+                        <div className="space-y-3 pl-4">
+                          {dateGroup.timeslots.map(slot => (
+                            <div key={slot.timeslot} className="rounded-xl border border-[#E8DDD0] overflow-hidden">
+                              {/* Timeslot header */}
+                              <div className="flex items-center justify-between px-4 py-2.5 bg-gradient-to-r from-[#FAF5EE] to-[#F5EFE8] border-b border-[#E8DDD0]">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[#C4622D]">🕐</span>
+                                  <span className="text-sm font-semibold text-[#2C2420]">{slot.timeslot}</span>
                                 </div>
+                                <span className="text-xs font-medium text-[#8C7B6B] bg-white border border-[#E8DDD0] px-2.5 py-0.5 rounded-full">
+                                  {slot.registrants.length} registrant{slot.registrants.length !== 1 ? 's' : ''}
+                                </span>
                               </div>
-
-                              {/* Medical info */}
-                              {(reg.medical_doctor_first_name || reg.medical_aid_name) && (
-                                <div>
-                                  <h4 className="text-xs font-semibold text-[#8C7B6B] uppercase tracking-wide mb-2 flex items-center gap-2">
-                                    <span className="w-5 h-5 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs">M</span>
-                                    Medical Information
-                                  </h4>
-                                  <div className="overflow-x-auto rounded-lg border border-[#E8DDD0]">
-                                    <table className="w-full text-xs">
-                                      <thead>
-                                        <tr className="bg-[#F5EFE8] text-[#5C5347]">
-                                          <th className="px-3 py-2 text-left font-semibold">Doctor</th>
-                                          <th className="px-3 py-2 text-left font-semibold">Medical Aid</th>
-                                          <th className="px-3 py-2 text-left font-semibold">Medical Aid No.</th>
-                                        </tr>
-                                      </thead>
-                                      <tbody>
-                                        <tr className="bg-white">
-                                          <td className="px-3 py-2 text-[#5C5347]">
-                                            {[reg.medical_doctor_first_name, reg.medical_doctor_surname].filter(Boolean).join(' ') || '—'}
-                                          </td>
-                                          <td className="px-3 py-2 text-[#5C5347]">{reg.medical_aid_name || '—'}</td>
-                                          <td className="px-3 py-2 text-[#5C5347]">{reg.medical_aid_number || '—'}</td>
-                                        </tr>
-                                      </tbody>
-                                    </table>
-                                  </div>
-                                </div>
-                              )}
-
-                              {/* Children / additional participants */}
-                              {childCount > 0 && (
-                                <div>
-                                  <h4 className="text-xs font-semibold text-[#8C7B6B] uppercase tracking-wide mb-2 flex items-center gap-2">
-                                    <span className="w-5 h-5 bg-purple-500 text-white rounded-full flex items-center justify-center text-xs">C</span>
-                                    Child Participants ({childCount})
-                                  </h4>
-                                  <div className="overflow-x-auto rounded-lg border border-[#E8DDD0]">
-                                    <table className="w-full text-xs">
-                                      <thead>
-                                        <tr className="bg-[#F5EFE8] text-[#5C5347]">
-                                          <th className="px-3 py-2 text-left font-semibold">#</th>
-                                          <th className="px-3 py-2 text-left font-semibold">Full Name</th>
-                                          <th className="px-3 py-2 text-left font-semibold">Date of Birth</th>
-                                          <th className="px-3 py-2 text-left font-semibold">Age</th>
-                                          <th className="px-3 py-2 text-left font-semibold">Gender</th>
-                                          <th className="px-3 py-2 text-left font-semibold">School</th>
-                                          <th className="px-3 py-2 text-left font-semibold">Grade</th>
-                                          <th className="px-3 py-2 text-left font-semibold">Allergies</th>
-                                        </tr>
-                                      </thead>
-                                      <tbody className="divide-y divide-[#F0E8DE]">
-                                        {(reg.children || []).map((child, idx) => (
-                                          <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-[#FAF5EE]'}>
-                                            <td className="px-3 py-2 text-[#8C7B6B] font-medium">{idx + 1}</td>
-                                            <td className="px-3 py-2 font-medium text-[#2C2420]">{child.full_name || child.name || '—'}</td>
-                                            <td className="px-3 py-2 text-[#5C5347]">{formatDate(child.dob)}</td>
-                                            <td className="px-3 py-2 text-[#5C5347]">
-                                              {child.age != null ? String(child.age) : calcAge(child.dob)}
-                                            </td>
-                                            <td className="px-3 py-2 text-[#5C5347] capitalize">{child.gender || '—'}</td>
-                                            <td className="px-3 py-2 text-[#5C5347]">{child.school || '—'}</td>
-                                            <td className="px-3 py-2 text-[#5C5347]">{child.grade || '—'}</td>
-                                            <td className="px-3 py-2 text-[#5C5347]">{child.allergies || '—'}</td>
-                                          </tr>
-                                        ))}
-                                      </tbody>
-                                    </table>
-                                  </div>
-                                </div>
-                              )}
-
-                              {/* Session dates */}
-                              {sessions.length > 0 && (
-                                <div>
-                                  <h4 className="text-xs font-semibold text-[#8C7B6B] uppercase tracking-wide mb-2 flex items-center gap-2">
-                                    <span className="w-5 h-5 bg-teal-500 text-white rounded-full flex items-center justify-center text-xs">S</span>
-                                    Booked Sessions ({sessions.length})
-                                  </h4>
-                                  <div className="overflow-x-auto rounded-lg border border-[#E8DDD0]">
-                                    <table className="w-full text-xs">
-                                      <thead>
-                                        <tr className="bg-[#F5EFE8] text-[#5C5347]">
-                                          <th className="px-3 py-2 text-left font-semibold">Event</th>
-                                          <th className="px-3 py-2 text-left font-semibold">Date</th>
-                                          <th className="px-3 py-2 text-left font-semibold">Time</th>
-                                          <th className="px-3 py-2 text-left font-semibold">Venue</th>
-                                          <th className="px-3 py-2 text-left font-semibold">Fee</th>
-                                        </tr>
-                                      </thead>
-                                      <tbody className="divide-y divide-[#F0E8DE]">
-                                        {sessions.map((s, idx) => (
-                                          <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-[#FAF5EE]'}>
-                                            <td className="px-3 py-2 font-medium text-[#2C2420]">{s.event_name || '—'}</td>
-                                            <td className="px-3 py-2 text-[#5C5347]">{formatDate(s.event_date)}</td>
-                                            <td className="px-3 py-2 text-[#5C5347]">
-                                              {s.start_time && s.end_time ? `${s.start_time} – ${s.end_time}` : s.start_time || '—'}
-                                            </td>
-                                            <td className="px-3 py-2 text-[#5C5347]">{s.location || '—'}</td>
-                                            <td className="px-3 py-2 text-[#5C5347]">{formatCurrency(s.class_fee)}</td>
-                                          </tr>
-                                        ))}
-                                      </tbody>
-                                    </table>
-                                  </div>
-                                </div>
-                              )}
-
-                              {/* Notes */}
-                              {reg.notes && (
-                                <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
-                                  <p className="text-xs font-semibold text-amber-700 mb-1">Notes</p>
-                                  <p className="text-xs text-amber-800">{reg.notes}</p>
-                                </div>
-                              )}
+                              {/* Registrants table */}
+                              <table className="w-full text-xs">
+                                <thead>
+                                  <tr className="bg-[#F5EFE8] text-[#5C5347]">
+                                    <th className="px-4 py-2 text-left font-semibold">#</th>
+                                    <th className="px-4 py-2 text-left font-semibold">Registrant Name</th>
+                                    <th className="px-4 py-2 text-left font-semibold">Email</th>
+                                    <th className="px-4 py-2 text-left font-semibold">Payment Status</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-[#F0E8DE]">
+                                  {slot.registrants.map((reg, idx) => (
+                                    <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-[#FAF5EE]'}>
+                                      <td className="px-4 py-2 text-[#8C7B6B] font-medium">{idx + 1}</td>
+                                      <td className="px-4 py-2 font-medium text-[#2C2420]">{reg.name}</td>
+                                      <td className="px-4 py-2 text-[#5C5347]">{reg.email}</td>
+                                      <td className="px-4 py-2">
+                                        <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded-full border capitalize ${PAYMENT_STATUS_COLORS[reg.paymentStatus] || 'bg-gray-100 text-gray-600 border-gray-200'}`}>
+                                          {reg.paymentStatus.replace(/_/g, ' ')}
+                                        </span>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
                             </div>
-                          </td>
-                        </tr>
-                      )}
-                    </>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
+        ) : (
+          <>
+            {/* Filter controls */}
+            <div className="px-5 py-3 bg-[#FAF5EE] border-b border-[#E8DDD0]">
+              {filterTab === 'event' && (
+                <div className="flex items-center gap-3">
+                  <label className="text-sm font-medium text-[#5C5347] whitespace-nowrap">Filter by Event:</label>
+                  <select
+                    value={selectedEvent}
+                    onChange={e => setSelectedEvent(e.target.value)}
+                    className="flex-1 max-w-xs px-3 py-1.5 text-sm border border-[#E8DDD0] rounded-lg bg-white text-[#2C2420] focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30"
+                  >
+                    <option value="all">All Events</option>
+                    {eventOptions.map(ev => (
+                      <option key={ev} value={ev}>{ev}</option>
+                    ))}
+                  </select>
+                  {selectedEvent !== 'all' && (
+                    <button onClick={() => setSelectedEvent('all')} className="text-xs text-[#C4622D] hover:underline">Clear</button>
+                  )}
+                </div>
+              )}
+              {filterTab === 'registrant' && (
+                <div className="flex items-center gap-3">
+                  <label className="text-sm font-medium text-[#5C5347] whitespace-nowrap">Search Registrant:</label>
+                  <input
+                    type="text"
+                    value={registrantSearch}
+                    onChange={e => setRegistrantSearch(e.target.value)}
+                    placeholder="Name, email or phone..."
+                    className="flex-1 max-w-sm px-3 py-1.5 text-sm border border-[#E8DDD0] rounded-lg bg-white text-[#2C2420] focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30"
+                  />
+                  {registrantSearch && (
+                    <button onClick={() => setRegistrantSearch('')} className="text-xs text-[#C4622D] hover:underline">Clear</button>
+                  )}
+                </div>
+              )}
+              {filterTab === 'venue' && (
+                <div className="flex items-center gap-3">
+                  <label className="text-sm font-medium text-[#5C5347] whitespace-nowrap">Filter by Venue:</label>
+                  <select
+                    value={selectedVenue}
+                    onChange={e => setSelectedVenue(e.target.value)}
+                    className="flex-1 max-w-xs px-3 py-1.5 text-sm border border-[#E8DDD0] rounded-lg bg-white text-[#2C2420] focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30"
+                  >
+                    <option value="all">All Venues</option>
+                    {venueOptions.map(v => (
+                      <option key={v} value={v}>{v}</option>
+                    ))}
+                  </select>
+                  {selectedVenue !== 'all' && (
+                    <button onClick={() => setSelectedVenue('all')} className="text-xs text-[#C4622D] hover:underline">Clear</button>
+                  )}
+                </div>
+              )}
+            </div>
 
-        {/* Footer count */}
-        {!loading && !error && filtered.length > 0 && (
-          <div className="px-5 py-3 bg-[#FAF5EE] border-t border-[#E8DDD0] text-xs text-[#8C7B6B]">
-            Showing {filtered.length} of {registrations.length} registration{registrations.length !== 1 ? 's' : ''}
-          </div>
+            {/* Table */}
+            {loading ? (
+              <div className="flex items-center justify-center py-16">
+                <div className="w-8 h-8 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : error ? (
+              <div className="p-6 text-center text-red-600 text-sm">{error}</div>
+            ) : filtered.length === 0 ? (
+              <div className="p-12 text-center">
+                <p className="text-3xl mb-2">📋</p>
+                <p className="text-[#5C5347] font-medium">No registrations found</p>
+                <p className="text-sm text-[#8C7B6B] mt-1">Try adjusting your filter criteria</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-[#F5EFE8] text-[#5C5347] text-xs uppercase tracking-wide">
+                      <th className="px-4 py-3 text-left font-semibold">Registrant</th>
+                      <th className="px-4 py-3 text-left font-semibold">Contact</th>
+                      <th className="px-4 py-3 text-left font-semibold">Event(s)</th>
+                      <th className="px-4 py-3 text-left font-semibold">Venue</th>
+                      <th className="px-4 py-3 text-left font-semibold">Date(s)</th>
+                      <th className="px-4 py-3 text-left font-semibold">Payment</th>
+                      <th className="px-4 py-3 text-left font-semibold">Amount</th>
+                      <th className="px-4 py-3 text-left font-semibold">Registered</th>
+                      <th className="px-4 py-3 text-center font-semibold">Participants</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#F0E8DE]">
+                    {paginated.map(reg => {
+                      const isExpanded = expandedId === reg.id;
+                      const sessions = reg.session_dates || [];
+                      const uniqueEvents = [...new Set(sessions.map(s => s.event_name).filter(Boolean))];
+                      const uniqueVenues = [...new Set(sessions.map(s => s.location).filter(Boolean))];
+                      const childCount = (reg.children || []).length;
+                      // FIX 1: participant count = children only (not the registrant)
+                      const participantCount = childCount;
+
+                      return (
+                        <>
+                          <tr
+                            key={reg.id}
+                            className={`hover:bg-[#FAF5EE] transition-colors cursor-pointer ${isExpanded ? 'bg-[#FDF6EE]' : 'bg-white'}`}
+                            onClick={() => setExpandedId(isExpanded ? null : reg.id)}
+                          >
+                            {/* Registrant Name */}
+                            <td className="px-4 py-3">
+                              <div className="font-semibold text-[#2C2420]">
+                                {reg.title} {reg.first_name} {reg.surname}
+                              </div>
+                              <div className="text-xs text-[#8C7B6B] mt-0.5">{reg.relationship || '—'}</div>
+                            </td>
+                            {/* Contact */}
+                            <td className="px-4 py-3">
+                              <div className="text-[#2C2420]">{reg.email}</div>
+                              <div className="text-xs text-[#8C7B6B] mt-0.5">{reg.cellphone}</div>
+                            </td>
+                            {/* FIX 4: Elegant Event(s) badge */}
+                            <td className="px-4 py-3">
+                              {uniqueEvents.length > 0 ? (
+                                <div className="flex flex-wrap gap-1.5">
+                                  {uniqueEvents.map((ev, i) => (
+                                    <span
+                                      key={i}
+                                      className="inline-flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-[#FDF6EE] to-[#F5EFE8] text-[#C4622D] text-xs font-medium rounded-lg border border-[#E8C9B0] shadow-sm"
+                                    >
+                                      <span className="w-1.5 h-1.5 rounded-full bg-[#C4622D] flex-shrink-0" />
+                                      {ev}
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : <span className="text-[#8C7B6B]">—</span>}
+                            </td>
+                            {/* Venue */}
+                            <td className="px-4 py-3">
+                              {uniqueVenues.length > 0 ? (
+                                <div className="space-y-0.5">
+                                  {uniqueVenues.map((v, i) => (
+                                    <div key={i} className="text-xs text-[#5C5347] truncate max-w-[160px]" title={v ?? undefined}>{v}</div>
+                                  ))}
+                                </div>
+                              ) : <span className="text-[#8C7B6B]">—</span>}
+                            </td>
+                            {/* Dates */}
+                            <td className="px-4 py-3">
+                              {sessions.length > 0 ? (
+                                <div className="space-y-0.5">
+                                  {sessions.slice(0, 2).map((s, i) => (
+                                    <div key={i} className="text-xs text-[#5C5347]">{formatDate(s.event_date)}</div>
+                                  ))}
+                                  {sessions.length > 2 && (
+                                    <div className="text-xs text-[#8C7B6B]">+{sessions.length - 2} more</div>
+                                  )}
+                                </div>
+                              ) : <span className="text-[#8C7B6B]">—</span>}
+                            </td>
+                            {/* Payment Status */}
+                            <td className="px-4 py-3">
+                              <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded-full border capitalize ${PAYMENT_STATUS_COLORS[reg.payment_status] || 'bg-gray-100 text-gray-600 border-gray-200'}`}>
+                                {reg.payment_status.replace(/_/g, ' ')}
+                              </span>
+                            </td>
+                            {/* Amount */}
+                            <td className="px-4 py-3 font-medium text-[#2C2420]">
+                              {formatCurrency(reg.amount)}
+                            </td>
+                            {/* Registered date */}
+                            <td className="px-4 py-3 text-xs text-[#5C5347]">
+                              {formatDate(reg.created_at)}
+                            </td>
+                            {/* Participants toggle — FIX 1: children only */}
+                            <td className="px-4 py-3 text-center">
+                              <button
+                                onClick={e => { e.stopPropagation(); setExpandedId(isExpanded ? null : reg.id); }}
+                                className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-full border transition-colors ${
+                                  isExpanded
+                                    ? 'bg-[#C4622D] text-white border-[#C4622D]'
+                                    : 'bg-white text-[#C4622D] border-[#C4622D] hover:bg-[#FDF6EE]'
+                                }`}
+                              >
+                                <span>{participantCount}</span>
+                                <span>{isExpanded ? '▲' : '▼'}</span>
+                              </button>
+                            </td>
+                          </tr>
+
+                          {/* Expanded participant details */}
+                          {isExpanded && (
+                            <tr key={`${reg.id}-expanded`} className="bg-[#FDF6EE]">
+                              <td colSpan={9} className="px-6 py-5">
+                                <div className="space-y-5">
+                                  {/* Registrant (Adult) participant row */}
+                                  <div>
+                                    <h4 className="text-xs font-semibold text-[#8C7B6B] uppercase tracking-wide mb-2 flex items-center gap-2">
+                                      <span className="w-5 h-5 bg-[#C4622D] text-white rounded-full flex items-center justify-center text-xs">R</span>
+                                      Registrant (Adult Participant)
+                                    </h4>
+                                    <div className="overflow-x-auto rounded-lg border border-[#E8DDD0]">
+                                      <table className="w-full text-xs">
+                                        <thead>
+                                          <tr className="bg-[#F5EFE8] text-[#5C5347]">
+                                            <th className="px-3 py-2 text-left font-semibold">Full Name</th>
+                                            <th className="px-3 py-2 text-left font-semibold">ID / Passport</th>
+                                            <th className="px-3 py-2 text-left font-semibold">Allergies / Illness</th>
+                                            <th className="px-3 py-2 text-left font-semibold">First Time</th>
+                                            <th className="px-3 py-2 text-left font-semibold">Photos Consent</th>
+                                            <th className="px-3 py-2 text-left font-semibold">Indemnity</th>
+                                            <th className="px-3 py-2 text-left font-semibold">Emergency Contact 1</th>
+                                            <th className="px-3 py-2 text-left font-semibold">Emergency Contact 2</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                          <tr className="bg-white">
+                                            <td className="px-3 py-2 font-medium text-[#2C2420]">{reg.title} {reg.first_name} {reg.surname}</td>
+                                            <td className="px-3 py-2 text-[#5C5347]">{reg.rsa_id_passport || '—'}</td>
+                                            <td className="px-3 py-2 text-[#5C5347]">{reg.allergies_illness || '—'}</td>
+                                            <td className="px-3 py-2 text-[#5C5347]">{reg.first_time_portal || '—'}</td>
+                                            <td className="px-3 py-2 text-[#5C5347]">{reg.pictures_taken || '—'}</td>
+                                            <td className="px-3 py-2">
+                                              <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${reg.indemnity_consent ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
+                                                {reg.indemnity_consent ? 'Signed' : 'Pending'}
+                                              </span>
+                                            </td>
+                                            <td className="px-3 py-2 text-[#5C5347]">
+                                              {reg.emergency_contact1?.name ? (
+                                                <div>
+                                                  <div className="font-medium">{reg.emergency_contact1.name}</div>
+                                                  <div className="text-[#8C7B6B]">{reg.emergency_contact1.relationship} · {reg.emergency_contact1.phone || reg.emergency_contact1.cellphone}</div>
+                                                </div>
+                                              ) : '—'}
+                                            </td>
+                                            <td className="px-3 py-2 text-[#5C5347]">
+                                              {reg.emergency_contact2?.name ? (
+                                                <div>
+                                                  <div className="font-medium">{reg.emergency_contact2.name}</div>
+                                                  <div className="text-[#8C7B6B]">{reg.emergency_contact2.relationship} · {reg.emergency_contact2.phone || reg.emergency_contact2.cellphone}</div>
+                                                </div>
+                                              ) : '—'}
+                                            </td>
+                                          </tr>
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  </div>
+
+                                  {/* Medical info */}
+                                  {(reg.medical_doctor_first_name || reg.medical_aid_name) && (
+                                    <div>
+                                      <h4 className="text-xs font-semibold text-[#8C7B6B] uppercase tracking-wide mb-2 flex items-center gap-2">
+                                        <span className="w-5 h-5 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs">M</span>
+                                        Medical Information
+                                      </h4>
+                                      <div className="overflow-x-auto rounded-lg border border-[#E8DDD0]">
+                                        <table className="w-full text-xs">
+                                          <thead>
+                                            <tr className="bg-[#F5EFE8] text-[#5C5347]">
+                                              <th className="px-3 py-2 text-left font-semibold">Doctor</th>
+                                              <th className="px-3 py-2 text-left font-semibold">Medical Aid</th>
+                                              <th className="px-3 py-2 text-left font-semibold">Medical Aid No.</th>
+                                            </tr>
+                                          </thead>
+                                          <tbody>
+                                            <tr className="bg-white">
+                                              <td className="px-3 py-2 text-[#5C5347]">
+                                                {[reg.medical_doctor_first_name, reg.medical_doctor_surname].filter(Boolean).join(' ') || '—'}
+                                              </td>
+                                              <td className="px-3 py-2 text-[#5C5347]">{reg.medical_aid_name || '—'}</td>
+                                              <td className="px-3 py-2 text-[#5C5347]">{reg.medical_aid_number || '—'}</td>
+                                            </tr>
+                                          </tbody>
+                                        </table>
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Children / additional participants */}
+                                  {childCount > 0 && (
+                                    <div>
+                                      <h4 className="text-xs font-semibold text-[#8C7B6B] uppercase tracking-wide mb-2 flex items-center gap-2">
+                                        <span className="w-5 h-5 bg-purple-500 text-white rounded-full flex items-center justify-center text-xs">C</span>
+                                        Child Participants ({childCount})
+                                      </h4>
+                                      <div className="overflow-x-auto rounded-lg border border-[#E8DDD0]">
+                                        <table className="w-full text-xs">
+                                          <thead>
+                                            <tr className="bg-[#F5EFE8] text-[#5C5347]">
+                                              <th className="px-3 py-2 text-left font-semibold">#</th>
+                                              <th className="px-3 py-2 text-left font-semibold">Full Name</th>
+                                              <th className="px-3 py-2 text-left font-semibold">Date of Birth</th>
+                                              <th className="px-3 py-2 text-left font-semibold">Age</th>
+                                              <th className="px-3 py-2 text-left font-semibold">Gender</th>
+                                              <th className="px-3 py-2 text-left font-semibold">School</th>
+                                              <th className="px-3 py-2 text-left font-semibold">Grade</th>
+                                              <th className="px-3 py-2 text-left font-semibold">Allergies</th>
+                                            </tr>
+                                          </thead>
+                                          <tbody className="divide-y divide-[#F0E8DE]">
+                                            {(reg.children || []).map((child, idx) => (
+                                              <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-[#FAF5EE]'}>
+                                                <td className="px-3 py-2 text-[#8C7B6B] font-medium">{idx + 1}</td>
+                                                <td className="px-3 py-2 font-medium text-[#2C2420]">{child.full_name || child.name || '—'}</td>
+                                                <td className="px-3 py-2 text-[#5C5347]">{formatDate(child.dob)}</td>
+                                                <td className="px-3 py-2 text-[#5C5347]">
+                                                  {child.age != null ? String(child.age) : calcAge(child.dob)}
+                                                </td>
+                                                <td className="px-3 py-2 text-[#5C5347] capitalize">{child.gender || '—'}</td>
+                                                <td className="px-3 py-2 text-[#5C5347]">{child.school || '—'}</td>
+                                                <td className="px-3 py-2 text-[#5C5347]">{child.grade || '—'}</td>
+                                                <td className="px-3 py-2 text-[#5C5347]">{child.allergies || '—'}</td>
+                                              </tr>
+                                            ))}
+                                          </tbody>
+                                        </table>
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Session dates */}
+                                  {sessions.length > 0 && (
+                                    <div>
+                                      <h4 className="text-xs font-semibold text-[#8C7B6B] uppercase tracking-wide mb-2 flex items-center gap-2">
+                                        <span className="w-5 h-5 bg-teal-500 text-white rounded-full flex items-center justify-center text-xs">S</span>
+                                        Booked Sessions ({sessions.length})
+                                      </h4>
+                                      <div className="overflow-x-auto rounded-lg border border-[#E8DDD0]">
+                                        <table className="w-full text-xs">
+                                          <thead>
+                                            <tr className="bg-[#F5EFE8] text-[#5C5347]">
+                                              <th className="px-3 py-2 text-left font-semibold">Event</th>
+                                              <th className="px-3 py-2 text-left font-semibold">Date</th>
+                                              <th className="px-3 py-2 text-left font-semibold">Time</th>
+                                              <th className="px-3 py-2 text-left font-semibold">Venue</th>
+                                              <th className="px-3 py-2 text-left font-semibold">Fee</th>
+                                            </tr>
+                                          </thead>
+                                          <tbody className="divide-y divide-[#F0E8DE]">
+                                            {sessions.map((s, idx) => (
+                                              <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-[#FAF5EE]'}>
+                                                <td className="px-3 py-2 font-medium text-[#2C2420]">{s.event_name || '—'}</td>
+                                                <td className="px-3 py-2 text-[#5C5347]">{formatDate(s.event_date)}</td>
+                                                <td className="px-3 py-2 text-[#5C5347]">
+                                                  {s.start_time && s.end_time ? `${s.start_time} – ${s.end_time}` : s.start_time || '—'}
+                                                </td>
+                                                <td className="px-3 py-2 text-[#5C5347]">{s.location || '—'}</td>
+                                                <td className="px-3 py-2 text-[#5C5347]">{formatCurrency(s.class_fee)}</td>
+                                              </tr>
+                                            ))}
+                                          </tbody>
+                                        </table>
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Notes */}
+                                  {reg.notes && (
+                                    <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+                                      <p className="text-xs font-semibold text-amber-700 mb-1">Notes</p>
+                                      <p className="text-xs text-amber-800">{reg.notes}</p>
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* FIX 5: Elegant themed paginator */}
+            {!loading && !error && filtered.length > 0 && (
+              <>
+                <div className="px-5 py-2 bg-[#FAF5EE] border-t border-[#E8DDD0] text-xs text-[#8C7B6B]">
+                  Showing {Math.min((currentPage - 1) * PAGE_SIZE + 1, filtered.length)}–{Math.min(currentPage * PAGE_SIZE, filtered.length)} of {filtered.length} registration{filtered.length !== 1 ? 's' : ''}
+                </div>
+                <Paginator
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={setCurrentPage}
+                />
+              </>
+            )}
+          </>
         )}
       </div>
     </div>
