@@ -715,22 +715,43 @@ export default function CookingClassesPage() {
 
       // ── Upload proof of payment to Google Drive (EFT only) ────────────────
       let proofDriveUrl: string | null = null;
+      let proofSupabaseUrl: string | null = null;
       if (page5.paymentMethod === 'eft' && page5.proofFile) {
-        const proofForm = new FormData();
-        proofForm.append('file', page5.proofFile);
-        proofForm.append(
-          'fileName',
-          `ProofOfPayment_${page1.firstName}_${page1.surname}_${Date.now()}.${page5.proofFile.name.split('.').pop()}`
-        );
-        const driveRes = await fetch('/api/cooking-classes/upload-to-drive', {
-          method: 'POST',
-          body: proofForm,
-        });
-        if (driveRes.ok) {
-          const driveData = await driveRes.json();
-          proofDriveUrl = driveData.viewUrl || null;
-        } else {
-          throw new Error('Failed to upload proof of payment to Google Drive');
+        // Primary: upload to Supabase storage (reliable, no OAuth dependency)
+        try {
+          const fileExt = page5.proofFile.name.split('.').pop();
+          const storagePath = `proofs/${page1.firstName}_${page1.surname}_${Date.now()}.${fileExt}`;
+          const { data: storageData, error: storageError } = await supabase.storage
+            .from('cooking-class-proofs')
+            .upload(storagePath, page5.proofFile, { upsert: false });
+          if (!storageError && storageData) {
+            const { data: publicUrlData } = supabase.storage
+              .from('cooking-class-proofs')
+              .getPublicUrl(storageData.path);
+            proofSupabaseUrl = publicUrlData?.publicUrl || null;
+          }
+        } catch {
+          // Non-blocking — continue even if Supabase storage fails
+        }
+
+        // Secondary: attempt Google Drive upload (non-blocking)
+        try {
+          const proofForm = new FormData();
+          proofForm.append('file', page5.proofFile);
+          proofForm.append(
+            'fileName',
+            `ProofOfPayment_${page1.firstName}_${page1.surname}_${Date.now()}.${page5.proofFile.name.split('.').pop()}`
+          );
+          const driveRes = await fetch('/api/cooking-classes/upload-to-drive', {
+            method: 'POST',
+            body: proofForm,
+          });
+          if (driveRes.ok) {
+            const driveData = await driveRes.json();
+            proofDriveUrl = driveData.viewUrl || null;
+          }
+        } catch {
+          // Non-blocking — Drive upload failure does not block registration
         }
       }
 
@@ -790,7 +811,7 @@ export default function CookingClassesPage() {
           // Page 5 — Payment
           payment_method: page5.paymentMethod,
           payment_status: page5.paymentMethod === 'eft' ? 'awaiting_confirmation' : 'pending',
-          proof_of_payment_url: null,
+          proof_of_payment_url: proofSupabaseUrl,
           proof_of_payment_path: null,
           proof_of_payment_drive_url: proofDriveUrl,
           amount: amountDue,
