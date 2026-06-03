@@ -1029,93 +1029,98 @@ export default function CookingClassesPage() {
               </div>
             )}
 
-            {/* Full Name */}
-            <div className="mb-5">
-              <label className="block text-sm font-semibold text-[#1A1612] mb-2">
-                Full Name <span className="text-red-500">*</span>
-              </label>
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <select
-                    value={page1.title}
-                    onChange={e => setPage1(p => ({ ...p, title: e.target.value }))}
-                    className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white ${page1Errors.title ? 'border-red-400' : 'border-[#DDD5C8]'}`}
-                  >
-                    <option value="">Title...</option>
-                    {TITLE_OPTIONS.map(t => (
-                      <option key={t} value={t}>{t}</option>
-                    ))}
-                  </select>
-                  <p className="text-xs text-[#8C8278] mt-1">Title</p>
-                  {page1Errors.title && <p className="text-xs text-red-500 mt-1">{page1Errors.title}</p>}
-                </div>
-                <div>
-                  <input
-                    type="text"
-                    value={page1.firstName}
-                    onChange={e => setPage1(p => ({ ...p, firstName: e.target.value }))}
-                    placeholder=""
-                    className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] ${page1Errors.firstName ? 'border-red-400' : 'border-[#DDD5C8]'}`}
-                  />
-                  <p className="text-xs text-[#8C8278] mt-1">First Name</p>
-                  {page1Errors.firstName && <p className="text-xs text-red-500 mt-1">{page1Errors.firstName}</p>}
-                </div>
-                <div>
-                  <input
-                    type="text"
-                    value={page1.surname}
-                    onChange={e => setPage1(p => ({ ...p, surname: e.target.value }))}
-                    placeholder=""
-                    className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] ${page1Errors.surname ? 'border-red-400' : 'border-[#DDD5C8]'}`}
-                  />
-                  <p className="text-xs text-[#8C8278] mt-1">Surname</p>
-                  {page1Errors.surname && <p className="text-xs text-red-500 mt-1">{page1Errors.surname}</p>}
+            {/* Guardian / Responsible Person Card */}
+            <div className="mb-6 border border-[#DDD5C8] rounded-2xl p-5 bg-white shadow-sm">
+              <h2 className="text-lg font-semibold text-black mb-5">Guardian / Responsible Person</h2>
+
+              {/* Full Name */}
+              <div className="mb-5">
+                <label className="block text-sm font-semibold text-[#1A1612] mb-2">
+                  Full Name <span className="text-red-500">*</span>
+                </label>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <select
+                      value={page1.title}
+                      onChange={e => setPage1(p => ({ ...p, title: e.target.value }))}
+                      className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white ${page1Errors.title ? 'border-red-400' : 'border-[#DDD5C8]'}`}
+                    >
+                      <option value="">Title...</option>
+                      {TITLE_OPTIONS.map(t => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-[#8C8278] mt-1">Title</p>
+                    {page1Errors.title && <p className="text-xs text-red-500 mt-1">{page1Errors.title}</p>}
+                  </div>
+                  <div>
+                    <input
+                      type="text"
+                      value={page1.firstName}
+                      onChange={e => setPage1(p => ({ ...p, firstName: e.target.value }))}
+                      placeholder=""
+                      className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] ${page1Errors.firstName ? 'border-red-400' : 'border-[#DDD5C8]'}`}
+                    />
+                    <p className="text-xs text-[#8C8278] mt-1">First Name</p>
+                    {page1Errors.firstName && <p className="text-xs text-red-500 mt-1">{page1Errors.firstName}</p>}
+                  </div>
+                  <div>
+                    <input
+                      type="text"
+                      value={page1.surname}
+                      onChange={e => setPage1(p => ({ ...p, surname: e.target.value }))}
+                      placeholder=""
+                      className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] ${page1Errors.surname ? 'border-red-400' : 'border-[#DDD5C8]'}`}
+                    />
+                    <p className="text-xs text-[#8C8278] mt-1">Surname</p>
+                    {page1Errors.surname && <p className="text-xs text-red-500 mt-1">{page1Errors.surname}</p>}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Email */}
-            <div className="mb-5">
-              <label className="block text-sm font-semibold text-[#1A1612] mb-2">
-                Email <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="email"
-                value={page1.email}
-                onChange={e => setPage1(p => ({ ...p, email: e.target.value }))}
-                placeholder="Your contactable email address"
-                className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] mb-3 ${page1Errors.email ? 'border-red-400' : 'border-[#DDD5C8]'}`}
-              />
-              {page1Errors.email && <p className="text-xs text-red-500 mb-2">{page1Errors.email}</p>}
-              <input
-                type="password"
-                autoComplete="off"
-                value={page1.emailConfirm}
-                onChange={e => setPage1(p => ({ ...p, emailConfirm: e.target.value }))}
-                onPaste={e => e.preventDefault()}
-                placeholder="Re-enter your email address to confirm"
-                className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] ${page1Errors.emailConfirm ? 'border-red-400' : 'border-[#DDD5C8]'}`}
-              />
-              {page1Errors.emailConfirm && <p className="text-xs text-red-500 mt-1">{page1Errors.emailConfirm}</p>}
-              <p className="text-xs text-[#8C8278] mt-1.5">We use your email address for Communication purposes</p>
-            </div>
+              {/* Email */}
+              <div className="mb-5">
+                <label className="block text-sm font-semibold text-[#1A1612] mb-2">
+                  Email <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="email"
+                  value={page1.email}
+                  onChange={e => setPage1(p => ({ ...p, email: e.target.value }))}
+                  placeholder="Your contactable email address"
+                  className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] mb-3 ${page1Errors.email ? 'border-red-400' : 'border-[#DDD5C8]'}`}
+                />
+                {page1Errors.email && <p className="text-xs text-red-500 mb-2">{page1Errors.email}</p>}
+                <input
+                  type="password"
+                  autoComplete="off"
+                  value={page1.emailConfirm}
+                  onChange={e => setPage1(p => ({ ...p, emailConfirm: e.target.value }))}
+                  onPaste={e => e.preventDefault()}
+                  placeholder="Re-enter your email address to confirm"
+                  className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] ${page1Errors.emailConfirm ? 'border-red-400' : 'border-[#DDD5C8]'}`}
+                />
+                {page1Errors.emailConfirm && <p className="text-xs text-red-500 mt-1">{page1Errors.emailConfirm}</p>}
+                <p className="text-xs text-[#8C8278] mt-1.5">We use your email address for Communication purposes</p>
+              </div>
 
-            {/* Cellphone */}
-            <div className="mb-5">
-              <label className="block text-sm font-semibold text-[#1A1612] mb-2">
-                Cellphone <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="tel"
-                value={page1.cellphone}
-                onChange={e => setPage1(p => ({ ...p, cellphone: e.target.value }))}
-                placeholder="(000) 000-0000"
-                className={`w-full max-w-xs border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] ${page1Errors.cellphone ? 'border-red-400' : 'border-[#DDD5C8]'}`}
-              />
-              {page1Errors.cellphone
-                ? <p className="text-xs text-red-500 mt-1">{page1Errors.cellphone}</p>
-                : <p className="text-xs text-[#8C8278] mt-1">Please enter a valid Cellphone/Mobile number</p>
-              }
+              {/* Cellphone */}
+              <div className="mb-0">
+                <label className="block text-sm font-semibold text-[#1A1612] mb-2">
+                  Cellphone <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="tel"
+                  value={page1.cellphone}
+                  onChange={e => setPage1(p => ({ ...p, cellphone: e.target.value }))}
+                  placeholder="(000) 000-0000"
+                  className={`w-full max-w-xs border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] ${page1Errors.cellphone ? 'border-red-400' : 'border-[#DDD5C8]'}`}
+                />
+                {page1Errors.cellphone
+                  ? <p className="text-xs text-red-500 mt-1">{page1Errors.cellphone}</p>
+                  : <p className="text-xs text-[#8C8278] mt-1">Please enter a valid Cellphone/Mobile number</p>
+                }
+              </div>
             </div>
 
             {/* (1) Select an Event — radio buttons, only one at a time */}
