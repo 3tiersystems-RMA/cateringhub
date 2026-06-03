@@ -12,7 +12,7 @@ import VoucherErrorModal from '@/components/ui/VoucherErrorModal';
 
 
 
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from 'recharts';
+
 
 import CookingClassSettings from '@/app/staff/workspace/components/CookingClassSettings';
 import CookingClassCustomers from '@/app/staff/workspace/components/CookingClassCustomers';
@@ -21,8 +21,10 @@ import EventRegistrations from '@/app/staff/workspace/components/EventRegistrati
 
 
 
-import GoogleDriveDocuments from '@/app/staff/workspace/components/GoogleDriveDocuments';
-import EventManagement from '@/app/staff/workspace/components/EventManagement';
+
+
+import OrganisationDetails from '@/app/staff/workspace/components/OrganisationDetails';
+import CorrespondenceSettings from '@/app/staff/workspace/components/CorrespondenceSettings';
 import { calculateOrderTotal, isFulfillmentStatusLocked } from '@/lib/order-totals';
 
 
@@ -1403,6 +1405,12 @@ export default function StaffWorkspacePage() {
 
   const loadDiscountVouchers = async () => {
     setDvLoading(true);
+    // Auto-expire any discount vouchers whose expiry_date is in the past
+    await supabase
+      .from('discount_vouchers')
+      .update({ status: 'Inactive' })
+      .lt('expiry_date', new Date().toISOString().split('T')[0])
+      .eq('status', 'Active');
     const { data } = await supabase.from('discount_vouchers').select('*').order('created_at', { ascending: false });
     if (data) setDiscountVouchers(data);
     setDvLoading(false);
@@ -3254,291 +3262,335 @@ export default function StaffWorkspacePage() {
               </div>
             )}
 
-            {/* ── ORDERS TAB ── */}
-            {activeTab === 'orders' && (
-              <div className="p-6">
-                <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
-                  <div>
-                    <h2 className="text-xl font-bold text-[#1A1612]">Order Management</h2>
-                    <p className="text-sm text-[#8C8278] mt-0.5">
-                      {wsFilteredOrders.length === wsOrders.length
-                        ? `${wsOrders.length} orders`
-                        : `${wsFilteredOrders.length} of ${wsOrders.length} orders`}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <div className="relative">
-                      <input type="text" placeholder="Search orders…" value={wsOrderSearch} onChange={e => setWsOrderSearch(e.target.value)} className="border border-[#DDD5C8] rounded-xl px-3 py-2 pr-8 text-sm focus:outline-none focus:border-[#C4622D] bg-white" />
-                      {wsOrderSearch && (
-                        <button type="button" onClick={() => setWsOrderSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-[#B5ADA5] hover:text-[#5C5347] transition-colors" aria-label="Clear search">
-                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4"><path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" /></svg>
-                        </button>
-                      )}
-                    </div>
-                    <select value={wsFilterPayment} onChange={e => setWsFilterPayment(e.target.value)} className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white">
-                      <option value="all">All Payments</option>
-                      {PAYMENT_OPTIONS.map(s => <option key={s} value={s}>{PAYMENT_STATUS_LABELS[s]}</option>)}
-                    </select>
-                    <select value={wsFilterFulfillment} onChange={e => setWsFilterFulfillment(e.target.value)} className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white">
-                      <option value="all">All Fulfillment</option>
-                      {FULFILLMENT_OPTIONS.map(s => <option key={s} value={s}>{FULFILLMENT_STATUS_LABELS[s]}</option>)}
-                    </select>
-                    <button onClick={loadWsOrders} className="text-sm border border-[#DDD5C8] text-[#5C5347] px-4 py-2 rounded-xl hover:bg-[#F5F0E8] transition-colors">↻ Refresh</button>
-                  </div>
-                </div>
-                {wsOrdersLoading ? (
-                  <div className="flex items-center justify-center py-12"><div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>
-                ) : wsOrdersError ? (
-                  <div className="bg-red-50 border border-red-200 rounded-xl p-4"><p className="text-sm text-red-600">{wsOrdersError}</p></div>
-                ) : wsFilteredOrders.length === 0 ? (
-                  <div className="bg-white rounded-2xl border border-[#EDE7DA] p-8 text-center"><p className="text-[#8C8278] text-sm">No orders found.</p></div>
-                ) : (
-                  <div className="space-y-3">
-                    {wsFilteredOrders.map(order => {
-                      const updateState = getWsOrderUpdateState(order.id);
-                      const isExpanded = wsExpandedOrderId === order.id;
-                      return (
-                        <div key={order.id} className="bg-white rounded-2xl border border-[#EDE7DA] overflow-hidden">
-                          <button onClick={() => setWsExpandedOrderId(isExpanded ? null : order.id)} className="w-full flex items-center justify-between px-5 py-4 hover:bg-[#FAF5EE] transition-colors text-left">
-                            <div className="flex items-center gap-4 flex-1 min-w-0">
-                              <div className="min-w-0">
-                                <p className="font-semibold text-[#1A1612] truncate">{order.customer_name}</p>
-                                <p className="text-xs text-[#8C8278]">{order.customer_email} · {formatDate(order.created_at)}</p>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-3 flex-shrink-0">
-                              <span className={`text-xs px-2 py-0.5 rounded-full font-medium border ${PAYMENT_STATUS_COLORS[order.payment_status]}`}>{PAYMENT_STATUS_LABELS[order.payment_status]}</span>
-                              <span className={`text-xs px-2 py-0.5 rounded-full font-medium border ${FULFILLMENT_STATUS_COLORS[order.fulfillment_status]}`}>{FULFILLMENT_STATUS_LABELS[order.fulfillment_status]}</span>
-                              <span className="font-bold text-[#C4622D]">{formatCurrency(calculateOrderTotal(order))}</span>
-                              <svg className={`w-4 h-4 text-[#8C8278] transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
-                            </div>
-                          </button>
-                          {isExpanded && (
-                            <div className="border-t border-[#EDE7DA]">
-                              {/* Black header bar — same style as EventRegistrations expanded card */}
-                              <div className="bg-black px-6 py-4 flex items-center gap-4">
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-bold text-white">{order.customer_name}</p>
-                                  <p className="text-xs text-gray-400 mt-0.5">{order.customer_email} · {order.customer_phone}</p>
-                                </div>
-                                <div className="flex items-center gap-3 flex-shrink-0">
-                                  <span className={`inline-block px-2.5 py-1 text-xs font-medium rounded-full border capitalize ${PAYMENT_STATUS_COLORS[order.payment_status]}`}>
-                                    {PAYMENT_STATUS_LABELS[order.payment_status]}
-                                  </span>
-                                  <span className={`inline-block px-2.5 py-1 text-xs font-medium rounded-full border capitalize ${FULFILLMENT_STATUS_COLORS[order.fulfillment_status]}`}>
-                                    {FULFILLMENT_STATUS_LABELS[order.fulfillment_status]}
-                                  </span>
-                                  <span className="text-sm font-bold text-white">{formatCurrency(calculateOrderTotal(order))}</span>
-                                  <span className="text-xs text-gray-400">{formatDate(order.created_at)}</span>
-                                </div>
-                              </div>
-                              <div className="px-5 py-5 bg-[#FDFAF6]">
-                              {/* Super Admin Delete Button */}
-                              {userProfile?.role === 'super_admin' && (
-                                <div className="mb-4 flex justify-end">
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); setDeleteOrderId(order.id); }}
-                                    disabled={deletingOrder}
-                                    className="text-xs text-red-600 border border-red-300 px-3 py-1.5 rounded-xl font-semibold hover:bg-red-50 transition-colors disabled:opacity-50 flex items-center gap-1.5"
-                                  >
-                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
-                                      <path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 0-1.5.06l.3 7.5a.75.75 0 1 0 1.5-.06l-.3-7.5Zm4.34.06a.75.75 0 1 0-1.5-.06l-.3 7.5a.75.75 0 1 0 1.5.06l.3-7.5Z" clipRule="evenodd" />
-                                    </svg>
-                                    Delete Order
-                                  </button>
-                                </div>
-                              )}
-                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                                {/* Customer Details */}
-                                <div className="bg-white rounded-xl border border-[#DDD5C8] p-4">
-                                  <h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5"><path d="M10 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM3.465 14.493a1.23 1.23 0 0 0 .41 1.412A9.957 9.957 0 0 0 10 18c2.31 0 4.438-.784 6.131-2.1.43-.333.604-.903.408-1.41a7.002 7.002 0 0 0-13.074.003Z" /></svg>
-                                    Customer Details
-                                  </h4>
-                                  <div className="space-y-2">
-                                    <div><p className="text-xs text-[#B5ADA5]">Name</p><p className="text-sm font-medium text-[#1A1612]">{order.customer_name || '—'}</p></div>
-                                    <div><p className="text-xs text-[#B5ADA5]">Email</p><p className="text-sm text-[#1A1612] break-all">{order.customer_email || '—'}</p></div>
-                                    <div><p className="text-xs text-[#B5ADA5]">Phone</p><p className="text-sm text-[#1A1612]">{order.customer_phone || '—'}</p></div>
-                                    {order.event_date && <div><p className="text-xs text-[#B5ADA5]">Event Date</p><p className="text-sm text-[#1A1612]">{formatDate(order.event_date)}</p></div>}
-                                    {order.delivered_date && <div><p className="text-xs text-[#B5ADA5]">Delivered Date</p><p className="text-sm font-medium text-green-700">{formatDate(order.delivered_date)}</p></div>}
-                                    <div><p className="text-xs text-[#B5ADA5]">Delivery Address</p><p className="text-sm text-[#1A1612]">{order.delivery_address || '—'}</p></div>
-                                    {order.notes && <div><p className="text-xs text-[#B5ADA5]">Notes</p><p className="text-sm text-[#1A1612]">{order.notes}</p></div>}
-                                  </div>
-                                </div>
-
-                                {/* Items Ordered */}
-                                <div className="bg-white rounded-xl border border-[#DDD5C8] p-4">
-                                  <h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5"><path fillRule="evenodd" d="M6 5v1H4.667a1.75 1.75 0 0 0-1.743 1.598l-.826 9.14A1.75 1.75 0 0 0 3.84 18.5h12.32a1.75 1.75 0 0 0 1.742-1.762l-.826-9.14A1.75 1.75 0 0 0 15.333 6H14V5a4 4 0 0 0-8 0Zm4-2.5A2.5 2.5 0 0 0 7.5 5v1h5V5A2.5 2.5 0 0 0 10 2.5ZM7.5 10a2.5 2.5 0 0 0 5 0V8.75a.75.75 0 0 1 1.5 0V10a4 4 0 0 1-8 0V8.75a.75.75 0 0 1 1.5 0V10Z" clipRule="evenodd" /></svg>
-                                    Items Ordered
-                                  </h4>
-                                  {(order.items || []).length > 0 ? (
-                                    <div className="space-y-2">
-                                      {(order.items || []).map((item, i) => (
-                                        <div key={i} className="flex justify-between items-start gap-2">
-                                          <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-medium text-[#1A1612] truncate">{item.name}</p>
-                                            <p className="text-xs text-[#B5ADA5]">{item.unit} × {item.quantity}</p>
-                                            {item.category && <span className="inline-block mt-0.5 text-[10px] font-medium text-[#C4622D] bg-[#FDF3ED] px-1.5 py-0.5 rounded-full">{item.category}</span>}
-                                          </div>
-                                          <span className="text-sm font-semibold text-[#1A1612] flex-shrink-0">{formatCurrency(item.price * item.quantity)}</span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  ) : (
-                                    <p className="text-sm text-[#B5ADA5]">No item details available</p>
-                                  )}
-                                </div>
-
-                                {/* Payment Summary */}
-                                <div className="bg-white rounded-xl border border-[#DDD5C8] p-4">
-                                  <h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5"><path d="M2.5 4A1.5 1.5 0 0 0 1 5.5v1h18v-1A1.5 1.5 0 0 0 17.5 4h-15ZM19 8.5H1V14.5A1.5 1.5 0 0 0 2.5 16h15a1.5 1.5 0 0 0 1.5-1.5V8.5ZM3 13.25a.75.75 0 0 1 .75-.75h1.5a.75.75 0 0 1 0 1.5h-1.5a.75.75 0 0 1-.75-.75Zm4.75-.75a.75.75 0 0 0 0 1.5h3.5a.75.75 0 0 0 0-1.5h-3.5Z" /></svg>
-                                    Payment Summary
-                                  </h4>
-                                  <div className="space-y-2">
-                                    <div className="flex justify-between text-sm"><span className="text-[#8C8278]">Subtotal</span><span className="text-[#1A1612]">{formatCurrency(order.subtotal)}</span></div>
-                                    <div className="flex justify-between text-sm"><span className="text-[#8C8278]">Delivery</span><span className="text-[#1A1612]">{formatCurrency(order.delivery_fee)}</span></div>
-                                    <div className="flex justify-between text-sm font-bold border-t border-[#EDE7DA] pt-2 mt-1"><span className="text-[#1A1612]">Total</span><span className="text-[#C4622D]">{formatCurrency(calculateOrderTotal(order))}</span></div>
-                                  </div>
-                                </div>
-                              </div>
-
-                              {/* Status Update Controls */}
-                              {canDo(userProfile?.role, 'orders', 'status') && (
-                                <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
-                                  {/* Payment Status */}
-                                  <div className="bg-white rounded-xl border border-[#DDD5C8] p-4">
-                                    <h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5 text-[#C4622D]"><path fillRule="evenodd" d="M1 4a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V4Zm12 4a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM4 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm13-1a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z" clipRule="evenodd" /></svg>
-                                      Update Payment Status
-                                    </h4>
-                                    <div className="flex flex-wrap gap-2">
-                                      {PAYMENT_OPTIONS.map(status => (
-                                        <button
-                                          key={status}
-                                          onClick={() => handleWsPaymentUpdate(order.id, status)}
-                                          disabled={updateState.paymentSaving || order.payment_status === status}
-                                          className={`text-xs px-3 py-1.5 rounded-lg font-semibold border transition-all ${
-                                            order.payment_status === status
-                                              ? 'bg-[#C4622D] text-white border-[#C4622D] cursor-default'
-                                              : 'border-[#DDD5C8] text-[#5C5347] hover:bg-[#FDF6EE] hover:border-[#C4622D] hover:text-[#C4622D]'
-                                          } disabled:opacity-50`}
-                                        >
-                                          {updateState.paymentSaving && order.payment_status !== status ? '…' : PAYMENT_STATUS_LABELS[status]}
-                                        </button>
-                                      ))}
-                                    </div>
-                                    {updateState.paymentSuccess && <p className="text-xs text-green-600 mt-2 font-medium">✓ Payment status updated</p>}
-                                    {updateState.paymentError && <p className="text-xs text-red-600 mt-2">{updateState.paymentError}</p>}
-                                  </div>
-
-                                  {/* Fulfillment Status */}
-                                  <div className="bg-white rounded-xl border border-[#DDD5C8] p-4">
-                                    <h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5 text-[#C4622D]"><path d="M6.3 2.84A1.5 1.5 0 0 1 7.5 2.25h5a1.5 1.5 0 0 1 1.2.59l3.5 4.667A1.5 1.5 0 0 1 17.5 8.5v6a1.5 1.5 0 0 1-1.5 1.5h-12A1.5 1.5 0 0 1 2.5 14.5v-6a1.5 1.5 0 0 1 .3-.993L6.3 2.84Z" /></svg>
-                                      Update Fulfilment Status
-                                    </h4>
-                                    <div className="flex flex-wrap gap-2">
-                                      {FULFILLMENT_OPTIONS.map(status => {
-                                        const isLocked = isFulfillmentStatusLocked(order.fulfillment_status);
-                                        return (
-                                          <button
-                                            key={status}
-                                            onClick={() => handleWsFulfillmentUpdate(order.id, status)}
-                                            disabled={updateState.fulfillmentSaving || order.fulfillment_status === status || isLocked}
-                                            className={`text-xs px-3 py-1.5 rounded-lg font-semibold border transition-all ${
-                                              order.fulfillment_status === status
-                                                ? 'bg-[#C4622D] text-white border-[#C4622D] cursor-default'
-                                                : isLocked
-                                                ? 'border-[#DDD5C8] text-[#C4B8A8] cursor-not-allowed opacity-50'
-                                                : 'border-[#DDD5C8] text-[#5C5347] hover:bg-[#FDF6EE] hover:border-[#C4622D] hover:text-[#C4622D]'
-                                            } disabled:opacity-50`}
-                                          >
-                                            {updateState.fulfillmentSaving && order.fulfillment_status !== status ? '…' : FULFILLMENT_STATUS_LABELS[status]}
-                                          </button>
-                                        );
-                                      })}
-                                    </div>
-                                    {updateState.fulfillmentSuccess && <p className="text-xs text-green-600 mt-2 font-medium">✓ Fulfilment status updated</p>}
-                                    {updateState.fulfillmentError && <p className="text-xs text-red-600 mt-2">{updateState.fulfillmentError}</p>}
-                                  </div>
-                                </div>
-                              )}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+            {/* ── ORGANISATION DETAILS TAB ── */}
+            {activeTab === 'organisation_details' && (
+              <OrganisationDetails />
             )}
 
-            {/* ── DISCOUNT VOUCHERS TAB ── */}
-            {activeTab === 'discount_vouchers' && (
+            {/* ── STAFF MANAGEMENT TAB ── */}
+            {activeTab === 'staff' && (
               <div className="p-6">
                 <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
                   <div>
-                    <h2 className="text-xl font-bold text-[#1A1612]">Discount Vouchers</h2>
-                    <p className="text-sm text-[#8C8278] mt-0.5">{discountVouchers.length} vouchers</p>
+                    <h2 className="text-xl font-bold text-[#1A1612]">Staff Management</h2>
+                    <p className="text-sm text-[#8C8278] mt-0.5">{staffMembers.length} staff members</p>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <input type="text" placeholder="Search vouchers…" value={dvSearchQuery} onChange={e => setDvSearchQuery(e.target.value)} className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white" />
-                    {can('discount_vouchers', 'create') && (
-                      <button onClick={() => { setEditingDv(null); setDvForm({ dv_code: '', dv_type: 'Discount', dv_amount: '', status: 'Active' as 'Active' | 'Inactive', expiry_date: '', created_at: '' }); setDvFormError(''); setDvFormSuccess(''); setShowDvForm(true); }} className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors">+ Add Voucher</button>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <input type="text" placeholder="Search staff…" value={staffSearchQuery} onChange={e => setStaffSearchQuery(e.target.value)} className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white" />
+                    <select value={staffStatusFilter} onChange={e => setStaffStatusFilter(e.target.value as 'all' | 'active' | 'inactive')} className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white">
+                      <option value="all">All Status</option>
+                      <option value="active">Active</option>
+                      <option value="inactive">Inactive</option>
+                    </select>
+                    {can('staff', 'create') && (
+                      <button onClick={() => setInviteOpen(true)} className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors">+ Invite Staff</button>
+                    )}
+                    {can('staff', 'create') && (
+                      <button onClick={() => setPromoteOpen(true)} className="border border-[#C4622D] text-[#C4622D] px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#FDF6EE] transition-colors">Promote Existing User</button>
                     )}
                   </div>
                 </div>
-                {dvLoading ? (
+                {inviteOpen && (
+                  <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5 mb-5">
+                    <h3 className="text-sm font-bold text-[#1A1612] mb-3">Invite New Staff Member</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                      <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Full Name *</label><input type="text" value={inviteForm.full_name} onChange={e => setInviteForm(f => ({ ...f, full_name: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
+                      <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Email *</label><input type="email" value={inviteForm.email} onChange={e => setInviteForm(f => ({ ...f, email: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
+                      <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Phone</label><input type="tel" value={inviteForm.phone_number} onChange={e => setInviteForm(f => ({ ...f, phone_number: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
+                      <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Role</label><select value={inviteForm.role} onChange={e => setInviteForm(f => ({ ...f, role: e.target.value as StaffRole }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"><option value="staff">Staff</option><option value="admin">Admin</option></select></div>
+                    </div>
+                    {inviteError && <p className="text-sm text-red-600 mb-2">{inviteError}</p>}
+                    {inviteSuccess && <p className="text-sm text-green-600 mb-2">{inviteSuccess}</p>}
+                    <div className="flex gap-3">
+                      <button onClick={async () => { setInviting(true); setInviteError(''); setInviteSuccess(''); try { const res = await fetch('/api/staff/invite', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(inviteForm) }); const d = await res.json(); if (!res.ok) throw new Error(d.error || 'Invite failed'); setInviteSuccess('Invitation sent!'); setInviteForm(emptyInviteForm); await loadStaff(); } catch (e: any) { showInviteError(e.message); } finally { setInviting(false); } }} disabled={inviting} className="bg-[#C4622D] text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50">{inviting ? 'Sending…' : 'Send Invite'}</button>
+                      <button onClick={() => setInviteOpen(false)} className="px-5 py-2 rounded-xl text-sm font-semibold border border-[#DDD5C8] text-[#5C5347] hover:bg-[#FAF5EE] transition-colors">Cancel</button>
+                    </div>
+                  </div>
+                )}
+                {promoteOpen && (
+                  <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5 mb-5">
+                    <h3 className="text-sm font-bold text-[#1A1612] mb-3">Promote Existing User to Staff</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                      <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Email *</label><input type="email" value={promoteForm.email} onChange={e => setPromoteForm(f => ({ ...f, email: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
+                      <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Full Name *</label><input type="text" value={promoteForm.full_name} onChange={e => setPromoteForm(f => ({ ...f, full_name: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
+                      <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Phone</label><input type="tel" value={promoteForm.phone_number} onChange={e => setPromoteForm(f => ({ ...f, phone_number: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
+                      <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Role</label><select value={promoteForm.role} onChange={e => setPromoteForm(f => ({ ...f, role: e.target.value as StaffRole }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"><option value="staff">Staff</option><option value="admin">Admin</option></select></div>
+                    </div>
+                    {promoteError && <p className="text-sm text-red-600 mb-2">{promoteError}</p>}
+                    {promoteSuccess && <p className="text-sm text-green-600 mb-2">{promoteSuccess}</p>}
+                    <div className="flex gap-3">
+                      <button onClick={async () => { setPromoting(true); setPromoteError(''); setPromoteSuccess(''); try { const res = await fetch('/api/staff/promote', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(promoteForm) }); const d = await res.json(); if (!res.ok) throw new Error(d.error || 'Promote failed'); setPromoteSuccess('User promoted to staff!'); setPromoteForm({ email: '', full_name: '', phone_number: '', role: 'staff' }); await loadStaff(); } catch (e: any) { setPromoteError(e.message); } finally { setPromoting(false); } }} disabled={promoting} className="bg-[#C4622D] text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50">{promoting ? 'Promoting…' : 'Promote User'}</button>
+                      <button onClick={() => setPromoteOpen(false)} className="px-5 py-2 rounded-xl text-sm font-semibold border border-[#DDD5C8] text-[#5C5347] hover:bg-[#FAF5EE] transition-colors">Cancel</button>
+                    </div>
+                  </div>
+                )}
+                {staffLoading ? (
                   <div className="flex items-center justify-center py-12"><div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>
                 ) : (
                   <div className="space-y-3">
-                    {discountVouchers.filter(dv => { const q = dvSearchQuery.toLowerCase(); return !q || dv.dv_code.toLowerCase().includes(q); }).map(dv => {
-                      const isExpired = new Date(dv.expiry_date) < new Date();
-                      return (
-                        <div key={dv.id} className="bg-white rounded-2xl border border-[#EDE7DA] p-4 flex items-center justify-between gap-4 flex-wrap">
-                          <div>
-                            <div className="flex items-center gap-2 mb-1">
-                              <p className="font-mono font-bold text-[#C4622D] text-sm">{dv.dv_code}</p>
-                              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${dv.status === 'Active' && !isExpired ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{isExpired ? 'Expired' : dv.status}</span>
-                            </div>
-                            <p className="text-sm text-[#1A1612]">R{Number(dv.dv_amount).toFixed(2)} discount · Expires {formatDate(dv.expiry_date)}</p>
-                            <p className="text-xs text-[#8C8278]">Used {dv.times_used ?? 0} time(s)</p>
-                          </div>
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            {can('discount_vouchers', 'edit') && (
-                              <button onClick={() => { setEditingDv(dv); setDvForm({ dv_code: dv.dv_code, dv_type: 'Discount', dv_amount: String(dv.dv_amount), status: dv.status, expiry_date: dv.expiry_date, created_at: dv.created_at }); setDvFormError(''); setDvFormSuccess(''); setShowDvForm(true); }} className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl font-semibold hover:bg-[#FDF6EE] transition-colors">Edit</button>
-                            )}
-                            {can('discount_vouchers', 'delete') && (
-                              <button onClick={() => handleDeleteDv(dv)} className="text-xs text-red-500 border border-red-300 px-3 py-1.5 rounded-xl font-semibold hover:bg-red-50 transition-colors">Delete</button>
-                            )}
-                          </div>
+                    {staffMembers.filter(m => {
+                      const q = staffSearchQuery.toLowerCase();
+                      const matchSearch = !q || m.full_name.toLowerCase().includes(q) || m.email.toLowerCase().includes(q);
+                      const matchStatus = staffStatusFilter === 'all' || (staffStatusFilter === 'active' ? m.is_active : !m.is_active);
+                      return matchSearch && matchStatus;
+                    }).map(m => (
+                      <div key={m.id} className="bg-white rounded-2xl border border-[#EDE7DA] p-4 flex items-center justify-between gap-4 flex-wrap">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 mb-1"><p className="font-semibold text-[#1A1612]">{m.full_name}</p><RoleBadge role={m.role} /></div>
+                          <p className="text-xs text-[#8C8278]">{m.email}{m.phone ? ` · ${m.phone}` : ''}</p>
+                          <p className="text-xs text-[#8C8278]">Joined {formatDate(m.created_at)}</p>
                         </div>
-                      );
-                    })}
-                    {discountVouchers.length === 0 && <div className="bg-white rounded-2xl border border-[#EDE7DA] p-8 text-center"><p className="text-[#8C8278] text-sm">No discount vouchers found.</p></div>}
+                        <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${m.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{m.is_active ? 'Active' : 'Inactive'}</span>
+                          {resetMessages[m.id] && <span className={`text-xs font-medium ${resetMessages[m.id].type === 'success' ? 'text-green-600' : 'text-red-600'}`}>{resetMessages[m.id].text}</span>}
+                          {can('staff', 'edit') && (
+                            <div className="relative">
+                              <button onClick={() => setEditMenuOpenId(editMenuOpenId === m.id ? null : m.id)} className="text-xs border border-[#DDD5C8] text-[#5C5347] px-3 py-1.5 rounded-xl font-semibold hover:bg-[#FAF5EE] transition-colors">Actions ▾</button>
+                              {editMenuOpenId === m.id && (
+                                <div className="absolute right-0 top-full mt-1 bg-white border border-[#DDD5C8] rounded-xl shadow-lg z-10 min-w-[160px] py-1">
+                                  <button onClick={() => { setEditModalMember(m); setEditModalForm({ full_name: m.full_name, phone: m.phone || '', role: m.role }); setEditModalError(''); setEditMenuOpenId(null); }} className="w-full text-left px-4 py-2 text-sm text-[#1A1612] hover:bg-[#FAF5EE]">Edit Details</button>
+                                  <button onClick={async () => { setTogglingStaffId(m.id); setEditMenuOpenId(null); await supabase.from('user_profiles').update({ is_active: !m.is_active }).eq('id', m.id); await loadStaff(); setTogglingStaffId(null); }} disabled={togglingStaffId === m.id} className="w-full text-left px-4 py-2 text-sm text-[#1A1612] hover:bg-[#FAF5EE] disabled:opacity-50">{m.is_active ? 'Deactivate' : 'Activate'}</button>
+                                  <button onClick={async () => { setSendingResetId(m.id); setEditMenuOpenId(null); try { const res = await fetch('/api/staff/reset-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: m.email }) }); const d = await res.json(); setResetMessages(prev => ({ ...prev, [m.id]: { type: res.ok ? 'success' : 'error', text: res.ok ? 'Reset email sent!' : (d.error || 'Failed') } })); setTimeout(() => setResetMessages(prev => { const n = { ...prev }; delete n[m.id]; return n; }), 4000); } catch { setResetMessages(prev => ({ ...prev, [m.id]: { type: 'error', text: 'Failed to send' } })); } finally { setSendingResetId(null); } }} disabled={sendingResetId === m.id} className="w-full text-left px-4 py-2 text-sm text-[#1A1612] hover:bg-[#FAF5EE] disabled:opacity-50">{sendingResetId === m.id ? 'Sending…' : 'Reset Password'}</button>
+                                  {can('staff', 'delete') && <button onClick={() => { setEditMenuOpenId(null); if (m.is_active) { setDeleteActiveMember(m); } else { setDeleteConfirmMember(m); } }} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50">Delete</button>}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    {staffMembers.length === 0 && <div className="bg-white rounded-2xl border border-[#EDE7DA] p-8 text-center"><p className="text-[#8C8278] text-sm">No staff members found.</p></div>}
                   </div>
                 )}
-                {showDvForm && (
+              </div>
+            )}
+
+            {/* ── SOCIAL MEDIA TAB ── */}
+            {activeTab === 'social_media' && (
+              <div className="p-6">
+                <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
+                  <div><h2 className="text-xl font-bold text-[#1A1612]">Social Media Links</h2><p className="text-sm text-[#8C8278] mt-0.5">Manage your social media presence</p></div>
+                  <button onClick={handleSaveSocialLinks} disabled={socialLinksSaving} className="bg-[#C4622D] text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50">{socialLinksSaving ? 'Saving…' : 'Save Links'}</button>
+                </div>
+                {socialLinksError && <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4"><p className="text-sm text-red-600">{socialLinksError}</p></div>}
+                {socialLinksSuccess && <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-4"><p className="text-sm text-green-600">{socialLinksSuccess}</p></div>}
+                {socialLinksLoading ? (
+                  <div className="flex items-center justify-center py-12"><div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>
+                ) : (
+                  <div className="space-y-3">
+                    {socialLinks.map(s => (
+                      <div key={s.id} className="bg-white rounded-2xl border border-[#EDE7DA] p-4">
+                        <label className="block text-xs font-semibold text-[#5C5347] mb-1 capitalize">{s.platform}</label>
+                        <input type="url" value={socialLinksForm[s.platform] || ''} onChange={e => setSocialLinksForm(f => ({ ...f, [s.platform]: e.target.value }))} placeholder={`https://...`} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                      </div>
+                    ))}
+                    {socialLinks.length === 0 && <div className="bg-white rounded-2xl border border-[#EDE7DA] p-8 text-center"><p className="text-[#8C8278] text-sm">No social links configured.</p></div>}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── CORRESPONDENCE SETTINGS TAB ── */}
+            {activeTab === 'correspondence_settings' && (
+              <CorrespondenceSettings readOnly={!can('correspondence_settings', 'edit')} />
+            )}
+
+            {/* ── SECTION VISIBILITY TAB ── */}
+            {activeTab === 'section_visibility' && (
+              <div className="p-6">
+                <div className="mb-6">
+                  <h2 className="text-xl font-bold text-[#1A1612]">Section Visibility</h2>
+                  <p className="text-sm text-[#8C8278] mt-0.5">Show or hide homepage sections</p>
+                </div>
+                {homepageSectionsLoading ? (
+                  <div className="flex items-center justify-center py-12"><div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>
+                ) : (
+                  <div className="space-y-3">
+                    {homepageSections.map(section => (
+                      <div key={section.id} className="bg-white rounded-2xl border border-[#EDE7DA] p-4 flex items-center justify-between">
+                        <div>
+                          <p className="font-semibold text-[#1A1612] text-sm">{section.section_label}</p>
+                          <p className="text-xs text-[#8C8278]">{section.section_key}</p>
+                        </div>
+                        <button
+                          onClick={() => handleToggleHomepageSection(section.section_key, !section.is_visible)}
+                          disabled={homepageSectionsSaving[section.section_key]}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${section.is_visible ? 'bg-[#C4622D]' : 'bg-gray-200'} disabled:opacity-50`}
+                        >
+                          <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${section.is_visible ? 'translate-x-6' : 'translate-x-1'}`} />
+                        </button>
+                      </div>
+                    ))}
+                    {homepageSections.length === 0 && <div className="bg-white rounded-2xl border border-[#EDE7DA] p-8 text-center"><p className="text-[#8C8278] text-sm">No sections found.</p></div>}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── PACKAGE VISIBILITY TAB ── */}
+            {activeTab === 'package_visibility' && (
+              <div className="p-6">
+                <div className="mb-6">
+                  <h2 className="text-xl font-bold text-[#1A1612]">Package Visibility</h2>
+                  <p className="text-sm text-[#8C8278] mt-0.5">Show or hide meal package types on the products page</p>
+                </div>
+                {packageVisibilityLoading ? (
+                  <div className="flex items-center justify-center py-12"><div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>
+                ) : (
+                  <div className="space-y-3">
+                    {packageVisibility.map(pkg => (
+                      <div key={pkg.id} className="bg-white rounded-2xl border border-[#EDE7DA] p-4 flex items-center justify-between">
+                        <p className="font-semibold text-[#1A1612] text-sm">{pkg.package_name}</p>
+                        <button
+                          onClick={async () => {
+                            setPackageVisibilitySaving(prev => ({ ...prev, [pkg.id]: true }));
+                            await supabase.from('package_visibility').update({ is_visible: !pkg.is_visible }).eq('id', pkg.id);
+                            await loadPackageVisibility();
+                            setPackageVisibilitySaving(prev => ({ ...prev, [pkg.id]: false }));
+                          }}
+                          disabled={packageVisibilitySaving[pkg.id]}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${pkg.is_visible ? 'bg-[#C4622D]' : 'bg-gray-200'} disabled:opacity-50`}
+                        >
+                          <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${pkg.is_visible ? 'translate-x-6' : 'translate-x-1'}`} />
+                        </button>
+                      </div>
+                    ))}
+                    {packageVisibility.length === 0 && <div className="bg-white rounded-2xl border border-[#EDE7DA] p-8 text-center"><p className="text-[#8C8278] text-sm">No packages found.</p></div>}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── HOME PAGE CARDS TAB ── */}
+            {activeTab === 'homepage_cards' && (
+              <div className="p-6">
+                <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
+                  <div>
+                    <h2 className="text-xl font-bold text-[#1A1612]">Home Page Cards</h2>
+                    <p className="text-sm text-[#8C8278] mt-0.5">Manage homepage feature cards and the bookings banner</p>
+                  </div>
+                  <input type="text" placeholder="Search cards…" value={homepageCardSearchQuery} onChange={e => setHomepageCardSearchQuery(e.target.value)} className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white" />
+                </div>
+                {/* Bookings Banner */}
+                <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5 mb-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <p className="font-semibold text-[#1A1612] text-sm">Bookings Banner</p>
+                      <p className="text-xs text-[#8C8278]">Scrolling announcement banner on the homepage</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {can('homepage_cards', 'edit') && (
+                        <button onClick={() => setTickerBannerEditing(!tickerBannerEditing)} className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl font-semibold hover:bg-[#FDF6EE] transition-colors">Edit</button>
+                      )}
+                      <button
+                        onClick={handleToggleTickerBanner}
+                        disabled={tickerBannerLoading}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${tickerBannerVisible ? 'bg-[#C4622D]' : 'bg-gray-200'} disabled:opacity-50`}
+                      >
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${tickerBannerVisible ? 'translate-x-6' : 'translate-x-1'}`} />
+                      </button>
+                    </div>
+                  </div>
+                  {tickerBannerEditing && (
+                    <div className="flex gap-3 mt-2">
+                      <input type="text" value={tickerBannerText} onChange={e => setTickerBannerText(e.target.value)} className="flex-1 border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                      <button onClick={handleSaveTickerBanner} disabled={tickerBannerSaving} className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50">{tickerBannerSaving ? 'Saving…' : 'Save'}</button>
+                    </div>
+                  )}
+                  {tickerBannerSuccess && <p className="text-xs text-green-600 mt-2">{tickerBannerSuccess}</p>}
+                </div>
+                {cardsLoading ? (
+                  <div className="flex items-center justify-center py-12"><div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>
+                ) : (
+                  <div className="space-y-3">
+                    {homepageCards.filter(c => !homepageCardSearchQuery || c.title.toLowerCase().includes(homepageCardSearchQuery.toLowerCase())).map(card => (
+                      <div key={card.id} className="bg-white rounded-2xl border border-[#EDE7DA] p-4 flex items-center justify-between gap-4 flex-wrap">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-base">{CARD_TYPE_ICONS[card.card_type]}</span>
+                            <p className="font-semibold text-[#1A1612] truncate">{card.title}</p>
+                            <span className="text-xs text-[#8C8278] bg-[#F5F0E8] px-2 py-0.5 rounded-full">{CARD_TYPE_LABELS[card.card_type]}</span>
+                          </div>
+                          {card.subtitle && <p className="text-xs text-[#8C8278] truncate">{card.subtitle}</p>}
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <button
+                            onClick={async () => { setTogglingCardId(card.id); await supabase.from('homepage_cards').update({ is_visible: !card.is_visible }).eq('id', card.id); await loadHomepageCards(); setTogglingCardId(null); }}
+                            disabled={togglingCardId === card.id}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${card.is_visible ? 'bg-[#C4622D]' : 'bg-gray-200'} disabled:opacity-50`}
+                          >
+                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${card.is_visible ? 'translate-x-6' : 'translate-x-1'}`} />
+                          </button>
+                          {can('homepage_cards', 'edit') && (
+                            <button onClick={() => { setEditingCard(card); setCardForm({ ...card }); setCardFormError(''); setCardFormSuccess(''); setCardImageFile(null); setCardImagePreview(card.image_url || null); }} className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl font-semibold hover:bg-[#FDF6EE] transition-colors">Edit</button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    {homepageCards.length === 0 && <div className="bg-white rounded-2xl border border-[#EDE7DA] p-8 text-center"><p className="text-[#8C8278] text-sm">No homepage cards found.</p></div>}
+                  </div>
+                )}
+                {editingCard && (
                   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
                       <div className="p-5 border-b border-[#EDE7DA] flex items-center justify-between">
-                        <h3 className="text-base font-bold text-[#1A1612]">{editingDv ? 'Edit Discount Voucher' : 'Add Discount Voucher'}</h3>
-                        <button onClick={() => setShowDvForm(false)} className="text-[#8C8278] hover:text-[#1A1612]">✕</button>
+                        <h3 className="text-base font-bold text-[#1A1612]">Edit {CARD_TYPE_LABELS[editingCard.card_type]}</h3>
+                        <button onClick={() => setEditingCard(null)} className="text-[#8C8278] hover:text-[#1A1612]">✕</button>
                       </div>
                       <div className="p-5 space-y-3">
-                        <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Voucher Code *</label><input type="text" value={dvForm.dv_code} onChange={e => setDvForm(f => ({ ...f, dv_code: e.target.value.toUpperCase() }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
-                        <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Discount Amount (R) *</label><input type="number" step="0.01" value={dvForm.dv_amount} onChange={e => setDvForm(f => ({ ...f, dv_amount: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
-                        <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Expiry Date *</label><input type="date" value={dvForm.expiry_date} onChange={e => setDvForm(f => ({ ...f, expiry_date: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
-                        <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Status</label><select value={dvForm.status} onChange={e => setDvForm(f => ({ ...f, status: e.target.value as 'Active' | 'Inactive' }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"><option value="Active">Active</option><option value="Inactive">Inactive</option></select></div>
-                        {dvFormError && <p className="text-sm text-red-600">{dvFormError}</p>}
-                        {dvFormSuccess && <p className="text-sm text-green-600">{dvFormSuccess}</p>}
+                        <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Title</label><input type="text" value={cardForm.title || ''} onChange={e => setCardForm(f => ({ ...f, title: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
+                        <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Subtitle</label><input type="text" value={cardForm.subtitle || ''} onChange={e => setCardForm(f => ({ ...f, subtitle: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
+                        <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Description</label><textarea value={cardForm.description || ''} onChange={e => setCardForm(f => ({ ...f, description: e.target.value }))} rows={3} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] resize-none" /></div>
+                        {(editingCard.card_type === 'todays_special' || editingCard.card_type === 'next_booking') && (
+                          <div className="grid grid-cols-2 gap-3">
+                            <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Price</label><input type="number" step="0.01" value={cardForm.price ?? ''} onChange={e => setCardForm(f => ({ ...f, price: e.target.value ? Number(e.target.value) : null }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
+                            <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Price Unit</label><input type="text" value={cardForm.price_unit || ''} onChange={e => setCardForm(f => ({ ...f, price_unit: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
+                          </div>
+                        )}
+                        {editingCard.card_type === 'next_booking' && (
+                          <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Event Date</label><input type="date" value={cardForm.event_date || ''} onChange={e => setCardForm(f => ({ ...f, event_date: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
+                        )}
+                        {editingCard.card_type === 'customer_review' && (
+                          <div className="grid grid-cols-2 gap-3">
+                            <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Reviewer Name</label><input type="text" value={cardForm.reviewer_name || ''} onChange={e => setCardForm(f => ({ ...f, reviewer_name: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
+                            <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Rating (1-5)</label><input type="number" min={1} max={5} value={cardForm.rating ?? 5} onChange={e => setCardForm(f => ({ ...f, rating: Number(e.target.value) }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
+                          </div>
+                        )}
+                        <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Badge Label</label><input type="text" value={cardForm.badge_label || ''} onChange={e => setCardForm(f => ({ ...f, badge_label: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Card Image</label>
+                          <input ref={cardImageRef} type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) { setCardImageFile(f); setCardImagePreview(URL.createObjectURL(f)); } }} />
+                          {cardImagePreview && <img src={cardImagePreview} alt="Preview" className="w-full h-32 object-cover rounded-xl mb-2" />}
+                          <button type="button" onClick={() => cardImageRef.current?.click()} className="text-xs border border-[#DDD5C8] text-[#5C5347] px-3 py-1.5 rounded-xl hover:bg-[#FAF5EE] transition-colors">{cardImagePreview ? 'Change Image' : 'Upload Image'}</button>
+                        </div>
+                        {cardFormError && <p className="text-sm text-red-600">{cardFormError}</p>}
+                        {cardFormSuccess && <p className="text-sm text-green-600">{cardFormSuccess}</p>}
                       </div>
                       <div className="p-5 border-t border-[#EDE7DA] flex gap-3">
-                        <button onClick={handleSaveDv} disabled={savingDv} className="bg-[#C4622D] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50">{savingDv ? 'Saving…' : (editingDv ? 'Save Changes' : 'Add Voucher')}</button>
-                        <button onClick={() => setShowDvForm(false)} className="px-6 py-2.5 rounded-xl text-sm font-semibold border border-[#DDD5C8] text-[#5C5347] hover:bg-[#FAF5EE] transition-colors">Cancel</button>
+                        <button onClick={async () => {
+                          setSavingCard(true);
+                          setCardFormError('');
+                          try {
+                            let image_url = cardForm.image_url || null;
+                            if (cardImageFile) {
+                              setUploadingCardImage(true);
+                              const ext = cardImageFile.name.split('.').pop();
+                              const path = `card-${editingCard.id}-${Date.now()}.${ext}`;
+                              const { error: upErr } = await supabase.storage.from('homepage-card-images').upload(path, cardImageFile, { upsert: true });
+                              if (upErr) throw upErr;
+                              const { data: urlData } = supabase.storage.from('homepage-card-images').getPublicUrl(path);
+                              image_url = urlData?.publicUrl || null;
+                              setUploadingCardImage(false);
+                            }
+                            const { error } = await supabase.from('homepage_cards').update({ ...cardForm, image_url, updated_at: new Date().toISOString() }).eq('id', editingCard.id);
+                            if (error) throw error;
+                            setCardFormSuccess('Card updated!');
+                            await loadHomepageCards();
+                            setTimeout(() => setEditingCard(null), 1000);
+                          } catch (e: any) { showCardFormError(e.message); }
+                          finally { setSavingCard(false); setUploadingCardImage(false); }
+                        }} disabled={savingCard || uploadingCardImage} className="bg-[#C4622D] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50">{savingCard ? 'Saving…' : 'Save Changes'}</button>
+                        <button onClick={() => setEditingCard(null)} className="px-6 py-2.5 rounded-xl text-sm font-semibold border border-[#DDD5C8] text-[#5C5347] hover:bg-[#FAF5EE] transition-colors">Cancel</button>
                       </div>
                     </div>
                   </div>
@@ -3546,97 +3598,184 @@ export default function StaffWorkspacePage() {
               </div>
             )}
 
-            {/* ── REPORTS DASHBOARD TAB ── */}
-            {activeTab === 'reporting' && (
+            {/* ── TESTIMONIALS TAB ── */}
+            {activeTab === 'testimonials' && (
               <div className="p-6">
-                <div className="mb-6">
-                  <h2 className="text-xl font-bold text-[#1A1612]">Reports Dashboard</h2>
-                  <p className="text-sm text-[#8C8278] mt-0.5">Order and voucher reports</p>
-                </div>
-                {/* Stats Cards */}
-                <div className="grid grid-cols-4 gap-4 mb-6">
-                  <div className="bg-white border border-[#E8DDD0] rounded-xl p-4">
-                    <p className="text-xs text-[#8C7B6B] uppercase tracking-wide font-medium">Products Ordered</p>
-                    <p className="text-2xl font-bold text-[#2C2420] mt-1">{productsOrderedRows.length}</p>
-                  </div>
-                  <div className="bg-white border border-[#E8DDD0] rounded-xl p-4">
-                    <p className="text-xs text-[#8C7B6B] uppercase tracking-wide font-medium">Package Meals</p>
-                    <p className="text-2xl font-bold text-[#C4622D] mt-1">{packageMealsRows.length}</p>
-                  </div>
-                  <div className="bg-white border border-[#E8DDD0] rounded-xl p-4">
-                    <p className="text-xs text-[#8C7B6B] uppercase tracking-wide font-medium">Delivered Orders</p>
-                    <p className="text-2xl font-bold text-green-600 mt-1">{deliveredOrdersRows.length}</p>
-                  </div>
-                  <div className="bg-white border border-[#E8DDD0] rounded-xl p-4">
-                    <p className="text-xs text-[#8C7B6B] uppercase tracking-wide font-medium">Discount Vouchers</p>
-                    <p className="text-2xl font-bold text-[#C4622D] mt-1">{discountVouchersReportRows.length}</p>
+                <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
+                  <div><h2 className="text-xl font-bold text-[#1A1612]">Testimonials</h2><p className="text-sm text-[#8C8278] mt-0.5">{testimonials.length} testimonials</p></div>
+                  <div className="flex items-center gap-3">
+                    <input type="text" placeholder="Search testimonials…" value={testimonialSearchQuery} onChange={e => setTestimonialSearchQuery(e.target.value)} className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white" />
+                    {can('testimonials', 'create') && (
+                      <button onClick={() => { setEditingTestimonial(null); setTestimonialForm({ quote: '', name: '', role: '', avatar_url: '', rating: 5, is_active: true, display_order: '0' }); setTestimonialFormError(''); setTestimonialFormSuccess(''); setShowTestimonialForm(true); }} className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors">+ Add Testimonial</button>
+                    )}
                   </div>
                 </div>
-                <div className="flex flex-wrap gap-2 mb-5">
-                  {([{ key: 'products_ordered', label: 'Products Ordered' }, { key: 'package_meals_ordered', label: 'Package Meals' }, { key: 'frozen_meals_ordered', label: 'Frozen Meals' }, { key: 'discount_vouchers_report', label: 'Discount Vouchers' }, { key: 'delivered_orders', label: 'Delivered Orders' }] as const).map(r => (
-                    <button key={r.key} onClick={() => setReportingView(r.key)} className={`text-sm px-4 py-1.5 rounded-full font-medium transition-colors whitespace-nowrap border ${reportingView === r.key ? 'bg-[#C4622D] text-white border-[#C4622D]' : 'bg-white border-[#DDD5C8] text-[#5C5347] hover:bg-[#FDF6EE] hover:border-[#C4622D] hover:text-[#C4622D]'}`}>{r.label}</button>
-                  ))}
-                  <button onClick={loadReporting} className="text-sm px-4 py-1.5 rounded-full font-medium border bg-white border-[#DDD5C8] text-[#5C5347] hover:bg-[#FDF6EE] hover:border-[#C4622D] hover:text-[#C4622D] transition-colors">↻ Refresh</button>
-                </div>
-                {(productsOrderedLoading || packageMealsLoading || frozenMealsLoading || discountVouchersReportLoading || deliveredOrdersLoading) ? (
+                {testimonialsLoading ? (
                   <div className="flex items-center justify-center py-12"><div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>
                 ) : (
-                  <div className="bg-white rounded-2xl border border-[#EDE7DA] overflow-hidden">
-                    {reportingView === 'products_ordered' && (<div><div className="p-4 border-b border-[#EDE7DA] flex items-center justify-between"><p className="text-sm font-semibold text-[#1A1612]">Products Ordered ({productsOrderedRows.length} rows)</p><button onClick={() => downloadProductsOrderedPDF(productsOrderedRows)} className="flex items-center gap-1.5 bg-[#C4622D] text-white px-4 py-2 rounded-lg text-xs font-semibold hover:bg-[#A04E22] transition-colors"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5"><path fillRule="evenodd" d="M4.5 2A1.5 1.5 0 0 0 3 3.5v13A1.5 1.5 0 0 0 4.5 18h11a1.5 1.5 0 0 0 1.5-1.5V7.621a1.5 1.5 0 0 0-.44-1.06l-4.12-4.122A1.5 1.5 0 0 0 11.378 2H4.5Zm4.75 6.75a.75.75 0 0 1 1.5 0v2.546l.943-1.048a.75.75 0 1 1 1.114 1.004l-2.25 2.5a.75.75 0 0 1-1.114 0l-2.25-2.5a.75.75 0 1 1 1.114-1.004l.943 1.048V8.75Z" clipRule="evenodd" /></svg>Create PDF</button></div><div className="overflow-x-auto"><table className="w-full text-xs"><thead><tr className="bg-[#F5F0E8]"><th className="text-left px-4 py-2 font-semibold text-[#5C5347]">Product</th><th className="text-left px-4 py-2 font-semibold text-[#5C5347]">Type</th><th className="text-left px-4 py-2 font-semibold text-[#5C5347]">Item</th><th className="text-left px-4 py-2 font-semibold text-[#5C5347]">Ordered</th><th className="text-left px-4 py-2 font-semibold text-[#5C5347]">Client</th><th className="text-left px-4 py-2 font-semibold text-[#5C5347]">Email</th></tr></thead><tbody>{productsOrderedRows.map((r, i) => <tr key={i} className="border-t border-[#F0EBE3]"><td className="px-4 py-2 text-[#1A1612]">{r.productName}</td><td className="px-4 py-2 text-[#5C5347]">{r.productType}</td><td className="px-4 py-2 text-[#5C5347]">{r.item}</td><td className="px-4 py-2 text-[#5C5347]">{r.orderedDate}</td><td className="px-4 py-2 text-[#1A1612]">{r.clientName}</td><td className="px-4 py-2 text-[#8C8278]">{r.clientEmail}</td></tr>)}</tbody></table>{productsOrderedRows.length === 0 && <p className="text-center text-[#8C8278] text-sm py-8">No data available.</p>}</div></div>)}
-                    {reportingView === 'package_meals_ordered' && (<div><div className="p-4 border-b border-[#EDE7DA] flex items-center justify-between"><p className="text-sm font-semibold text-[#1A1612]">Package Meals Ordered ({packageMealsRows.length} rows)</p><button onClick={() => downloadPackageMealsPDF(packageMealsRows)} className="flex items-center gap-1.5 bg-[#C4622D] text-white px-4 py-2 rounded-lg text-xs font-semibold hover:bg-[#A04E22] transition-colors"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5"><path fillRule="evenodd" d="M4.5 2A1.5 1.5 0 0 0 3 3.5v13A1.5 1.5 0 0 0 4.5 18h11a1.5 1.5 0 0 0 1.5-1.5V7.621a1.5 1.5 0 0 0-.44-1.06l-4.12-4.122A1.5 1.5 0 0 0 11.378 2H4.5Zm4.75 6.75a.75.75 0 0 1 1.5 0v2.546l.943-1.048a.75.75 0 1 1 1.114 1.004l-2.25 2.5a.75.75 0 0 1-1.114 0l-2.25-2.5a.75.75 0 1 1 1.114-1.004l.943 1.048V8.75Z" clipRule="evenodd" /></svg>Create PDF</button></div><div className="overflow-x-auto"><table className="w-full text-xs"><thead><tr className="bg-[#F5F0E8]"><th className="text-left px-4 py-2 font-semibold text-[#5C5347]">Product</th><th className="text-left px-4 py-2 font-semibold text-[#5C5347]">Type</th><th className="text-left px-4 py-2 font-semibold text-[#5C5347]">Package</th><th className="text-left px-4 py-2 font-semibold text-[#5C5347]">Ordered</th><th className="text-left px-4 py-2 font-semibold text-[#5C5347]">Delivered</th><th className="text-left px-4 py-2 font-semibold text-[#5C5347]">Client</th></tr></thead><tbody>{packageMealsRows.map((r, i) => <tr key={i} className="border-t border-[#F0EBE3]"><td className="px-4 py-2 text-[#1A1612]">{r.productName}</td><td className="px-4 py-2 text-[#5C5347]">{r.productType}</td><td className="px-4 py-2 text-[#5C5347]">{r.packagePurchased}</td><td className="px-4 py-2 text-[#5C5347]">{r.orderedDate}</td><td className="px-4 py-2 text-[#5C5347]">{r.deliveredDt}</td><td className="px-4 py-2 text-[#1A1612]">{r.clientName}</td></tr>)}</tbody></table>{packageMealsRows.length === 0 && <p className="text-center text-[#8C8278] text-sm py-8">No data available.</p>}</div></div>)}
-                    {reportingView === 'frozen_meals_ordered' && (<div><div className="p-4 border-b border-[#EDE7DA] flex items-center justify-between"><p className="text-sm font-semibold text-[#1A1612]">Frozen Meals Ordered ({frozenMealsRows.length} rows)</p><button onClick={() => downloadFrozenMealsPDF(frozenMealsRows)} className="flex items-center gap-1.5 bg-[#C4622D] text-white px-4 py-2 rounded-lg text-xs font-semibold hover:bg-[#A04E22] transition-colors"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5"><path fillRule="evenodd" d="M4.5 2A1.5 1.5 0 0 0 3 3.5v13A1.5 1.5 0 0 0 4.5 18h11a1.5 1.5 0 0 0 1.5-1.5V7.621a1.5 1.5 0 0 0-.44-1.06l-4.12-4.122A1.5 1.5 0 0 0 11.378 2H4.5Zm4.75 6.75a.75.75 0 0 1 1.5 0v2.546l.943-1.048a.75.75 0 1 1 1.114 1.004l-2.25 2.5a.75.75 0 0 1-1.114 0l-2.25-2.5a.75.75 0 1 1 1.114-1.004l.943 1.048V8.75Z" clipRule="evenodd" /></svg>Create PDF</button></div><div className="overflow-x-auto"><table className="w-full text-xs"><thead><tr className="bg-[#F5F0E8]"><th className="text-left px-4 py-2 font-semibold text-[#5C5347]">Product</th><th className="text-left px-4 py-2 font-semibold text-[#5C5347]">Type</th><th className="text-left px-4 py-2 font-semibold text-[#5C5347]">Ordered</th><th className="text-left px-4 py-2 font-semibold text-[#5C5347]">Delivered</th><th className="text-left px-4 py-2 font-semibold text-[#5C5347]">Client</th><th className="text-left px-4 py-2 font-semibold text-[#5C5347]">Email</th></tr></thead><tbody>{frozenMealsRows.map((r, i) => <tr key={i} className="border-t border-[#F0EBE3]"><td className="px-4 py-2 text-[#1A1612]">{r.productName}</td><td className="px-4 py-2 text-[#5C5347]">{r.productType}</td><td className="px-4 py-2 text-[#5C5347]">{r.orderedDate}</td><td className="px-4 py-2 text-[#5C5347]">{r.deliveredDt}</td><td className="px-4 py-2 text-[#1A1612]">{r.clientName}</td><td className="px-4 py-2 text-[#8C8278]">{r.clientEmail}</td></tr>)}</tbody></table>{frozenMealsRows.length === 0 && <p className="text-center text-[#8C8278] text-sm py-8">No data available.</p>}</div></div>)}
-                    {reportingView === 'discount_vouchers_report' && (<div><div className="p-4 border-b border-[#EDE7DA] flex items-center justify-between"><p className="text-sm font-semibold text-[#1A1612]">Discount Vouchers ({discountVouchersReportRows.length} rows)</p><button onClick={() => downloadDiscountVouchersPDF(discountVouchersReportRows)} className="flex items-center gap-1.5 bg-[#C4622D] text-white px-4 py-2 rounded-lg text-xs font-semibold hover:bg-[#A04E22] transition-colors"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5"><path fillRule="evenodd" d="M4.5 2A1.5 1.5 0 0 0 3 3.5v13A1.5 1.5 0 0 0 4.5 18h11a1.5 1.5 0 0 0 1.5-1.5V7.621a1.5 1.5 0 0 0-.44-1.06l-4.12-4.122A1.5 1.5 0 0 0 11.378 2H4.5Zm4.75 6.75a.75.75 0 0 1 1.5 0v2.546l.943-1.048a.75.75 0 1 1 1.114 1.004l-2.25 2.5a.75.75 0 0 1-1.114 0l-2.25-2.5a.75.75 0 1 1 1.114-1.004l.943 1.048V8.75Z" clipRule="evenodd" /></svg>Create PDF</button></div><div className="overflow-x-auto"><table className="w-full text-xs"><thead><tr className="bg-[#F5F0E8]"><th className="text-left px-4 py-2 font-semibold text-[#5C5347]">Code</th><th className="text-left px-4 py-2 font-semibold text-[#5C5347]">Amount</th><th className="text-left px-4 py-2 font-semibold text-[#5C5347]">Expiry</th><th className="text-left px-4 py-2 font-semibold text-[#5C5347]">Status</th><th className="text-left px-4 py-2 font-semibold text-[#5C5347]">Usage</th><th className="text-left px-4 py-2 font-semibold text-[#5C5347]">Created</th></tr></thead><tbody>{discountVouchersReportRows.map((r, i) => <tr key={i} className="border-t border-[#F0EBE3]"><td className="px-4 py-2 font-mono text-[#C4622D]">{r.dvCode}</td><td className="px-4 py-2 text-[#1A1612]">R{r.dvAmount.toFixed(2)}</td><td className="px-4 py-2 text-[#5C5347]">{r.expiryDate}</td><td className="px-4 py-2 text-[#5C5347]">{r.productType}</td><td className="px-4 py-2 text-[#5C5347]">{r.item}</td><td className="px-4 py-2 text-[#5C5347]">{r.orderedDate}</td></tr>)}</tbody></table>{discountVouchersReportRows.length === 0 && <p className="text-center text-[#8C8278] text-sm py-8">No data available.</p>}</div></div>)}
-                    {reportingView === 'delivered_orders' && (<div><div className="p-4 border-b border-[#EDE7DA] flex items-center justify-between"><p className="text-sm font-semibold text-[#1A1612]">Delivered Orders ({deliveredOrdersRows.length} rows)</p><button onClick={() => downloadDeliveredOrdersPDF(deliveredOrdersRows)} className="flex items-center gap-1.5 bg-[#C4622D] text-white px-4 py-2 rounded-lg text-xs font-semibold hover:bg-[#A04E22] transition-colors"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5"><path fillRule="evenodd" d="M4.5 2A1.5 1.5 0 0 0 3 3.5v13A1.5 1.5 0 0 0 4.5 18h11a1.5 1.5 0 0 0 1.5-1.5V7.621a1.5 1.5 0 0 0-.44-1.06l-4.12-4.122A1.5 1.5 0 0 0 11.378 2H4.5Zm4.75 6.75a.75.75 0 0 1 1.5 0v2.546l.943-1.048a.75.75 0 1 1 1.114 1.004l-2.25 2.5a.75.75 0 0 1-1.114 0l-2.25-2.5a.75.75 0 1 1 1.114-1.004l.943 1.048V8.75Z" clipRule="evenodd" /></svg>Create PDF</button></div><div className="overflow-x-auto"><table className="w-full text-xs"><thead><tr className="bg-[#F5F0E8]"><th className="text-left px-4 py-2 font-semibold text-[#5C5347]">Product</th><th className="text-left px-4 py-2 font-semibold text-[#5C5347]">Type</th><th className="text-left px-4 py-2 font-semibold text-[#5C5347]">Ordered</th><th className="text-left px-4 py-2 font-semibold text-[#5C5347]">Delivered</th><th className="text-left px-4 py-2 font-semibold text-[#5C5347]">Lead Time</th><th className="text-left px-4 py-2 font-semibold text-[#5C5347]">Email</th></tr></thead><tbody>{deliveredOrdersRows.map((r, i) => <tr key={i} className="border-t border-[#F0EBE3]"><td className="px-4 py-2 text-[#1A1612]">{r.productName}</td><td className="px-4 py-2 text-[#5C5347]">{r.productType}</td><td className="px-4 py-2 text-[#5C5347]">{r.orderedDate}</td><td className="px-4 py-2 text-[#5C5347]">{r.deliveredDt}</td><td className="px-4 py-2 text-[#5C5347]">{r.leadTime}</td><td className="px-4 py-2 text-[#8C8278]">{r.clientEmail}</td></tr>)}</tbody></table>{deliveredOrdersRows.length === 0 && <p className="text-center text-[#8C8278] text-sm py-8">No data available.</p>}</div></div>)}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* ── ANALYTICS TAB ── */}
-            {activeTab === 'analytics' && (
-              <div className="p-6">
-                <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
-                  <div><h2 className="text-xl font-bold text-[#1A1612]">Analytics</h2><p className="text-sm text-[#8C8278] mt-0.5">Order trends and performance metrics</p></div>
-                  <div className="flex items-center gap-2">
-                    {(['7d', '30d', '90d', '12m'] as AnalyticsPeriod[]).map(p => (
-                      <button key={p} onClick={() => { setAnalyticsPeriod(p); loadAnalytics(p); }} className={`text-xs px-3 py-1.5 rounded-full font-medium border transition-colors ${analyticsPeriod === p ? 'bg-[#C4622D] text-white border-[#C4622D]' : 'border-[#DDD5C8] text-[#5C5347] hover:bg-[#F5F0E8]'}`}>{p === '7d' ? '7 Days' : p === '30d' ? '30 Days' : p === '90d' ? '90 Days' : '12 Months'}</button>
-                    ))}
-                  </div>
-                </div>
-                {analyticsLoading ? (<div className="flex items-center justify-center py-12"><div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>) : analyticsError ? (<div className="bg-red-50 border border-red-200 rounded-xl p-4"><p className="text-sm text-red-600">{analyticsError}</p></div>) : (
-                  <div className="space-y-6">
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">{summaryMetrics.map((m, i) => (<div key={i} className="bg-white rounded-2xl border border-[#EDE7DA] p-4 text-center"><p className="text-2xl mb-1">{m.icon}</p><p className="text-lg font-bold text-[#1A1612]">{m.value}</p><p className="text-xs font-semibold text-[#5C5347]">{m.label}</p>{m.sub && <p className="text-xs text-[#8C8278] mt-0.5">{m.sub}</p>}</div>))}</div>
-                    {orderTrend.length > 0 && (<div className="bg-white rounded-2xl border border-[#EDE7DA] p-5"><h3 className="text-sm font-bold text-[#1A1612] mb-4">Order Trend</h3><ResponsiveContainer width="100%" height={220}><LineChart data={orderTrend}><CartesianGrid strokeDasharray="3 3" stroke="#F0EBE3" /><XAxis dataKey="label" tick={{ fontSize: 10, fill: '#8C8278' }} /><YAxis tick={{ fontSize: 10, fill: '#8C8278' }} /><RechartsTooltip content={<AnalyticsTooltip />} /><Legend /><Line type="monotone" dataKey="orders" stroke="#C4622D" strokeWidth={2} dot={false} name="Orders" /><Line type="monotone" dataKey="revenue" stroke="#22C55E" strokeWidth={2} dot={false} name="Revenue" /></LineChart></ResponsiveContainer></div>)}
-                    {fulfillmentMetrics.length > 0 && (<div className="bg-white rounded-2xl border border-[#EDE7DA] p-5"><h3 className="text-sm font-bold text-[#1A1612] mb-4">Fulfillment Breakdown</h3><div className="flex flex-wrap gap-3">{fulfillmentMetrics.map((m, i) => (<div key={i} className="flex items-center gap-2 bg-[#F5F0E8] rounded-xl px-3 py-2"><span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: m.color }} /><span className="text-xs font-medium text-[#1A1612]">{m.status}</span><span className="text-xs font-bold text-[#C4622D]">{m.count}</span></div>))}</div></div>)}
-                    {voucherUsage.length > 0 && (<div className="bg-white rounded-2xl border border-[#EDE7DA] p-5"><h3 className="text-sm font-bold text-[#1A1612] mb-4">Voucher Usage</h3><ResponsiveContainer width="100%" height={180}><BarChart data={voucherUsage}><CartesianGrid strokeDasharray="3 3" stroke="#F0EBE3" /><XAxis dataKey="label" tick={{ fontSize: 10, fill: '#8C8278' }} /><YAxis tick={{ fontSize: 10, fill: '#8C8278' }} /><RechartsTooltip /><Legend /><Bar dataKey="mealVouchers" fill="#C4622D" name="Meal Vouchers" radius={[3, 3, 0, 0]} /><Bar dataKey="discountVouchers" fill="#8B5CF6" name="Discount Vouchers" radius={[3, 3, 0, 0]} /></BarChart></ResponsiveContainer></div>)}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* ── DOCUMENT MANAGEMENT TAB ── */}
-            {activeTab === 'media' && (<GoogleDriveDocuments canManage={can('media', 'edit')} />)}
-
-            {/* ── EVENTS TAB ── */}
-            {activeTab === 'media_events' && (<div className="p-6"><EventManagement canCreate={can('media_events', 'create')} canDelete={can('media_events', 'delete')} /></div>)}
-
-            {/* ── PRODUCTS (Customer Relations) TAB ── */}
-            {activeTab === 'media_products' && (
-              <div className="p-6">
-                <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
-                  <div><h2 className="text-xl font-bold text-[#1A1612]">Products</h2><p className="text-sm text-[#8C8278] mt-0.5">{products.length} products</p></div>
-                  <input type="text" placeholder="Search products…" value={productSearchQuery} onChange={e => setProductSearchQuery(e.target.value)} className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white" />
-                </div>
-                {productsLoading ? (<div className="flex items-center justify-center py-12"><div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>) : (
                   <div className="space-y-3">
-                    {products.filter(p => !productSearchQuery || p.name.toLowerCase().includes(productSearchQuery.toLowerCase()) || p.category.toLowerCase().includes(productSearchQuery.toLowerCase())).map(p => (
+                    {testimonials.filter(t => !testimonialSearchQuery || t.name.toLowerCase().includes(testimonialSearchQuery.toLowerCase()) || t.quote.toLowerCase().includes(testimonialSearchQuery.toLowerCase())).map(t => (
+                      <div key={t.id} className="bg-white rounded-2xl border border-[#EDE7DA] p-4 flex items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <p className="font-semibold text-[#1A1612] text-sm">{t.name}</p>
+                            <span className="text-xs text-[#8C8278]">{t.role}</span>
+                            <span className="text-xs text-amber-500">{'★'.repeat(t.rating)}</span>
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${t.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{t.is_active ? 'Active' : 'Hidden'}</span>
+                          </div>
+                          <p className="text-xs text-[#5C5347] line-clamp-2">"{t.quote}"</p>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {can('testimonials', 'edit') && (
+                            <button onClick={() => { setEditingTestimonial(t); setTestimonialForm({ quote: t.quote, name: t.name, role: t.role, avatar_url: t.avatar_url || '', rating: t.rating, is_active: t.is_active, display_order: String(t.display_order) }); setTestimonialFormError(''); setTestimonialFormSuccess(''); setShowTestimonialForm(true); }} className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl font-semibold hover:bg-[#FDF6EE] transition-colors">Edit</button>
+                          )}
+                          {can('testimonials', 'delete') && (
+                            <button onClick={() => handleDeleteTestimonial(t)} className="text-xs text-red-500 border border-red-300 px-3 py-1.5 rounded-xl font-semibold hover:bg-red-50 transition-colors">Delete</button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    {testimonials.length === 0 && <div className="bg-white rounded-2xl border border-[#EDE7DA] p-8 text-center"><p className="text-[#8C8278] text-sm">No testimonials found.</p></div>}
+                  </div>
+                )}
+                {showTestimonialForm && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+                      <div className="p-5 border-b border-[#EDE7DA] flex items-center justify-between">
+                        <h3 className="text-base font-bold text-[#1A1612]">{editingTestimonial ? 'Edit Testimonial' : 'Add Testimonial'}</h3>
+                        <button onClick={() => setShowTestimonialForm(false)} className="text-[#8C8278] hover:text-[#1A1612]">✕</button>
+                      </div>
+                      <div className="p-5 space-y-3">
+                        <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Quote *</label><textarea value={testimonialForm.quote} onChange={e => setTestimonialForm(f => ({ ...f, quote: e.target.value }))} rows={3} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] resize-none" /></div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Name *</label><input type="text" value={testimonialForm.name} onChange={e => setTestimonialForm(f => ({ ...f, name: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
+                          <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Role/Title</label><input type="text" value={testimonialForm.role} onChange={e => setTestimonialForm(f => ({ ...f, role: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
+                          <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Rating (1-5)</label><input type="number" min={1} max={5} value={testimonialForm.rating} onChange={e => setTestimonialForm(f => ({ ...f, rating: Number(e.target.value) }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
+                          <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Display Order</label><input type="number" value={testimonialForm.display_order} onChange={e => setTestimonialForm(f => ({ ...f, display_order: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
+                        </div>
+                        <div className="flex items-center gap-2"><input type="checkbox" id="t-active" checked={testimonialForm.is_active} onChange={e => setTestimonialForm(f => ({ ...f, is_active: e.target.checked }))} className="rounded" /><label htmlFor="t-active" className="text-sm text-[#5C5347]">Active (visible on site)</label></div>
+                        {testimonialFormError && <p className="text-sm text-red-600">{testimonialFormError}</p>}
+                        {testimonialFormSuccess && <p className="text-sm text-green-600">{testimonialFormSuccess}</p>}
+                      </div>
+                      <div className="p-5 border-t border-[#EDE7DA] flex gap-3">
+                        <button onClick={handleSaveTestimonial} disabled={savingTestimonial} className="bg-[#C4622D] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50">{savingTestimonial ? 'Saving…' : (editingTestimonial ? 'Save Changes' : 'Add Testimonial')}</button>
+                        <button onClick={() => setShowTestimonialForm(false)} className="px-6 py-2.5 rounded-xl text-sm font-semibold border border-[#DDD5C8] text-[#5C5347] hover:bg-[#FAF5EE] transition-colors">Cancel</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── GALLERY TAB ── */}
+            {activeTab === 'gallery' && (
+              <div className="p-6">
+                <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
+                  <div><h2 className="text-xl font-bold text-[#1A1612]">Gallery</h2><p className="text-sm text-[#8C8278] mt-0.5">{galleryImages.length} images</p></div>
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-[#5C5347]">Gallery Section</span>
+                      <button onClick={() => handleToggleGallerySectionVisible(!gallerySectionVisible)} disabled={gallerySettingsSaving} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${gallerySectionVisible ? 'bg-[#C4622D]' : 'bg-gray-200'} disabled:opacity-50`}>
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${gallerySectionVisible ? 'translate-x-6' : 'translate-x-1'}`} />
+                      </button>
+                    </div>
+                    {can('gallery', 'create') && (
+                      <button onClick={openAddGalleryForm} className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors">+ Add Image</button>
+                    )}
+                  </div>
+                </div>
+                {galleryLoading ? (
+                  <div className="flex items-center justify-center py-12"><div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>
+                ) : (
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {galleryImages.map(img => (
+                      <div key={img.id} className="bg-white rounded-2xl border border-[#EDE7DA] overflow-hidden">
+                        {img.imageUrl && <img src={img.imageUrl} alt={img.title} className="w-full h-32 object-cover" />}
+                        <div className="p-3">
+                          <p className="font-semibold text-[#1A1612] text-xs truncate">{img.title}</p>
+                          <div className="flex items-center justify-between mt-2">
+                            <button onClick={() => handleToggleGalleryImageVisible(img)} disabled={togglingGalleryId === img.id} className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${img.is_visible ? 'bg-[#C4622D]' : 'bg-gray-200'} disabled:opacity-50`}>
+                              <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${img.is_visible ? 'translate-x-5' : 'translate-x-1'}`} />
+                            </button>
+                            <div className="flex gap-1">
+                              {can('gallery', 'edit') && <button onClick={() => openEditGalleryForm(img)} className="text-xs text-[#C4622D] border border-[#C4622D] px-2 py-1 rounded-lg font-semibold hover:bg-[#FDF6EE] transition-colors">Edit</button>}
+                              {can('gallery', 'delete') && <button onClick={() => handleDeleteGalleryImage(img)} className="text-xs text-red-500 border border-red-300 px-2 py-1 rounded-lg font-semibold hover:bg-red-50 transition-colors">Del</button>}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    {galleryImages.length === 0 && <div className="col-span-4 bg-white rounded-2xl border border-[#EDE7DA] p-8 text-center"><p className="text-[#8C8278] text-sm">No gallery images found.</p></div>}
+                  </div>
+                )}
+                {showGalleryForm && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+                      <div className="p-5 border-b border-[#EDE7DA] flex items-center justify-between">
+                        <h3 className="text-base font-bold text-[#1A1612]">{editingGalleryImage ? 'Edit Image' : 'Add Gallery Image'}</h3>
+                        <button onClick={() => setShowGalleryForm(false)} className="text-[#8C8278] hover:text-[#1A1612]">✕</button>
+                      </div>
+                      <div className="p-5 space-y-3">
+                        <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Title *</label><input type="text" value={galleryForm.title} onChange={e => setGalleryForm(f => ({ ...f, title: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
+                        <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Description</label><textarea value={galleryForm.description} onChange={e => setGalleryForm(f => ({ ...f, description: e.target.value }))} rows={2} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] resize-none" /></div>
+                        <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Sort Order</label><input type="number" value={galleryForm.sort_order} onChange={e => setGalleryForm(f => ({ ...f, sort_order: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Image {!editingGalleryImage && '*'}</label>
+                          <input ref={galleryImageRef} type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) { setGalleryImageFile(f); setGalleryImagePreview(URL.createObjectURL(f)); } }} />
+                          {galleryImagePreview && <img src={galleryImagePreview} alt="Preview" className="w-full h-32 object-cover rounded-xl mb-2" />}
+                          <button type="button" onClick={() => galleryImageRef.current?.click()} className="text-xs border border-[#DDD5C8] text-[#5C5347] px-3 py-1.5 rounded-xl hover:bg-[#FAF5EE] transition-colors">{galleryImagePreview ? 'Change Image' : 'Upload Image'}</button>
+                        </div>
+                        <div className="flex items-center gap-2"><input type="checkbox" id="g-visible" checked={galleryForm.is_visible} onChange={e => setGalleryForm(f => ({ ...f, is_visible: e.target.checked }))} className="rounded" /><label htmlFor="g-visible" className="text-sm text-[#5C5347]">Visible</label></div>
+                        {galleryFormError && <p className="text-sm text-red-600">{galleryFormError}</p>}
+                        {galleryFormSuccess && <p className="text-sm text-green-600">{galleryFormSuccess}</p>}
+                      </div>
+                      <div className="p-5 border-t border-[#EDE7DA] flex gap-3">
+                        <button onClick={handleSaveGalleryImage} disabled={savingGallery || uploadingGalleryImage} className="bg-[#C4622D] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50">{savingGallery ? 'Saving…' : (editingGalleryImage ? 'Save Changes' : 'Add Image')}</button>
+                        <button onClick={() => setShowGalleryForm(false)} className="px-6 py-2.5 rounded-xl text-sm font-semibold border border-[#DDD5C8] text-[#5C5347] hover:bg-[#FAF5EE] transition-colors">Cancel</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── PRODUCTS & PRICING TAB ── */}
+            {activeTab === 'products' && (
+              <div className="p-6">
+                <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
+                  <div><h2 className="text-xl font-bold text-[#1A1612]">Products &amp; Pricing</h2><p className="text-sm text-[#8C8278] mt-0.5">{products.length} products</p></div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <input type="text" placeholder="Search products…" value={productSearchQuery} onChange={e => setProductSearchQuery(e.target.value)} className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white" />
+                    <select value={staffProductCategory} onChange={e => setStaffProductCategory(e.target.value)} className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white">
+                      <option value="All">All Categories</option>
+                      {categoryNames.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                    {can('products', 'create') && (
+                      <button onClick={() => { setEditingProduct(null); setForm(emptyForm); setFormError(''); setFormSuccess(''); setPendingImageFile(null); setPendingImagePreview(null); setShowForm(true); }} className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors">+ Add Product</button>
+                    )}
+                  </div>
+                </div>
+                {productsLoading ? (
+                  <div className="flex items-center justify-center py-12"><div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>
+                ) : (
+                  <div className="space-y-3">
+                    {products.filter(p => {
+                      const q = productSearchQuery.toLowerCase();
+                      const matchSearch = !q || p.name.toLowerCase().includes(q) || p.category.toLowerCase().includes(q);
+                      const matchCat = staffProductCategory === 'All' || p.category === staffProductCategory;
+                      return matchSearch && matchCat;
+                    }).map(p => (
                       <div key={p.id} className="bg-white rounded-2xl border border-[#EDE7DA] p-4 flex items-center gap-4">
                         {p.imageUrl && <img src={p.imageUrl} alt={p.name} className="w-12 h-12 rounded-xl object-cover flex-shrink-0" />}
-                        <div className="flex-1 min-w-0"><p className="font-semibold text-[#1A1612] truncate">{p.name}</p><p className="text-xs text-[#8C8278]">{p.category} · {p.unit}</p></div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-[#1A1612] truncate">{p.name}</p>
+                          <p className="text-xs text-[#8C8278]">{p.category} · {p.unit}</p>
+                        </div>
                         <div className="flex items-center gap-3 flex-shrink-0">
                           <span className="font-bold text-[#C4622D] text-sm">{p.price > 0 ? `R${p.price.toFixed(2)}` : '—'}</span>
                           <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${p.available ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{p.available ? 'Available' : 'Unavailable'}</span>
-                          {can('media_products', 'edit') && (<button onClick={() => openEditForm(p)} className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl font-semibold hover:bg-[#FDF6EE] transition-colors">Edit</button>)}
+                          {can('products', 'edit') && (<button onClick={() => openEditForm(p)} className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl font-semibold hover:bg-[#FDF6EE] transition-colors">Edit</button>)}
+                          {can('products', 'delete') && (<button onClick={() => handleDeleteProduct(p)} className="text-xs text-red-500 border border-red-300 px-3 py-1.5 rounded-xl font-semibold hover:bg-red-50 transition-colors">Delete</button>)}
                         </div>
                       </div>
                     ))}
@@ -3646,180 +3785,172 @@ export default function StaffWorkspacePage() {
               </div>
             )}
 
-            {/* ── ABANDONED CARTS TAB ── */}
-            {activeTab === 'abandoned_carts' && (
+            {/* ── CATEGORIES TAB ── */}
+            {activeTab === 'categories' && (
               <div className="p-6">
                 <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
-                  <div><h2 className="text-xl font-bold text-[#1A1612]">Abandoned Carts</h2><p className="text-sm text-[#8C8278] mt-0.5">{abandonedCarts.length} carts</p></div>
-                  <div className="flex items-center gap-3">
-                    <button onClick={loadAbandonedCarts} className="text-sm border border-[#DDD5C8] text-[#5C5347] px-4 py-2 rounded-xl hover:bg-[#F5F0E8] transition-colors">↻ Refresh</button>
-                    {can('abandoned_carts', 'create') && (<button onClick={handleTriggerReminders} disabled={triggeringReminders} className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50">{triggeringReminders ? 'Sending…' : 'Send Reminders'}</button>)}
-                  </div>
+                  <div><h2 className="text-xl font-bold text-[#1A1612]">Product Categories</h2><p className="text-sm text-[#8C8278] mt-0.5">{categories.length} categories</p></div>
+                  {can('categories', 'create') && (
+                    <button onClick={() => { setEditingCategory(null); setCategoryForm({ name: '', slug: '', active: true, sort_order: '0' }); setCategoryFormError(''); setCategoryFormSuccess(''); setShowCategoryForm(true); }} className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors">+ Add Category</button>
+                  )}
                 </div>
-                {abandonedCartsError && <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4"><p className="text-sm text-red-600">{abandonedCartsError}</p></div>}
-                {reminderPaused && <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4"><p className="text-sm text-amber-700">{reminderPaused}</p></div>}
-                {reminderResult && <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-4"><p className="text-sm text-green-700">Reminders sent: {reminderResult.processed} processed</p></div>}
-                {abandonedCartsLoading ? (<div className="flex items-center justify-center py-12"><div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>) : (
-                  <div className="space-y-3">
-                    {abandonedCarts.map(cart => (
-                      <div key={cart.id} className="bg-white rounded-2xl border border-[#EDE7DA] p-4 flex items-center justify-between gap-4 flex-wrap">
-                        <div className="min-w-0">
-                          <p className="font-semibold text-[#1A1612]">{cart.customer_name || 'Anonymous'}</p>
-                          <p className="text-xs text-[#8C8278]">{cart.customer_email || 'No email'} · Last active: {formatDate(cart.last_activity_at)}</p>
-                          <p className="text-xs text-[#8C8278]">{(cart.items || []).length} item(s) · {cart.reminder_sent_at ? `Reminder sent ${formatDate(cart.reminder_sent_at)}` : 'No reminder sent'}</p>
-                        </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          {can('abandoned_carts', 'delete') && (<button onClick={() => setCartToDelete(cart)} disabled={deletingCartId === cart.id} className="text-xs text-red-500 border border-red-300 px-3 py-1.5 rounded-xl font-semibold hover:bg-red-50 transition-colors disabled:opacity-50">Delete</button>)}
-                        </div>
-                      </div>
-                    ))}
-                    {abandonedCarts.length === 0 && <div className="bg-white rounded-2xl border border-[#EDE7DA] p-8 text-center"><p className="text-[#8C8278] text-sm">No abandoned carts found.</p></div>}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* ── CUSTOMER ORDER HISTORY TAB ── */}
-            {activeTab === 'customer_order_history' && (
-              <div className="p-6">
-                <div className="mb-6">
-                  <h2 className="text-xl font-bold text-[#1A1612]">Customer Order History</h2>
-                  <p className="text-sm text-[#8C8278] mt-0.5">Look up a customer&apos;s full order history by name, email or phone</p>
-                </div>
-                <div className="flex gap-3 mb-6">
-                  <input type="text" placeholder="Enter name, email or phone…" value={cohLookupInput} onChange={e => setCohLookupInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleCohLookup()} className="flex-1 border border-[#DDD5C8] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white" />
-                  <button onClick={handleCohLookup} disabled={cohLookupLoading || !cohLookupInput.trim()} className="bg-[#C4622D] text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50">{cohLookupLoading ? 'Searching…' : 'Search'}</button>
-                </div>
-                {cohLookupError && <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4"><p className="text-sm text-red-600">{cohLookupError}</p></div>}
-                {cohProfile && (
-                  <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5 mb-5">
-                    <h3 className="text-sm font-bold text-[#1A1612] mb-3">Customer Profile</h3>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                      <div><p className="text-xs text-[#8C8278]">Name</p><p className="font-medium text-[#1A1612]">{cohProfile.customer_name || '—'}</p></div>
-                      <div><p className="text-xs text-[#8C8278]">Email</p><p className="font-medium text-[#1A1612] break-all">{cohProfile.customer_email || '—'}</p></div>
-                      <div><p className="text-xs text-[#8C8278]">Phone</p><p className="font-medium text-[#1A1612]">{cohProfile.customer_phone || '—'}</p></div>
-                      <div><p className="text-xs text-[#8C8278]">First Order</p><p className="font-medium text-[#1A1612]">{formatDate(cohProfile.first_order_date)}</p></div>
-                    </div>
-                  </div>
-                )}
-                {cohOrders.length > 0 && (
-                  <div>
-                    <p className="text-sm font-semibold text-[#5C5347] mb-3">{cohOrders.length} order{cohOrders.length !== 1 ? 's' : ''} found</p>
-                    <div className="space-y-3">
-                      {cohOrders.map(order => {
-                        const isExpanded = cohExpandedOrderId === order.id;
-                        return (
-                          <div key={order.id} className="bg-white rounded-2xl border border-[#EDE7DA] overflow-hidden">
-                            <button onClick={() => setCohExpandedOrderId(isExpanded ? null : order.id)} className="w-full flex items-center justify-between px-5 py-4 hover:bg-[#FAF5EE] transition-colors text-left">
-                              <div className="min-w-0">
-                                <p className="font-semibold text-[#1A1612] truncate">{order.customer_name}</p>
-                                <p className="text-xs text-[#8C8278]">{order.customer_email} · {formatDate(order.created_at)}</p>
-                              </div>
-                              <div className="flex items-center gap-3 flex-shrink-0">
-                                <span className={`text-xs px-2 py-0.5 rounded-full font-medium border ${PAYMENT_STATUS_COLORS[order.payment_status]}`}>{PAYMENT_STATUS_LABELS[order.payment_status]}</span>
-                                <span className={`text-xs px-2 py-0.5 rounded-full font-medium border ${FULFILLMENT_STATUS_COLORS[order.fulfillment_status]}`}>{FULFILLMENT_STATUS_LABELS[order.fulfillment_status]}</span>
-                                <span className="font-bold text-[#C4622D]">{formatCurrency(calculateOrderTotal(order))}</span>
-                                <svg className={`w-4 h-4 text-[#8C8278] transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
-                              </div>
-                            </button>
-                            {isExpanded && (
-                              <div className="border-t border-[#EDE7DA] px-5 py-4 bg-[#FDFAF6] space-y-3">
-                                {(order.items || []).length > 0 && (
-                                  <div>
-                                    <p className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-2">Items</p>
-                                    <div className="space-y-1">
-                                      {(order.items || []).map((item, i) => (
-                                        <div key={i} className="flex justify-between text-sm"><span className="text-[#1A1612]">{item.quantity}× {item.name}</span><span className="font-medium text-[#1A1612]">{formatCurrency(item.price * item.quantity)}</span></div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
-                                <div className="flex justify-between text-sm font-bold border-t border-[#EDE7DA] pt-2"><span>Total</span><span className="text-[#C4622D]">{formatCurrency(calculateOrderTotal(order))}</span></div>
-                                {order.delivery_address && <p className="text-xs text-[#8C8278]">📍 {order.delivery_address}</p>}
-                                {order.notes && <p className="text-xs text-[#8C8278]">📝 {order.notes}</p>}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-                {cohProfile && cohOrders.length === 0 && (
-                  <div className="bg-white rounded-2xl border border-[#EDE7DA] p-8 text-center"><p className="text-[#8C8278] text-sm">No orders found for this customer.</p></div>
-                )}
-              </div>
-            )}
-
-            {/* ── MEAL VOUCHERS TAB ── */}
-            {activeTab === 'vouchers' && (
-              <div className="p-6">
-                <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
-                  <div>
-                    <h2 className="text-xl font-bold text-[#1A1612]">Meal Vouchers</h2>
-                    <p className="text-sm text-[#8C8278] mt-0.5">{vouchers.length} vouchers</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <input type="text" placeholder="Search vouchers…" value={mvSearchQuery} onChange={e => setMvSearchQuery(e.target.value)} className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white" />
-                    {can('vouchers', 'create') && (
-                      <button onClick={() => { setEditingMv(null); setMvForm({ voucher_code: '', customer_name: '', customer_email: '', customer_phone: '', total_meals: '', meals_remaining: '', status: 'unpaid', notes: '', package_type: 'none', purchased_at: '' }); setMvFormError(''); setMvFormSuccess(''); setShowMvForm(true); }} className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors">+ Add Voucher</button>
-                    )}
-                  </div>
-                </div>
-                <div className="flex gap-2 mb-4 flex-wrap">
-                  {(['all', 'active', 'unpaid', 'paid', 'redeemed', 'expired'] as const).map(s => (
-                    <button key={s} onClick={() => setMvFilterStatus(s)} className={`text-xs px-3 py-1.5 rounded-full font-medium border transition-colors ${mvFilterStatus === s ? 'bg-[#C4622D] text-white border-[#C4622D]' : 'border-[#DDD5C8] text-[#5C5347] hover:bg-[#F5F0E8]'}`}>{s.charAt(0).toUpperCase() + s.slice(1)}</button>
-                  ))}
-                </div>
-                {mvLoading ? (
+                {categoriesLoading ? (
                   <div className="flex items-center justify-center py-12"><div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>
                 ) : (
                   <div className="space-y-3">
-                    {vouchers.filter(v => { const q = mvSearchQuery.toLowerCase(); const matchSearch = !q || v.voucher_code.toLowerCase().includes(q) || v.customer_name.toLowerCase().includes(q) || v.customer_email.toLowerCase().includes(q); const matchStatus = mvFilterStatus === 'all' || v.status === mvFilterStatus; return matchSearch && matchStatus; }).map(v => (
-                      <div key={v.id} className="bg-white rounded-2xl border border-[#EDE7DA] p-4 flex items-center justify-between gap-4 flex-wrap">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <p className="font-mono font-bold text-[#C4622D] text-sm">{v.voucher_code}</p>
-                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${v.status === 'active' ? 'bg-green-100 text-green-700' : v.status === 'unpaid' ? 'bg-red-100 text-red-700' : v.status === 'paid' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>{v.status}</span>
-                          </div>
-                          <p className="text-sm font-medium text-[#1A1612]">{v.customer_name}</p>
-                          <p className="text-xs text-[#8C8278]">{v.customer_email} · {v.meals_remaining}/{v.total_meals} meals remaining</p>
+                    {categories.map(cat => (
+                      <div key={cat.id} className="bg-white rounded-2xl border border-[#EDE7DA] p-4 flex items-center justify-between gap-4">
+                        <div>
+                          <p className="font-semibold text-[#1A1612] text-sm">{cat.name}</p>
+                          <p className="text-xs text-[#8C8278]">/{cat.slug} · Order: {cat.sort_order}</p>
                         </div>
-                        <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
-                          {can('vouchers', 'edit') && (
-                            <button onClick={() => { setEditingMv(v); setMvForm({ voucher_code: v.voucher_code, customer_name: v.customer_name, customer_email: v.customer_email, customer_phone: v.customer_phone || '', total_meals: String(v.total_meals), meals_remaining: String(v.meals_remaining), status: v.status, notes: v.notes || '', package_type: v.package_type || 'none', purchased_at: v.purchased_at || '' }); setMvFormError(''); setMvFormSuccess(''); setShowMvEditModal(true); }} className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl font-semibold hover:bg-[#FDF6EE] transition-colors">Edit</button>
-                          )}
-                          {can('vouchers', 'delete') && (
-                            <button onClick={() => handleDeleteVoucher(v)} className="text-xs text-red-500 border border-red-300 px-3 py-1.5 rounded-xl font-semibold hover:bg-red-50 transition-colors">Delete</button>
-                          )}
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${cat.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{cat.active ? 'Active' : 'Inactive'}</span>
+                          {can('categories', 'edit') && (<button onClick={() => { setEditingCategory(cat); setCategoryForm({ name: cat.name, slug: cat.slug, active: cat.active, sort_order: String(cat.sort_order) }); setCategoryFormError(''); setCategoryFormSuccess(''); setShowCategoryForm(true); }} className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl font-semibold hover:bg-[#FDF6EE] transition-colors">Edit</button>)}
+                          {can('categories', 'delete') && (<button onClick={async () => { setDeletingCategoryId(cat.id); await supabase.from('product_categories').delete().eq('id', cat.id); await loadCategories(); setDeletingCategoryId(null); }} disabled={deletingCategoryId === cat.id} className="text-xs text-red-500 border border-red-300 px-3 py-1.5 rounded-xl font-semibold hover:bg-red-50 transition-colors disabled:opacity-50">Delete</button>)}
                         </div>
                       </div>
                     ))}
-                    {vouchers.length === 0 && <div className="bg-white rounded-2xl border border-[#EDE7DA] p-8 text-center"><p className="text-[#8C8278] text-sm">No vouchers found.</p></div>}
+                    {categories.length === 0 && <div className="bg-white rounded-2xl border border-[#EDE7DA] p-8 text-center"><p className="text-[#8C8278] text-sm">No categories found.</p></div>}
                   </div>
                 )}
-                {(showMvForm || showMvEditModal) && (
+                {showCategoryForm && (
                   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
                       <div className="p-5 border-b border-[#EDE7DA] flex items-center justify-between">
-                        <h3 className="text-base font-bold text-[#1A1612]">{editingMv ? 'Edit Voucher' : 'Add Voucher'}</h3>
-                        <button onClick={() => { setShowMvForm(false); setShowMvEditModal(false); }} className="text-[#8C8278] hover:text-[#1A1612]">✕</button>
+                        <h3 className="text-base font-bold text-[#1A1612]">{editingCategory ? 'Edit Category' : 'Add Category'}</h3>
+                        <button onClick={() => setShowCategoryForm(false)} className="text-[#8C8278] hover:text-[#1A1612]">✕</button>
                       </div>
                       <div className="p-5 space-y-3">
-                        <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Voucher Code *</label><input type="text" value={mvForm.voucher_code} onChange={e => setMvForm(f => ({ ...f, voucher_code: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Customer Name *</label><input type="text" value={mvForm.customer_name} onChange={e => setMvForm(f => ({ ...f, customer_name: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
-                          <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Email *</label><input type="email" value={mvForm.customer_email} onChange={e => setMvForm(f => ({ ...f, customer_email: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
-                          <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Total Meals</label><input type="number" value={mvForm.total_meals} onChange={e => setMvForm(f => ({ ...f, total_meals: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
-                          <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Meals Remaining</label><input type="number" value={mvForm.meals_remaining} onChange={e => setMvForm(f => ({ ...f, meals_remaining: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
-                        </div>
-                        <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Status</label><select value={mvForm.status} onChange={e => setMvForm(f => ({ ...f, status: e.target.value as Voucher['status'] }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"><option value="unpaid">Unpaid</option><option value="paid">Paid</option><option value="active">Active</option><option value="redeemed">Redeemed</option><option value="expired">Expired</option></select></div>
-                        {mvFormError && <p className="text-sm text-red-600">{mvFormError}</p>}
-                        {mvFormSuccess && <p className="text-sm text-green-600">{mvFormSuccess}</p>}
+                        <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Name *</label><input type="text" value={categoryForm.name} onChange={e => setCategoryForm(f => ({ ...f, name: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
+                        <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Slug *</label><input type="text" value={categoryForm.slug} onChange={e => setCategoryForm(f => ({ ...f, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
+                        <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Sort Order</label><input type="number" value={categoryForm.sort_order} onChange={e => setCategoryForm(f => ({ ...f, sort_order: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
+                        <div className="flex items-center gap-2"><input type="checkbox" id="cat-active" checked={categoryForm.active} onChange={e => setCategoryForm(f => ({ ...f, active: e.target.checked }))} className="rounded" /><label htmlFor="cat-active" className="text-sm text-[#5C5347]">Active</label></div>
+                        {categoryFormError && <p className="text-sm text-red-600">{categoryFormError}</p>}
+                        {categoryFormSuccess && <p className="text-sm text-green-600">{categoryFormSuccess}</p>}
                       </div>
                       <div className="p-5 border-t border-[#EDE7DA] flex gap-3">
-                        <button onClick={handleSaveMv} disabled={savingMv} className="bg-[#C4622D] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50">{savingMv ? 'Saving…' : (editingMv ? 'Save Changes' : 'Add Voucher')}</button>
-                        <button onClick={() => { setShowMvForm(false); setShowMvEditModal(false); }} className="px-6 py-2.5 rounded-xl text-sm font-semibold border border-[#DDD5C8] text-[#5C5347] hover:bg-[#FAF5EE] transition-colors">Cancel</button>
+                        <button onClick={async () => {
+                          if (!categoryForm.name.trim() || !categoryForm.slug.trim()) { showCategoryFormError('Name and slug are required.'); return; }
+                          setSavingCategory(true);
+                          const payload = { name: categoryForm.name.trim(), slug: categoryForm.slug.trim(), active: categoryForm.active, sort_order: Number(categoryForm.sort_order) };
+                          let err: any = null;
+                          if (editingCategory) {
+                            const { error } = await supabase.from('product_categories').update(payload).eq('id', editingCategory.id);
+                            err = error;
+                          } else {
+                            const { error } = await supabase.from('product_categories').insert(payload);
+                            err = error;
+                          }
+                          if (err) { showCategoryFormError(err.message); }
+                          else { setCategoryFormSuccess(editingCategory ? 'Category updated!' : 'Category added!'); setShowCategoryForm(false); await loadCategories(); await loadCategoryNames(); }
+                          setSavingCategory(false);
+                        }} disabled={savingCategory} className="bg-[#C4622D] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50">{savingCategory ? 'Saving…' : (editingCategory ? 'Save Changes' : 'Add Category')}</button>
+                        <button onClick={() => setShowCategoryForm(false)} className="px-6 py-2.5 rounded-xl text-sm font-semibold border border-[#DDD5C8] text-[#5C5347] hover:bg-[#FAF5EE] transition-colors">Cancel</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── WEEKLY MENU TAB ── */}
+            {activeTab === 'weekly_menu' && (
+              <div className="p-6">
+                <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
+                  <div><h2 className="text-xl font-bold text-[#1A1612]">Weekly Menu</h2><p className="text-sm text-[#8C8278] mt-0.5">Manage the weekly meal schedule</p></div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => setWeekOffset(w => w - 1)} className="border border-[#DDD5C8] text-[#5C5347] px-3 py-2 rounded-xl text-sm hover:bg-[#F5F0E8] transition-colors">← Prev</button>
+                    <button onClick={() => setWeekOffset(0)} className="border border-[#DDD5C8] text-[#5C5347] px-3 py-2 rounded-xl text-sm hover:bg-[#F5F0E8] transition-colors">This Week</button>
+                    <button onClick={() => setWeekOffset(w => w + 1)} className="border border-[#DDD5C8] text-[#5C5347] px-3 py-2 rounded-xl text-sm hover:bg-[#F5F0E8] transition-colors">Next →</button>
+                    {can('weekly_menu', 'create') && (
+                      <button onClick={() => { setEditingWeeklyEntry(null); setWeeklyMenuForm({ meal_date: '', day_name: '', meal_name: '', description: '', price: '', is_closed: false, closed_reason: '' }); setWeeklyMenuFormError(''); setWeeklyMenuFormSuccess(''); setShowWeeklyMenuForm(true); }} className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors">+ Add Entry</button>
+                    )}
+                  </div>
+                </div>
+                {weeklyMenuLoading ? (
+                  <div className="flex items-center justify-center py-12"><div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>
+                ) : (
+                  <div className="space-y-3">
+                    {getWeekDays().map(day => {
+                      const entry = weeklyMenuEntries.find(e => e.meal_date === day.date);
+                      return (
+                        <div key={day.date} className="bg-white rounded-2xl border border-[#EDE7DA] p-4 flex items-center justify-between gap-4 flex-wrap">
+                          <div className="min-w-0">
+                            <p className="font-semibold text-[#1A1612] text-sm">{day.dayName} <span className="text-[#8C8278] font-normal text-xs">{day.date}</span></p>
+                            {entry ? (
+                              entry.is_closed ? (
+                                <p className="text-xs text-red-500">Closed{entry.closed_reason ? ` — ${entry.closed_reason}` : ''}</p>
+                              ) : (
+                                <div>
+                                  <p className="text-sm text-[#1A1612]">{entry.meal_name || '—'}</p>
+                                  {entry.description && <p className="text-xs text-[#8C8278]">{entry.description}</p>}
+                                  {entry.price != null && <p className="text-xs font-semibold text-[#C4622D]">R{Number(entry.price).toFixed(2)}</p>}
+                                </div>
+                              )
+                            ) : (
+                              <p className="text-xs text-[#B5ADA5]">No entry</p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            {can('weekly_menu', 'edit') && entry && (
+                              <button onClick={() => { setEditingWeeklyEntry(entry); setWeeklyMenuForm({ meal_date: entry.meal_date, day_name: entry.day_name, meal_name: entry.meal_name || '', description: entry.description || '', price: entry.price != null ? String(entry.price) : '', is_closed: entry.is_closed, closed_reason: entry.closed_reason || '' }); setWeeklyMenuFormError(''); setWeeklyMenuFormSuccess(''); setShowWeeklyMenuForm(true); }} className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl font-semibold hover:bg-[#FDF6EE] transition-colors">Edit</button>
+                            )}
+                            {can('weekly_menu', 'create') && !entry && (
+                              <button onClick={() => { setEditingWeeklyEntry(null); setWeeklyMenuForm({ meal_date: day.date, day_name: day.dayName, meal_name: '', description: '', price: '', is_closed: false, closed_reason: '' }); setWeeklyMenuFormError(''); setWeeklyMenuFormSuccess(''); setShowWeeklyMenuForm(true); }} className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl font-semibold hover:bg-[#FDF6EE] transition-colors">+ Add</button>
+                            )}
+                            {can('weekly_menu', 'delete') && entry && (
+                              <button onClick={async () => { setDeletingWeeklyEntryId(entry.id); await supabase.from('weekly_menu').delete().eq('id', entry.id); await loadWeeklyMenu(); setDeletingWeeklyEntryId(null); }} disabled={deletingWeeklyEntryId === entry.id} className="text-xs text-red-500 border border-red-300 px-3 py-1.5 rounded-xl font-semibold hover:bg-red-50 transition-colors disabled:opacity-50">Delete</button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {showWeeklyMenuForm && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
+                      <div className="p-5 border-b border-[#EDE7DA] flex items-center justify-between">
+                        <h3 className="text-base font-bold text-[#1A1612]">{editingWeeklyEntry ? 'Edit Menu Entry' : 'Add Menu Entry'}</h3>
+                        <button onClick={() => setShowWeeklyMenuForm(false)} className="text-[#8C8278] hover:text-[#1A1612]">✕</button>
+                      </div>
+                      <div className="p-5 space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Date *</label><input type="date" value={weeklyMenuForm.meal_date} onChange={e => setWeeklyMenuForm(f => ({ ...f, meal_date: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
+                          <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Day Name</label><input type="text" value={weeklyMenuForm.day_name} onChange={e => setWeeklyMenuForm(f => ({ ...f, day_name: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
+                        </div>
+                        <div className="flex items-center gap-2"><input type="checkbox" id="wm-closed" checked={weeklyMenuForm.is_closed} onChange={e => setWeeklyMenuForm(f => ({ ...f, is_closed: e.target.checked }))} className="rounded" /><label htmlFor="wm-closed" className="text-sm text-[#5C5347]">Closed this day</label></div>
+                        {weeklyMenuForm.is_closed ? (
+                          <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Reason</label><input type="text" value={weeklyMenuForm.closed_reason} onChange={e => setWeeklyMenuForm(f => ({ ...f, closed_reason: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
+                        ) : (
+                          <>
+                            <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Meal Name</label><input type="text" value={weeklyMenuForm.meal_name} onChange={e => setWeeklyMenuForm(f => ({ ...f, meal_name: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
+                            <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Description</label><textarea value={weeklyMenuForm.description} onChange={e => setWeeklyMenuForm(f => ({ ...f, description: e.target.value }))} rows={2} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] resize-none" /></div>
+                            <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Price (R)</label><input type="number" step="0.01" value={weeklyMenuForm.price} onChange={e => setWeeklyMenuForm(f => ({ ...f, price: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
+                          </>
+                        )}
+                        {weeklyMenuFormError && <p className="text-sm text-red-600">{weeklyMenuFormError}</p>}
+                        {weeklyMenuFormSuccess && <p className="text-sm text-green-600">{weeklyMenuFormSuccess}</p>}
+                      </div>
+                      <div className="p-5 border-t border-[#EDE7DA] flex gap-3">
+                        <button onClick={async () => {
+                          if (!weeklyMenuForm.meal_date) { showWeeklyMenuFormError('Date is required.'); return; }
+                          setSavingWeeklyEntry(true);
+                          const payload = { meal_date: weeklyMenuForm.meal_date, day_name: weeklyMenuForm.day_name || new Date(weeklyMenuForm.meal_date).toLocaleDateString('en-ZA', { weekday: 'long' }), meal_name: weeklyMenuForm.is_closed ? null : (weeklyMenuForm.meal_name || null), description: weeklyMenuForm.is_closed ? null : (weeklyMenuForm.description || null), price: weeklyMenuForm.is_closed ? null : (weeklyMenuForm.price ? Number(weeklyMenuForm.price) : null), is_closed: weeklyMenuForm.is_closed, closed_reason: weeklyMenuForm.is_closed ? (weeklyMenuForm.closed_reason || null) : null };
+                          let err: any = null;
+                          if (editingWeeklyEntry) {
+                            const { error } = await supabase.from('weekly_menu').update(payload).eq('id', editingWeeklyEntry.id);
+                            err = error;
+                          } else {
+                            const { error } = await supabase.from('weekly_menu').insert(payload);
+                            err = error;
+                          }
+                          if (err) { showWeeklyMenuFormError(err.message); }
+                          else { setWeeklyMenuFormSuccess(editingWeeklyEntry ? 'Entry updated!' : 'Entry added!'); setShowWeeklyMenuForm(false); await loadWeeklyMenu(); }
+                          setSavingWeeklyEntry(false);
+                        }} disabled={savingWeeklyEntry} className="bg-[#C4622D] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50">{savingWeeklyEntry ? 'Saving…' : (editingWeeklyEntry ? 'Save Changes' : 'Add Entry')}</button>
+                        <button onClick={() => setShowWeeklyMenuForm(false)} className="px-6 py-2.5 rounded-xl text-sm font-semibold border border-[#DDD5C8] text-[#5C5347] hover:bg-[#FAF5EE] transition-colors">Cancel</button>
                       </div>
                     </div>
                   </div>
