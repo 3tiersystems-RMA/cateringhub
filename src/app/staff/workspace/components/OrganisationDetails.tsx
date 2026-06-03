@@ -296,6 +296,15 @@ function WarehousePanel({ entityId }: { entityId: string }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  const toggleExpand = (id: string) => {
+    setExpandedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) { next.delete(id); } else { next.add(id); }
+      return next;
+    });
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -417,31 +426,65 @@ function WarehousePanel({ entityId }: { entityId: string }) {
         </div>
       ) : (
         <div className="space-y-3">
-          {items.map(item => (
-            <div key={item.id} className={`border rounded-xl p-4 ${item.is_default ? 'border-green-200 bg-green-50/30' : 'border-[#E8DDD0] bg-white'}`}>
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap mb-1.5">
-                    <span className="font-semibold text-sm text-[#1A1612]">{item.name}</span>
-                    {item.is_default && <DefaultBadge />}
-                  </div>
-                  <p className="text-xs text-[#5C5347]">{item.address}</p>
-                  <p className="text-xs text-[#8C8278]">
-                    {[item.city, item.province, item.postal_code, item.country].filter(Boolean).join(', ')}
-                  </p>
+          {items.map(item => {
+            const isExpanded = item.is_default || expandedIds.has(item.id);
+            return (
+            <div key={item.id} className={`border rounded-xl overflow-hidden ${item.is_default ? 'border-green-200 bg-green-50/30' : 'border-[#E8DDD0] bg-white'}`}>
+              {/* Collapsible header for non-default; always-visible header for default */}
+              <div
+                className={`flex items-center gap-2 px-4 py-3 ${!item.is_default ? 'cursor-pointer hover:bg-[#FAF5EE] transition-colors' : ''}`}
+                onClick={!item.is_default ? () => toggleExpand(item.id) : undefined}
+              >
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <span className="font-semibold text-sm text-[#1A1612] truncate">{item.name}</span>
+                  {item.is_default && <DefaultBadge />}
                 </div>
-                <div className="flex flex-col gap-1.5 flex-shrink-0">
-                  {!item.is_default && (
-                    <button onClick={() => handleSetDefault(item.id)} className="text-xs text-[#5C5347] border border-[#DDD5C8] px-2.5 py-1 rounded-lg hover:bg-[#F5F0E8] hover:border-[#C4622D] hover:text-[#C4622D] transition-colors whitespace-nowrap">Set Default</button>
-                  )}
-                  <button onClick={() => openEdit(item)} className="text-xs text-[#5C5347] border border-[#DDD5C8] px-2.5 py-1 rounded-lg hover:bg-[#F5F0E8] transition-colors">Edit</button>
-                  <button onClick={() => handleDelete(item.id)} disabled={deletingId === item.id} className="text-xs text-red-600 border border-red-200 px-2.5 py-1 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50">
+                {!item.is_default && (
+                  <svg
+                    className={`w-4 h-4 text-[#8C8278] transition-transform flex-shrink-0 ${isExpanded ? 'rotate-180' : ''}`}
+                    fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                )}
+              </div>
+
+              {/* Expanded content */}
+              {isExpanded && (
+                <div className={`px-4 pb-4 ${!item.is_default ? 'border-t border-[#E8DDD0]' : ''}`}>
+                  <div className="flex items-start justify-between gap-3 pt-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-[#5C5347]">{item.address}</p>
+                      <p className="text-xs text-[#8C8278]">
+                        {[item.city, item.province, item.postal_code, item.country].filter(Boolean).join(', ')}
+                      </p>
+                    </div>
+                    <div className="flex flex-col gap-1.5 flex-shrink-0">
+                      {!item.is_default && (
+                        <button onClick={() => handleSetDefault(item.id)} className="text-xs text-[#5C5347] border border-[#DDD5C8] px-2.5 py-1 rounded-lg hover:bg-[#F5F0E8] hover:border-[#C4622D] hover:text-[#C4622D] transition-colors whitespace-nowrap">Set Default</button>
+                      )}
+                      <button onClick={() => openEdit(item)} className="text-xs text-[#5C5347] border border-[#DDD5C8] px-2.5 py-1 rounded-lg hover:bg-[#F5F0E8] transition-colors">Edit</button>
+                      <button onClick={() => handleDelete(item.id)} disabled={deletingId === item.id} className="text-xs text-red-600 border border-red-200 px-2.5 py-1 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50">
+                        {deletingId === item.id ? '…' : 'Delete'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Collapsed state: show action buttons inline for non-default */}
+              {!isExpanded && !item.is_default && (
+                <div className="px-4 pb-3 flex items-center gap-1.5 justify-end">
+                  <button onClick={(e) => { e.stopPropagation(); handleSetDefault(item.id); }} className="text-xs text-[#5C5347] border border-[#DDD5C8] px-2.5 py-1 rounded-lg hover:bg-[#F5F0E8] hover:border-[#C4622D] hover:text-[#C4622D] transition-colors whitespace-nowrap">Set Default</button>
+                  <button onClick={(e) => { e.stopPropagation(); openEdit(item); }} className="text-xs text-[#5C5347] border border-[#DDD5C8] px-2.5 py-1 rounded-lg hover:bg-[#F5F0E8] transition-colors">Edit</button>
+                  <button onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }} disabled={deletingId === item.id} className="text-xs text-red-600 border border-red-200 px-2.5 py-1 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50">
                     {deletingId === item.id ? '…' : 'Delete'}
                   </button>
                 </div>
-              </div>
+              )}
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

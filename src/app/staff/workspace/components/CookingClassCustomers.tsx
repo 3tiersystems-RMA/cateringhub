@@ -693,7 +693,6 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
                           {/* Registrant as participant */}
                           <div className="border border-[#EDE7DA] rounded-xl overflow-hidden">
                             <div className="bg-[#F5F0E8] px-4 py-2.5 flex items-center gap-2">
-                              <span className="w-6 h-6 rounded-full bg-[#C4622D] text-white text-xs font-bold flex items-center justify-center">1</span>
                               <span className="text-sm font-semibold text-[#1A1612]">
                                 {reg.title ? `${reg.title} ` : ''}{reg.first_name} {reg.surname}
                               </span>
@@ -716,7 +715,7 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
                             return (
                               <div key={idx} className="border border-[#EDE7DA] rounded-xl overflow-hidden">
                                 <div className="bg-[#F5F0E8] px-4 py-2.5 flex items-center gap-2">
-                                  <span className="w-6 h-6 rounded-full bg-[#C4622D] text-white text-xs font-bold flex items-center justify-center">{idx + 2}</span>
+                                  <span className="w-6 h-6 rounded-full bg-[#C4622D] text-white text-xs font-bold flex items-center justify-center">{idx + 1}</span>
                                   <span className="text-sm font-semibold text-[#1A1612]">{childName}</span>
                                   {childAge !== '—' && (
                                     <span className="text-xs bg-white border border-[#DDD5C8] text-[#5C5347] px-2 py-0.5 rounded-full">Age {childAge}</span>
