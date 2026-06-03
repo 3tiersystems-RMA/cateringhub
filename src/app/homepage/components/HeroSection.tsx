@@ -5,7 +5,7 @@ import Link from "next/link";
 import AppImage from "@/components/ui/AppImage";
 import Icon from "@/components/ui/AppIcon";
 import { createClient } from "@/lib/supabase/client";
-import { getHomepageSectionVisibility } from "@/lib/homepage-sections";
+import { getHomepageSectionVisibility, getTickerBannerSettings } from "@/lib/homepage-sections";
 import AnnouncementCard from "./AnnouncementCard";
 import { useCart } from "@/app/products/components/CartContext";
 import ProductModal from "@/app/products/components/ProductModal";
@@ -40,7 +40,8 @@ function HeroSectionInner() {
   const [cards, setCards] = useState<HomepageCard[]>([]);
   const [cardsLoaded, setCardsLoaded] = useState(false);
   const [showViewServices, setShowViewServices] = useState(false);
-  const [showHeroBadge, setShowHeroBadge] = useState(true);
+  const [showHeroBadge, setShowHeroBadge] = useState(false);
+  const [heroBadgeText, setHeroBadgeText] = useState("Now Accepting 2026 Bookings");
   const [modalProduct, setModalProduct] = useState<CartProduct | null>(null);
   const [modalAdded, setModalAdded] = useState(false);
   const { addItem, setIsOpen } = useCart();
@@ -58,7 +59,10 @@ function HeroSectionInner() {
 
   useEffect(() => {
     getHomepageSectionVisibility('what_we_do', true).then(setShowViewServices);
-    getHomepageSectionVisibility('hero_badge', true).then(setShowHeroBadge);
+    getTickerBannerSettings().then(({ isVisible, bannerText }) => {
+      setShowHeroBadge(isVisible);
+      if (bannerText) setHeroBadgeText(bannerText);
+    });
   }, []);
 
   useEffect(() => {
@@ -205,7 +209,7 @@ function HeroSectionInner() {
             <div className="reveal hidden-init hero-reveal inline-flex items-center gap-2 px-4 py-2 bg-[#C4622D]/15 border border-[#C4622D]/30 rounded-full backdrop-blur-sm">
               <span className="w-1.5 h-1.5 rounded-full bg-[#C4622D] pulse-dot" />
               <span className="text-xs font-semibold tracking-widest uppercase text-[#D97B4A]">
-                Now Accepting 2026 Bookings
+                {heroBadgeText}
               </span>
             </div>
             }
