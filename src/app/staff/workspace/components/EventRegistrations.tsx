@@ -1277,7 +1277,6 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
                                               <th className="px-3 py-2 text-left font-semibold">Date of Birth</th>
                                               <th className="px-3 py-2 text-left font-semibold">Age</th>
                                               <th className="px-3 py-2 text-left font-semibold">Gender</th>
-                                              <th className="px-3 py-2 text-left font-semibold">School</th>
                                               <th className="px-3 py-2 text-left font-semibold">Grade</th>
                                               <th className="px-3 py-2 text-left font-semibold">Allergies</th>
                                             </tr>
@@ -1292,7 +1291,6 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
                                                   {child.age != null ? String(child.age) : calcAge(child.dob)}
                                                 </td>
                                                 <td className="px-3 py-2 text-[#5C5347] capitalize">{child.gender || '—'}</td>
-                                                <td className="px-3 py-2 text-[#5C5347]">{child.school || '—'}</td>
                                                 <td className="px-3 py-2 text-[#5C5347]">{child.grade || '—'}</td>
                                                 <td className="px-3 py-2 text-[#5C5347]">{child.allergies || '—'}</td>
                                               </tr>
