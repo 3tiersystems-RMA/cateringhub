@@ -18,6 +18,8 @@ import EventRegistrations from '@/app/staff/workspace/components/EventRegistrati
 
 
 import OrganisationDetails from '@/app/staff/workspace/components/OrganisationDetails';
+import OrderManagement from '@/app/staff/workspace/components/OrderManagement';
+import CustomerOrderHistory from '@/app/staff/workspace/components/CustomerOrderHistory';
 
 import { calculateOrderTotal, isFulfillmentStatusLocked } from '@/lib/order-totals';
 
@@ -857,7 +859,7 @@ export default function StaffWorkspacePage() {
   const [dvLoading, setDvLoading] = useState(false);
   const [showDvForm, setShowDvForm] = useState(false);
   const [editingDv, setEditingDv] = useState<DiscountVoucher | null>(null);
-  const [dvForm, setDvForm] = useState({ dv_code: '', dv_type: 'Discount' as 'Discount' | 'Gift', dv_amount: '', status: 'Active' as 'Active' | 'Inactive', expiry_date: '', created_at: '' });
+  const [dvForm, setDvForm] = useState({ dv_code: '', dv_type: 'Discount' as 'Discount' | 'Gift', dv_amount: '', status: 'Active\' as \'Active\' | \'Inactive', expiry_date: '', created_at: '' });
   const [dvFormError, setDvFormError] = useState('');
   const [dvFormSuccess, setDvFormSuccess] = useState('');
   const [savingDv, setSavingDv] = useState(false);
@@ -3411,8 +3413,30 @@ export default function StaffWorkspacePage() {
                                   </div>
                                 </div>
 
-                                {/* Update Status Panels */}
-                                {can('orders', 'status') && (
-                                  <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {/* Update Fulfillment Status */}
-                                    <div className="bg-white rounded-xl border border-[#DDD5C8]">
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── ORDER MANAGEMENT TAB ── */}
+            {activeTab === 'orders' && false && (
+              <OrderManagement />
+            )}
+
+            {/* ── CUSTOMER ORDER HISTORY TAB ── */}
+            {activeTab === 'customer_order_history' && (
+              <CustomerOrderHistory />
+            )}
+
+          </main>
+        </div>
+      </div>
+    </>
+  );
+}
