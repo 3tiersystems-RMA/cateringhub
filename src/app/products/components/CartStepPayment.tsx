@@ -144,25 +144,22 @@ export default function CartStepPayment({
               <div>
                 <p className="text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-3">Select Payment Method</p>
                 <div className="space-y-2">
-                  {/* Manual EFT — default */}
-                  <button
-                    type="button"
-                    onClick={() => setSelectedMethod("eft")}
-                    className={`w-full flex items-center gap-3 p-3.5 rounded-xl border-2 transition-all text-left ${
-                      selectedMethod === "eft" ? "border-[#C4622D] bg-[#C4622D]/5" : "border-[#DDD5C8] bg-white hover:border-[#C4622D]/40"
-                    }`}
+                  {/* Manual EFT — inactive until further notice */}
+                  <div
+                    className="w-full flex items-center gap-3 p-3.5 rounded-xl border-2 border-[#DDD5C8] bg-[#F5F3F0] opacity-60 cursor-not-allowed text-left relative"
                   >
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${selectedMethod === "eft" ? "bg-[#C4622D] text-white" : "bg-[#EDE7DA] text-[#8C8278]"}`}>
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-[#EDE7DA] text-[#B5ADA5]">
                       <Icon name="BuildingLibraryIcon" size={16} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-semibold ${selectedMethod === "eft" ? "text-[#C4622D]" : "text-[#1A1612]"}`}>Manual EFT</p>
-                      <p className="text-xs text-[#8C8278]">Bank transfer to {APP_NAME}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-semibold text-[#B5ADA5]">Manual EFT</p>
+                        <span className="text-[10px] font-semibold uppercase tracking-wider bg-[#DDD5C8] text-[#8C8278] px-2 py-0.5 rounded-full">Unavailable</span>
+                      </div>
+                      <p className="text-xs text-[#C4B8AC]">Bank transfer to {APP_NAME}</p>
                     </div>
-                    <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 ${selectedMethod === "eft" ? "border-[#C4622D] bg-[#C4622D]" : "border-[#DDD5C8]"}`}>
-                      {selectedMethod === "eft" && <div className="w-full h-full rounded-full bg-white scale-50" />}
-                    </div>
-                  </button>
+                    <div className="w-4 h-4 rounded-full border-2 flex-shrink-0 border-[#DDD5C8]" />
+                  </div>
 
                   {/* PayFast */}
                   <button

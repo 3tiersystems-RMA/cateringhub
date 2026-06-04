@@ -27,7 +27,7 @@ export default function CartSidebar() {
 
   const [step, setStep] = useState<CheckoutStep>("cart");
   const [form, setForm] = useState(INITIAL_FORM);
-  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>("eft");
+  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>("payfast");
   const [processing, setProcessing] = useState(false);
   const [payError, setPayErrorState] = useState("");
   const [phoneError, setPhoneErrorState] = useState("");
@@ -93,7 +93,7 @@ export default function CartSidebar() {
     setPayErrorState("");
     setPhoneErrorState("");
     setProcessing(false);
-    setSelectedMethod("eft");
+    setSelectedMethod("payfast");
     setDespatchPhase("idle");
     setDespatchMethod(null);
     setDeliveryFee(0);
