@@ -21,6 +21,9 @@ import EventRegistrations from '@/app/staff/workspace/components/EventRegistrati
 import PaymentConfirmation from '@/app/staff/workspace/components/PaymentConfirmation';
 import OrderManagement from '@/app/staff/workspace/components/OrderManagement';
 import CustomerOrderHistory from '@/app/staff/workspace/components/CustomerOrderHistory';
+import DocumentManagement from '@/app/staff/workspace/components/DocumentManagement';
+import MediaEvents from '@/app/staff/workspace/components/MediaEvents';
+import MediaProducts from '@/app/staff/workspace/components/MediaProducts';
 
 
 
@@ -3974,6 +3977,12 @@ export default function StaffWorkspacePage() {
             {activeTab === 'customer_order_history' && (
               <CustomerOrderHistory />
             )}
+
+            {activeTab === 'media' && (<DocumentManagement userRole={userProfile?.role || ''} />)}
+
+            {activeTab === 'media_events' && (<MediaEvents userRole={userProfile?.role || ''} />)}
+
+            {activeTab === 'media_products' && (<MediaProducts userRole={userProfile?.role || ''} />)}
 
             {/* ── PAYMENT CONFIRMATION TAB ── */}
             {activeTab === 'payment_confirmation' && (
