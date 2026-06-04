@@ -19,6 +19,8 @@ import CookingClassCustomers from '@/app/staff/workspace/components/CookingClass
 import CookingClassAnalytics from '@/app/staff/workspace/components/CookingClassAnalytics';
 import EventRegistrations from '@/app/staff/workspace/components/EventRegistrations';
 import PaymentConfirmation from '@/app/staff/workspace/components/PaymentConfirmation';
+import OrderManagement from '@/app/staff/workspace/components/OrderManagement';
+import CustomerOrderHistory from '@/app/staff/workspace/components/CustomerOrderHistory';
 
 
 
@@ -3961,6 +3963,16 @@ export default function StaffWorkspacePage() {
                   </div>
                 )}
               </div>
+            )}
+
+            {/* ── ORDER MANAGEMENT TAB ── */}
+            {activeTab === 'orders' && (
+              <OrderManagement />
+            )}
+
+            {/* ── CUSTOMER ORDER HISTORY TAB ── */}
+            {activeTab === 'customer_order_history' && (
+              <CustomerOrderHistory />
             )}
 
             {/* ── PAYMENT CONFIRMATION TAB ── */}
