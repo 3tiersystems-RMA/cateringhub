@@ -22,7 +22,16 @@ import OrganisationDetails from '@/app/staff/workspace/components/OrganisationDe
 import CorrespondenceSettings from '@/app/staff/workspace/components/CorrespondenceSettings';
 import { calculateOrderTotal, isFulfillmentStatusLocked } from '@/lib/order-totals';
 import {
-  BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
 } from 'recharts';
 
 type BucketType = 'product-images' | 'event-photos' | 'document-management';
@@ -859,7 +868,7 @@ export default function StaffWorkspacePage() {
   const [dvLoading, setDvLoading] = useState(false);
   const [showDvForm, setShowDvForm] = useState(false);
   const [editingDv, setEditingDv] = useState<DiscountVoucher | null>(null);
-  const [dvForm, setDvForm] = useState({ dv_code: '', dv_type: 'Discount' as 'Discount' | 'Gift', dv_amount: '', status: 'Active\' as \'Active\' | \'Inactive', expiry_date: '', created_at: '' });
+  const [dvForm, setDvForm] = useState({ dv_code: '', dv_type: 'Discount' as 'Discount' | 'Gift', dv_amount: '', status: 'Active' as 'Active' | 'Inactive', expiry_date: '', created_at: '' });
   const [dvFormError, setDvFormError] = useState('');
   const [dvFormSuccess, setDvFormSuccess] = useState('');
   const [savingDv, setSavingDv] = useState(false);
@@ -4073,6 +4082,209 @@ export default function StaffWorkspacePage() {
 
             {activeTab === 'media_products' && (<MediaProducts userRole={userProfile?.role || ''} />)}
 
+            {/* ── TESTIMONIALS TAB ── */}
+            {activeTab === 'testimonials' && (
+              <div className="p-6">
+                <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
+                  <div>
+                    <h2 className="text-xl font-bold text-[#1A1612]">Testimonials</h2>
+                    <p className="text-sm text-[#8C8278] mt-0.5">{testimonials.length} testimonial{testimonials.length !== 1 ? 's' : ''}</p>
+                  </div>
+                  {can('testimonials', 'create') && (
+                    <button
+                      onClick={() => {
+                        setEditingTestimonial(null);
+                        setTestimonialForm({ quote: '', name: '', role: '', avatar_url: '', rating: 5, is_active: true, display_order: '0' });
+                        setTestimonialFormError('');
+                        setShowTestimonialForm(true);
+                      }}
+                      className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors"
+                    >
+                      + Add Testimonial
+                    </button>
+                  )}
+                </div>
+
+                {testimonialsLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {testimonials.map(t => (
+                      <div key={t.id} className="bg-white rounded-2xl border border-[#EDE7DA] p-5">
+                        <div className="flex items-start justify-between gap-4 flex-wrap">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                              <p className="font-semibold text-[#1A1612]">{t.name}</p>
+                              {t.role && <span className="text-xs text-[#8C8278] bg-[#F5F0E8] px-2 py-0.5 rounded-full">{t.role}</span>}
+                              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${t.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                                {t.is_active ? 'Visible' : 'Hidden'}
+                              </span>
+                            </div>
+                            <p className="text-sm text-[#5C5347] mb-2 line-clamp-3">"{t.quote}"</p>
+                            <div className="flex items-center gap-3">
+                              <span className="text-xs text-[#8C8278]">
+                                {'★'.repeat(t.rating)}{'☆'.repeat(5 - t.rating)} ({t.rating}/5)
+                              </span>
+                              <span className="text-xs text-[#8C8278]">Order: {t.display_order}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            {can('testimonials', 'edit') && (
+                              <button
+                                onClick={() => {
+                                  setEditingTestimonial(t);
+                                  setTestimonialForm({
+                                    quote: t.quote,
+                                    name: t.name,
+                                    role: t.role,
+                                    avatar_url: t.avatar_url || '',
+                                    rating: t.rating,
+                                    is_active: t.is_active,
+                                    display_order: String(t.display_order),
+                                  });
+                                  setTestimonialFormError('');
+                                  setShowTestimonialForm(true);
+                                }}
+                                className="text-xs text-[#C4622D] border border-[#C4622D] px-2.5 py-1 rounded-lg font-semibold hover:bg-[#FDF6EE] transition-colors"
+                              >
+                                Edit
+                              </button>
+                            )}
+                            {can('testimonials', 'delete') && (
+                              <button
+                                onClick={() => handleDeleteTestimonial(t)}
+                                className="text-xs text-red-500 border border-red-300 px-2.5 py-1 rounded-lg font-semibold hover:bg-red-50 transition-colors"
+                              >
+                                Delete
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    {testimonials.length === 0 && (
+                      <div className="bg-white rounded-2xl border border-[#EDE7DA] p-8 text-center">
+                        <p className="text-[#8C8278] text-sm">No testimonials found.</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Add / Edit Testimonial Modal */}
+                {showTestimonialForm && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+                      <div className="p-5 border-b border-[#EDE7DA] flex items-center justify-between">
+                        <h3 className="text-base font-bold text-[#1A1612]">
+                          {editingTestimonial ? 'Edit Testimonial' : 'Add Testimonial'}
+                        </h3>
+                        <button
+                          onClick={() => { setShowTestimonialForm(false); setEditingTestimonial(null); setTestimonialFormError(''); }}
+                          className="text-[#8C8278] hover:text-[#1A1612]"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                      <div className="p-5 space-y-3">
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Customer Name *</label>
+                          <input
+                            type="text"
+                            value={testimonialForm.name}
+                            onChange={e => setTestimonialForm(f => ({ ...f, name: e.target.value }))}
+                            className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                            placeholder="e.g. Jane Smith"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Role / Title</label>
+                          <input
+                            type="text"
+                            value={testimonialForm.role}
+                            onChange={e => setTestimonialForm(f => ({ ...f, role: e.target.value }))}
+                            className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                            placeholder="e.g. Regular Customer"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Testimonial Content *</label>
+                          <textarea
+                            value={testimonialForm.quote}
+                            onChange={e => setTestimonialForm(f => ({ ...f, quote: e.target.value }))}
+                            rows={4}
+                            className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] resize-none"
+                            placeholder="What did the customer say?"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-semibold text-[#5C5347] mb-1">Rating (1–5)</label>
+                            <select
+                              value={testimonialForm.rating}
+                              onChange={e => setTestimonialForm(f => ({ ...f, rating: Number(e.target.value) }))}
+                              className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+                            >
+                              {[1, 2, 3, 4, 5].map(n => (
+                                <option key={n} value={n}>{n} Star{n !== 1 ? 's' : ''}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-[#5C5347] mb-1">Display Order</label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={testimonialForm.display_order}
+                              onChange={e => setTestimonialForm(f => ({ ...f, display_order: e.target.value }))}
+                              className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Avatar URL</label>
+                          <input
+                            type="url"
+                            value={testimonialForm.avatar_url}
+                            onChange={e => setTestimonialForm(f => ({ ...f, avatar_url: e.target.value }))}
+                            className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                            placeholder="https://..."
+                          />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            id="testimonial-active"
+                            checked={testimonialForm.is_active}
+                            onChange={e => setTestimonialForm(f => ({ ...f, is_active: e.target.checked }))}
+                            className="rounded"
+                          />
+                          <label htmlFor="testimonial-active" className="text-sm text-[#5C5347]">Visible on homepage</label>
+                        </div>
+                        {testimonialFormError && <p className="text-sm text-red-600">{testimonialFormError}</p>}
+                      </div>
+                      <div className="p-5 border-t border-[#EDE7DA] flex gap-3">
+                        <button
+                          onClick={handleSaveTestimonial}
+                          disabled={savingTestimonial}
+                          className="bg-[#C4622D] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
+                        >
+                          {savingTestimonial ? 'Saving…' : (editingTestimonial ? 'Save Changes' : 'Add Testimonial')}
+                        </button>
+                        <button
+                          onClick={() => { setShowTestimonialForm(false); setEditingTestimonial(null); setTestimonialFormError(''); }}
+                          className="px-6 py-2.5 rounded-xl text-sm font-semibold border border-[#DDD5C8] text-[#5C5347] hover:bg-[#FAF5EE] transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {activeTab === 'abandoned_carts' && (<AbandonedCarts userRole={userProfile?.role || ''} />)}
 
             {/* ── COLLECTION NOTIFICATION TAB ── */}
@@ -4144,172 +4356,4 @@ export default function StaffWorkspacePage() {
                         <tbody>
                           {packageMealsRows.length === 0 ? (<tr><td colSpan={10} className="px-4 py-8 text-center text-[#8C8278]">No data available</td></tr>) : packageMealsRows.map((row, i) => (
                             <tr key={i} className={`border-t border-[#EDE7DA] ${i % 2 === 0 ? 'bg-white' : 'bg-[#FAF7F3]'}`}>
-                              <td className="px-4 py-3 font-medium text-[#1A1612]">{row.productName}</td><td className="px-4 py-3 text-[#5C5347]">{row.productType}</td><td className="px-4 py-3 text-[#5C5347]">{row.item}</td><td className="px-4 py-3 text-[#5C5347]">{row.packagePurchased}</td><td className="px-4 py-3 text-[#5C5347]">{row.mealVoucher || '—'}</td><td className="px-4 py-3 text-[#5C5347]">{row.discountVoucher || '—'}</td><td className="px-4 py-3 text-[#5C5347]">{row.orderedDate}</td><td className="px-4 py-3 text-[#5C5347]">{row.deliveredDt}</td><td className="px-4 py-3 text-[#5C5347]">{row.clientName}</td><td className="px-4 py-3 text-[#5C5347]">{row.clientEmail}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-                {!frozenMealsLoading && reportingView === 'frozen_meals_ordered' && (
-                  <div>
-                    <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-                      <h3 className="text-base font-bold text-[#1A1612]">Frozen Meals Ordered ({frozenMealsRows.length})</h3>
-                      <button onClick={() => downloadFrozenMealsPDF(frozenMealsRows)} className="text-xs border border-[#DDD5C8] text-[#5C5347] px-3 py-1.5 rounded-xl font-semibold hover:bg-[#FAF5EE] transition-colors">Download PDF</button>
-                    </div>
-                    <div className="overflow-x-auto rounded-2xl border border-[#EDE7DA]">
-                      <table className="w-full text-xs">
-                        <thead><tr className="bg-[#F5F0E8] text-[#5C5347]"><th className="px-4 py-3 text-left font-semibold">Product</th><th className="px-4 py-3 text-left font-semibold">Type</th><th className="px-4 py-3 text-left font-semibold">Item</th><th className="px-4 py-3 text-left font-semibold">Package</th><th className="px-4 py-3 text-left font-semibold">Meal Voucher</th><th className="px-4 py-3 text-left font-semibold">Discount Voucher</th><th className="px-4 py-3 text-left font-semibold">Ordered</th><th className="px-4 py-3 text-left font-semibold">Delivered</th><th className="px-4 py-3 text-left font-semibold">Client</th><th className="px-4 py-3 text-left font-semibold">Email</th></tr></thead>
-                        <tbody>
-                          {frozenMealsRows.length === 0 ? (<tr><td colSpan={10} className="px-4 py-8 text-center text-[#8C8278]">No data available</td></tr>) : frozenMealsRows.map((row, i) => (
-                            <tr key={i} className={`border-t border-[#EDE7DA] ${i % 2 === 0 ? 'bg-white' : 'bg-[#FAF7F3]'}`}>
-                              <td className="px-4 py-3 font-medium text-[#1A1612]">{row.productName}</td><td className="px-4 py-3 text-[#5C5347]">{row.productType}</td><td className="px-4 py-3 text-[#5C5347]">{row.item}</td><td className="px-4 py-3 text-[#5C5347]">{row.packagePurchased}</td><td className="px-4 py-3 text-[#5C5347]">{row.mealVoucher || '—'}</td><td className="px-4 py-3 text-[#5C5347]">{row.discountVoucher || '—'}</td><td className="px-4 py-3 text-[#5C5347]">{row.orderedDate}</td><td className="px-4 py-3 text-[#5C5347]">{row.deliveredDt}</td><td className="px-4 py-3 text-[#5C5347]">{row.clientName}</td><td className="px-4 py-3 text-[#5C5347]">{row.clientEmail}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-                {!discountVouchersReportLoading && reportingView === 'discount_vouchers_report' && (
-                  <div>
-                    <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-                      <h3 className="text-base font-bold text-[#1A1612]">Discount Vouchers Report ({discountVouchersReportRows.length})</h3>
-                      <button onClick={() => downloadDiscountVouchersPDF(discountVouchersReportRows)} className="text-xs border border-[#DDD5C8] text-[#5C5347] px-3 py-1.5 rounded-xl font-semibold hover:bg-[#FAF5EE] transition-colors">Download PDF</button>
-                    </div>
-                    <div className="overflow-x-auto rounded-2xl border border-[#EDE7DA]">
-                      <table className="w-full text-xs">
-                        <thead><tr className="bg-[#F5F0E8] text-[#5C5347]"><th className="px-4 py-3 text-left font-semibold">Voucher Code</th><th className="px-4 py-3 text-left font-semibold">Amount</th><th className="px-4 py-3 text-left font-semibold">Expiry</th><th className="px-4 py-3 text-left font-semibold">Product</th><th className="px-4 py-3 text-left font-semibold">Type</th><th className="px-4 py-3 text-left font-semibold">Item</th><th className="px-4 py-3 text-left font-semibold">Ordered</th><th className="px-4 py-3 text-left font-semibold">Delivered</th><th className="px-4 py-3 text-left font-semibold">Client</th><th className="px-4 py-3 text-left font-semibold">Email</th></tr></thead>
-                        <tbody>
-                          {discountVouchersReportRows.length === 0 ? (<tr><td colSpan={10} className="px-4 py-8 text-center text-[#8C8278]">No data available</td></tr>) : discountVouchersReportRows.map((row, i) => (
-                            <tr key={i} className={`border-t border-[#EDE7DA] ${i % 2 === 0 ? 'bg-white' : 'bg-[#FAF7F3]'}`}>
-                              <td className="px-4 py-3 font-mono font-medium text-[#C4622D]">{row.dvCode}</td><td className="px-4 py-3 text-[#1A1612] font-semibold">R{row.dvAmount.toFixed(2)}</td><td className="px-4 py-3 text-[#5C5347]">{row.expiryDate}</td><td className="px-4 py-3 font-medium text-[#1A1612]">{row.productName}</td><td className="px-4 py-3 text-[#5C5347]">{row.productType}</td><td className="px-4 py-3 text-[#5C5347]">{row.item}</td><td className="px-4 py-3 text-[#5C5347]">{row.orderedDate}</td><td className="px-4 py-3 text-[#5C5347]">{row.deliveredDt}</td><td className="px-4 py-3 text-[#5C5347]">{row.clientName}</td><td className="px-4 py-3 text-[#5C5347]">{row.clientEmail}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-                {!deliveredOrdersLoading && reportingView === 'delivered_orders' && (
-                  <div>
-                    <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-                      <h3 className="text-base font-bold text-[#1A1612]">Delivered Orders ({deliveredOrdersRows.length})</h3>
-                      <button onClick={() => downloadDeliveredOrdersPDF(deliveredOrdersRows)} className="text-xs border border-[#DDD5C8] text-[#5C5347] px-3 py-1.5 rounded-xl font-semibold hover:bg-[#FAF5EE] transition-colors">Download PDF</button>
-                    </div>
-                    <div className="overflow-x-auto rounded-2xl border border-[#EDE7DA]">
-                      <table className="w-full text-xs">
-                        <thead><tr className="bg-[#F5F0E8] text-[#5C5347]"><th className="px-4 py-3 text-left font-semibold">Product</th><th className="px-4 py-3 text-left font-semibold">Type</th><th className="px-4 py-3 text-left font-semibold">Item</th><th className="px-4 py-3 text-left font-semibold">Package</th><th className="px-4 py-3 text-left font-semibold">Meal Voucher</th><th className="px-4 py-3 text-left font-semibold">Discount Voucher</th><th className="px-4 py-3 text-left font-semibold">Ordered</th><th className="px-4 py-3 text-left font-semibold">Delivered</th><th className="px-4 py-3 text-left font-semibold">Lead Time</th><th className="px-4 py-3 text-left font-semibold">Email</th></tr></thead>
-                        <tbody>
-                          {deliveredOrdersRows.length === 0 ? (<tr><td colSpan={10} className="px-4 py-8 text-center text-[#8C8278]">No data available</td></tr>) : deliveredOrdersRows.map((row, i) => (
-                            <tr key={i} className={`border-t border-[#EDE7DA] ${i % 2 === 0 ? 'bg-white' : 'bg-[#FAF7F3]'}`}>
-                              <td className="px-4 py-3 font-medium text-[#1A1612]">{row.productName}</td><td className="px-4 py-3 text-[#5C5347]">{row.productType}</td><td className="px-4 py-3 text-[#5C5347]">{row.item}</td><td className="px-4 py-3 text-[#5C5347]">{row.packagePurchased}</td><td className="px-4 py-3 text-[#5C5347]">{row.mealVoucher || '—'}</td><td className="px-4 py-3 text-[#5C5347]">{row.discountVoucher || '—'}</td><td className="px-4 py-3 text-[#5C5347]">{row.orderedDate}</td><td className="px-4 py-3 text-[#5C5347]">{row.deliveredDt}</td><td className="px-4 py-3 text-[#5C5347]">{row.leadTime}</td><td className="px-4 py-3 text-[#5C5347]">{row.clientEmail}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* ── ANALYTICS TAB ── */}
-            {activeTab === 'analytics' && (
-              <div className="p-6">
-                <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
-                  <div>
-                    <h2 className="text-xl font-bold text-[#1A1612]">Analytics</h2>
-                    <p className="text-sm text-[#8C8278] mt-0.5">Business performance overview</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {(['7d', '30d', '90d', '12m'] as AnalyticsPeriod[]).map(p => (
-                      <button key={p} onClick={() => { setAnalyticsPeriod(p); loadAnalytics(p); }} className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors ${analyticsPeriod === p ? 'bg-[#C4622D] text-white' : 'bg-[#F5F0E8] text-[#5C5347] hover:bg-[#EDE7DA]'}`}>
-                        {p === '7d' ? '7 Days' : p === '30d' ? '30 Days' : p === '90d' ? '90 Days' : '12 Months'}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                {analyticsLoading && (
-                  <div className="flex items-center justify-center py-12"><div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>
-                )}
-                {analyticsError && !analyticsLoading && (
-                  <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4"><p className="text-sm text-red-600">{analyticsError}</p></div>
-                )}
-                {!analyticsLoading && (
-                  <>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                      {summaryMetrics.map((metric, i) => (
-                        <div key={i} className="bg-white rounded-2xl border border-[#EDE7DA] p-4">
-                          <span className="text-2xl block mb-2">{metric.icon}</span>
-                          <p className="text-2xl font-bold text-[#1A1612]">{metric.value}</p>
-                          <p className="text-xs font-semibold text-[#5C5347] mt-0.5">{metric.label}</p>
-                          {metric.sub && <p className="text-xs text-[#8C8278] mt-0.5">{metric.sub}</p>}
-                        </div>
-                      ))}
-                    </div>
-                    <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5 mb-6">
-                      <h3 className="text-sm font-bold text-[#1A1612] mb-4">Order Trend</h3>
-                      {orderTrend.length === 0 ? (
-                        <p className="text-sm text-[#8C8278] text-center py-8">No order data for this period</p>
-                      ) : (
-                        <ResponsiveContainer width="100%" height={260}>
-                          <BarChart data={orderTrend} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#EDE7DA" />
-                            <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#8C8278' }} />
-                            <YAxis yAxisId="left" tick={{ fontSize: 11, fill: '#8C8278' }} />
-                            <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: '#8C8278' }} tickFormatter={(v) => `R${v}`} />
-                            <Tooltip content={<AnalyticsTooltip />} />
-                            <Legend wrapperStyle={{ fontSize: 12 }} />
-                            <Bar yAxisId="left" dataKey="orders" name="Orders" fill="#C4622D" radius={[4, 4, 0, 0]} />
-                            <Bar yAxisId="right" dataKey="revenue" name="Revenue" fill="#EDE7DA" radius={[4, 4, 0, 0]} />
-                          </BarChart>
-                        </ResponsiveContainer>
-                      )}
-                    </div>
-                    <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5 mb-6">
-                      <h3 className="text-sm font-bold text-[#1A1612] mb-4">Voucher Usage Over Time</h3>
-                      {voucherUsage.length === 0 ? (
-                        <p className="text-sm text-[#8C8278] text-center py-8">No voucher data for this period</p>
-                      ) : (
-                        <ResponsiveContainer width="100%" height={260}>
-                          <LineChart data={voucherUsage} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#EDE7DA" />
-                            <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#8C8278' }} />
-                            <YAxis tick={{ fontSize: 11, fill: '#8C8278' }} />
-                            <Tooltip content={<AnalyticsTooltip />} />
-                            <Legend wrapperStyle={{ fontSize: 12 }} />
-                            <Line type="monotone" dataKey="mealVouchers" name="Meal Vouchers" stroke="#C4622D" strokeWidth={2} dot={false} />
-                            <Line type="monotone" dataKey="discountVouchers" name="Discount Vouchers" stroke="#8B5CF6" strokeWidth={2} dot={false} />
-                          </LineChart>
-                        </ResponsiveContainer>
-                      )}
-                    </div>
-                    <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5">
-                      <h3 className="text-sm font-bold text-[#1A1612] mb-4">Fulfillment Breakdown</h3>
-                      {fulfillmentMetrics.length === 0 ? (
-                        <p className="text-sm text-[#8C8278] text-center py-8">No fulfillment data for this period</p>
-                      ) : (
-                        <ResponsiveContainer width="100%" height={260}>
-                          <BarChart data={fulfillmentMetrics} layout="vertical" margin={{ top: 4, right: 16, left: 60, bottom: 4 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#EDE7DA" horizontal={false} />
-                            <XAxis type="number" tick={{ fontSize: 11, fill: '#8C8278' }} />
-                            <YAxis type="category" dataKey="status" tick={{ fontSize: 11, fill: '#8C8278' }} tickFormatter={(v: string) => ANALYTICS_FULFILLMENT_LABELS[v] || v} />
-                            <Tooltip content={<AnalyticsTooltip />} />
-                            <Bar dataKey="count" name="Orders" fill="#C4622D" radius={[0, 4, 4, 0]} />
-                          </BarChart>
-                        </ResponsiveContainer>
-                      )}
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
-
-          </main>
-        </div>
-      </div>
-    </>
-  );
-}
+                              <td className="px-4 py-3 font-medium text-[#1A1612]">{row.productName}</td><td className="px-4 py-3 text-[#5C5347]">{row.productType}</td><td className="px-4 py-3 text-[#5C5347]">{row.item}</td><td className="px-4 py-3 text-[#5C5347]">{row.packagePurchased}</td><td className="px-4 py-3 text-[#5C5347]">{row.mealVoucher || '—'}</td><td className="px-4 py-3 text-[#5C5347]">{row.discountVoucher || '—'}</td><td className="px-4 py-3 text-[#5C5347]">{row.orderedDate}</td><td className="px-4 py-3 text
