@@ -11,7 +11,7 @@ import CollectionNotification from './components/CollectionNotification';
 import GoogleDriveDocuments from '@/app/staff/workspace/components/GoogleDriveDocuments';
 import MediaEvents from '@/app/staff/workspace/components/MediaEvents';
 import MediaProducts from '@/app/staff/workspace/components/MediaProducts';
-import AbandonedCarts from '@/app/staff/workspace/components/AbandonedCarts';
+
 import OrderManagement from '@/app/staff/workspace/components/OrderManagement';
 import CustomerOrderHistory from '@/app/staff/workspace/components/CustomerOrderHistory';
 import CookingClassSettings from '@/app/staff/workspace/components/CookingClassSettings';
@@ -24,14 +24,14 @@ import { calculateOrderTotal, isFulfillmentStatusLocked } from '@/lib/order-tota
 import {
   ResponsiveContainer,
   BarChart,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
   Bar,
   LineChart,
   Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
 } from 'recharts';
 
 type BucketType = 'product-images' | 'event-photos' | 'document-management';
@@ -4285,75 +4285,84 @@ export default function StaffWorkspacePage() {
               </div>
             )}
 
-            {activeTab === 'abandoned_carts' && (<AbandonedCarts userRole={userProfile?.role || ''} />)}
-
-            {/* ── COLLECTION NOTIFICATION TAB ── */}
-            {activeTab === 'collection_notification' && (
-              <CollectionNotification userRole={userProfile?.role || ''} />
-            )}
-
-            {/* ── PAYMENT CONFIRMATION TAB ── */}
-            {activeTab === 'payment_confirmation' && (
-              <PaymentConfirmation userRole={userProfile?.role || ''} />
-            )}
-
-            {/* ── REPORTING TAB ── */}
-            {activeTab === 'reporting' && (
+            {/* ── GALLERY TAB ── */}
+            {activeTab === 'gallery' && (
               <div className="p-6">
-                <div className="mb-6">
-                  <h2 className="text-xl font-bold text-[#1A1612]">Reports Dashboard</h2>
-                  <p className="text-sm text-[#8C8278] mt-0.5">View detailed reports across orders and products</p>
-                </div>
-                <div className="flex flex-wrap gap-2 mb-6 border-b border-[#EDE7DA] pb-4">
-                  {([
-                    { key: 'products_ordered', label: 'Products Ordered' },
-                    { key: 'package_meals_ordered', label: 'Package Meals' },
-                    { key: 'frozen_meals_ordered', label: 'Frozen Meals' },
-                    { key: 'discount_vouchers_report', label: 'Discount Vouchers' },
-                    { key: 'delivered_orders', label: 'Delivered Orders' },
-                  ] as { key: typeof reportingView; label: string }[]).map(({ key, label }) => (
-                    <button
-                      key={key}
-                      onClick={() => setReportingView(key)}
-                      className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${reportingView === key ? 'bg-[#C4622D] text-white' : 'bg-[#F5F0E8] text-[#5C5347] hover:bg-[#EDE7DA]'}`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-                {(productsOrderedLoading || packageMealsLoading || frozenMealsLoading || discountVouchersReportLoading || deliveredOrdersLoading) && (
-                  <div className="flex items-center justify-center py-12"><div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>
-                )}
-                {!productsOrderedLoading && reportingView === 'products_ordered' && (
+                <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
                   <div>
-                    <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-                      <h3 className="text-base font-bold text-[#1A1612]">Products Ordered ({productsOrderedRows.length})</h3>
-                      <button onClick={() => downloadProductsOrderedPDF(productsOrderedRows)} className="text-xs border border-[#DDD5C8] text-[#5C5347] px-3 py-1.5 rounded-xl font-semibold hover:bg-[#FAF5EE] transition-colors">Download PDF</button>
-                    </div>
-                    <div className="overflow-x-auto rounded-2xl border border-[#EDE7DA]">
-                      <table className="w-full text-xs">
-                        <thead><tr className="bg-[#F5F0E8] text-[#5C5347]"><th className="px-4 py-3 text-left font-semibold">Product</th><th className="px-4 py-3 text-left font-semibold">Type</th><th className="px-4 py-3 text-left font-semibold">Item</th><th className="px-4 py-3 text-left font-semibold">Meal Voucher</th><th className="px-4 py-3 text-left font-semibold">Discount Voucher</th><th className="px-4 py-3 text-left font-semibold">Ordered</th><th className="px-4 py-3 text-left font-semibold">Client</th><th className="px-4 py-3 text-left font-semibold">Email</th></tr></thead>
-                        <tbody>
-                          {productsOrderedRows.length === 0 ? (<tr><td colSpan={8} className="px-4 py-8 text-center text-[#8C8278]">No data available</td></tr>) : productsOrderedRows.map((row, i) => (
-                            <tr key={i} className={`border-t border-[#EDE7DA] ${i % 2 === 0 ? 'bg-white' : 'bg-[#FAF7F3]'}`}>
-                              <td className="px-4 py-3 font-medium text-[#1A1612]">{row.productName}</td><td className="px-4 py-3 text-[#5C5347]">{row.productType}</td><td className="px-4 py-3 text-[#5C5347]">{row.item}</td><td className="px-4 py-3 text-[#5C5347]">{row.mealVoucher || '—'}</td><td className="px-4 py-3 text-[#5C5347]">{row.discountVoucher || '—'}</td><td className="px-4 py-3 text-[#5C5347]">{row.orderedDate}</td><td className="px-4 py-3 text-[#5C5347]">{row.clientName}</td><td className="px-4 py-3 text-[#5C5347]">{row.clientEmail}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                    <h2 className="text-xl font-bold text-[#1A1612]">Gallery</h2>
+                    <p className="text-sm text-[#8C8278] mt-0.5">{galleryImages.length} image{galleryImages.length !== 1 ? 's' : ''}</p>
+                  </div>
+                  {can('gallery', 'create') && (
+                    <button
+                      onClick={openAddGalleryForm}
+                      className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors"
+                    >
+                      + Add Image
+                    </button>
+                  )}
+                </div>
+
+                {galleryLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {galleryImages.map(img => (
+                      <div key={img.id} className="bg-white rounded-2xl border border-[#EDE7DA] overflow-hidden">
+                        {img.imageUrl ? (
+                          <img
+                            src={img.imageUrl}
+                            alt={img.title}
+                            className="w-full h-48 object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-48 bg-[#F5F0E8] flex items-center justify-center">
+                            <span className="text-3xl">🖼️</span>
+                          </div>
+                        )}
+                        <div className="p-4">
+                          <div className="flex items-start justify-between gap-2 mb-2">
+                            <p className="font-semibold text-[#1A1612] text-sm truncate">{img.title}</p>
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${img.is_visible ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                              {img.is_visible ? 'Visible' : 'Hidden'}
+                            </span>
+                          </div>
+                          <p className="text-xs text-[#8C8278] mb-3">Order: {img.sort_order}</p>
+                          <div className="flex items-center gap-2">
+                            {can('gallery', 'edit') && (
+                              <button
+                                onClick={() => openEditGalleryForm(img)}
+                                className="text-xs text-[#C4622D] border border-[#C4622D] px-2.5 py-1 rounded-lg font-semibold hover:bg-[#FDF6EE] transition-colors"
+                              >
+                                Edit
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    {galleryImages.length === 0 && (
+                      <div className="col-span-full bg-white rounded-2xl border border-[#EDE7DA] p-8 text-center">
+                        <p className="text-[#8C8278] text-sm">No gallery images found.</p>
+                      </div>
+                    )}
                   </div>
                 )}
-                {!packageMealsLoading && reportingView === 'package_meals_ordered' && (
-                  <div>
-                    <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-                      <h3 className="text-base font-bold text-[#1A1612]">Package Meals Ordered ({packageMealsRows.length})</h3>
-                      <button onClick={() => downloadPackageMealsPDF(packageMealsRows)} className="text-xs border border-[#DDD5C8] text-[#5C5347] px-3 py-1.5 rounded-xl font-semibold hover:bg-[#FAF5EE] transition-colors">Download PDF</button>
-                    </div>
-                    <div className="overflow-x-auto rounded-2xl border border-[#EDE7DA]">
-                      <table className="w-full text-xs">
-                        <thead><tr className="bg-[#F5F0E8] text-[#5C5347]"><th className="px-4 py-3 text-left font-semibold">Product</th><th className="px-4 py-3 text-left font-semibold">Type</th><th className="px-4 py-3 text-left font-semibold">Item</th><th className="px-4 py-3 text-left font-semibold">Package</th><th className="px-4 py-3 text-left font-semibold">Meal Voucher</th><th className="px-4 py-3 text-left font-semibold">Discount Voucher</th><th className="px-4 py-3 text-left font-semibold">Ordered</th><th className="px-4 py-3 text-left font-semibold">Delivered</th><th className="px-4 py-3 text-left font-semibold">Client</th><th className="px-4 py-3 text-left font-semibold">Email</th></tr></thead>
-                        <tbody>
-                          {packageMealsRows.length === 0 ? (<tr><td colSpan={10} className="px-4 py-8 text-center text-[#8C8278]">No data available</td></tr>) : packageMealsRows.map((row, i) => (
-                            <tr key={i} className={`border-t border-[#EDE7DA] ${i % 2 === 0 ? 'bg-white' : 'bg-[#FAF7F3]'}`}>
-                              <td className="px-4 py-3 font-medium text-[#1A1612]">{row.productName}</td><td className="px-4 py-3 text-[#5C5347]">{row.productType}</td><td className="px-4 py-3 text-[#5C5347]">{row.item}</td><td className="px-4 py-3 text-[#5C5347]">{row.packagePurchased}</td><td className="px-4 py-3 text-[#5C5347]">{row.mealVoucher || '—'}</td><td className="px-4 py-3 text-[#5C5347]">{row.discountVoucher || '—'}</td><td className="px-4 py-3 text-[#5C5347]">{row.orderedDate}</td><td className="px-4 py-3 text
+
+                {/* Add / Edit Gallery Image Modal */}
+                {showGalleryForm && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+                      <div className="p-5 border-b border-[#EDE7DA] flex items-center justify-between">
+                        <h3 className="text-base font-bold text-[#1A1612]">
+                          {editingGalleryImage ? 'Edit Image' : 'Add Image'}
+                        </h3>
+                        <button
+                          onClick={() => { setShowGalleryForm(false); setEditingGalleryImage(null); setGalleryFormError(''); }}
+                          className="text-[#8C8278] hover:text-[#1A1612]"
+                        >
+                          ✕
+                        </button>
+                     
