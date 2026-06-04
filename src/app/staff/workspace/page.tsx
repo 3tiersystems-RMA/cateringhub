@@ -33,6 +33,9 @@ import AbandonedCarts from '@/app/staff/workspace/components/AbandonedCarts';
 import OrganisationDetails from '@/app/staff/workspace/components/OrganisationDetails';
 import CorrespondenceSettings from '@/app/staff/workspace/components/CorrespondenceSettings';
 import { calculateOrderTotal, isFulfillmentStatusLocked } from '@/lib/order-totals';
+import {
+  BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+} from 'recharts';
 
 
 
@@ -4002,6 +4005,228 @@ export default function StaffWorkspacePage() {
             {/* ── PAYMENT CONFIRMATION TAB ── */}
             {activeTab === 'payment_confirmation' && (
               <PaymentConfirmation userRole={userProfile?.role || ''} />
+            )}
+
+            {/* ── REPORTING TAB ── */}
+            {activeTab === 'reporting' && (
+              <div className="p-6">
+                <div className="mb-6">
+                  <h2 className="text-xl font-bold text-[#1A1612]">Reports Dashboard</h2>
+                  <p className="text-sm text-[#8C8278] mt-0.5">View detailed reports across orders and products</p>
+                </div>
+                <div className="flex flex-wrap gap-2 mb-6 border-b border-[#EDE7DA] pb-4">
+                  {([
+                    { key: 'products_ordered', label: 'Products Ordered' },
+                    { key: 'package_meals_ordered', label: 'Package Meals' },
+                    { key: 'frozen_meals_ordered', label: 'Frozen Meals' },
+                    { key: 'discount_vouchers_report', label: 'Discount Vouchers' },
+                    { key: 'delivered_orders', label: 'Delivered Orders' },
+                  ] as { key: typeof reportingView; label: string }[]).map(({ key, label }) => (
+                    <button
+                      key={key}
+                      onClick={() => setReportingView(key)}
+                      className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${reportingView === key ? 'bg-[#C4622D] text-white' : 'bg-[#F5F0E8] text-[#5C5347] hover:bg-[#EDE7DA]'}`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                {(productsOrderedLoading || packageMealsLoading || frozenMealsLoading || discountVouchersReportLoading || deliveredOrdersLoading) && (
+                  <div className="flex items-center justify-center py-12"><div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>
+                )}
+                {!productsOrderedLoading && reportingView === 'products_ordered' && (
+                  <div>
+                    <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                      <h3 className="text-base font-bold text-[#1A1612]">Products Ordered ({productsOrderedRows.length})</h3>
+                      <button onClick={() => downloadProductsOrderedPDF(productsOrderedRows)} className="text-xs border border-[#DDD5C8] text-[#5C5347] px-3 py-1.5 rounded-xl font-semibold hover:bg-[#FAF5EE] transition-colors">Download PDF</button>
+                    </div>
+                    <div className="overflow-x-auto rounded-2xl border border-[#EDE7DA]">
+                      <table className="w-full text-xs">
+                        <thead><tr className="bg-[#F5F0E8] text-[#5C5347]"><th className="px-4 py-3 text-left font-semibold">Product</th><th className="px-4 py-3 text-left font-semibold">Type</th><th className="px-4 py-3 text-left font-semibold">Item</th><th className="px-4 py-3 text-left font-semibold">Meal Voucher</th><th className="px-4 py-3 text-left font-semibold">Discount Voucher</th><th className="px-4 py-3 text-left font-semibold">Ordered</th><th className="px-4 py-3 text-left font-semibold">Client</th><th className="px-4 py-3 text-left font-semibold">Email</th></tr></thead>
+                        <tbody>
+                          {productsOrderedRows.length === 0 ? (<tr><td colSpan={8} className="px-4 py-8 text-center text-[#8C8278]">No data available</td></tr>) : productsOrderedRows.map((row, i) => (
+                            <tr key={i} className={`border-t border-[#EDE7DA] ${i % 2 === 0 ? 'bg-white' : 'bg-[#FAF7F3]'}`}>
+                              <td className="px-4 py-3 font-medium text-[#1A1612]">{row.productName}</td><td className="px-4 py-3 text-[#5C5347]">{row.productType}</td><td className="px-4 py-3 text-[#5C5347]">{row.item}</td><td className="px-4 py-3 text-[#5C5347]">{row.mealVoucher || '—'}</td><td className="px-4 py-3 text-[#5C5347]">{row.discountVoucher || '—'}</td><td className="px-4 py-3 text-[#5C5347]">{row.orderedDate}</td><td className="px-4 py-3 text-[#5C5347]">{row.clientName}</td><td className="px-4 py-3 text-[#5C5347]">{row.clientEmail}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+                {!packageMealsLoading && reportingView === 'package_meals_ordered' && (
+                  <div>
+                    <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                      <h3 className="text-base font-bold text-[#1A1612]">Package Meals Ordered ({packageMealsRows.length})</h3>
+                      <button onClick={() => downloadPackageMealsPDF(packageMealsRows)} className="text-xs border border-[#DDD5C8] text-[#5C5347] px-3 py-1.5 rounded-xl font-semibold hover:bg-[#FAF5EE] transition-colors">Download PDF</button>
+                    </div>
+                    <div className="overflow-x-auto rounded-2xl border border-[#EDE7DA]">
+                      <table className="w-full text-xs">
+                        <thead><tr className="bg-[#F5F0E8] text-[#5C5347]"><th className="px-4 py-3 text-left font-semibold">Product</th><th className="px-4 py-3 text-left font-semibold">Type</th><th className="px-4 py-3 text-left font-semibold">Item</th><th className="px-4 py-3 text-left font-semibold">Package</th><th className="px-4 py-3 text-left font-semibold">Meal Voucher</th><th className="px-4 py-3 text-left font-semibold">Discount Voucher</th><th className="px-4 py-3 text-left font-semibold">Ordered</th><th className="px-4 py-3 text-left font-semibold">Delivered</th><th className="px-4 py-3 text-left font-semibold">Client</th><th className="px-4 py-3 text-left font-semibold">Email</th></tr></thead>
+                        <tbody>
+                          {packageMealsRows.length === 0 ? (<tr><td colSpan={10} className="px-4 py-8 text-center text-[#8C8278]">No data available</td></tr>) : packageMealsRows.map((row, i) => (
+                            <tr key={i} className={`border-t border-[#EDE7DA] ${i % 2 === 0 ? 'bg-white' : 'bg-[#FAF7F3]'}`}>
+                              <td className="px-4 py-3 font-medium text-[#1A1612]">{row.productName}</td><td className="px-4 py-3 text-[#5C5347]">{row.productType}</td><td className="px-4 py-3 text-[#5C5347]">{row.item}</td><td className="px-4 py-3 text-[#5C5347]">{row.packagePurchased}</td><td className="px-4 py-3 text-[#5C5347]">{row.mealVoucher || '—'}</td><td className="px-4 py-3 text-[#5C5347]">{row.discountVoucher || '—'}</td><td className="px-4 py-3 text-[#5C5347]">{row.orderedDate}</td><td className="px-4 py-3 text-[#5C5347]">{row.deliveredDt}</td><td className="px-4 py-3 text-[#5C5347]">{row.clientName}</td><td className="px-4 py-3 text-[#5C5347]">{row.clientEmail}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+                {!frozenMealsLoading && reportingView === 'frozen_meals_ordered' && (
+                  <div>
+                    <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                      <h3 className="text-base font-bold text-[#1A1612]">Frozen Meals Ordered ({frozenMealsRows.length})</h3>
+                      <button onClick={() => downloadFrozenMealsPDF(frozenMealsRows)} className="text-xs border border-[#DDD5C8] text-[#5C5347] px-3 py-1.5 rounded-xl font-semibold hover:bg-[#FAF5EE] transition-colors">Download PDF</button>
+                    </div>
+                    <div className="overflow-x-auto rounded-2xl border border-[#EDE7DA]">
+                      <table className="w-full text-xs">
+                        <thead><tr className="bg-[#F5F0E8] text-[#5C5347]"><th className="px-4 py-3 text-left font-semibold">Product</th><th className="px-4 py-3 text-left font-semibold">Type</th><th className="px-4 py-3 text-left font-semibold">Item</th><th className="px-4 py-3 text-left font-semibold">Package</th><th className="px-4 py-3 text-left font-semibold">Meal Voucher</th><th className="px-4 py-3 text-left font-semibold">Discount Voucher</th><th className="px-4 py-3 text-left font-semibold">Ordered</th><th className="px-4 py-3 text-left font-semibold">Delivered</th><th className="px-4 py-3 text-left font-semibold">Client</th><th className="px-4 py-3 text-left font-semibold">Email</th></tr></thead>
+                        <tbody>
+                          {frozenMealsRows.length === 0 ? (<tr><td colSpan={10} className="px-4 py-8 text-center text-[#8C8278]">No data available</td></tr>) : frozenMealsRows.map((row, i) => (
+                            <tr key={i} className={`border-t border-[#EDE7DA] ${i % 2 === 0 ? 'bg-white' : 'bg-[#FAF7F3]'}`}>
+                              <td className="px-4 py-3 font-medium text-[#1A1612]">{row.productName}</td><td className="px-4 py-3 text-[#5C5347]">{row.productType}</td><td className="px-4 py-3 text-[#5C5347]">{row.item}</td><td className="px-4 py-3 text-[#5C5347]">{row.packagePurchased}</td><td className="px-4 py-3 text-[#5C5347]">{row.mealVoucher || '—'}</td><td className="px-4 py-3 text-[#5C5347]">{row.discountVoucher || '—'}</td><td className="px-4 py-3 text-[#5C5347]">{row.orderedDate}</td><td className="px-4 py-3 text-[#5C5347]">{row.deliveredDt}</td><td className="px-4 py-3 text-[#5C5347]">{row.clientName}</td><td className="px-4 py-3 text-[#5C5347]">{row.clientEmail}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+                {!discountVouchersReportLoading && reportingView === 'discount_vouchers_report' && (
+                  <div>
+                    <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                      <h3 className="text-base font-bold text-[#1A1612]">Discount Vouchers Report ({discountVouchersReportRows.length})</h3>
+                      <button onClick={() => downloadDiscountVouchersPDF(discountVouchersReportRows)} className="text-xs border border-[#DDD5C8] text-[#5C5347] px-3 py-1.5 rounded-xl font-semibold hover:bg-[#FAF5EE] transition-colors">Download PDF</button>
+                    </div>
+                    <div className="overflow-x-auto rounded-2xl border border-[#EDE7DA]">
+                      <table className="w-full text-xs">
+                        <thead><tr className="bg-[#F5F0E8] text-[#5C5347]"><th className="px-4 py-3 text-left font-semibold">Voucher Code</th><th className="px-4 py-3 text-left font-semibold">Amount</th><th className="px-4 py-3 text-left font-semibold">Expiry</th><th className="px-4 py-3 text-left font-semibold">Product</th><th className="px-4 py-3 text-left font-semibold">Type</th><th className="px-4 py-3 text-left font-semibold">Item</th><th className="px-4 py-3 text-left font-semibold">Ordered</th><th className="px-4 py-3 text-left font-semibold">Delivered</th><th className="px-4 py-3 text-left font-semibold">Client</th><th className="px-4 py-3 text-left font-semibold">Email</th></tr></thead>
+                        <tbody>
+                          {discountVouchersReportRows.length === 0 ? (<tr><td colSpan={10} className="px-4 py-8 text-center text-[#8C8278]">No data available</td></tr>) : discountVouchersReportRows.map((row, i) => (
+                            <tr key={i} className={`border-t border-[#EDE7DA] ${i % 2 === 0 ? 'bg-white' : 'bg-[#FAF7F3]'}`}>
+                              <td className="px-4 py-3 font-mono font-medium text-[#C4622D]">{row.dvCode}</td><td className="px-4 py-3 text-[#1A1612] font-semibold">R{row.dvAmount.toFixed(2)}</td><td className="px-4 py-3 text-[#5C5347]">{row.expiryDate}</td><td className="px-4 py-3 font-medium text-[#1A1612]">{row.productName}</td><td className="px-4 py-3 text-[#5C5347]">{row.productType}</td><td className="px-4 py-3 text-[#5C5347]">{row.item}</td><td className="px-4 py-3 text-[#5C5347]">{row.orderedDate}</td><td className="px-4 py-3 text-[#5C5347]">{row.deliveredDt}</td><td className="px-4 py-3 text-[#5C5347]">{row.clientName}</td><td className="px-4 py-3 text-[#5C5347]">{row.clientEmail}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+                {!deliveredOrdersLoading && reportingView === 'delivered_orders' && (
+                  <div>
+                    <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                      <h3 className="text-base font-bold text-[#1A1612]">Delivered Orders ({deliveredOrdersRows.length})</h3>
+                      <button onClick={() => downloadDeliveredOrdersPDF(deliveredOrdersRows)} className="text-xs border border-[#DDD5C8] text-[#5C5347] px-3 py-1.5 rounded-xl font-semibold hover:bg-[#FAF5EE] transition-colors">Download PDF</button>
+                    </div>
+                    <div className="overflow-x-auto rounded-2xl border border-[#EDE7DA]">
+                      <table className="w-full text-xs">
+                        <thead><tr className="bg-[#F5F0E8] text-[#5C5347]"><th className="px-4 py-3 text-left font-semibold">Product</th><th className="px-4 py-3 text-left font-semibold">Type</th><th className="px-4 py-3 text-left font-semibold">Item</th><th className="px-4 py-3 text-left font-semibold">Package</th><th className="px-4 py-3 text-left font-semibold">Meal Voucher</th><th className="px-4 py-3 text-left font-semibold">Discount Voucher</th><th className="px-4 py-3 text-left font-semibold">Ordered</th><th className="px-4 py-3 text-left font-semibold">Delivered</th><th className="px-4 py-3 text-left font-semibold">Lead Time</th><th className="px-4 py-3 text-left font-semibold">Email</th></tr></thead>
+                        <tbody>
+                          {deliveredOrdersRows.length === 0 ? (<tr><td colSpan={10} className="px-4 py-8 text-center text-[#8C8278]">No data available</td></tr>) : deliveredOrdersRows.map((row, i) => (
+                            <tr key={i} className={`border-t border-[#EDE7DA] ${i % 2 === 0 ? 'bg-white' : 'bg-[#FAF7F3]'}`}>
+                              <td className="px-4 py-3 font-medium text-[#1A1612]">{row.productName}</td><td className="px-4 py-3 text-[#5C5347]">{row.productType}</td><td className="px-4 py-3 text-[#5C5347]">{row.item}</td><td className="px-4 py-3 text-[#5C5347]">{row.packagePurchased}</td><td className="px-4 py-3 text-[#5C5347]">{row.mealVoucher || '—'}</td><td className="px-4 py-3 text-[#5C5347]">{row.discountVoucher || '—'}</td><td className="px-4 py-3 text-[#5C5347]">{row.orderedDate}</td><td className="px-4 py-3 text-[#5C5347]">{row.deliveredDt}</td><td className="px-4 py-3 text-[#5C5347]">{row.leadTime}</td><td className="px-4 py-3 text-[#5C5347]">{row.clientEmail}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── ANALYTICS TAB ── */}
+            {activeTab === 'analytics' && (
+              <div className="p-6">
+                <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
+                  <div>
+                    <h2 className="text-xl font-bold text-[#1A1612]">Analytics</h2>
+                    <p className="text-sm text-[#8C8278] mt-0.5">Business performance overview</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {(['7d', '30d', '90d', '12m'] as AnalyticsPeriod[]).map(p => (
+                      <button key={p} onClick={() => { setAnalyticsPeriod(p); loadAnalytics(p); }} className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors ${analyticsPeriod === p ? 'bg-[#C4622D] text-white' : 'bg-[#F5F0E8] text-[#5C5347] hover:bg-[#EDE7DA]'}`}>
+                        {p === '7d' ? '7 Days' : p === '30d' ? '30 Days' : p === '90d' ? '90 Days' : '12 Months'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {analyticsLoading && (
+                  <div className="flex items-center justify-center py-12"><div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>
+                )}
+                {analyticsError && !analyticsLoading && (
+                  <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4"><p className="text-sm text-red-600">{analyticsError}</p></div>
+                )}
+                {!analyticsLoading && (
+                  <>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                      {summaryMetrics.map((metric, i) => (
+                        <div key={i} className="bg-white rounded-2xl border border-[#EDE7DA] p-4">
+                          <span className="text-2xl block mb-2">{metric.icon}</span>
+                          <p className="text-2xl font-bold text-[#1A1612]">{metric.value}</p>
+                          <p className="text-xs font-semibold text-[#5C5347] mt-0.5">{metric.label}</p>
+                          {metric.sub && <p className="text-xs text-[#8C8278] mt-0.5">{metric.sub}</p>}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5 mb-6">
+                      <h3 className="text-sm font-bold text-[#1A1612] mb-4">Order Trend</h3>
+                      {orderTrend.length === 0 ? (
+                        <p className="text-sm text-[#8C8278] text-center py-8">No order data for this period</p>
+                      ) : (
+                        <ResponsiveContainer width="100%" height={260}>
+                          <BarChart data={orderTrend} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#EDE7DA" />
+                            <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#8C8278' }} />
+                            <YAxis yAxisId="left" tick={{ fontSize: 11, fill: '#8C8278' }} />
+                            <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: '#8C8278' }} tickFormatter={(v) => `R${v}`} />
+                            <Tooltip content={<AnalyticsTooltip />} />
+                            <Legend wrapperStyle={{ fontSize: 12 }} />
+                            <Bar yAxisId="left" dataKey="orders" name="Orders" fill="#C4622D" radius={[4, 4, 0, 0]} />
+                            <Bar yAxisId="right" dataKey="revenue" name="Revenue" fill="#EDE7DA" radius={[4, 4, 0, 0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      )}
+                    </div>
+                    <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5 mb-6">
+                      <h3 className="text-sm font-bold text-[#1A1612] mb-4">Voucher Usage Over Time</h3>
+                      {voucherUsage.length === 0 ? (
+                        <p className="text-sm text-[#8C8278] text-center py-8">No voucher data for this period</p>
+                      ) : (
+                        <ResponsiveContainer width="100%" height={260}>
+                          <LineChart data={voucherUsage} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#EDE7DA" />
+                            <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#8C8278' }} />
+                            <YAxis tick={{ fontSize: 11, fill: '#8C8278' }} />
+                            <Tooltip content={<AnalyticsTooltip />} />
+                            <Legend wrapperStyle={{ fontSize: 12 }} />
+                            <Line type="monotone" dataKey="mealVouchers" name="Meal Vouchers" stroke="#C4622D" strokeWidth={2} dot={false} />
+                            <Line type="monotone" dataKey="discountVouchers" name="Discount Vouchers" stroke="#8B5CF6" strokeWidth={2} dot={false} />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      )}
+                    </div>
+                    <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5">
+                      <h3 className="text-sm font-bold text-[#1A1612] mb-4">Fulfillment Breakdown</h3>
+                      {fulfillmentMetrics.length === 0 ? (
+                        <p className="text-sm text-[#8C8278] text-center py-8">No fulfillment data for this period</p>
+                      ) : (
+                        <ResponsiveContainer width="100%" height={260}>
+                          <BarChart data={fulfillmentMetrics} layout="vertical" margin={{ top: 4, right: 16, left: 60, bottom: 4 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#EDE7DA" horizontal={false} />
+                            <XAxis type="number" tick={{ fontSize: 11, fill: '#8C8278' }} />
+                            <YAxis type="category" dataKey="status" tick={{ fontSize: 11, fill: '#8C8278' }} tickFormatter={(v: string) => ANALYTICS_FULFILLMENT_LABELS[v] || v} />
+                            <Tooltip content={<AnalyticsTooltip />} />
+                            <Bar dataKey="count" name="Orders" fill="#C4622D" radius={[0, 4, 4, 0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
             )}
 
           </main>
