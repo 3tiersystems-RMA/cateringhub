@@ -48,13 +48,17 @@ export default function PaymentConfirmation({ userRole }: PaymentConfirmationPro
   const [searchQuery, setSearchQuery] = useState('');
   const [correspondenceSettings, setCorrespondenceSettings] = useState<CorrespondenceSettings | null>(null);
 
-  // Preview modal state
+  // Preview modal state (send flow)
   const [previewOrder, setPreviewOrder] = useState<AwaitingOrder | null>(null);
   const [sending, setSending] = useState(false);
   const [sendResult, setSendResult] = useState<{ success: boolean; message: string } | null>(null);
   const [toastMessage, setToastMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  // View Confirmation modal state (read-only preview — Super Admin only)
+  const [viewOrder, setViewOrder] = useState<AwaitingOrder | null>(null);
+
   const isAuthorized = userRole === 'admin' || userRole === 'super_admin';
+  const isSuperAdmin = userRole === 'super_admin';
 
   const loadOrders = useCallback(async () => {
     setLoading(true);
@@ -187,6 +191,100 @@ export default function PaymentConfirmation({ userRole }: PaymentConfirmationPro
     );
   });
 
+  // Shared email preview body — used in both modals
+  function EmailPreviewBody({ order }: { order: AwaitingOrder }) {
+    return (
+      <div className="rounded-xl overflow-hidden border border-[#EDE7DA]">
+        {/* Dark header */}
+        <div className="bg-[#1A1612] px-6 py-5 text-center">
+          {correspondenceSettings?.logo_url && (
+            <img src={correspondenceSettings.logo_url} alt="Logo" className="h-10 object-contain mx-auto mb-2" />
+          )}
+          <h4 className="text-white font-bold text-lg">{correspondenceSettings?.form_header_title || 'Cardamom Kitchen'}</h4>
+          <p className="text-[#C4622D] text-xs tracking-widest uppercase mt-1">Catering &amp; Meal Prep</p>
+        </div>
+
+        {/* Confirmation Banner */}
+        <div className="bg-green-50 border-b border-green-200 px-6 py-3 text-center">
+          <p className="text-green-700 font-bold text-sm">✅ Customer Payment Confirmation</p>
+        </div>
+
+        <div className="bg-white px-6 py-5 space-y-4">
+          {/* Greeting */}
+          <p className="text-[#5C5347] text-sm leading-relaxed">
+            Dear <strong>{order.customer_name}</strong>,<br />
+            We are pleased to confirm that your payment has been received and your order is now confirmed.
+          </p>
+
+          {/* Customer Information */}
+          <div className="rounded-xl overflow-hidden border border-[#EDE7DA]">
+            <div className="bg-[#EDE7DA] px-4 py-2.5">
+              <p className="text-xs font-bold text-[#8C8278] uppercase tracking-wider">Customer Information</p>
+            </div>
+            <div className="divide-y divide-[#f0ebe4]">
+              <div className="flex justify-between px-4 py-2.5 text-sm"><span className="text-[#8C8278]">Name</span><span className="font-semibold text-[#1A1612]">{order.customer_name}</span></div>
+              <div className="flex justify-between px-4 py-2.5 text-sm"><span className="text-[#8C8278]">Email</span><span className="font-semibold text-[#C4622D]">{order.customer_email}</span></div>
+              {order.customer_phone && <div className="flex justify-between px-4 py-2.5 text-sm"><span className="text-[#8C8278]">Phone</span><span className="font-semibold text-[#1A1612]">{order.customer_phone}</span></div>}
+              <div className="flex justify-between px-4 py-2.5 text-sm"><span className="text-[#8C8278]">Order Date</span><span className="font-semibold text-[#1A1612]">{formatDate(order.created_at)}</span></div>
+              <div className="flex justify-between px-4 py-2.5 text-sm"><span className="text-[#8C8278]">Payment Method</span><span className="font-semibold text-[#1A1612]">{order.m_payment_id ? 'PayFast' : 'EFT'}</span></div>
+              <div className="flex justify-between px-4 py-2.5 text-sm"><span className="text-[#8C8278]">Delivery Address</span><span className="font-semibold text-[#1A1612]">{order.delivery_address || 'N/A'}</span></div>
+              {order.notes && <div className="flex justify-between px-4 py-2.5 text-sm"><span className="text-[#8C8278]">Notes</span><span className="font-semibold text-[#1A1612] text-right max-w-[60%]">{order.notes}</span></div>}
+            </div>
+          </div>
+
+          {/* Order Summary */}
+          <div className="rounded-xl overflow-hidden border border-[#EDE7DA]">
+            <div className="bg-[#EDE7DA] px-4 py-2.5">
+              <p className="text-xs font-bold text-[#8C8278] uppercase tracking-wider">ORDER SUMMARY — REF: <span className="font-mono text-[#C4622D]">{order.id}</span></p>
+            </div>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-[#f9f6f2]">
+                  <th className="px-4 py-2 text-left text-xs text-[#8C8278] font-semibold">Item</th>
+                  <th className="px-4 py-2 text-center text-xs text-[#8C8278] font-semibold">Qty</th>
+                  <th className="px-4 py-2 text-right text-xs text-[#8C8278] font-semibold">Price</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(order.items || []).map((item, i) => (
+                  <tr key={i} className="border-t border-[#f0ebe4]">
+                    <td className="px-4 py-2.5 text-[#1A1612]">{item.name}</td>
+                    <td className="px-4 py-2.5 text-center text-[#5C5347]">{item.quantity}</td>
+                    <td className="px-4 py-2.5 text-right font-mono text-[#1A1612]">{formatCurrency(item.price)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                {order.subtotal != null && (
+                  <tr className="border-t border-[#f0ebe4]">
+                    <td colSpan={2} className="px-4 py-2 text-[#8C8278] text-xs">Subtotal</td>
+                    <td className="px-4 py-2 text-right font-mono text-[#5C5347] text-xs">{formatCurrency(order.subtotal)}</td>
+                  </tr>
+                )}
+                {order.delivery_fee != null && (
+                  <tr>
+                    <td colSpan={2} className="px-4 py-2 text-[#8C8278] text-xs">Delivery Fee</td>
+                    <td className="px-4 py-2 text-right font-mono text-[#5C5347] text-xs">{formatCurrency(order.delivery_fee)}</td>
+                  </tr>
+                )}
+                <tr className="border-t-2 border-[#EDE7DA]">
+                  <td colSpan={2} className="px-4 py-3 font-bold text-[#1A1612]">Order Total</td>
+                  <td className="px-4 py-3 text-right font-bold font-mono text-[#C4622D]">{formatCurrency(order.total)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          {/* CTA preview */}
+          <div>
+            <p className="text-[#5C5347] text-sm mb-2">View and manage this order in the staff workspace:</p>
+            <span className="inline-block bg-[#C4622D] text-white text-sm font-bold px-5 py-2.5 rounded-lg">Open Orders Workspace →</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!isAuthorized) {
     return (
       <div className="p-6">
@@ -280,19 +378,30 @@ export default function PaymentConfirmation({ userRole }: PaymentConfirmationPro
                   <p className="text-xs text-[#8C8278] capitalize">{order.m_payment_id ? 'PayFast' : 'EFT'}</p>
                 </div>
               </div>
-              <button
-                onClick={() => { setPreviewOrder(order); setSendResult(null); }}
-                className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors flex items-center gap-2 flex-shrink-0"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-                Send Confirmation
-              </button>
+              <div className="flex flex-col gap-2 flex-shrink-0">
+                <button
+                  onClick={() => { setPreviewOrder(order); setSendResult(null); }}
+                  className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                  Send Confirmation
+                </button>
+                {isSuperAdmin && (
+                  <button
+                    onClick={() => setViewOrder(order)}
+                    className="border border-[#C4622D] text-[#C4622D] px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#FDF6EE] transition-colors flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                    View Confirmation
+                  </button>
+                )}
+              </div>
             </div>
           ))}
         </div>
       )}
 
-      {/* Preview Modal */}
+      {/* ── Send Confirmation Modal (existing flow) ── */}
       {previewOrder && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -309,94 +418,7 @@ export default function PaymentConfirmation({ userRole }: PaymentConfirmationPro
 
             {/* Email Preview Body */}
             <div className="p-6">
-              {/* Dark header preview */}
-              <div className="rounded-xl overflow-hidden border border-[#EDE7DA]">
-                <div className="bg-[#1A1612] px-6 py-5 text-center">
-                  {correspondenceSettings?.logo_url && (
-                    <img src={correspondenceSettings.logo_url} alt="Logo" className="h-10 object-contain mx-auto mb-2" />
-                  )}
-                  <h4 className="text-white font-bold text-lg">{correspondenceSettings?.form_header_title || 'Cardamom Kitchen'}</h4>
-                  <p className="text-[#C4622D] text-xs tracking-widest uppercase mt-1">Catering &amp; Meal Prep</p>
-                </div>
-
-                {/* Confirmation Banner */}
-                <div className="bg-green-50 border-b border-green-200 px-6 py-3 text-center">
-                  <p className="text-green-700 font-bold text-sm">✅ Customer Payment Confirmation</p>
-                </div>
-
-                <div className="bg-white px-6 py-5 space-y-4">
-                  {/* Greeting */}
-                  <p className="text-[#5C5347] text-sm leading-relaxed">
-                    Dear <strong>{previewOrder.customer_name}</strong>,<br />
-                    We are pleased to confirm that your payment has been received and your order is now confirmed.
-                  </p>
-
-                  {/* Customer Information */}
-                  <div className="rounded-xl overflow-hidden border border-[#EDE7DA]">
-                    <div className="bg-[#EDE7DA] px-4 py-2.5">
-                      <p className="text-xs font-bold text-[#8C8278] uppercase tracking-wider">Customer Information</p>
-                    </div>
-                    <div className="divide-y divide-[#f0ebe4]">
-                      <div className="flex justify-between px-4 py-2.5 text-sm"><span className="text-[#8C8278]">Name</span><span className="font-semibold text-[#1A1612]">{previewOrder.customer_name}</span></div>
-                      <div className="flex justify-between px-4 py-2.5 text-sm"><span className="text-[#8C8278]">Email</span><span className="font-semibold text-[#C4622D]">{previewOrder.customer_email}</span></div>
-                      {previewOrder.customer_phone && <div className="flex justify-between px-4 py-2.5 text-sm"><span className="text-[#8C8278]">Phone</span><span className="font-semibold text-[#1A1612]">{previewOrder.customer_phone}</span></div>}
-                      <div className="flex justify-between px-4 py-2.5 text-sm"><span className="text-[#8C8278]">Order Date</span><span className="font-semibold text-[#1A1612]">{formatDate(previewOrder.created_at)}</span></div>
-                      <div className="flex justify-between px-4 py-2.5 text-sm"><span className="text-[#8C8278]">Payment Method</span><span className="font-semibold text-[#1A1612]">{previewOrder.m_payment_id ? 'PayFast' : 'EFT'}</span></div>
-                      <div className="flex justify-between px-4 py-2.5 text-sm"><span className="text-[#8C8278]">Delivery Address</span><span className="font-semibold text-[#1A1612]">{previewOrder.delivery_address || 'N/A'}</span></div>
-                      {previewOrder.notes && <div className="flex justify-between px-4 py-2.5 text-sm"><span className="text-[#8C8278]">Notes</span><span className="font-semibold text-[#1A1612] text-right max-w-[60%]">{previewOrder.notes}</span></div>}
-                    </div>
-                  </div>
-
-                  {/* Order Summary */}
-                  <div className="rounded-xl overflow-hidden border border-[#EDE7DA]">
-                    <div className="bg-[#EDE7DA] px-4 py-2.5">
-                      <p className="text-xs font-bold text-[#8C8278] uppercase tracking-wider">ORDER SUMMARY — REF: <span className="font-mono text-[#C4622D]">{previewOrder.id}</span></p>
-                    </div>
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="bg-[#f9f6f2]">
-                          <th className="px-4 py-2 text-left text-xs text-[#8C8278] font-semibold">Item</th>
-                          <th className="px-4 py-2 text-center text-xs text-[#8C8278] font-semibold">Qty</th>
-                          <th className="px-4 py-2 text-right text-xs text-[#8C8278] font-semibold">Price</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(previewOrder.items || []).map((item, i) => (
-                          <tr key={i} className="border-t border-[#f0ebe4]">
-                            <td className="px-4 py-2.5 text-[#1A1612]">{item.name}</td>
-                            <td className="px-4 py-2.5 text-center text-[#5C5347]">{item.quantity}</td>
-                            <td className="px-4 py-2.5 text-right font-mono text-[#1A1612]">{formatCurrency(item.price)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                      <tfoot>
-                        {previewOrder.subtotal != null && (
-                          <tr className="border-t border-[#f0ebe4]">
-                            <td colSpan={2} className="px-4 py-2 text-[#8C8278] text-xs">Subtotal</td>
-                            <td className="px-4 py-2 text-right font-mono text-[#5C5347] text-xs">{formatCurrency(previewOrder.subtotal)}</td>
-                          </tr>
-                        )}
-                        {previewOrder.delivery_fee != null && (
-                          <tr>
-                            <td colSpan={2} className="px-4 py-2 text-[#8C8278] text-xs">Delivery Fee</td>
-                            <td className="px-4 py-2 text-right font-mono text-[#5C5347] text-xs">{formatCurrency(previewOrder.delivery_fee)}</td>
-                          </tr>
-                        )}
-                        <tr className="border-t-2 border-[#EDE7DA]">
-                          <td colSpan={2} className="px-4 py-3 font-bold text-[#1A1612]">Order Total</td>
-                          <td className="px-4 py-3 text-right font-bold font-mono text-[#C4622D]">{formatCurrency(previewOrder.total)}</td>
-                        </tr>
-                      </tfoot>
-                    </table>
-                  </div>
-
-                  {/* CTA preview */}
-                  <div>
-                    <p className="text-[#5C5347] text-sm mb-2">View and manage this order in the staff workspace:</p>
-                    <span className="inline-block bg-[#C4622D] text-white text-sm font-bold px-5 py-2.5 rounded-lg">Open Orders Workspace →</span>
-                  </div>
-                </div>
-              </div>
+              <EmailPreviewBody order={previewOrder} />
 
               {/* Send Result */}
               {sendResult && (
@@ -441,6 +463,48 @@ export default function PaymentConfirmation({ userRole }: PaymentConfirmationPro
                     Confirm &amp; Send
                   </>
                 )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── View Confirmation Modal (read-only — Super Admin only) ── */}
+      {viewOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="sticky top-0 bg-white border-b border-[#EDE7DA] px-6 py-4 flex items-center justify-between z-10">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-bold text-[#1A1612]">Confirmation Email Preview</h3>
+                  <span className="text-xs bg-purple-100 text-purple-700 border border-purple-200 px-2 py-0.5 rounded-full font-semibold">Super Admin</span>
+                </div>
+                <p className="text-xs text-[#8C8278] mt-0.5">Exact email layout the customer will receive — {viewOrder.customer_email}</p>
+              </div>
+              <button onClick={() => setViewOrder(null)} className="text-[#8C8278] hover:text-[#1A1612] transition-colors">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+
+            {/* Info banner */}
+            <div className="mx-6 mt-4 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 flex items-start gap-2">
+              <svg className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              <p className="text-xs text-blue-700">This is a read-only preview of the confirmation email. No email will be sent. Use <strong>Send Confirmation</strong> to dispatch the email to the customer.</p>
+            </div>
+
+            {/* Email Preview Body */}
+            <div className="p-6">
+              <EmailPreviewBody order={viewOrder} />
+            </div>
+
+            {/* Modal Footer */}
+            <div className="sticky bottom-0 bg-white border-t border-[#EDE7DA] px-6 py-4 flex justify-end">
+              <button
+                onClick={() => setViewOrder(null)}
+                className="px-6 py-2.5 rounded-xl text-sm font-semibold border border-[#DDD5C8] text-[#5C5347] hover:bg-[#FAF5EE] transition-colors"
+              >
+                Close
               </button>
             </div>
           </div>

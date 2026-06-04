@@ -3132,21 +3132,19 @@ export default function StaffWorkspacePage() {
                 </button>
               )}
 
-              {/* ── Scanner (standalone page) ── */}
-              {canRole('super_admin', 'admin', 'staff') && (
-                <button onClick={() => router.push('/staff/scanner')} className="flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]">
-                  <span className="text-base">📷</span><span>Voucher Meal Status</span>
-                </button>
-              )}
-
-              {/* ── Vouchers (collapsible) ── */}
-              {canAnyTab('vouchers', 'discount_vouchers') && (
+              {/* ── Vouchers Information (collapsible) — includes Voucher Meal Status sub-item ── */}
+              {(canAnyTab('vouchers', 'discount_vouchers') || canRole('super_admin', 'admin', 'staff')) && (
                 <>
                   <button onClick={() => setVouchersMenuOpen(prev => !prev)} className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${['vouchers', 'discount_vouchers'].includes(activeTab) ? 'text-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'}`}>
-                    <span className="text-base">🎟️</span><span className="flex-1">Vouchers</span><span className="text-xs">{vouchersMenuOpen ? '▲' : '▼'}</span>
+                    <span className="text-base">🎟️</span><span className="flex-1">Vouchers Information</span><span className="text-xs">{vouchersMenuOpen ? '▲' : '▼'}</span>
                   </button>
                   {vouchersMenuOpen && (
                     <div className="pl-4 border-l-2 border-[#E8DDD0] ml-4">
+                      {canRole('super_admin', 'admin', 'staff') && (
+                        <button onClick={() => router.push('/staff/scanner')} className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]">
+                          <span className="text-base">📷</span><span>Voucher Meal Status</span>
+                        </button>
+                      )}
                       {canTab('vouchers') && (
                         <button onClick={() => { handleTabChange('vouchers'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'vouchers' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
                           <span className="text-base">🍽️</span><span>Meal Vouchers</span>
