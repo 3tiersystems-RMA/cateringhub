@@ -1,6 +1,10 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import {
+  LineChart, Line, BarChart, Bar,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+} from 'recharts';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import AppLogo from '@/components/ui/AppLogo';
@@ -710,6 +714,54 @@ function AnalyticsTooltip({ active, payload, label }: any) {
 }
 // ─── End Analytics helpers ────────────────────────────────────────────────────
 
+// ─── Analytics chart sub-components ──────────────────────────────────────────
+function AnalyticsLineChart({ data }: { data: { label: string; orders: number; revenue: number }[] }) {
+  return (
+    <ResponsiveContainer width="100%" height={260}>
+      <LineChart data={data} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#EDE7DA" />
+        <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#8C8278' }} />
+        <YAxis tick={{ fontSize: 11, fill: '#8C8278' }} allowDecimals={false} />
+        <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #EDE7DA', fontSize: 12 }} />
+        <Legend wrapperStyle={{ fontSize: 12 }} />
+        <Line type="monotone" dataKey="orders" stroke="#C4622D" strokeWidth={2} dot={{ r: 3 }} name="Orders" />
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
+function AnalyticsBarChart({ data }: { data: { label: string; orders: number; revenue: number }[] }) {
+  return (
+    <ResponsiveContainer width="100%" height={260}>
+      <BarChart data={data} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#EDE7DA" />
+        <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#8C8278' }} />
+        <YAxis tick={{ fontSize: 11, fill: '#8C8278' }} />
+        <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #EDE7DA', fontSize: 12 }} formatter={(v: number) => [`R ${v.toFixed(2)}`, 'Revenue']} />
+        <Legend wrapperStyle={{ fontSize: 12 }} />
+        <Bar dataKey="revenue" fill="#C4622D" radius={[4, 4, 0, 0]} name="Revenue (R)" />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+function AnalyticsVoucherChart({ data }: { data: { label: string; mealVouchers: number; discountVouchers: number }[] }) {
+  return (
+    <ResponsiveContainer width="100%" height={220}>
+      <BarChart data={data} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#EDE7DA" />
+        <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#8C8278' }} />
+        <YAxis tick={{ fontSize: 11, fill: '#8C8278' }} allowDecimals={false} />
+        <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #EDE7DA', fontSize: 12 }} />
+        <Legend wrapperStyle={{ fontSize: 12 }} />
+        <Bar dataKey="mealVouchers" fill="#C4622D" radius={[4, 4, 0, 0]} name="Meal Vouchers" />
+        <Bar dataKey="discountVouchers" fill="#E8A87C" radius={[4, 4, 0, 0]} name="Discount Vouchers" />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+// ─── End Analytics chart sub-components ──────────────────────────────────────
+
 export default function StaffWorkspacePage() {
   const router = useRouter();
   const supabase = createClient();
@@ -868,7 +920,7 @@ export default function StaffWorkspacePage() {
   const [dvLoading, setDvLoading] = useState(false);
   const [showDvForm, setShowDvForm] = useState(false);
   const [editingDv, setEditingDv] = useState<DiscountVoucher | null>(null);
-  const [dvForm, setDvForm] = useState({ dv_code: '', dv_type: 'Discount' as 'Discount' | 'Gift', dv_amount: '', status: 'Active' as 'Active' | 'Inactive', expiry_date: '', created_at: '' });
+  const [dvForm, setDvForm] = useState({ dv_code: '', dv_type: 'Discount' as 'Discount' | 'Gift', dv_amount: '', status: 'Active\' as \'Active\' | \'Inactive', expiry_date: '', created_at: '' });
   const [dvFormError, setDvFormError] = useState('');
   const [dvFormSuccess, setDvFormSuccess] = useState('');
   const [savingDv, setSavingDv] = useState(false);
@@ -4297,6 +4349,123 @@ export default function StaffWorkspacePage() {
                         </div>
                       )}
                     </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* ── ANALYTICS TAB ── */}
+            {activeTab === 'analytics' && (
+              <div className="p-6">
+                {/* Header */}
+                <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
+                  <div>
+                    <h2 className="text-xl font-bold text-[#1A1612]">Analytics</h2>
+                    <p className="text-sm text-[#8C8278] mt-0.5">Order trends and performance metrics for the selected period</p>
+                  </div>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    {/* Period selector */}
+                    <div className="flex items-center gap-1 bg-white border border-[#EDE7DA] rounded-xl p-1">
+                      {([['7d', 'Week'], ['30d', 'Month'], ['90d', 'Quarter'], ['12m', 'Year']] as [AnalyticsPeriod, string][]).map(([val, label]) => (
+                        <button
+                          key={val}
+                          onClick={() => { setAnalyticsPeriod(val); loadAnalytics(val); }}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${analyticsPeriod === val ? 'bg-[#C4622D] text-white' : 'text-[#5C5347] hover:bg-[#FAF5EE]'}`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      onClick={() => loadAnalytics(analyticsPeriod)}
+                      disabled={analyticsLoading}
+                      className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
+                    >
+                      {analyticsLoading ? 'Loading…' : 'Refresh'}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Error */}
+                {analyticsError && (
+                  <div className="mb-4 bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">{analyticsError}</div>
+                )}
+
+                {/* Loading spinner */}
+                {analyticsLoading ? (
+                  <div className="flex items-center justify-center py-16">
+                    <div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
+                  </div>
+                ) : (
+                  <>
+                    {/* ── Summary Metric Cards ── */}
+                    {summaryMetrics.length > 0 && (
+                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                        {summaryMetrics.map((m) => (
+                          <div key={m.label} className="bg-white rounded-2xl border border-[#EDE7DA] p-5">
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="text-xl">{m.icon}</span>
+                              <p className="text-xs font-semibold text-[#8C8278] uppercase tracking-wide">{m.label}</p>
+                            </div>
+                            <p className="text-2xl font-bold text-[#1A1612]">{m.value}</p>
+                            {m.sub && <p className="text-xs text-[#8C8278] mt-1">{m.sub}</p>}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* ── Order Trend Chart ── */}
+                    <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5 mb-6">
+                      <h3 className="text-base font-bold text-[#1A1612] mb-4">Order Trend</h3>
+                      {orderTrend.length === 0 ? (
+                        <div className="flex items-center justify-center py-12 text-[#8C8278] text-sm">No data for this period.</div>
+                      ) : (
+                        <AnalyticsLineChart data={orderTrend} />
+                      )}
+                    </div>
+
+                    {/* ── Revenue Bar Chart ── */}
+                    <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5 mb-6">
+                      <h3 className="text-base font-bold text-[#1A1612] mb-4">Revenue by Period</h3>
+                      {orderTrend.length === 0 ? (
+                        <div className="flex items-center justify-center py-12 text-[#8C8278] text-sm">No data for this period.</div>
+                      ) : (
+                        <AnalyticsBarChart data={orderTrend} />
+                      )}
+                    </div>
+
+                    {/* ── Voucher Usage Chart ── */}
+                    {voucherUsage.length > 0 && (
+                      <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5 mb-6">
+                        <h3 className="text-base font-bold text-[#1A1612] mb-4">Voucher Usage</h3>
+                        <AnalyticsVoucherChart data={voucherUsage} />
+                      </div>
+                    )}
+
+                    {/* ── Fulfillment Breakdown ── */}
+                    {fulfillmentMetrics.length > 0 && (
+                      <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5">
+                        <h3 className="text-base font-bold text-[#1A1612] mb-4">Fulfillment Breakdown</h3>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                          {fulfillmentMetrics.map((m) => (
+                            <div key={m.status} className="rounded-xl border border-[#EDE7DA] p-4 text-center">
+                              <div className="w-3 h-3 rounded-full mx-auto mb-2" style={{ backgroundColor: m.color }} />
+                              <p className="text-xl font-bold text-[#1A1612]">{m.count}</p>
+                              <p className="text-xs text-[#8C8278] mt-0.5 capitalize">{m.status.replace(/_/g, ' ')}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Empty state */}
+                    {orderTrend.length === 0 && summaryMetrics.length === 0 && (
+                      <div className="bg-white rounded-2xl border border-[#EDE7DA] p-12 text-center">
+                        <p className="text-4xl mb-3">📈</p>
+                        <p className="text-[#1A1612] font-semibold mb-1">No analytics data yet</p>
+                        <p className="text-[#8C8278] text-sm">Select a period and click Refresh to load analytics.</p>
+                      </div>
+                    )}
                   </>
                 )}
               </div>
