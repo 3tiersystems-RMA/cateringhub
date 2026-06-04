@@ -231,9 +231,12 @@ function ApplyVoucherBanner() {
 }
 
 function ProductsContent() {
-  const [activeCategory, setActiveCategory] = useState<string>("All");
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  // Derive initial category from URL param
+  const categoryFromUrl = searchParams.get("category") || "All";
+  const [activeCategory, setActiveCategory] = useState<string>(categoryFromUrl);
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<"default" | "price-asc" | "price-desc" | "rating">("default");
   const [products, setProducts] = useState<Product[]>([]);
@@ -424,6 +427,20 @@ function ProductsContent() {
     return cat === "All" ? products.length : products.filter((p) => p.category === cat).length;
   };
 
+  const handleCategoryChange = (cat: string) => {
+    setActiveCategory(cat);
+    if (cat === "All") {
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete("category");
+      const query = params.toString();
+      router.push(`/products${query ? `?${query}` : ""}`, { scroll: false });
+    } else {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("category", cat);
+      router.push(`/products?${params.toString()}`, { scroll: false });
+    }
+  };
+
   return (
     <>
       <CartSidebar />
@@ -522,7 +539,7 @@ function ProductsContent() {
                   if (cat === "Weekly Menu") {
                     router.push("/weekly-menu");
                   } else {
-                    setActiveCategory(cat);
+                    handleCategoryChange(cat);
                   }
                 }}
                 className={`px-5 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
@@ -557,7 +574,7 @@ function ProductsContent() {
           </p>
           {(search || activeCategory !== "All") && (
             <button
-              onClick={() => { setSearch(""); setActiveCategory("All"); }}
+              onClick={() => { setSearch(""); handleCategoryChange("All"); }}
               className="text-xs text-[#C4622D] hover:underline font-medium"
             >
               Clear filters
@@ -624,7 +641,7 @@ function ProductsContent() {
                 </p>
                 {(!appliedVoucher?.package_type || appliedVoucher.package_type === "none") && (
                   <button
-                    onClick={() => { setSearch(""); setActiveCategory("All"); }}
+                    onClick={() => { setSearch(""); handleCategoryChange("All"); }}
                     className="text-sm font-semibold text-[#C4622D] hover:underline"
                   >
                     Clear filters
