@@ -24,6 +24,7 @@ import CustomerOrderHistory from '@/app/staff/workspace/components/CustomerOrder
 import DocumentManagement from '@/app/staff/workspace/components/DocumentManagement';
 import MediaEvents from '@/app/staff/workspace/components/MediaEvents';
 import MediaProducts from '@/app/staff/workspace/components/MediaProducts';
+import AbandonedCarts from '@/app/staff/workspace/components/AbandonedCarts';
 
 
 
@@ -3983,6 +3984,8 @@ export default function StaffWorkspacePage() {
             {activeTab === 'media_events' && (<MediaEvents userRole={userProfile?.role || ''} />)}
 
             {activeTab === 'media_products' && (<MediaProducts userRole={userProfile?.role || ''} />)}
+
+            {activeTab === 'abandoned_carts' && (<AbandonedCarts userRole={userProfile?.role || ''} />)}
 
             {/* ── PAYMENT CONFIRMATION TAB ── */}
             {activeTab === 'payment_confirmation' && (
