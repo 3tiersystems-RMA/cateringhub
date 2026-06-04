@@ -194,9 +194,11 @@ export default function CartStepPayment({
                 <p className="text-xs text-[#8C8278] leading-relaxed">
                   Your order will be saved, then you&apos;ll be redirected to PayFast&apos;s secure payment page to complete payment by card or instant EFT.
                 </p>
-                <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 leading-relaxed">
-                  The email above must <strong>not</strong> be the same as your PayFast merchant login email. PayFast will reject the payment if they match — use a different customer email when testing.
-                </p>
+                {payfastIsSandbox === true && (
+                  <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 leading-relaxed">
+                    The email above must <strong>not</strong> be the same as your PayFast merchant login email. PayFast will reject the payment if they match — use a different customer email when testing.
+                  </p>
+                )}
                 {payfastIsSandbox === true && (
                   <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                     PayFast <strong>sandbox</strong> is active — use a sandbox test card or instant EFT. Buyer email must differ from your merchant login.
