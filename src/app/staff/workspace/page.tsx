@@ -3110,13 +3110,6 @@ export default function StaffWorkspacePage() {
                 </>
               )}
 
-              {/* ── Products & Pricing ── */}
-              {canTab('products') && (
-                <button onClick={() => { handleTabChange('products'); }} className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${activeTab === 'products' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'}`}>
-                  <span className="text-base">🛒</span><span>Products &amp; Pricing</span>
-                </button>
-              )}
-
               {/* ── Weekly Menu ── */}
               {canTab('weekly_menu') && (
                 <button onClick={() => { handleTabChange('weekly_menu'); }} className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${activeTab === 'weekly_menu' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'}`}>
@@ -3189,37 +3182,46 @@ export default function StaffWorkspacePage() {
                 </>
               )}
 
-              {/* ── Media Library (collapsible) ── */}
-              {canAnyTab('media', 'media_events', 'cooking_class_customers', 'payment_confirmation') && (
+              {/* ── Customer Relations (collapsible) ── */}
+              {canAnyTab('media', 'media_events', 'cooking_class_customers', 'payment_confirmation', 'products', 'collection_notification') && (
                 <>
-                  <button onClick={() => setMediaMenuOpen(prev => !prev)} className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${['media', 'media_events', 'media_products', 'cooking_class_customers', 'payment_confirmation'].includes(activeTab) ? 'text-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'}`}>
+                  <button onClick={() => setMediaMenuOpen(prev => !prev)} className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${['media', 'media_events', 'cooking_class_customers', 'payment_confirmation', 'products', 'collection_notification'].includes(activeTab) ? 'text-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'}`}>
                     <span className="text-base">🗂️</span><span className="flex-1">Customer Relations</span><span className="text-xs">{mediaMenuOpen ? '▲' : '▼'}</span>
                   </button>
                   {mediaMenuOpen && (
                     <div className="pl-4 border-l-2 border-[#E8DDD0] ml-4">
+                      {/* 1. Customer Onboarding */}
                       {canTab('cooking_class_customers') && (
                         <a href="https://forms.gle/uc61CVtHvX6nUAnr9" target="_blank" rel="noopener noreferrer" className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]`}>
                           <span className="text-base">🧑‍🤝‍🧑</span><span>Customer Onboarding</span>
                         </a>
                       )}
-                      {canTab('media') && (
-                        <button onClick={() => { handleTabChange('media'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'media' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
-                          <span className="text-base">📄</span><span>Document Management</span>
+                      {/* 2. Products & Pricing */}
+                      {canTab('products') && (
+                        <button onClick={() => { handleTabChange('products'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'products' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
+                          <span className="text-base">🛒</span><span>Products &amp; Pricing</span>
                         </button>
                       )}
+                      {/* 3. Payment Confirmation */}
+                      {canTab('payment_confirmation') && (
+                        <button onClick={() => { handleTabChange('payment_confirmation'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'payment_confirmation' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
+                          <span className="text-base">✅</span><span>Payment Confirmation</span>
+                        </button>
+                      )}
+                      {/* 4. Collection Notification */}
+                      <button onClick={() => { handleTabChange('collection_notification'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'collection_notification' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
+                        <span className="text-base">🔔</span><span>Collection Notification</span>
+                      </button>
+                      {/* 5. Events */}
                       {canTab('media_events') && (
                         <button onClick={() => { handleTabChange('media_events'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'media_events' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
                           <span className="text-base">🎉</span><span>Events</span>
                         </button>
                       )}
-                      {canTab('media_products') && (
-                        <button onClick={() => { handleTabChange('media_products'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'media_products' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
-                          <span className="text-base">🛍️</span><span>Products</span>
-                        </button>
-                      )}
-                      {canTab('payment_confirmation') && (
-                        <button onClick={() => { handleTabChange('payment_confirmation'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'payment_confirmation' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
-                          <span className="text-base">✅</span><span>Payment Confirmation</span>
+                      {/* 6. Document Management */}
+                      {canTab('media') && (
+                        <button onClick={() => { handleTabChange('media'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'media' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
+                          <span className="text-base">📄</span><span>Document Management</span>
                         </button>
                       )}
                     </div>
@@ -3986,6 +3988,16 @@ export default function StaffWorkspacePage() {
             {activeTab === 'media_products' && (<MediaProducts userRole={userProfile?.role || ''} />)}
 
             {activeTab === 'abandoned_carts' && (<AbandonedCarts userRole={userProfile?.role || ''} />)}
+
+            {/* ── COLLECTION NOTIFICATION TAB ── */}
+            {activeTab === 'collection_notification' && (
+              <div className="p-6 flex items-center justify-center min-h-[300px]">
+                <div className="text-center">
+                  <span className="text-4xl mb-4 block">🔔</span>
+                  <p className="text-lg font-semibold text-[#1A1612]">WIP - watch the next Release</p>
+                </div>
+              </div>
+            )}
 
             {/* ── PAYMENT CONFIRMATION TAB ── */}
             {activeTab === 'payment_confirmation' && (
