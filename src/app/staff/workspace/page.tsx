@@ -7,6 +7,7 @@ import AppLogo from '@/components/ui/AppLogo';
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal';
 import VoucherErrorModal from '@/components/ui/VoucherErrorModal';
 import PaymentConfirmation from '@/app/staff/workspace/components/PaymentConfirmation';
+import CollectionNotification from './components/CollectionNotification';
 import GoogleDriveDocuments from '@/app/staff/workspace/components/GoogleDriveDocuments';
 import MediaEvents from '@/app/staff/workspace/components/MediaEvents';
 import MediaProducts from '@/app/staff/workspace/components/MediaProducts';
@@ -25,7 +26,7 @@ import {
 } from 'recharts';
 
 type BucketType = 'product-images' | 'event-photos' | 'document-management';
-type WorkspaceTab = 'products' | 'media' | 'media_events' | 'media_products' | 'orders' | 'staff' | 'homepage_cards' | 'categories' | 'weekly_menu' | 'vouchers' | 'discount_vouchers' | 'testimonials' | 'reporting' | 'analytics' | 'social_media' | 'gallery' | 'section_visibility' | 'customer_order_history' | 'correspondence_settings' | 'abandoned_carts' | 'package_visibility' | 'cooking_classes' | 'cooking_class_customers' | 'cooking_class_analytics' | 'event_registrations' | 'organisation_details' | 'payment_confirmation';
+type WorkspaceTab = 'products' | 'media' | 'media_events' | 'media_products' | 'orders' | 'staff' | 'homepage_cards' | 'categories' | 'weekly_menu' | 'vouchers' | 'discount_vouchers' | 'testimonials' | 'reporting' | 'analytics' | 'social_media' | 'gallery' | 'section_visibility' | 'customer_order_history' | 'correspondence_settings' | 'abandoned_carts' | 'package_visibility' | 'cooking_classes' | 'cooking_class_customers' | 'cooking_class_analytics' | 'event_registrations' | 'organisation_details' | 'payment_confirmation' | 'collection_notification';
 
 type ProductCategory = string;
 type StaffRole = 'admin' | 'staff' | 'super_admin';
@@ -69,6 +70,7 @@ const TAB_ACCESS: Record<WorkspaceTab, StaffRole[]> = {
   social_media: ['super_admin'],
   organisation_details: ['super_admin', 'admin'],
   payment_confirmation: ['super_admin', 'admin'],
+  collection_notification: ['super_admin', 'admin'],
 };
 
 // Action-level permission model. super_admin = everything; admin = full CRUD on
@@ -3196,9 +3198,11 @@ export default function StaffWorkspacePage() {
                         </button>
                       )}
                       {/* 4. Collection Notification */}
-                      <button onClick={() => { handleTabChange('collection_notification'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'collection_notification' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
-                        <span className="text-base">🔔</span><span>Collection Notification</span>
-                      </button>
+                      {canTab('collection_notification') && (
+                        <button onClick={() => { handleTabChange('collection_notification'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'collection_notification' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
+                          <span className="text-base">🔔</span><span>Collection Notification</span>
+                        </button>
+                      )}
                       {/* 5. Events */}
                       {canTab('media_events') && (
                         <button onClick={() => { handleTabChange('media_events'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'media_events' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
@@ -4073,12 +4077,7 @@ export default function StaffWorkspacePage() {
 
             {/* ── COLLECTION NOTIFICATION TAB ── */}
             {activeTab === 'collection_notification' && (
-              <div className="p-6 flex items-center justify-center min-h-[300px]">
-                <div className="text-center">
-                  <span className="text-4xl mb-4 block">🔔</span>
-                  <p className="text-lg font-semibold text-[#1A1612]">WIP - watch the next Release</p>
-                </div>
-              </div>
+              <CollectionNotification userRole={userProfile?.role || ''} />
             )}
 
             {/* ── PAYMENT CONFIRMATION TAB ── */}
