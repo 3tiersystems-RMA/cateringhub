@@ -8,12 +8,12 @@ import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal';
 import VoucherErrorModal from '@/components/ui/VoucherErrorModal';
 
 
-import GoogleDriveDocuments from '@/app/staff/workspace/components/GoogleDriveDocuments';
-import MediaEvents from '@/app/staff/workspace/components/MediaEvents';
-import MediaProducts from '@/app/staff/workspace/components/MediaProducts';
 
-import OrderManagement from '@/app/staff/workspace/components/OrderManagement';
-import CustomerOrderHistory from '@/app/staff/workspace/components/CustomerOrderHistory';
+
+
+
+
+
 import CookingClassSettings from '@/app/staff/workspace/components/CookingClassSettings';
 import CookingClassCustomers from '@/app/staff/workspace/components/CookingClassCustomers';
 import CookingClassAnalytics from '@/app/staff/workspace/components/CookingClassAnalytics';
@@ -22,6 +22,14 @@ import OrganisationDetails from '@/app/staff/workspace/components/OrganisationDe
 import CorrespondenceSettings from '@/app/staff/workspace/components/CorrespondenceSettings';
 import { calculateOrderTotal, isFulfillmentStatusLocked } from '@/lib/order-totals';
 import {  } from 'recharts';
+import OrderManagement from '@/app/staff/workspace/components/OrderManagement';
+import CustomerOrderHistory from '@/app/staff/workspace/components/CustomerOrderHistory';
+import AbandonedCarts from '@/app/staff/workspace/components/AbandonedCarts';
+import MediaProducts from '@/app/staff/workspace/components/MediaProducts';
+
+
+
+
 
 type BucketType = 'product-images' | 'event-photos' | 'document-management';
 type WorkspaceTab = 'products' | 'media' | 'media_events' | 'media_products' | 'orders' | 'staff' | 'homepage_cards' | 'categories' | 'weekly_menu' | 'vouchers' | 'discount_vouchers' | 'testimonials' | 'reporting' | 'analytics' | 'social_media' | 'gallery' | 'section_visibility' | 'customer_order_history' | 'correspondence_settings' | 'abandoned_carts' | 'package_visibility' | 'cooking_classes' | 'cooking_class_customers' | 'cooking_class_analytics' | 'event_registrations' | 'organisation_details' | 'payment_confirmation' | 'collection_notification';
@@ -2828,6 +2836,8 @@ export default function StaffWorkspacePage() {
     if (tab === 'abandoned_carts') loadAbandonedCarts();
     if (tab === 'package_visibility') loadPackageVisibility();
     if (tab === 'media_products') { loadProducts(); loadCategoryNames(); }
+    if (tab === 'products') { loadProducts(); loadCategoryNames(); }
+    if (tab === 'products') { loadProducts(); loadCategoryNames(); }
     if (tab === 'customer_order_history') {
       setCohLookupInput('');
       setCohLookupError('');
@@ -3900,7 +3910,7 @@ export default function StaffWorkspacePage() {
                                   <td className="px-4 py-3 text-right font-semibold text-[#1A1612]">R {Number(dv.dv_amount).toFixed(2)}</td>
                                   <td className="px-4 py-3">
                                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                                      dv.status === 'Active' && !isExpired ?'bg-green-100 text-green-700' :'bg-gray-100 text-gray-600'
+                                      dv.status === 'Active' && !isExpired ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
                                     }`}>
                                       {isExpired ? 'Expired' : dv.status}
                                     </span>
@@ -4065,9 +4075,7 @@ export default function StaffWorkspacePage() {
               <CustomerOrderHistory />
             )}
 
-            {activeTab === 'media' && (<GoogleDriveDocuments canManage={canDo(userProfile?.role, 'media', 'create')} />)}
-
-            {activeTab === 'media_events' && (<MediaEvents userRole={userProfile?.role || ''} />)}
+            {activeTab === 'abandoned_carts' && (<AbandonedCarts userRole={userProfile?.role || ''} />)}
 
             {activeTab === 'media_products' && (<MediaProducts userRole={userProfile?.role || ''} />)}
 
@@ -4075,198 +4083,64 @@ export default function StaffWorkspacePage() {
             {activeTab === 'testimonials' && (
               <div className="p-6">
                 <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
-                  <div>
-                    <h2 className="text-xl font-bold text-[#1A1612]">Testimonials</h2>
-                    <p className="text-sm text-[#8C8278] mt-0.5">{testimonials.length} testimonial{testimonials.length !== 1 ? 's' : ''}</p>
+                  <div><h2 className="text-xl font-bold text-[#1A1612]">Testimonials</h2><p className="text-sm text-[#8C8278] mt-0.5">{testimonials.length} testimonials</p></div>
+                  <div className="flex items-center gap-3">
+                    <input type="text" placeholder="Search testimonials…" value={testimonialSearchQuery} onChange={e => setTestimonialSearchQuery(e.target.value)} className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white" />
+                    {can('testimonials', 'create') && (
+                      <button onClick={() => { setEditingTestimonial(null); setTestimonialForm({ quote: '', name: '', role: '', avatar_url: '', rating: 5, is_active: true, display_order: '0' }); setTestimonialFormError(''); setTestimonialFormSuccess(''); setShowTestimonialForm(true); }} className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors">+ Add Testimonial</button>
+                    )}
                   </div>
-                  {can('testimonials', 'create') && (
-                    <button
-                      onClick={() => {
-                        setEditingTestimonial(null);
-                        setTestimonialForm({ quote: '', name: '', role: '', avatar_url: '', rating: 5, is_active: true, display_order: '0' });
-                        setTestimonialFormError('');
-                        setShowTestimonialForm(true);
-                      }}
-                      className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors"
-                    >
-                      + Add Testimonial
-                    </button>
-                  )}
                 </div>
-
                 {testimonialsLoading ? (
-                  <div className="flex items-center justify-center py-12">
-                    <div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
-                  </div>
+                  <div className="flex items-center justify-center py-12"><div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>
                 ) : (
                   <div className="space-y-3">
-                    {testimonials.map(t => (
-                      <div key={t.id} className="bg-white rounded-2xl border border-[#EDE7DA] p-5">
-                        <div className="flex items-start justify-between gap-4 flex-wrap">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2 mb-1 flex-wrap">
-                              <p className="font-semibold text-[#1A1612]">{t.name}</p>
-                              {t.role && <span className="text-xs text-[#8C8278] bg-[#F5F0E8] px-2 py-0.5 rounded-full">{t.role}</span>}
-                              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${t.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                                {t.is_active ? 'Visible' : 'Hidden'}
-                              </span>
-                            </div>
-                            <p className="text-sm text-[#5C5347] mb-2 line-clamp-3">"{t.quote}"</p>
-                            <div className="flex items-center gap-3">
-                              <span className="text-xs text-[#8C8278]">
-                                {'★'.repeat(t.rating)}{'☆'.repeat(5 - t.rating)} ({t.rating}/5)
-                              </span>
-                              <span className="text-xs text-[#8C8278]">Order: {t.display_order}</span>
-                            </div>
+                    {testimonials.filter(t => !testimonialSearchQuery || t.name.toLowerCase().includes(testimonialSearchQuery.toLowerCase()) || t.quote.toLowerCase().includes(testimonialSearchQuery.toLowerCase())).map(t => (
+                      <div key={t.id} className="bg-white rounded-2xl border border-[#EDE7DA] p-4 flex items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <p className="font-semibold text-[#1A1612] text-sm">{t.name}</p>
+                            <span className="text-xs text-[#8C8278]">{t.role}</span>
+                            <span className="text-xs text-amber-500">{'★'.repeat(t.rating)}</span>
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${t.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{t.is_active ? 'Active' : 'Hidden'}</span>
                           </div>
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            {can('testimonials', 'edit') && (
-                              <button
-                                onClick={() => {
-                                  setEditingTestimonial(t);
-                                  setTestimonialForm({
-                                    quote: t.quote,
-                                    name: t.name,
-                                    role: t.role,
-                                    avatar_url: t.avatar_url || '',
-                                    rating: t.rating,
-                                    is_active: t.is_active,
-                                    display_order: String(t.display_order),
-                                  });
-                                  setTestimonialFormError('');
-                                  setShowTestimonialForm(true);
-                                }}
-                                className="text-xs text-[#C4622D] border border-[#C4622D] px-2.5 py-1 rounded-lg font-semibold hover:bg-[#FDF6EE] transition-colors"
-                              >
-                                Edit
-                              </button>
-                            )}
-                            {can('testimonials', 'delete') && (
-                              <button
-                                onClick={() => handleDeleteTestimonial(t)}
-                                className="text-xs text-red-500 border border-red-300 px-2.5 py-1 rounded-lg font-semibold hover:bg-red-50 transition-colors"
-                              >
-                                Delete
-                              </button>
-                            )}
-                          </div>
+                          <p className="text-xs text-[#5C5347] line-clamp-2">"{t.quote}"</p>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {can('testimonials', 'edit') && (
+                            <button onClick={() => { setEditingTestimonial(t); setTestimonialForm({ quote: t.quote, name: t.name, role: t.role, avatar_url: t.avatar_url || '', rating: t.rating, is_active: t.is_active, display_order: String(t.display_order) }); setTestimonialFormError(''); setTestimonialFormSuccess(''); setShowTestimonialForm(true); }} className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl font-semibold hover:bg-[#FDF6EE] transition-colors">Edit</button>
+                          )}
+                          {can('testimonials', 'delete') && (
+                            <button onClick={() => handleDeleteTestimonial(t)} className="text-xs text-red-500 border border-red-300 px-3 py-1.5 rounded-xl font-semibold hover:bg-red-50 transition-colors">Delete</button>
+                          )}
                         </div>
                       </div>
                     ))}
-                    {testimonials.length === 0 && (
-                      <div className="bg-white rounded-2xl border border-[#EDE7DA] p-8 text-center">
-                        <p className="text-[#8C8278] text-sm">No testimonials found.</p>
-                      </div>
-                    )}
+                    {testimonials.length === 0 && <div className="bg-white rounded-2xl border border-[#EDE7DA] p-8 text-center"><p className="text-[#8C8278] text-sm">No testimonials found.</p></div>}
                   </div>
                 )}
-
-                {/* Add / Edit Testimonial Modal */}
                 {showTestimonialForm && (
                   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
                       <div className="p-5 border-b border-[#EDE7DA] flex items-center justify-between">
-                        <h3 className="text-base font-bold text-[#1A1612]">
-                          {editingTestimonial ? 'Edit Testimonial' : 'Add Testimonial'}
-                        </h3>
-                        <button
-                          onClick={() => { setShowTestimonialForm(false); setEditingTestimonial(null); setTestimonialFormError(''); }}
-                          className="text-[#8C8278] hover:text-[#1A1612]"
-                        >
-                          ✕
-                        </button>
+                        <h3 className="text-base font-bold text-[#1A1612]">{editingTestimonial ? 'Edit Testimonial' : 'Add Testimonial'}</h3>
+                        <button onClick={() => setShowTestimonialForm(false)} className="text-[#8C8278] hover:text-[#1A1612]">✕</button>
                       </div>
                       <div className="p-5 space-y-3">
-                        <div>
-                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Customer Name *</label>
-                          <input
-                            type="text"
-                            value={testimonialForm.name}
-                            onChange={e => setTestimonialForm(f => ({ ...f, name: e.target.value }))}
-                            className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
-                            placeholder="e.g. Jane Smith"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Role / Title</label>
-                          <input
-                            type="text"
-                            value={testimonialForm.role}
-                            onChange={e => setTestimonialForm(f => ({ ...f, role: e.target.value }))}
-                            className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
-                            placeholder="e.g. Regular Customer"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Testimonial Content *</label>
-                          <textarea
-                            value={testimonialForm.quote}
-                            onChange={e => setTestimonialForm(f => ({ ...f, quote: e.target.value }))}
-                            rows={4}
-                            className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] resize-none"
-                            placeholder="What did the customer say?"
-                          />
-                        </div>
+                        <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Quote *</label><textarea value={testimonialForm.quote} onChange={e => setTestimonialForm(f => ({ ...f, quote: e.target.value }))} rows={3} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] resize-none" /></div>
                         <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className="block text-xs font-semibold text-[#5C5347] mb-1">Rating (1–5)</label>
-                            <select
-                              value={testimonialForm.rating}
-                              onChange={e => setTestimonialForm(f => ({ ...f, rating: Number(e.target.value) }))}
-                              className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
-                            >
-                              {[1, 2, 3, 4, 5].map(n => (
-                                <option key={n} value={n}>{n} Star{n !== 1 ? 's' : ''}</option>
-                              ))}
-                            </select>
-                          </div>
-                          <div>
-                            <label className="block text-xs font-semibold text-[#5C5347] mb-1">Display Order</label>
-                            <input
-                              type="number"
-                              min="0"
-                              value={testimonialForm.display_order}
-                              onChange={e => setTestimonialForm(f => ({ ...f, display_order: e.target.value }))}
-                              className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
-                            />
-                          </div>
+                          <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Name *</label><input type="text" value={testimonialForm.name} onChange={e => setTestimonialForm(f => ({ ...f, name: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
+                          <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Role/Title</label><input type="text" value={testimonialForm.role} onChange={e => setTestimonialForm(f => ({ ...f, role: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
+                          <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Rating (1-5)</label><input type="number" min={1} max={5} value={testimonialForm.rating} onChange={e => setTestimonialForm(f => ({ ...f, rating: Number(e.target.value) }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
+                          <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Display Order</label><input type="number" value={testimonialForm.display_order} onChange={e => setTestimonialForm(f => ({ ...f, display_order: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
                         </div>
-                        <div>
-                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Avatar URL</label>
-                          <input
-                            type="url"
-                            value={testimonialForm.avatar_url}
-                            onChange={e => setTestimonialForm(f => ({ ...f, avatar_url: e.target.value }))}
-                            className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
-                            placeholder="https://..."
-                          />
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            id="testimonial-active"
-                            checked={testimonialForm.is_active}
-                            onChange={e => setTestimonialForm(f => ({ ...f, is_active: e.target.checked }))}
-                            className="rounded"
-                          />
-                          <label htmlFor="testimonial-active" className="text-sm text-[#5C5347]">Visible on homepage</label>
-                        </div>
+                        <div className="flex items-center gap-2"><input type="checkbox" id="t-active" checked={testimonialForm.is_active} onChange={e => setTestimonialForm(f => ({ ...f, is_active: e.target.checked }))} className="rounded" /><label htmlFor="t-active" className="text-sm text-[#5C5347]">Active (visible on site)</label></div>
                         {testimonialFormError && <p className="text-sm text-red-600">{testimonialFormError}</p>}
+                        {testimonialFormSuccess && <p className="text-sm text-green-600">{testimonialFormSuccess}</p>}
                       </div>
                       <div className="p-5 border-t border-[#EDE7DA] flex gap-3">
-                        <button
-                          onClick={handleSaveTestimonial}
-                          disabled={savingTestimonial}
-                          className="bg-[#C4622D] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
-                        >
-                          {savingTestimonial ? 'Saving…' : (editingTestimonial ? 'Save Changes' : 'Add Testimonial')}
-                        </button>
-                        <button
-                          onClick={() => { setShowTestimonialForm(false); setEditingTestimonial(null); setTestimonialFormError(''); }}
-                          className="px-6 py-2.5 rounded-xl text-sm font-semibold border border-[#DDD5C8] text-[#5C5347] hover:bg-[#FAF5EE] transition-colors"
-                        >
-                          Cancel
-                        </button>
+                        <button onClick={handleSaveTestimonial} disabled={savingTestimonial} className="bg-[#C4622D] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50">{savingTestimonial ? 'Saving…' : (editingTestimonial ? 'Save Changes' : 'Add Testimonial')}</button>
+                        <button onClick={() => setShowTestimonialForm(false)} className="px-6 py-2.5 rounded-xl text-sm font-semibold border border-[#DDD5C8] text-[#5C5347] hover:bg-[#FAF5EE] transition-colors">Cancel</button>
                       </div>
                     </div>
                   </div>
@@ -4278,76 +4152,48 @@ export default function StaffWorkspacePage() {
             {activeTab === 'gallery' && (
               <div className="p-6">
                 <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
-                  <div>
-                    <h2 className="text-xl font-bold text-[#1A1612]">Gallery</h2>
-                    <p className="text-sm text-[#8C8278] mt-0.5">{galleryImages.length} image{galleryImages.length !== 1 ? 's' : ''}</p>
+                  <div><h2 className="text-xl font-bold text-[#1A1612]">Gallery</h2><p className="text-sm text-[#8C8278] mt-0.5">{galleryImages.length} images</p></div>
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-[#5C5347]">Gallery Section</span>
+                      <button onClick={() => handleToggleGallerySectionVisible(!gallerySectionVisible)} disabled={gallerySettingsSaving} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${gallerySectionVisible ? 'bg-[#C4622D]' : 'bg-gray-200'} disabled:opacity-50`}>
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${gallerySectionVisible ? 'translate-x-6' : 'translate-x-1'}`} />
+                      </button>
+                    </div>
+                    {can('gallery', 'create') && (
+                      <button onClick={openAddGalleryForm} className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors">+ Add Image</button>
+                    )}
                   </div>
-                  {can('gallery', 'create') && (
-                    <button
-                      onClick={openAddGalleryForm}
-                      className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors"
-                    >
-                      + Add Image
-                    </button>
-                  )}
                 </div>
-
                 {galleryLoading ? (
-                  <div className="flex items-center justify-center py-12">
-                    <div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
-                  </div>
+                  <div className="flex items-center justify-center py-12"><div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                     {galleryImages.map(img => (
                       <div key={img.id} className="bg-white rounded-2xl border border-[#EDE7DA] overflow-hidden">
-                        {img.imageUrl ? (
-                          <img
-                            src={img.imageUrl}
-                            alt={img.title}
-                            className="w-full h-48 object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-48 bg-[#F5F0E8] flex items-center justify-center">
-                            <span className="text-3xl">🖼️</span>
-                          </div>
-                        )}
-                        <div className="p-4">
-                          <div className="flex items-start justify-between gap-2 mb-2">
-                            <p className="font-semibold text-[#1A1612] text-sm truncate">{img.title}</p>
-                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${img.is_visible ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                              {img.is_visible ? 'Visible' : 'Hidden'}
-                            </span>
-                          </div>
-                          <p className="text-xs text-[#8C8278] mb-3">Order: {img.sort_order}</p>
-                          <div className="flex items-center gap-2">
-                            {can('gallery', 'edit') && (
-                              <button
-                                onClick={() => openEditGalleryForm(img)}
-                                className="text-xs text-[#C4622D] border border-[#C4622D] px-2.5 py-1 rounded-lg font-semibold hover:bg-[#FDF6EE] transition-colors"
-                              >
-                                Edit
-                              </button>
-                            )}
+                        {img.imageUrl && <img src={img.imageUrl} alt={img.title} className="w-full h-32 object-cover" />}
+                        <div className="p-3">
+                          <p className="font-semibold text-[#1A1612] text-xs truncate">{img.title}</p>
+                          <div className="flex items-center justify-between mt-2">
+                            <button onClick={() => handleToggleGalleryImageVisible(img)} disabled={togglingGalleryId === img.id} className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${img.is_visible ? 'bg-[#C4622D]' : 'bg-gray-200'} disabled:opacity-50`}>
+                              <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${img.is_visible ? 'translate-x-5' : 'translate-x-1'}`} />
+                            </button>
+                            <div className="flex gap-1">
+                              {can('gallery', 'edit') && <button onClick={() => openEditGalleryForm(img)} className="text-xs text-[#C4622D] border border-[#C4622D] px-2 py-1 rounded-lg font-semibold hover:bg-[#FDF6EE] transition-colors">Edit</button>}
+                              {can('gallery', 'delete') && <button onClick={() => handleDeleteGalleryImage(img)} className="text-xs text-red-500 border border-red-300 px-2 py-1 rounded-lg font-semibold hover:bg-red-50 transition-colors">Del</button>}
+                            </div>
                           </div>
                         </div>
                       </div>
                     ))}
-                    {galleryImages.length === 0 && (
-                      <div className="col-span-full bg-white rounded-2xl border border-[#EDE7DA] p-8 text-center">
-                        <p className="text-[#8C8278] text-sm">No gallery images found.</p>
-                      </div>
-                    )}
+                    {galleryImages.length === 0 && <div className="col-span-4 bg-white rounded-2xl border border-[#EDE7DA] p-8 text-center"><p className="text-[#8C8278] text-sm">No gallery images found.</p></div>}
                   </div>
                 )}
-
-                {/* Add / Edit Gallery Image Modal */}
                 {showGalleryForm && (
                   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
                       <div className="p-5 border-b border-[#EDE7DA] flex items-center justify-between">
-                        <h3 className="text-base font-bold text-[#1A1612]">
-                          {editingGalleryImage ? 'Edit Image' : 'Add Image'}
-                        </h3>
+                        <h3 className="text-base font-bold text-[#1A1612]">{editingGalleryImage ? 'Edit Image' : 'Add Gallery Image'}</h3>
                         <button
                           onClick={() => { setShowGalleryForm(false); setEditingGalleryImage(null); setGalleryFormError(''); }}
                           className="text-[#8C8278] hover:text-[#1A1612]"
@@ -4786,6 +4632,272 @@ export default function StaffWorkspacePage() {
                           onClick={() => { setShowWeeklyMenuForm(false); setEditingWeeklyEntry(null); setWeeklyMenuFormError(''); setWeeklyMenuFormSuccess(''); }}
                           className="px-6 py-2.5 rounded-xl text-sm font-semibold border border-[#DDD5C8] text-[#5C5347] hover:bg-[#FAF5EE] transition-colors"
                         >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── PRODUCTS TAB ── */}
+            {activeTab === 'products' && (
+              <div className="p-6">
+                {/* Header */}
+                <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
+                  <div>
+                    <h2 className="text-xl font-bold text-[#1A1612]">Products &amp; Pricing</h2>
+                    <p className="text-sm text-[#8C8278] mt-0.5">{products.length} product{products.length !== 1 ? 's' : ''}</p>
+                  </div>
+                  {can('products', 'create') && (
+                    <button
+                      onClick={openAddForm}
+                      className="bg-[#C4622D] text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors"
+                    >
+                      + Add Product
+                    </button>
+                  )}
+                </div>
+
+                {/* Search & Filter */}
+                <div className="flex flex-col sm:flex-row gap-3 mb-5">
+                  <input
+                    type="text"
+                    value={productSearchQuery}
+                    onChange={e => setProductSearchQuery(e.target.value)}
+                    placeholder="Search products…"
+                    className="flex-1 border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                  />
+                  <select
+                    value={staffProductCategory}
+                    onChange={e => setStaffProductCategory(e.target.value)}
+                    className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+                  >
+                    <option value="All">All Categories</option>
+                    {categoryNames.map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {productsLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
+                  </div>
+                ) : (
+                  (() => {
+                    const filtered = products.filter(p => {
+                      const matchesSearch = !productSearchQuery || p.name.toLowerCase().includes(productSearchQuery.toLowerCase()) || p.description?.toLowerCase().includes(productSearchQuery.toLowerCase());
+                      const matchesCat = staffProductCategory === 'All' || p.category === staffProductCategory;
+                      return matchesSearch && matchesCat;
+                    });
+                    return filtered.length === 0 ? (
+                      <div className="text-center py-12 text-[#8C8278] text-sm">No products found.</div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                        {filtered.map(product => (
+                          <div key={product.id} className="bg-white rounded-2xl border border-[#EDE7DA] flex flex-col overflow-hidden">
+                            {product.imageUrl ? (
+                              <img
+                                src={product.imageUrl}
+                                alt={product.name}
+                                className={`w-full h-36 ${product.image_fit === 'contain' ? 'object-contain' : 'object-cover'} bg-[#FAF5EE]`}
+                              />
+                            ) : (
+                              <div className="w-full h-36 bg-[#FAF5EE] flex items-center justify-center text-3xl">🍽️</div>
+                            )}
+                            <div className="p-3 flex flex-col flex-1">
+                              <div className="flex items-start justify-between gap-2 mb-1">
+                                <p className="text-sm font-bold text-[#1A1612] leading-tight">{product.name}</p>
+                                <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full font-medium ${product.available ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                                  {product.available ? 'Active' : 'Hidden'}
+                                </span>
+                              </div>
+                              <p className="text-xs text-[#8C8278] mb-1">{product.category}</p>
+                              {product.description && (
+                                <p className="text-xs text-[#5C5347] line-clamp-2 mb-2">{product.description}</p>
+                              )}
+                              <div className="mt-auto flex items-center justify-between">
+                                <p className="text-sm font-semibold text-[#C4622D]">R{Number(product.price).toFixed(2)}<span className="text-xs text-[#8C8278] font-normal"> / {product.unit}</span></p>
+                                <div className="flex gap-1">
+                                  {can('products', 'edit') && (
+                                    <button
+                                      onClick={() => openEditForm(product)}
+                                      className="text-xs text-[#C4622D] border border-[#C4622D] px-2 py-0.5 rounded-lg font-semibold hover:bg-[#FDF6EE] transition-colors"
+                                    >
+                                      Edit
+                                    </button>
+                                  )}
+                                  {can('products', 'delete') && (
+                                    <button
+                                      onClick={() => handleDeleteProduct(product)}
+                                      className="text-xs text-red-500 border border-red-300 px-2 py-0.5 rounded-lg font-semibold hover:bg-red-50 transition-colors"
+                                    >
+                                      Del
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()
+                )}
+
+                {/* Add Product Modal */}
+                {showForm && !editingProduct && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+                      <div className="p-5 border-b border-[#EDE7DA] flex items-center justify-between">
+                        <h3 className="text-base font-bold text-[#1A1612]">Add Product</h3>
+                        <button onClick={() => { setShowForm(false); setFormError(''); setFormSuccess(''); setPendingImageFile(null); setPendingImagePreview(null); }} className="text-[#8C8278] hover:text-[#1A1612]">✕</button>
+                      </div>
+                      <div className="p-5 space-y-3">
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Product Name *</label>
+                          <input type="text" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" placeholder="e.g. Butter Chicken" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-semibold text-[#5C5347] mb-1">Category</label>
+                            <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white">
+                              {categoryNames.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-[#5C5347] mb-1">Package Type</label>
+                            <select value={form.package_type} onChange={e => setForm(f => ({ ...f, package_type: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white">
+                              {packageTypes.map(pt => <option key={pt} value={pt}>{pt}</option>)}
+                            </select>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-semibold text-[#5C5347] mb-1">Price (R) *</label>
+                            <input type="number" min="0" step="0.01" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" placeholder="0.00" />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-[#5C5347] mb-1">Unit</label>
+                            <input type="text" value={form.unit} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" placeholder="per serving" />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Description</label>
+                          <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={3} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] resize-none" placeholder="Optional description…" />
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <label className="flex items-center gap-2 text-sm text-[#5C5347] cursor-pointer">
+                            <input type="checkbox" checked={form.available} onChange={e => setForm(f => ({ ...f, available: e.target.checked }))} className="rounded" />
+                            Available
+                          </label>
+                          <label className="flex items-center gap-2 text-sm text-[#5C5347] cursor-pointer">
+                            <input type="checkbox" checked={form.featured} onChange={e => setForm(f => ({ ...f, featured: e.target.checked }))} className="rounded" />
+                            Featured
+                          </label>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Product Image</label>
+                          {pendingImagePreview && (
+                            <img src={pendingImagePreview} alt="Preview" className="w-full h-32 object-cover rounded-xl mb-2 border border-[#DDD5C8]" />
+                          )}
+                          <input ref={productImageRef} type="file" accept="image/*" className="hidden" onChange={e => {
+                            const file = e.target.files?.[0];
+                            if (file) { setPendingImageFile(file); const reader = new FileReader(); reader.onload = ev => setPendingImagePreview(ev.target?.result as string); reader.readAsDataURL(file); }
+                          }} />
+                          <button type="button" onClick={() => productImageRef.current?.click()} className="w-full border border-dashed border-[#DDD5C8] rounded-xl px-3 py-2 text-sm text-[#8C8278] hover:border-[#C4622D] hover:text-[#C4622D] transition-colors">
+                            {pendingImageFile ? pendingImageFile.name : 'Choose image…'}
+                          </button>
+                        </div>
+                        {formError && <p className="text-sm text-red-600">{formError}</p>}
+                        {formSuccess && <p className="text-sm text-green-600">{formSuccess}</p>}
+                      </div>
+                      <div className="p-5 border-t border-[#EDE7DA] flex gap-3">
+                        <button onClick={handleSaveProduct} disabled={saving || uploadingImage} className="bg-[#C4622D] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50">
+                          {saving || uploadingImage ? 'Saving…' : 'Add Product'}
+                        </button>
+                        <button onClick={() => { setShowForm(false); setFormError(''); setFormSuccess(''); setPendingImageFile(null); setPendingImagePreview(null); }} className="px-6 py-2.5 rounded-xl text-sm font-semibold border border-[#DDD5C8] text-[#5C5347] hover:bg-[#FAF5EE] transition-colors">
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Edit Product Modal */}
+                {showEditModal && editingProduct && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+                      <div className="p-5 border-b border-[#EDE7DA] flex items-center justify-between">
+                        <h3 className="text-base font-bold text-[#1A1612]">Edit Product</h3>
+                        <button onClick={() => { setShowEditModal(false); setEditingProduct(null); setFormError(''); setFormSuccess(''); setPendingImageFile(null); setPendingImagePreview(null); }} className="text-[#8C8278] hover:text-[#1A1612]">✕</button>
+                      </div>
+                      <div className="p-5 space-y-3">
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Product Name *</label>
+                          <input type="text" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-semibold text-[#5C5347] mb-1">Category</label>
+                            <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white">
+                              {categoryNames.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-[#5C5347] mb-1">Package Type</label>
+                            <select value={form.package_type} onChange={e => setForm(f => ({ ...f, package_type: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white">
+                              {packageTypes.map(pt => <option key={pt} value={pt}>{pt}</option>)}
+                            </select>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-semibold text-[#5C5347] mb-1">Price (R) *</label>
+                            <input type="number" min="0" step="0.01" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-[#5C5347] mb-1">Unit</label>
+                            <input type="text" value={form.unit} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Description</label>
+                          <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={3} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] resize-none" />
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <label className="flex items-center gap-2 text-sm text-[#5C5347] cursor-pointer">
+                            <input type="checkbox" checked={form.available} onChange={e => setForm(f => ({ ...f, available: e.target.checked }))} className="rounded" />
+                            Available
+                          </label>
+                          <label className="flex items-center gap-2 text-sm text-[#5C5347] cursor-pointer">
+                            <input type="checkbox" checked={form.featured} onChange={e => setForm(f => ({ ...f, featured: e.target.checked }))} className="rounded" />
+                            Featured
+                          </label>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Product Image</label>
+                          {(pendingImagePreview || editingProduct.imageUrl) && (
+                            <img src={pendingImagePreview || editingProduct.imageUrl || ''} alt="Preview" className="w-full h-32 object-cover rounded-xl mb-2 border border-[#DDD5C8]" />
+                          )}
+                          <input ref={productImageRef} type="file" accept="image/*" className="hidden" onChange={e => {
+                            const file = e.target.files?.[0];
+                            if (file) { setPendingImageFile(file); const reader = new FileReader(); reader.onload = ev => setPendingImagePreview(ev.target?.result as string); reader.readAsDataURL(file); }
+                          }} />
+                          <button type="button" onClick={() => productImageRef.current?.click()} className="w-full border border-dashed border-[#DDD5C8] rounded-xl px-3 py-2 text-sm text-[#8C8278] hover:border-[#C4622D] hover:text-[#C4622D] transition-colors">
+                            {pendingImageFile ? pendingImageFile.name : 'Replace image…'}
+                          </button>
+                        </div>
+                        {formError && <p className="text-sm text-red-600">{formError}</p>}
+                        {formSuccess && <p className="text-sm text-green-600">{formSuccess}</p>}
+                      </div>
+                      <div className="p-5 border-t border-[#EDE7DA] flex gap-3">
+                        <button onClick={handleSaveProduct} disabled={saving || uploadingImage} className="bg-[#C4622D] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50">
+                          {saving || uploadingImage ? 'Saving…' : 'Save Changes'}
+                        </button>
+                        <button onClick={() => { setShowEditModal(false); setEditingProduct(null); setFormError(''); setFormSuccess(''); setPendingImageFile(null); setPendingImagePreview(null); }} className="px-6 py-2.5 rounded-xl text-sm font-semibold border border-[#DDD5C8] text-[#5C5347] hover:bg-[#FAF5EE] transition-colors">
                           Cancel
                         </button>
                       </div>
