@@ -4583,6 +4583,217 @@ export default function StaffWorkspacePage() {
                 )}
               </div>
             )}
+
+            {/* ── WEEKLY MENU TAB ── */}
+            {activeTab === 'weekly_menu' && (
+              <div className="p-6">
+                {/* Header */}
+                <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
+                  <div>
+                    <h2 className="text-xl font-bold text-[#1A1612]">Weekly Menu</h2>
+                    <p className="text-sm text-[#8C8278] mt-0.5">
+                      {getWeekDays()[0]?.shortDate} – {getWeekDays()[6]?.shortDate}
+                    </p>
+                  </div>
+                  {/* Week navigation */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setWeekOffset(w => w - 1)}
+                      className="px-3 py-2 rounded-xl border border-[#DDD5C8] text-sm font-semibold text-[#5C5347] hover:bg-[#FAF5EE] transition-colors"
+                    >
+                      ← Prev
+                    </button>
+                    <button
+                      onClick={() => setWeekOffset(0)}
+                      className="px-3 py-2 rounded-xl border border-[#DDD5C8] text-sm font-semibold text-[#5C5347] hover:bg-[#FAF5EE] transition-colors"
+                    >
+                      This Week
+                    </button>
+                    <button
+                      onClick={() => setWeekOffset(w => w + 1)}
+                      className="px-3 py-2 rounded-xl border border-[#DDD5C8] text-sm font-semibold text-[#5C5347] hover:bg-[#FAF5EE] transition-colors"
+                    >
+                      Next →
+                    </button>
+                  </div>
+                </div>
+
+                {weeklyMenuLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {getWeekDays().map(({ date, dayName, shortDate }) => {
+                      const dayEntries = weeklyMenuEntries.filter(e => e.meal_date === date);
+                      const closedEntry = dayEntries.find(e => e.is_closed);
+                      const isClosed = !!closedEntry;
+                      const isProcessing = closingDayDate === date && savingClosedDay;
+
+                      return (
+                        <div
+                          key={date}
+                          className={`bg-white rounded-2xl border ${isClosed ? 'border-red-200 bg-red-50' : 'border-[#EDE7DA]'} flex flex-col overflow-hidden`}
+                        >
+                          {/* Day header */}
+                          <div className={`px-4 py-3 border-b ${isClosed ? 'border-red-200 bg-red-100' : 'border-[#EDE7DA] bg-[#FAF5EE]'} flex items-center justify-between`}>
+                            <div>
+                              <p className="text-sm font-bold text-[#1A1612]">{dayName}</p>
+                              <p className="text-xs text-[#8C8278]">{shortDate}</p>
+                            </div>
+                            {isClosed ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">Closed</span>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">{dayEntries.length} item{dayEntries.length !== 1 ? 's' : ''}</span>
+                            )}
+                          </div>
+
+                          {/* Entries */}
+                          <div className="flex-1 p-3 space-y-2">
+                            {isClosed ? (
+                              <p className="text-xs text-red-500 italic">{closedEntry?.closed_reason || 'No service this day.'}</p>
+                            ) : dayEntries.length === 0 ? (
+                              <p className="text-xs text-[#8C8278] italic">No entries yet.</p>
+                            ) : (
+                              dayEntries.map(entry => (
+                                <div key={entry.id} className="bg-[#FAF5EE] rounded-xl p-2.5 flex items-start justify-between gap-2">
+                                  <div className="min-w-0">
+                                    <p className="text-sm font-semibold text-[#1A1612] truncate">{entry.meal_name}</p>
+                                    {entry.description && <p className="text-xs text-[#8C8278] mt-0.5 line-clamp-2">{entry.description}</p>}
+                                    {entry.price != null && (
+                                      <p className="text-xs font-semibold text-[#C4622D] mt-1">R{Number(entry.price).toFixed(2)}</p>
+                                    )}
+                                  </div>
+                                  {can('weekly_menu', 'edit') && (
+                                    <div className="flex flex-col gap-1 shrink-0">
+                                      <button
+                                        onClick={() => openEditWeeklyMenuForm(entry)}
+                                        className="text-xs text-[#C4622D] border border-[#C4622D] px-2 py-0.5 rounded-lg font-semibold hover:bg-[#FDF6EE] transition-colors"
+                                      >
+                                        Edit
+                                      </button>
+                                      {can('weekly_menu', 'delete') && (
+                                        <button
+                                          onClick={() => handleDeleteWeeklyEntry(entry)}
+                                          className="text-xs text-red-500 border border-red-300 px-2 py-0.5 rounded-lg font-semibold hover:bg-red-50 transition-colors"
+                                        >
+                                          Del
+                                        </button>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              ))
+                            )}
+                          </div>
+
+                          {/* Day actions */}
+                          <div className="px-3 pb-3 flex flex-col gap-2">
+                            {!isClosed && can('weekly_menu', 'create') && (
+                              <button
+                                onClick={() => openAddWeeklyMenuForm(date, dayName)}
+                                className="w-full text-xs text-[#C4622D] border border-dashed border-[#C4622D] px-3 py-1.5 rounded-xl font-semibold hover:bg-[#FDF6EE] transition-colors"
+                              >
+                                + Add Entry
+                              </button>
+                            )}
+                            {can('weekly_menu', 'edit') && (
+                              isClosed ? (
+                                <button
+                                  disabled={isProcessing}
+                                  onClick={() => closedEntry && handleReopenDay(closedEntry)}
+                                  className="w-full text-xs text-green-700 border border-green-400 px-3 py-1.5 rounded-xl font-semibold hover:bg-green-50 transition-colors disabled:opacity-50"
+                                >
+                                  {isProcessing ? 'Reopening…' : 'Reopen Day'}
+                                </button>
+                              ) : (
+                                <button
+                                  disabled={isProcessing}
+                                  onClick={() => handleCloseDay(date, dayName)}
+                                  className="w-full text-xs text-red-600 border border-red-300 px-3 py-1.5 rounded-xl font-semibold hover:bg-red-50 transition-colors disabled:opacity-50"
+                                >
+                                  {isProcessing ? 'Closing…' : 'Close Day'}
+                                </button>
+                              )
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Add / Edit Weekly Menu Entry Modal */}
+                {showWeeklyMenuForm && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+                      <div className="p-5 border-b border-[#EDE7DA] flex items-center justify-between">
+                        <h3 className="text-base font-bold text-[#1A1612]">
+                          {editingWeeklyEntry ? 'Edit Menu Entry' : `Add Entry — ${weeklyMenuForm.day_name}`}
+                        </h3>
+                        <button
+                          onClick={() => { setShowWeeklyMenuForm(false); setEditingWeeklyEntry(null); setWeeklyMenuFormError(''); setWeeklyMenuFormSuccess(''); }}
+                          className="text-[#8C8278] hover:text-[#1A1612]"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                      <div className="p-5 space-y-3">
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Meal Name *</label>
+                          <input
+                            type="text"
+                            value={weeklyMenuForm.meal_name}
+                            onChange={e => setWeeklyMenuForm(f => ({ ...f, meal_name: e.target.value }))}
+                            className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                            placeholder="e.g. Butter Chicken"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Description</label>
+                          <textarea
+                            value={weeklyMenuForm.description}
+                            onChange={e => setWeeklyMenuForm(f => ({ ...f, description: e.target.value }))}
+                            rows={3}
+                            className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] resize-none"
+                            placeholder="Optional description…"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Price (R)</label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={weeklyMenuForm.price}
+                            onChange={e => setWeeklyMenuForm(f => ({ ...f, price: e.target.value }))}
+                            className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                            placeholder="0.00"
+                          />
+                        </div>
+                        {weeklyMenuFormError && <p className="text-sm text-red-600">{weeklyMenuFormError}</p>}
+                        {weeklyMenuFormSuccess && <p className="text-sm text-green-600">{weeklyMenuFormSuccess}</p>}
+                      </div>
+                      <div className="p-5 border-t border-[#EDE7DA] flex gap-3">
+                        <button
+                          onClick={handleSaveWeeklyEntry}
+                          disabled={savingWeeklyEntry}
+                          className="bg-[#C4622D] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
+                        >
+                          {savingWeeklyEntry ? 'Saving…' : (editingWeeklyEntry ? 'Save Changes' : 'Add Entry')}
+                        </button>
+                        <button
+                          onClick={() => { setShowWeeklyMenuForm(false); setEditingWeeklyEntry(null); setWeeklyMenuFormError(''); setWeeklyMenuFormSuccess(''); }}
+                          className="px-6 py-2.5 rounded-xl text-sm font-semibold border border-[#DDD5C8] text-[#5C5347] hover:bg-[#FAF5EE] transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </main>
         </div>
       </div>
