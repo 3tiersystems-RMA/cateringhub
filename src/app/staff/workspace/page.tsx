@@ -21,7 +21,7 @@ import EventRegistrations from '@/app/staff/workspace/components/EventRegistrati
 import PaymentConfirmation from '@/app/staff/workspace/components/PaymentConfirmation';
 import OrderManagement from '@/app/staff/workspace/components/OrderManagement';
 import CustomerOrderHistory from '@/app/staff/workspace/components/CustomerOrderHistory';
-import DocumentManagement from '@/app/staff/workspace/components/DocumentManagement';
+import GoogleDriveDocuments from '@/app/staff/workspace/components/GoogleDriveDocuments';
 import MediaEvents from '@/app/staff/workspace/components/MediaEvents';
 import MediaProducts from '@/app/staff/workspace/components/MediaProducts';
 import AbandonedCarts from '@/app/staff/workspace/components/AbandonedCarts';
@@ -3979,7 +3979,7 @@ export default function StaffWorkspacePage() {
               <CustomerOrderHistory />
             )}
 
-            {activeTab === 'media' && (<DocumentManagement userRole={userProfile?.role || ''} />)}
+            {activeTab === 'media' && (<GoogleDriveDocuments canManage={canDo(userProfile?.role, 'media', 'create')} />)}
 
             {activeTab === 'media_events' && (<MediaEvents userRole={userProfile?.role || ''} />)}
 
