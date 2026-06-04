@@ -6,8 +6,8 @@ import { createClient } from '@/lib/supabase/client';
 import AppLogo from '@/components/ui/AppLogo';
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal';
 import VoucherErrorModal from '@/components/ui/VoucherErrorModal';
-import PaymentConfirmation from '@/app/staff/workspace/components/PaymentConfirmation';
-import CollectionNotification from './components/CollectionNotification';
+
+
 import GoogleDriveDocuments from '@/app/staff/workspace/components/GoogleDriveDocuments';
 import MediaEvents from '@/app/staff/workspace/components/MediaEvents';
 import MediaProducts from '@/app/staff/workspace/components/MediaProducts';
@@ -21,18 +21,7 @@ import EventRegistrations from '@/app/staff/workspace/components/EventRegistrati
 import OrganisationDetails from '@/app/staff/workspace/components/OrganisationDetails';
 import CorrespondenceSettings from '@/app/staff/workspace/components/CorrespondenceSettings';
 import { calculateOrderTotal, isFulfillmentStatusLocked } from '@/lib/order-totals';
-import {
-  ResponsiveContainer,
-  BarChart,
-  CartesianGrid,
-  XAxis,
-  YAxis,
-  Tooltip,
-  Legend,
-  Bar,
-  LineChart,
-  Line,
-} from 'recharts';
+import {  } from 'recharts';
 
 type BucketType = 'product-images' | 'event-photos' | 'document-management';
 type WorkspaceTab = 'products' | 'media' | 'media_events' | 'media_products' | 'orders' | 'staff' | 'homepage_cards' | 'categories' | 'weekly_menu' | 'vouchers' | 'discount_vouchers' | 'testimonials' | 'reporting' | 'analytics' | 'social_media' | 'gallery' | 'section_visibility' | 'customer_order_history' | 'correspondence_settings' | 'abandoned_carts' | 'package_visibility' | 'cooking_classes' | 'cooking_class_customers' | 'cooking_class_analytics' | 'event_registrations' | 'organisation_details' | 'payment_confirmation' | 'collection_notification';
@@ -868,7 +857,7 @@ export default function StaffWorkspacePage() {
   const [dvLoading, setDvLoading] = useState(false);
   const [showDvForm, setShowDvForm] = useState(false);
   const [editingDv, setEditingDv] = useState<DiscountVoucher | null>(null);
-  const [dvForm, setDvForm] = useState({ dv_code: '', dv_type: 'Discount' as 'Discount' | 'Gift', dv_amount: '', status: 'Active' as 'Active' | 'Inactive', expiry_date: '', created_at: '' });
+  const [dvForm, setDvForm] = useState({ dv_code: '', dv_type: 'Discount' as 'Discount' | 'Gift', dv_amount: '', status: 'Active\' as \'Active\' | \'Inactive', expiry_date: '', created_at: '' });
   const [dvFormError, setDvFormError] = useState('');
   const [dvFormSuccess, setDvFormSuccess] = useState('');
   const [savingDv, setSavingDv] = useState(false);
@@ -4365,4 +4354,238 @@ export default function StaffWorkspacePage() {
                         >
                           ✕
                         </button>
-                     
+                      </div>
+                      <div className="p-5 space-y-3">
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Title *</label>
+                          <input
+                            type="text"
+                            value={galleryForm.title}
+                            onChange={e => setGalleryForm(f => ({ ...f, title: e.target.value }))}
+                            className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                            placeholder="Image title"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Description</label>
+                          <textarea
+                            value={galleryForm.description}
+                            onChange={e => setGalleryForm(f => ({ ...f, description: e.target.value }))}
+                            rows={3}
+                            className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] resize-none"
+                            placeholder="Optional description"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Image {editingGalleryImage ? '(leave blank to keep current)' : '*'}</label>
+                          <input
+                            ref={galleryImageRef}
+                            type="file"
+                            accept="image/*"
+                            onChange={e => {
+                              const file = e.target.files?.[0] || null;
+                              setGalleryImageFile(file);
+                              if (file) setGalleryImagePreview(URL.createObjectURL(file));
+                            }}
+                            className="w-full text-sm text-[#5C5347]"
+                          />
+                          {galleryImagePreview && (
+                            <img src={galleryImagePreview} alt="Preview" className="mt-2 h-32 w-full object-cover rounded-xl border border-[#EDE7DA]" />
+                          )}
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Sort Order</label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={galleryForm.sort_order}
+                            onChange={e => setGalleryForm(f => ({ ...f, sort_order: e.target.value }))}
+                            className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                          />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            id="gallery-visible"
+                            checked={galleryForm.is_visible}
+                            onChange={e => setGalleryForm(f => ({ ...f, is_visible: e.target.checked }))}
+                            className="rounded"
+                          />
+                          <label htmlFor="gallery-visible" className="text-sm text-[#5C5347]">Visible on homepage</label>
+                        </div>
+                        {galleryFormError && <p className="text-sm text-red-600">{galleryFormError}</p>}
+                      </div>
+                      <div className="p-5 border-t border-[#EDE7DA] flex gap-3">
+                        <button
+                          onClick={handleSaveGalleryImage}
+                          disabled={savingGallery || uploadingGalleryImage}
+                          className="bg-[#C4622D] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
+                        >
+                          {savingGallery ? 'Saving…' : (editingGalleryImage ? 'Save Changes' : 'Add Image')}
+                        </button>
+                        <button
+                          onClick={() => { setShowGalleryForm(false); setEditingGalleryImage(null); setGalleryFormError(''); }}
+                          className="px-6 py-2.5 rounded-xl text-sm font-semibold border border-[#DDD5C8] text-[#5C5347] hover:bg-[#FAF5EE] transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── CATEGORIES TAB ── */}
+            {activeTab === 'categories' && (
+              <div className="p-6">
+                <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
+                  <div>
+                    <h2 className="text-xl font-bold text-[#1A1612]">Categories</h2>
+                    <p className="text-sm text-[#8C8278] mt-0.5">{categories.length} categor{categories.length !== 1 ? 'ies' : 'y'}</p>
+                  </div>
+                  {can('categories', 'create') && (
+                    <button
+                      onClick={openAddCategoryForm}
+                      className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors"
+                    >
+                      + Add Category
+                    </button>
+                  )}
+                </div>
+
+                {categoriesLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
+                  </div>
+                ) : (
+                  <div className="bg-white rounded-2xl border border-[#EDE7DA] overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-[#EDE7DA] bg-[#FAF5EE]">
+                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wide">Name</th>
+                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wide">Slug</th>
+                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wide">Status</th>
+                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wide">Sort Order</th>
+                            <th className="text-right px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wide">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#EDE7DA]">
+                          {categories.map(cat => (
+                            <tr key={cat.id} className="hover:bg-[#FAF5EE] transition-colors">
+                              <td className="px-4 py-3 font-medium text-[#1A1612]">{cat.name}</td>
+                              <td className="px-4 py-3 text-[#5C5347] font-mono text-xs">{cat.slug}</td>
+                              <td className="px-4 py-3">
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${cat.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                                  {cat.active ? 'Active' : 'Inactive'}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-[#5C5347]">{cat.sort_order}</td>
+                              <td className="px-4 py-3 text-right">
+                                {can('categories', 'edit') && (
+                                  <button
+                                    onClick={() => openEditCategoryForm(cat)}
+                                    className="text-xs text-[#C4622D] border border-[#C4622D] px-2.5 py-1 rounded-lg font-semibold hover:bg-[#FDF6EE] transition-colors"
+                                  >
+                                    Edit
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                          {categories.length === 0 && (
+                            <tr>
+                              <td colSpan={5} className="px-4 py-8 text-center text-[#8C8278] text-sm">No categories found.</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* Add / Edit Category Modal */}
+                {showCategoryForm && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+                      <div className="p-5 border-b border-[#EDE7DA] flex items-center justify-between">
+                        <h3 className="text-base font-bold text-[#1A1612]">
+                          {editingCategory ? 'Edit Category' : 'Add Category'}
+                        </h3>
+                        <button
+                          onClick={() => { setShowCategoryForm(false); setEditingCategory(null); setCategoryFormError(''); }}
+                          className="text-[#8C8278] hover:text-[#1A1612]"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                      <div className="p-5 space-y-3">
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Name *</label>
+                          <input
+                            type="text"
+                            value={categoryForm.name}
+                            onChange={e => setCategoryForm(f => ({ ...f, name: e.target.value }))}
+                            className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                            placeholder="e.g. Frozen Meals"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Slug *</label>
+                          <input
+                            type="text"
+                            value={categoryForm.slug}
+                            onChange={e => setCategoryForm(f => ({ ...f, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') }))}
+                            className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                            placeholder="e.g. frozen-meals"
+                          />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            id="cat-active"
+                            checked={categoryForm.active}
+                            onChange={e => setCategoryForm(f => ({ ...f, active: e.target.checked }))}
+                            className="rounded"
+                          />
+                          <label htmlFor="cat-active" className="text-sm text-[#5C5347]">Active</label>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Sort Order</label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={categoryForm.sort_order}
+                            onChange={e => setCategoryForm(f => ({ ...f, sort_order: e.target.value }))}
+                            className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                          />
+                        </div>
+                        {categoryFormError && <p className="text-sm text-red-600">{categoryFormError}</p>}
+                      </div>
+                      <div className="p-5 border-t border-[#EDE7DA] flex gap-3">
+                        <button
+                          onClick={handleSaveCategory}
+                          disabled={savingCategory}
+                          className="bg-[#C4622D] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
+                        >
+                          {savingCategory ? 'Saving…' : (editingCategory ? 'Save Changes' : 'Add Category')}
+                        </button>
+                        <button
+                          onClick={() => { setShowCategoryForm(false); setEditingCategory(null); setCategoryFormError(''); }}
+                          className="px-6 py-2.5 rounded-xl text-sm font-semibold border border-[#DDD5C8] text-[#5C5347] hover:bg-[#FAF5EE] transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </main>
+        </div>
+      </div>
+    </>
+  );
+}
