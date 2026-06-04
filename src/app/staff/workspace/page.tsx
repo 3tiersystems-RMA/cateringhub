@@ -3538,419 +3538,16 @@ export default function StaffWorkspacePage() {
                         <button onClick={() => setEditingCard(null)} className="text-[#8C8278] hover:text-[#1A1612]">✕</button>
                       </div>
                       <div className="p-5 space-y-3">
-                        <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Title</label><input type="text" value={cardForm.title || ''} onChange={e => setCardForm(f => ({ ...f, title: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
-                        <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Subtitle</label><input type="text" value={cardForm.subtitle || ''} onChange={e => setCardForm(f => ({ ...f, subtitle: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
-                        <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Description</label><textarea value={cardForm.description || ''} onChange={e => setCardForm(f => ({ ...f, description: e.target.value }))} rows={3} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] resize-none" /></div>
-                        {(editingCard.card_type === 'todays_special' || editingCard.card_type === 'next_booking') && (
-                          <div className="grid grid-cols-2 gap-3">
-                            <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Price</label><input type="number" step="0.01" value={cardForm.price ?? ''} onChange={e => setCardForm(f => ({ ...f, price: e.target.value ? Number(e.target.value) : null }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
-                            <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Price Unit</label><input type="text" value={cardForm.price_unit || ''} onChange={e => setCardForm(f => ({ ...f, price_unit: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
-                          </div>
-                        )}
-                        {editingCard.card_type === 'next_booking' && (
-                          <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Event Date</label><input type="date" value={cardForm.event_date || ''} onChange={e => setCardForm(f => ({ ...f, event_date: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
-                        )}
-                        {editingCard.card_type === 'customer_review' && (
-                          <div className="grid grid-cols-2 gap-3">
-                            <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Reviewer Name</label><input type="text" value={cardForm.reviewer_name || ''} onChange={e => setCardForm(f => ({ ...f, reviewer_name: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
-                            <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Rating (1-5)</label><input type="number" min={1} max={5} value={cardForm.rating ?? 5} onChange={e => setCardForm(f => ({ ...f, rating: Number(e.target.value) }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
-                          </div>
-                        )}
-                        <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Badge Label</label><input type="text" value={cardForm.badge_label || ''} onChange={e => setCardForm(f => ({ ...f, badge_label: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
-                        <div>
-                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Card Image</label>
-                          <input ref={cardImageRef} type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) { setCardImageFile(f); setCardImagePreview(URL.createObjectURL(f)); } }} />
-                          {cardImagePreview && <img src={cardImagePreview} alt="Preview" className="w-full h-32 object-cover rounded-xl mb-2" />}
-                          <button type="button" onClick={() => cardImageRef.current?.click()} className="text-xs border border-[#DDD5C8] text-[#5C5347] px-3 py-1.5 rounded-xl hover:bg-[#FAF5EE] transition-colors">{cardImagePreview ? 'Change Image' : 'Upload Image'}</button>
-                        </div>
-                        {cardFormError && <p className="text-sm text-red-600">{cardFormError}</p>}
-                        {cardFormSuccess && <p className="text-sm text-green-600">{cardFormSuccess}</p>}
-                      </div>
-                      <div className="p-5 border-t border-[#EDE7DA] flex gap-3">
-                        <button onClick={async () => {
-                          setSavingCard(true);
-                          setCardFormError('');
-                          try {
-                            let image_url = cardForm.image_url || null;
-                            if (cardImageFile) {
-                              setUploadingCardImage(true);
-                              const ext = cardImageFile.name.split('.').pop();
-                              const path = `card-${editingCard.id}-${Date.now()}.${ext}`;
-                              const { error: upErr } = await supabase.storage.from('homepage-card-images').upload(path, cardImageFile, { upsert: true });
-                              if (upErr) throw upErr;
-                              const { data: urlData } = supabase.storage.from('homepage-card-images').getPublicUrl(path);
-                              image_url = urlData?.publicUrl || null;
-                              setUploadingCardImage(false);
-                            }
-                            const { error } = await supabase.from('homepage_cards').update({ ...cardForm, image_url, updated_at: new Date().toISOString() }).eq('id', editingCard.id);
-                            if (error) throw error;
-                            setCardFormSuccess('Card updated!');
-                            await loadHomepageCards();
-                            setTimeout(() => setEditingCard(null), 1000);
-                          } catch (e: any) { showCardFormError(e.message); }
-                          finally { setSavingCard(false); setUploadingCardImage(false); }
-                        }} disabled={savingCard || uploadingCardImage} className="bg-[#C4622D] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50">{savingCard ? 'Saving…' : 'Save Changes'}</button>
-                        <button onClick={() => setEditingCard(null)} className="px-6 py-2.5 rounded-xl text-sm font-semibold border border-[#DDD5C8] text-[#5C5347] hover:bg-[#FAF5EE] transition-colors">Cancel</button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* ── TESTIMONIALS TAB ── */}
-            {activeTab === 'testimonials' && (
-              <div className="p-6">
-                <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
-                  <div><h2 className="text-xl font-bold text-[#1A1612]">Testimonials</h2><p className="text-sm text-[#8C8278] mt-0.5">{testimonials.length} testimonials</p></div>
-                  <div className="flex items-center gap-3">
-                    <input type="text" placeholder="Search testimonials…" value={testimonialSearchQuery} onChange={e => setTestimonialSearchQuery(e.target.value)} className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white" />
-                    {can('testimonials', 'create') && (
-                      <button onClick={() => { setEditingTestimonial(null); setTestimonialForm({ quote: '', name: '', role: '', avatar_url: '', rating: 5, is_active: true, display_order: '0' }); setTestimonialFormError(''); setTestimonialFormSuccess(''); setShowTestimonialForm(true); }} className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors">+ Add Testimonial</button>
-                    )}
-                  </div>
-                </div>
-                {testimonialsLoading ? (
-                  <div className="flex items-center justify-center py-12"><div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>
-                ) : (
-                  <div className="space-y-3">
-                    {testimonials.filter(t => !testimonialSearchQuery || t.name.toLowerCase().includes(testimonialSearchQuery.toLowerCase()) || t.quote.toLowerCase().includes(testimonialSearchQuery.toLowerCase())).map(t => (
-                      <div key={t.id} className="bg-white rounded-2xl border border-[#EDE7DA] p-4 flex items-start justify-between gap-4">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <p className="font-semibold text-[#1A1612] text-sm">{t.name}</p>
-                            <span className="text-xs text-[#8C8278]">{t.role}</span>
-                            <span className="text-xs text-amber-500">{'★'.repeat(t.rating)}</span>
-                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${t.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{t.is_active ? 'Active' : 'Hidden'}</span>
-                          </div>
-                          <p className="text-xs text-[#5C5347] line-clamp-2">"{t.quote}"</p>
-                        </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          {can('testimonials', 'edit') && (
-                            <button onClick={() => { setEditingTestimonial(t); setTestimonialForm({ quote: t.quote, name: t.name, role: t.role, avatar_url: t.avatar_url || '', rating: t.rating, is_active: t.is_active, display_order: String(t.display_order) }); setTestimonialFormError(''); setTestimonialFormSuccess(''); setShowTestimonialForm(true); }} className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl font-semibold hover:bg-[#FDF6EE] transition-colors">Edit</button>
-                          )}
-                          {can('testimonials', 'delete') && (
-                            <button onClick={() => handleDeleteTestimonial(t)} className="text-xs text-red-500 border border-red-300 px-3 py-1.5 rounded-xl font-semibold hover:bg-red-50 transition-colors">Delete</button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                    {testimonials.length === 0 && <div className="bg-white rounded-2xl border border-[#EDE7DA] p-8 text-center"><p className="text-[#8C8278] text-sm">No testimonials found.</p></div>}
-                  </div>
-                )}
-                {showTestimonialForm && (
-                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
-                      <div className="p-5 border-b border-[#EDE7DA] flex items-center justify-between">
-                        <h3 className="text-base font-bold text-[#1A1612]">{editingTestimonial ? 'Edit Testimonial' : 'Add Testimonial'}</h3>
-                        <button onClick={() => setShowTestimonialForm(false)} className="text-[#8C8278] hover:text-[#1A1612]">✕</button>
-                      </div>
-                      <div className="p-5 space-y-3">
-                        <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Quote *</label><textarea value={testimonialForm.quote} onChange={e => setTestimonialForm(f => ({ ...f, quote: e.target.value }))} rows={3} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] resize-none" /></div>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Name *</label><input type="text" value={testimonialForm.name} onChange={e => setTestimonialForm(f => ({ ...f, name: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
-                          <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Role/Title</label><input type="text" value={testimonialForm.role} onChange={e => setTestimonialForm(f => ({ ...f, role: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
-                          <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Rating (1-5)</label><input type="number" min={1} max={5} value={testimonialForm.rating} onChange={e => setTestimonialForm(f => ({ ...f, rating: Number(e.target.value) }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
-                          <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Display Order</label><input type="number" value={testimonialForm.display_order} onChange={e => setTestimonialForm(f => ({ ...f, display_order: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
-                        </div>
-                        <div className="flex items-center gap-2"><input type="checkbox" id="t-active" checked={testimonialForm.is_active} onChange={e => setTestimonialForm(f => ({ ...f, is_active: e.target.checked }))} className="rounded" /><label htmlFor="t-active" className="text-sm text-[#5C5347]">Active (visible on site)</label></div>
-                        {testimonialFormError && <p className="text-sm text-red-600">{testimonialFormError}</p>}
-                        {testimonialFormSuccess && <p className="text-sm text-green-600">{testimonialFormSuccess}</p>}
-                      </div>
-                      <div className="p-5 border-t border-[#EDE7DA] flex gap-3">
-                        <button onClick={handleSaveTestimonial} disabled={savingTestimonial} className="bg-[#C4622D] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50">{savingTestimonial ? 'Saving…' : (editingTestimonial ? 'Save Changes' : 'Add Testimonial')}</button>
-                        <button onClick={() => setShowTestimonialForm(false)} className="px-6 py-2.5 rounded-xl text-sm font-semibold border border-[#DDD5C8] text-[#5C5347] hover:bg-[#FAF5EE] transition-colors">Cancel</button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* ── GALLERY TAB ── */}
-            {activeTab === 'gallery' && (
-              <div className="p-6">
-                <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
-                  <div><h2 className="text-xl font-bold text-[#1A1612]">Gallery</h2><p className="text-sm text-[#8C8278] mt-0.5">{galleryImages.length} images</p></div>
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-[#5C5347]">Gallery Section</span>
-                      <button onClick={() => handleToggleGallerySectionVisible(!gallerySectionVisible)} disabled={gallerySettingsSaving} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${gallerySectionVisible ? 'bg-[#C4622D]' : 'bg-gray-200'} disabled:opacity-50`}>
-                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${gallerySectionVisible ? 'translate-x-6' : 'translate-x-1'}`} />
-                      </button>
-                    </div>
-                    {can('gallery', 'create') && (
-                      <button onClick={openAddGalleryForm} className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors">+ Add Image</button>
-                    )}
-                  </div>
-                </div>
-                {galleryLoading ? (
-                  <div className="flex items-center justify-center py-12"><div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>
-                ) : (
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                    {galleryImages.map(img => (
-                      <div key={img.id} className="bg-white rounded-2xl border border-[#EDE7DA] overflow-hidden">
-                        {img.imageUrl && <img src={img.imageUrl} alt={img.title} className="w-full h-32 object-cover" />}
-                        <div className="p-3">
-                          <p className="font-semibold text-[#1A1612] text-xs truncate">{img.title}</p>
-                          <div className="flex items-center justify-between mt-2">
-                            <button onClick={() => handleToggleGalleryImageVisible(img)} disabled={togglingGalleryId === img.id} className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${img.is_visible ? 'bg-[#C4622D]' : 'bg-gray-200'} disabled:opacity-50`}>
-                              <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${img.is_visible ? 'translate-x-5' : 'translate-x-1'}`} />
-                            </button>
-                            <div className="flex gap-1">
-                              {can('gallery', 'edit') && <button onClick={() => openEditGalleryForm(img)} className="text-xs text-[#C4622D] border border-[#C4622D] px-2 py-1 rounded-lg font-semibold hover:bg-[#FDF6EE] transition-colors">Edit</button>}
-                              {can('gallery', 'delete') && <button onClick={() => handleDeleteGalleryImage(img)} className="text-xs text-red-500 border border-red-300 px-2 py-1 rounded-lg font-semibold hover:bg-red-50 transition-colors">Del</button>}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                    {galleryImages.length === 0 && <div className="col-span-4 bg-white rounded-2xl border border-[#EDE7DA] p-8 text-center"><p className="text-[#8C8278] text-sm">No gallery images found.</p></div>}
-                  </div>
-                )}
-                {showGalleryForm && (
-                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
-                      <div className="p-5 border-b border-[#EDE7DA] flex items-center justify-between">
-                        <h3 className="text-base font-bold text-[#1A1612]">{editingGalleryImage ? 'Edit Image' : 'Add Gallery Image'}</h3>
-                        <button onClick={() => setShowGalleryForm(false)} className="text-[#8C8278] hover:text-[#1A1612]">✕</button>
-                      </div>
-                      <div className="p-5 space-y-3">
-                        <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Title *</label><input type="text" value={galleryForm.title} onChange={e => setGalleryForm(f => ({ ...f, title: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
-                        <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Description</label><textarea value={galleryForm.description} onChange={e => setGalleryForm(f => ({ ...f, description: e.target.value }))} rows={2} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] resize-none" /></div>
-                        <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Sort Order</label><input type="number" value={galleryForm.sort_order} onChange={e => setGalleryForm(f => ({ ...f, sort_order: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
-                        <div>
-                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Image {!editingGalleryImage && '*'}</label>
-                          <input ref={galleryImageRef} type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) { setGalleryImageFile(f); setGalleryImagePreview(URL.createObjectURL(f)); } }} />
-                          {galleryImagePreview && <img src={galleryImagePreview} alt="Preview" className="w-full h-32 object-cover rounded-xl mb-2" />}
-                          <button type="button" onClick={() => galleryImageRef.current?.click()} className="text-xs border border-[#DDD5C8] text-[#5C5347] px-3 py-1.5 rounded-xl hover:bg-[#FAF5EE] transition-colors">{galleryImagePreview ? 'Change Image' : 'Upload Image'}</button>
-                        </div>
-                        <div className="flex items-center gap-2"><input type="checkbox" id="g-visible" checked={galleryForm.is_visible} onChange={e => setGalleryForm(f => ({ ...f, is_visible: e.target.checked }))} className="rounded" /><label htmlFor="g-visible" className="text-sm text-[#5C5347]">Visible</label></div>
-                        {galleryFormError && <p className="text-sm text-red-600">{galleryFormError}</p>}
-                        {galleryFormSuccess && <p className="text-sm text-green-600">{galleryFormSuccess}</p>}
-                      </div>
-                      <div className="p-5 border-t border-[#EDE7DA] flex gap-3">
-                        <button onClick={handleSaveGalleryImage} disabled={savingGallery || uploadingGalleryImage} className="bg-[#C4622D] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50">{savingGallery ? 'Saving…' : (editingGalleryImage ? 'Save Changes' : 'Add Image')}</button>
-                        <button onClick={() => setShowGalleryForm(false)} className="px-6 py-2.5 rounded-xl text-sm font-semibold border border-[#DDD5C8] text-[#5C5347] hover:bg-[#FAF5EE] transition-colors">Cancel</button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* ── PRODUCTS & PRICING TAB ── */}
-            {activeTab === 'products' && (
-              <div className="p-6">
-                <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
-                  <div><h2 className="text-xl font-bold text-[#1A1612]">Products &amp; Pricing</h2><p className="text-sm text-[#8C8278] mt-0.5">{products.length} products</p></div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <input type="text" placeholder="Search products…" value={productSearchQuery} onChange={e => setProductSearchQuery(e.target.value)} className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white" />
-                    <select value={staffProductCategory} onChange={e => setStaffProductCategory(e.target.value)} className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white">
-                      <option value="All">All Categories</option>
-                      {categoryNames.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                    {can('products', 'create') && (
-                      <button onClick={() => { setEditingProduct(null); setForm(emptyForm); setFormError(''); setFormSuccess(''); setPendingImageFile(null); setPendingImagePreview(null); setShowForm(true); }} className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors">+ Add Product</button>
-                    )}
-                  </div>
-                </div>
-                {productsLoading ? (
-                  <div className="flex items-center justify-center py-12"><div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>
-                ) : (
-                  <div className="space-y-3">
-                    {products.filter(p => {
-                      const q = productSearchQuery.toLowerCase();
-                      const matchSearch = !q || p.name.toLowerCase().includes(q) || p.category.toLowerCase().includes(q);
-                      const matchCat = staffProductCategory === 'All' || p.category === staffProductCategory;
-                      return matchSearch && matchCat;
-                    }).map(p => (
-                      <div key={p.id} className="bg-white rounded-2xl border border-[#EDE7DA] p-4 flex items-center gap-4">
-                        {p.imageUrl && <img src={p.imageUrl} alt={p.name} className="w-12 h-12 rounded-xl object-cover flex-shrink-0" />}
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-[#1A1612] truncate">{p.name}</p>
-                          <p className="text-xs text-[#8C8278]">{p.category} · {p.unit}</p>
-                        </div>
-                        <div className="flex items-center gap-3 flex-shrink-0">
-                          <span className="font-bold text-[#C4622D] text-sm">{p.price > 0 ? `R${p.price.toFixed(2)}` : '—'}</span>
-                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${p.available ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{p.available ? 'Available' : 'Unavailable'}</span>
-                          {can('products', 'edit') && (<button onClick={() => openEditForm(p)} className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl font-semibold hover:bg-[#FDF6EE] transition-colors">Edit</button>)}
-                          {can('products', 'delete') && (<button onClick={() => handleDeleteProduct(p)} className="text-xs text-red-500 border border-red-300 px-3 py-1.5 rounded-xl font-semibold hover:bg-red-50 transition-colors">Delete</button>)}
-                        </div>
-                      </div>
-                    ))}
-                    {products.length === 0 && <div className="bg-white rounded-2xl border border-[#EDE7DA] p-8 text-center"><p className="text-[#8C8278] text-sm">No products found.</p></div>}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* ── CATEGORIES TAB ── */}
-            {activeTab === 'categories' && (
-              <div className="p-6">
-                <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
-                  <div><h2 className="text-xl font-bold text-[#1A1612]">Product Categories</h2><p className="text-sm text-[#8C8278] mt-0.5">{categories.length} categories</p></div>
-                  {can('categories', 'create') && (
-                    <button onClick={() => { setEditingCategory(null); setCategoryForm({ name: '', slug: '', active: true, sort_order: '0' }); setCategoryFormError(''); setCategoryFormSuccess(''); setShowCategoryForm(true); }} className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors">+ Add Category</button>
-                  )}
-                </div>
-                {categoriesLoading ? (
-                  <div className="flex items-center justify-center py-12"><div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>
-                ) : (
-                  <div className="space-y-3">
-                    {categories.map(cat => (
-                      <div key={cat.id} className="bg-white rounded-2xl border border-[#EDE7DA] p-4 flex items-center justify-between gap-4">
-                        <div>
-                          <p className="font-semibold text-[#1A1612] text-sm">{cat.name}</p>
-                          <p className="text-xs text-[#8C8278]">/{cat.slug} · Order: {cat.sort_order}</p>
-                        </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${cat.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{cat.active ? 'Active' : 'Inactive'}</span>
-                          {can('categories', 'edit') && (<button onClick={() => { setEditingCategory(cat); setCategoryForm({ name: cat.name, slug: cat.slug, active: cat.active, sort_order: String(cat.sort_order) }); setCategoryFormError(''); setCategoryFormSuccess(''); setShowCategoryForm(true); }} className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl font-semibold hover:bg-[#FDF6EE] transition-colors">Edit</button>)}
-                          {can('categories', 'delete') && (<button onClick={async () => { setDeletingCategoryId(cat.id); await supabase.from('product_categories').delete().eq('id', cat.id); await loadCategories(); setDeletingCategoryId(null); }} disabled={deletingCategoryId === cat.id} className="text-xs text-red-500 border border-red-300 px-3 py-1.5 rounded-xl font-semibold hover:bg-red-50 transition-colors disabled:opacity-50">Delete</button>)}
-                        </div>
-                      </div>
-                    ))}
-                    {categories.length === 0 && <div className="bg-white rounded-2xl border border-[#EDE7DA] p-8 text-center"><p className="text-[#8C8278] text-sm">No categories found.</p></div>}
-                  </div>
-                )}
-                {showCategoryForm && (
-                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
-                      <div className="p-5 border-b border-[#EDE7DA] flex items-center justify-between">
-                        <h3 className="text-base font-bold text-[#1A1612]">{editingCategory ? 'Edit Category' : 'Add Category'}</h3>
-                        <button onClick={() => setShowCategoryForm(false)} className="text-[#8C8278] hover:text-[#1A1612]">✕</button>
-                      </div>
-                      <div className="p-5 space-y-3">
                         <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Name *</label><input type="text" value={categoryForm.name} onChange={e => setCategoryForm(f => ({ ...f, name: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
                         <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Slug *</label><input type="text" value={categoryForm.slug} onChange={e => setCategoryForm(f => ({ ...f, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
-                        <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Sort Order</label><input type="number" value={categoryForm.sort_order} onChange={e => setCategoryForm(f => ({ ...f, sort_order: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
                         <div className="flex items-center gap-2"><input type="checkbox" id="cat-active" checked={categoryForm.active} onChange={e => setCategoryForm(f => ({ ...f, active: e.target.checked }))} className="rounded" /><label htmlFor="cat-active" className="text-sm text-[#5C5347]">Active</label></div>
+                        <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Sort Order</label><input type="number" value={categoryForm.sort_order} onChange={e => setCategoryForm(f => ({ ...f, sort_order: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
                         {categoryFormError && <p className="text-sm text-red-600">{categoryFormError}</p>}
                         {categoryFormSuccess && <p className="text-sm text-green-600">{categoryFormSuccess}</p>}
                       </div>
                       <div className="p-5 border-t border-[#EDE7DA] flex gap-3">
-                        <button onClick={async () => {
-                          if (!categoryForm.name.trim() || !categoryForm.slug.trim()) { showCategoryFormError('Name and slug are required.'); return; }
-                          setSavingCategory(true);
-                          const payload = { name: categoryForm.name.trim(), slug: categoryForm.slug.trim(), active: categoryForm.active, sort_order: Number(categoryForm.sort_order) };
-                          let err: any = null;
-                          if (editingCategory) {
-                            const { error } = await supabase.from('product_categories').update(payload).eq('id', editingCategory.id);
-                            err = error;
-                          } else {
-                            const { error } = await supabase.from('product_categories').insert(payload);
-                            err = error;
-                          }
-                          if (err) { showCategoryFormError(err.message); }
-                          else { setCategoryFormSuccess(editingCategory ? 'Category updated!' : 'Category added!'); setShowCategoryForm(false); await loadCategories(); await loadCategoryNames(); }
-                          setSavingCategory(false);
-                        }} disabled={savingCategory} className="bg-[#C4622D] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50">{savingCategory ? 'Saving…' : (editingCategory ? 'Save Changes' : 'Add Category')}</button>
+                        <button onClick={handleSaveCategory} disabled={savingCategory} className="bg-[#C4622D] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50">{savingCategory ? 'Saving…' : (editingCategory ? 'Save Changes' : 'Add Category')}</button>
                         <button onClick={() => setShowCategoryForm(false)} className="px-6 py-2.5 rounded-xl text-sm font-semibold border border-[#DDD5C8] text-[#5C5347] hover:bg-[#FAF5EE] transition-colors">Cancel</button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* ── WEEKLY MENU TAB ── */}
-            {activeTab === 'weekly_menu' && (
-              <div className="p-6">
-                <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
-                  <div><h2 className="text-xl font-bold text-[#1A1612]">Weekly Menu</h2><p className="text-sm text-[#8C8278] mt-0.5">Manage the weekly meal schedule</p></div>
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => setWeekOffset(w => w - 1)} className="border border-[#DDD5C8] text-[#5C5347] px-3 py-2 rounded-xl text-sm hover:bg-[#F5F0E8] transition-colors">← Prev</button>
-                    <button onClick={() => setWeekOffset(0)} className="border border-[#DDD5C8] text-[#5C5347] px-3 py-2 rounded-xl text-sm hover:bg-[#F5F0E8] transition-colors">This Week</button>
-                    <button onClick={() => setWeekOffset(w => w + 1)} className="border border-[#DDD5C8] text-[#5C5347] px-3 py-2 rounded-xl text-sm hover:bg-[#F5F0E8] transition-colors">Next →</button>
-                    {can('weekly_menu', 'create') && (
-                      <button onClick={() => { setEditingWeeklyEntry(null); setWeeklyMenuForm({ meal_date: '', day_name: '', meal_name: '', description: '', price: '', is_closed: false, closed_reason: '' }); setWeeklyMenuFormError(''); setWeeklyMenuFormSuccess(''); setShowWeeklyMenuForm(true); }} className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors">+ Add Entry</button>
-                    )}
-                  </div>
-                </div>
-                {weeklyMenuLoading ? (
-                  <div className="flex items-center justify-center py-12"><div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>
-                ) : (
-                  <div className="space-y-3">
-                    {getWeekDays().map(day => {
-                      const entry = weeklyMenuEntries.find(e => e.meal_date === day.date);
-                      return (
-                        <div key={day.date} className="bg-white rounded-2xl border border-[#EDE7DA] p-4 flex items-center justify-between gap-4 flex-wrap">
-                          <div className="min-w-0">
-                            <p className="font-semibold text-[#1A1612] text-sm">{day.dayName} <span className="text-[#8C8278] font-normal text-xs">{day.date}</span></p>
-                            {entry ? (
-                              entry.is_closed ? (
-                                <p className="text-xs text-red-500">Closed{entry.closed_reason ? ` — ${entry.closed_reason}` : ''}</p>
-                              ) : (
-                                <div>
-                                  <p className="text-sm text-[#1A1612]">{entry.meal_name || '—'}</p>
-                                  {entry.description && <p className="text-xs text-[#8C8278]">{entry.description}</p>}
-                                  {entry.price != null && <p className="text-xs font-semibold text-[#C4622D]">R{Number(entry.price).toFixed(2)}</p>}
-                                </div>
-                              )
-                            ) : (
-                              <p className="text-xs text-[#B5ADA5]">No entry</p>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            {can('weekly_menu', 'edit') && entry && (
-                              <button onClick={() => { setEditingWeeklyEntry(entry); setWeeklyMenuForm({ meal_date: entry.meal_date, day_name: entry.day_name, meal_name: entry.meal_name || '', description: entry.description || '', price: entry.price != null ? String(entry.price) : '', is_closed: entry.is_closed, closed_reason: entry.closed_reason || '' }); setWeeklyMenuFormError(''); setWeeklyMenuFormSuccess(''); setShowWeeklyMenuForm(true); }} className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl font-semibold hover:bg-[#FDF6EE] transition-colors">Edit</button>
-                            )}
-                            {can('weekly_menu', 'create') && !entry && (
-                              <button onClick={() => { setEditingWeeklyEntry(null); setWeeklyMenuForm({ meal_date: day.date, day_name: day.dayName, meal_name: '', description: '', price: '', is_closed: false, closed_reason: '' }); setWeeklyMenuFormError(''); setWeeklyMenuFormSuccess(''); setShowWeeklyMenuForm(true); }} className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl font-semibold hover:bg-[#FDF6EE] transition-colors">+ Add</button>
-                            )}
-                            {can('weekly_menu', 'delete') && entry && (
-                              <button onClick={async () => { setDeletingWeeklyEntryId(entry.id); await supabase.from('weekly_menu').delete().eq('id', entry.id); await loadWeeklyMenu(); setDeletingWeeklyEntryId(null); }} disabled={deletingWeeklyEntryId === entry.id} className="text-xs text-red-500 border border-red-300 px-3 py-1.5 rounded-xl font-semibold hover:bg-red-50 transition-colors disabled:opacity-50">Delete</button>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-                {showWeeklyMenuForm && (
-                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
-                      <div className="p-5 border-b border-[#EDE7DA] flex items-center justify-between">
-                        <h3 className="text-base font-bold text-[#1A1612]">{editingWeeklyEntry ? 'Edit Menu Entry' : 'Add Menu Entry'}</h3>
-                        <button onClick={() => setShowWeeklyMenuForm(false)} className="text-[#8C8278] hover:text-[#1A1612]">✕</button>
-                      </div>
-                      <div className="p-5 space-y-3">
-                        <div className="grid grid-cols-2 gap-3">
-                          <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Date *</label><input type="date" value={weeklyMenuForm.meal_date} onChange={e => setWeeklyMenuForm(f => ({ ...f, meal_date: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
-                          <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Day Name</label><input type="text" value={weeklyMenuForm.day_name} onChange={e => setWeeklyMenuForm(f => ({ ...f, day_name: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
-                        </div>
-                        <div className="flex items-center gap-2"><input type="checkbox" id="wm-closed" checked={weeklyMenuForm.is_closed} onChange={e => setWeeklyMenuForm(f => ({ ...f, is_closed: e.target.checked }))} className="rounded" /><label htmlFor="wm-closed" className="text-sm text-[#5C5347]">Closed this day</label></div>
-                        {weeklyMenuForm.is_closed ? (
-                          <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Reason</label><input type="text" value={weeklyMenuForm.closed_reason} onChange={e => setWeeklyMenuForm(f => ({ ...f, closed_reason: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
-                        ) : (
-                          <>
-                            <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Meal Name</label><input type="text" value={weeklyMenuForm.meal_name} onChange={e => setWeeklyMenuForm(f => ({ ...f, meal_name: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
-                            <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Description</label><textarea value={weeklyMenuForm.description} onChange={e => setWeeklyMenuForm(f => ({ ...f, description: e.target.value }))} rows={2} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] resize-none" /></div>
-                            <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Price (R)</label><input type="number" step="0.01" value={weeklyMenuForm.price} onChange={e => setWeeklyMenuForm(f => ({ ...f, price: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
-                          </>
-                        )}
-                        {weeklyMenuFormError && <p className="text-sm text-red-600">{weeklyMenuFormError}</p>}
-                        {weeklyMenuFormSuccess && <p className="text-sm text-green-600">{weeklyMenuFormSuccess}</p>}
-                      </div>
-                      <div className="p-5 border-t border-[#EDE7DA] flex gap-3">
-                        <button onClick={async () => {
-                          if (!weeklyMenuForm.meal_date) { showWeeklyMenuFormError('Date is required.'); return; }
-                          setSavingWeeklyEntry(true);
-                          const payload = { meal_date: weeklyMenuForm.meal_date, day_name: weeklyMenuForm.day_name || new Date(weeklyMenuForm.meal_date).toLocaleDateString('en-ZA', { weekday: 'long' }), meal_name: weeklyMenuForm.is_closed ? null : (weeklyMenuForm.meal_name || null), description: weeklyMenuForm.is_closed ? null : (weeklyMenuForm.description || null), price: weeklyMenuForm.is_closed ? null : (weeklyMenuForm.price ? Number(weeklyMenuForm.price) : null), is_closed: weeklyMenuForm.is_closed, closed_reason: weeklyMenuForm.is_closed ? (weeklyMenuForm.closed_reason || null) : null };
-                          let err: any = null;
-                          if (editingWeeklyEntry) {
-                            const { error } = await supabase.from('weekly_menu').update(payload).eq('id', editingWeeklyEntry.id);
-                            err = error;
-                          } else {
-                            const { error } = await supabase.from('weekly_menu').insert(payload);
-                            err = error;
-                          }
-                          if (err) { showWeeklyMenuFormError(err.message); }
-                          else { setWeeklyMenuFormSuccess(editingWeeklyEntry ? 'Entry updated!' : 'Entry added!'); setShowWeeklyMenuForm(false); await loadWeeklyMenu(); }
-                          setSavingWeeklyEntry(false);
-                        }} disabled={savingWeeklyEntry} className="bg-[#C4622D] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50">{savingWeeklyEntry ? 'Saving…' : (editingWeeklyEntry ? 'Save Changes' : 'Add Entry')}</button>
-                        <button onClick={() => setShowWeeklyMenuForm(false)} className="px-6 py-2.5 rounded-xl text-sm font-semibold border border-[#DDD5C8] text-[#5C5347] hover:bg-[#FAF5EE] transition-colors">Cancel</button>
                       </div>
                     </div>
                   </div>
@@ -4207,6 +3804,244 @@ export default function StaffWorkspacePage() {
                         </button>
                         <button
                           onClick={() => { setShowMvForm(false); setEditingMv(null); setMvFormError(''); setMvFormSuccess(''); }}
+                          className="px-6 py-2.5 rounded-xl text-sm font-semibold border border-[#DDD5C8] text-[#5C5347] hover:bg-[#FAF5EE] transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── DISCOUNT VOUCHERS TAB ── */}
+            {activeTab === 'discount_vouchers' && (
+              <div className="p-6">
+                <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
+                  <div>
+                    <h2 className="text-xl font-bold text-[#1A1612]">Discount Vouchers</h2>
+                    <p className="text-sm text-[#8C8278] mt-0.5">{discountVouchers.length} voucher{discountVouchers.length !== 1 ? 's' : ''}</p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <input
+                      type="text"
+                      placeholder="Search vouchers…"
+                      value={dvSearchQuery}
+                      onChange={e => setDvSearchQuery(e.target.value)}
+                      className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+                    />
+                    <select
+                      value={dvFilterExpired}
+                      onChange={e => setDvFilterExpired(e.target.value as typeof dvFilterExpired)}
+                      className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+                    >
+                      <option value="all">All</option>
+                      <option value="active">Active</option>
+                      <option value="expired">Expired</option>
+                    </select>
+                    {can('discount_vouchers', 'create') && (
+                      <button
+                        onClick={() => {
+                          setEditingDv(null);
+                          setDvForm({ dv_code: '', dv_type: 'Discount', dv_amount: '', status: 'Active', expiry_date: '', created_at: '' });
+                          setDvFormError('');
+                          setDvFormSuccess('');
+                          setShowDvForm(true);
+                        }}
+                        className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors"
+                      >
+                        + Add Voucher
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {dvLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
+                  </div>
+                ) : (
+                  <div className="bg-white rounded-2xl border border-[#EDE7DA] overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="bg-[#FAF5EE] border-b border-[#EDE7DA]">
+                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wide">Code</th>
+                            <th className="text-right px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wide">Amount</th>
+                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wide">Status</th>
+                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wide">Expiry Date</th>
+                            <th className="text-center px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wide">Times Used</th>
+                            <th className="text-right px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wide">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#EDE7DA]">
+                          {discountVouchers
+                            .filter(dv => {
+                              const q = dvSearchQuery.toLowerCase();
+                              const matchSearch = !q || dv.dv_code.toLowerCase().includes(q);
+                              const now = new Date();
+                              const expiry = dv.expiry_date ? new Date(dv.expiry_date) : null;
+                              const isExpired = expiry ? expiry < now : false;
+                              const matchFilter =
+                                dvFilterExpired === 'all' ||
+                                (dvFilterExpired === 'active' && !isExpired && dv.status === 'Active') ||
+                                (dvFilterExpired === 'expired' && (isExpired || dv.status === 'Inactive'));
+                              return matchSearch && matchFilter;
+                            })
+                            .map(dv => {
+                              const expiry = dv.expiry_date ? new Date(dv.expiry_date) : null;
+                              const isExpired = expiry ? expiry < new Date() : false;
+                              return (
+                                <tr key={dv.id} className="hover:bg-[#FAF5EE] transition-colors">
+                                  <td className="px-4 py-3 font-mono font-semibold text-[#C4622D] text-xs">{dv.dv_code}</td>
+                                  <td className="px-4 py-3 text-right font-semibold text-[#1A1612]">R {Number(dv.dv_amount).toFixed(2)}</td>
+                                  <td className="px-4 py-3">
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                      dv.status === 'Active' && !isExpired ?'bg-green-100 text-green-700' :'bg-gray-100 text-gray-600'
+                                    }`}>
+                                      {isExpired ? 'Expired' : dv.status}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-3 text-[#5C5347] text-xs">
+                                    {dv.expiry_date
+                                      ? new Date(dv.expiry_date).toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' })
+                                      : '—'}
+                                  </td>
+                                  <td className="px-4 py-3 text-center text-[#5C5347]">{dv.times_used ?? 0}</td>
+                                  <td className="px-4 py-3">
+                                    <div className="flex items-center justify-end gap-2">
+                                      {can('discount_vouchers', 'edit') && (
+                                        <button
+                                          onClick={() => {
+                                            setEditingDv(dv);
+                                            setDvForm({
+                                              dv_code: dv.dv_code,
+                                              dv_type: 'Discount',
+                                              dv_amount: String(dv.dv_amount),
+                                              status: dv.status,
+                                              expiry_date: dv.expiry_date ? dv.expiry_date.slice(0, 10) : '',
+                                              created_at: dv.created_at || '',
+                                            });
+                                            setDvFormError('');
+                                            setDvFormSuccess('');
+                                            setShowDvForm(true);
+                                          }}
+                                          className="text-xs text-[#C4622D] border border-[#C4622D] px-2.5 py-1 rounded-lg font-semibold hover:bg-[#FDF6EE] transition-colors"
+                                        >
+                                          Edit
+                                        </button>
+                                      )}
+                                      {can('discount_vouchers', 'delete') && (
+                                        <button
+                                          onClick={() => handleDeleteDv(dv)}
+                                          className="text-xs text-red-500 border border-red-300 px-2.5 py-1 rounded-lg font-semibold hover:bg-red-50 transition-colors"
+                                        >
+                                          Delete
+                                        </button>
+                                      )}
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          {discountVouchers.filter(dv => {
+                            const q = dvSearchQuery.toLowerCase();
+                            const matchSearch = !q || dv.dv_code.toLowerCase().includes(q);
+                            const now = new Date();
+                            const expiry = dv.expiry_date ? new Date(dv.expiry_date) : null;
+                            const isExpired = expiry ? expiry < now : false;
+                            const matchFilter =
+                              dvFilterExpired === 'all' ||
+                              (dvFilterExpired === 'active' && !isExpired && dv.status === 'Active') ||
+                              (dvFilterExpired === 'expired' && (isExpired || dv.status === 'Inactive'));
+                            return matchSearch && matchFilter;
+                          }).length === 0 && (
+                            <tr>
+                              <td colSpan={6} className="px-4 py-8 text-center text-[#8C8278] text-sm">No discount vouchers found.</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* Add / Edit Discount Voucher Modal */}
+                {showDvForm && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
+                      <div className="p-5 border-b border-[#EDE7DA] flex items-center justify-between">
+                        <h3 className="text-base font-bold text-[#1A1612]">
+                          {editingDv ? 'Edit Discount Voucher' : 'Add Discount Voucher'}
+                        </h3>
+                        <button
+                          onClick={() => { setShowDvForm(false); setEditingDv(null); setDvFormError(''); setDvFormSuccess(''); }}
+                          className="text-[#8C8278] hover:text-[#1A1612]"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                      <div className="p-5 space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-semibold text-[#5C5347] mb-1">Voucher Code *</label>
+                            <input
+                              type="text"
+                              value={dvForm.dv_code}
+                              onChange={e => setDvForm(f => ({ ...f, dv_code: e.target.value }))}
+                              className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                              placeholder="e.g. SAVE10"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-[#5C5347] mb-1">Status</label>
+                            <select
+                              value={dvForm.status}
+                              onChange={e => setDvForm(f => ({ ...f, status: e.target.value as 'Active' | 'Inactive' }))}
+                              className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+                            >
+                              <option value="Active">Active</option>
+                              <option value="Inactive">Inactive</option>
+                            </select>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-semibold text-[#5C5347] mb-1">Amount (R) *</label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={dvForm.dv_amount}
+                              onChange={e => setDvForm(f => ({ ...f, dv_amount: e.target.value }))}
+                              className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                              placeholder="0.00"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-[#5C5347] mb-1">Expiry Date *</label>
+                            <input
+                              type="date"
+                              value={dvForm.expiry_date}
+                              onChange={e => setDvForm(f => ({ ...f, expiry_date: e.target.value }))}
+                              className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                            />
+                          </div>
+                        </div>
+                        {dvFormError && <p className="text-sm text-red-600">{dvFormError}</p>}
+                        {dvFormSuccess && <p className="text-sm text-green-600">{dvFormSuccess}</p>}
+                      </div>
+                      <div className="p-5 border-t border-[#EDE7DA] flex gap-3">
+                        <button
+                          onClick={handleSaveDv}
+                          disabled={savingDv}
+                          className="bg-[#C4622D] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
+                        >
+                          {savingDv ? 'Saving…' : (editingDv ? 'Save Changes' : 'Add Voucher')}
+                        </button>
+                        <button
+                          onClick={() => { setShowDvForm(false); setEditingDv(null); setDvFormError(''); setDvFormSuccess(''); }}
                           className="px-6 py-2.5 rounded-xl text-sm font-semibold border border-[#DDD5C8] text-[#5C5347] hover:bg-[#FAF5EE] transition-colors"
                         >
                           Cancel
