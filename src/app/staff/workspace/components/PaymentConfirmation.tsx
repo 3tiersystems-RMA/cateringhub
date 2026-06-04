@@ -277,8 +277,8 @@ export default function PaymentConfirmation({ userRole }: PaymentConfirmationPro
 
           {/* CTA preview */}
           <div>
-            <p className="text-[#5C5347] text-sm mb-2">View and manage your order history:</p>
-            <span className="inline-block bg-[#C4622D] text-white text-sm font-bold px-5 py-2.5 rounded-lg">View your Order History →</span>
+            <p className="text-[#5C5347] text-sm mb-2">View and manage this order in the staff workspace:</p>
+            <span className="inline-block bg-[#C4622D] text-white text-sm font-bold px-5 py-2.5 rounded-lg">Open Orders Workspace →</span>
           </div>
         </div>
       </div>
