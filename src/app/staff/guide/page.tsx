@@ -1,6 +1,7 @@
 import AppLogo from '@/components/ui/AppLogo';
 import Link from 'next/link';
 import { APP_NAME } from '@/lib/constants';
+import AppImage from '@/components/ui/AppImage';
 
 export default function SuperAdminGuidePage() {
   return (
@@ -13,12 +14,21 @@ export default function SuperAdminGuidePage() {
             <div className="h-5 w-px bg-[#DDD5C8]" />
             <span className="text-sm font-medium text-[#8C8278]">Super Admin Guide</span>
           </div>
-          <Link
-            href="/staff/workspace"
-            className="text-sm font-medium text-[#C4622D] hover:text-[#A04E22] transition-colors px-3 py-1.5 rounded-lg hover:bg-[#e9e0cf]"
-          >
-            ← Back to Workspace
-          </Link>
+          <div className="flex items-center gap-4">
+            <AppImage
+              src="/assets/images/Logo-Transparent-1772539392689.png"
+              alt="Cardamom Kitchen Logo"
+              width={80}
+              height={40}
+              className="object-contain h-10 w-auto"
+            />
+            <Link
+              href="/staff/workspace"
+              className="text-sm font-medium text-[#C4622D] hover:text-[#A04E22] transition-colors px-3 py-1.5 rounded-lg hover:bg-[#e9e0cf]"
+            >
+              ← Back to Workspace
+            </Link>
+          </div>
         </div>
       </header>
       <main className="max-w-4xl mx-auto px-4 md:px-8 py-10">
