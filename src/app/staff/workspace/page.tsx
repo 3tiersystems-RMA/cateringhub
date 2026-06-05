@@ -26,9 +26,9 @@ import OrganisationDetails from '@/app/staff/workspace/components/OrganisationDe
 import CorrespondenceSettings from '@/app/staff/workspace/components/CorrespondenceSettings';
 import { calculateOrderTotal, isFulfillmentStatusLocked } from '@/lib/order-totals';
 import OrderManagement from '@/app/staff/workspace/components/OrderManagement';
-import CustomerOrderHistory from '@/app/staff/workspace/components/CustomerOrderHistory';
-import AbandonedCarts from '@/app/staff/workspace/components/AbandonedCarts';
-import MediaProducts from '@/app/staff/workspace/components/MediaProducts';
+
+
+
 
 
 
@@ -920,7 +920,7 @@ export default function StaffWorkspacePage() {
   const [dvLoading, setDvLoading] = useState(false);
   const [showDvForm, setShowDvForm] = useState(false);
   const [editingDv, setEditingDv] = useState<DiscountVoucher | null>(null);
-  const [dvForm, setDvForm] = useState({ dv_code: '', dv_type: 'Discount' as 'Discount' | 'Gift', dv_amount: '', status: 'Active\' as \'Active\' | \'Inactive', expiry_date: '', created_at: '' });
+  const [dvForm, setDvForm] = useState({ dv_code: '', dv_type: 'Discount' as 'Discount' | 'Gift', dv_amount: '', status: 'Active' as 'Active' | 'Inactive', expiry_date: '', created_at: '' });
   const [dvFormError, setDvFormError] = useState('');
   const [dvFormSuccess, setDvFormSuccess] = useState('');
   const [savingDv, setSavingDv] = useState(false);
@@ -3334,6 +3334,206 @@ export default function StaffWorkspacePage() {
               <OrganisationDetails />
             )}
 
+            {/* ── PRODUCTS & PRICING TAB ── */}
+            {activeTab === 'products' && (
+              <div className="p-6">
+                <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
+                  <div>
+                    <h2 className="text-xl font-bold text-[#1A1612]">Products &amp; Pricing</h2>
+                    <p className="text-sm text-[#8C8278] mt-0.5">{products.length} product{products.length !== 1 ? 's' : ''}</p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <input
+                      type="text"
+                      placeholder="Search products..."
+                      value={productSearchQuery}
+                      onChange={e => setProductSearchQuery(e.target.value)}
+                      className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+                    />
+                    <select
+                      value={staffProductCategory}
+                      onChange={e => setStaffProductCategory(e.target.value)}
+                      className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+                    >
+                      <option value="All">All Categories</option>
+                      {categoryNames.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                    {can('products', 'create') && (
+                      <button
+                        onClick={openAddForm}
+                        className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors"
+                      >
+                        + Add Product
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {productsLoading ? (
+                  <div className="flex items-center justify-center py-12"><div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>
+                ) : (
+                  <div className="space-y-3">
+                    {products
+                      .filter(p => {
+                        const q = productSearchQuery.toLowerCase();
+                        const matchSearch = !q || p.name.toLowerCase().includes(q) || p.category.toLowerCase().includes(q);
+                        const matchCat = staffProductCategory === 'All' || p.category === staffProductCategory;
+                        return matchSearch && matchCat;
+                      })
+                      .map(p => (
+                        <div key={p.id} className="bg-white rounded-2xl border border-[#EDE7DA] p-4 flex items-center gap-4">
+                          {p.imageUrl && (
+                            <img src={p.imageUrl} alt={p.name} className="w-12 h-12 rounded-xl object-cover flex-shrink-0 border border-[#EDE7DA]" />
+                          )}
+                          {!p.imageUrl && (
+                            <div className="w-12 h-12 rounded-xl bg-[#FAF5EE] flex-shrink-0 border border-[#EDE7DA]" />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-[#1A1612] text-sm">{p.name}</p>
+                            <p className="text-xs text-[#8C8278]">{p.category}{p.unit ? ` · ${p.unit}` : ''}</p>
+                          </div>
+                          <div className="flex items-center gap-3 flex-shrink-0">
+                            <span className="font-bold text-[#C4622D] text-sm">R{Number(p.price).toFixed(2)}</span>
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${p.available ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+                              {p.available ? 'Available' : 'Unavailable'}
+                            </span>
+                            {can('products', 'edit') && (
+                              <button
+                                onClick={() => openEditForm(p)}
+                                className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl font-semibold hover:bg-[#FDF6EE] transition-colors"
+                              >
+                                Edit
+                              </button>
+                            )}
+                            {can('products', 'delete') && (
+                              <button
+                                onClick={() => handleDeleteProduct(p)}
+                                className="text-xs text-red-500 border border-red-300 px-3 py-1.5 rounded-xl font-semibold hover:bg-red-50 transition-colors"
+                              >
+                                Delete
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    {products.filter(p => {
+                      const q = productSearchQuery.toLowerCase();
+                      const matchSearch = !q || p.name.toLowerCase().includes(q) || p.category.toLowerCase().includes(q);
+                      const matchCat = staffProductCategory === 'All' || p.category === staffProductCategory;
+                      return matchSearch && matchCat;
+                    }).length === 0 && (
+                      <div className="bg-white rounded-2xl border border-[#EDE7DA] p-8 text-center">
+                        <p className="text-[#8C8278] text-sm">No products found.</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Add / Edit Product Modal */}
+                {(showForm || showEditModal) && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                      <div className="p-5 border-b border-[#EDE7DA] flex items-center justify-between">
+                        <h3 className="text-base font-bold text-[#1A1612]">{editingProduct ? 'Edit Product' : 'Add Product'}</h3>
+                        <button onClick={() => { setShowForm(false); setShowEditModal(false); setEditingProduct(null); setFormError(''); setFormSuccess(''); }} className="text-[#8C8278] hover:text-[#1A1612]">✕</button>
+                      </div>
+                      <div className="p-5 space-y-4">
+                        {/* Image */}
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Product Image</label>
+                          <div className="flex items-center gap-3">
+                            {pendingImagePreview && <img src={pendingImagePreview} alt="Preview" className="w-16 h-16 rounded-xl object-cover border border-[#EDE7DA]" />}
+                            <button type="button" onClick={() => productImageRef.current?.click()} className="text-xs border border-[#DDD5C8] text-[#5C5347] px-3 py-1.5 rounded-xl font-semibold hover:bg-[#FAF5EE] transition-colors">
+                              {pendingImagePreview ? 'Change Image' : 'Upload Image'}
+                            </button>
+                            <input ref={productImageRef} type="file" accept="image/*" className="hidden" onChange={e => {
+                              const f = e.target.files?.[0];
+                              if (!f) return;
+                              setPendingImageFile(f);
+                              const reader = new FileReader();
+                              reader.onload = ev => setPendingImagePreview(ev.target?.result as string);
+                              reader.readAsDataURL(f);
+                            }} />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-semibold text-[#5C5347] mb-1">Name *</label>
+                            <input type="text" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-[#5C5347] mb-1">Category</label>
+                            <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white">
+                              {categoryNames.map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-[#5C5347] mb-1">Price (R)</label>
+                            <input type="number" min="0" step="0.01" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-[#5C5347] mb-1">Unit</label>
+                            <input type="text" value={form.unit} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" placeholder="e.g. per serving" />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-[#5C5347] mb-1">Old Price (R)</label>
+                            <input type="number" min="0" step="0.01" value={form.old_price} onChange={e => setForm(f => ({ ...f, old_price: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-[#5C5347] mb-1">Badge</label>
+                            <input type="text" value={form.badge} onChange={e => setForm(f => ({ ...f, badge: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" placeholder="e.g. New, Popular" />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-[#5C5347] mb-1">Min Order</label>
+                            <input type="number" min="0" value={form.min_order} onChange={e => setForm(f => ({ ...f, min_order: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-[#5C5347] mb-1">Sort Order</label>
+                            <input type="number" value={form.sort_order} onChange={e => setForm(f => ({ ...f, sort_order: Number(e.target.value) }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Description</label>
+                          <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={2} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] resize-none" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Tags (comma-separated)</label>
+                          <input type="text" value={form.tags} onChange={e => setForm(f => ({ ...f, tags: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" placeholder="e.g. halal, frozen, popular" />
+                        </div>
+                        <div className="flex items-center gap-6">
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" checked={form.available} onChange={e => setForm(f => ({ ...f, available: e.target.checked }))} className="rounded" />
+                            <span className="text-xs font-semibold text-[#5C5347]">Available</span>
+                          </label>
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" checked={form.featured} onChange={e => setForm(f => ({ ...f, featured: e.target.checked }))} className="rounded" />
+                            <span className="text-xs font-semibold text-[#5C5347]">Featured</span>
+                          </label>
+                        </div>
+                        {formError && <p className="text-sm text-red-600">{formError}</p>}
+                        {formSuccess && <p className="text-sm text-green-600">{formSuccess}</p>}
+                      </div>
+                      <div className="p-5 border-t border-[#EDE7DA] flex gap-3">
+                        <button
+                          onClick={handleSaveProduct}
+                          disabled={saving || uploadingImage}
+                          className="bg-[#C4622D] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
+                        >
+                          {saving ? 'Saving…' : (editingProduct ? 'Save Changes' : 'Add Product')}
+                        </button>
+                        <button
+                          onClick={() => { setShowForm(false); setShowEditModal(false); setEditingProduct(null); setFormError(''); setFormSuccess(''); }}
+                          className="px-6 py-2.5 rounded-xl text-sm font-semibold border border-[#DDD5C8] text-[#5C5347] hover:bg-[#FAF5EE] transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* ── STAFF MANAGEMENT TAB ── */}
             {activeTab === 'staff' && (
               <div className="p-6">
@@ -4126,353 +4326,4 @@ export default function StaffWorkspacePage() {
             )}
 
             {/* ── CUSTOMER ORDER HISTORY TAB ── */}
-            {activeTab === 'customer_order_history' && (
-              <CustomerOrderHistory />
-            )}
-
-            {activeTab === 'abandoned_carts' && (<AbandonedCarts userRole={userProfile?.role || ''} />)}
-
-            {activeTab === 'media_products' && (<MediaProducts userRole={userProfile?.role || ''} />)}
-
-            {/* ── TESTIMONIALS TAB ── */}
-            {activeTab === 'testimonials' && (
-              <div className="p-6">
-                <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
-                  <div><h2 className="text-xl font-bold text-[#1A1612]">Testimonials</h2><p className="text-sm text-[#8C8278] mt-0.5">{testimonials.length} testimonials</p></div>
-                  <div className="flex items-center gap-3">
-                    <input type="text" placeholder="Search testimonials…" value={testimonialSearchQuery} onChange={e => setTestimonialSearchQuery(e.target.value)} className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white" />
-                    {can('testimonials', 'create') && (
-                      <button onClick={() => { setEditingTestimonial(null); setTestimonialForm({ quote: '', name: '', role: '', avatar_url: '', rating: 5, is_active: true, display_order: '0' }); setTestimonialFormError(''); setTestimonialFormSuccess(''); setShowTestimonialForm(true); }} className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors">+ Add Testimonial</button>
-                    )}
-                  </div>
-                </div>
-                {testimonialsLoading ? (
-                  <div className="flex items-center justify-center py-12"><div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>
-                ) : (
-                  <div className="space-y-3">
-                    {testimonials.filter(t => !testimonialSearchQuery || t.name.toLowerCase().includes(testimonialSearchQuery.toLowerCase()) || t.quote.toLowerCase().includes(testimonialSearchQuery.toLowerCase())).map(t => (
-                      <div key={t.id} className="bg-white rounded-2xl border border-[#EDE7DA] p-4 flex items-start justify-between gap-4">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <p className="font-semibold text-[#1A1612] text-sm">{t.name}</p>
-                            <span className="text-xs text-[#8C8278]">{t.role}</span>
-                            <span className="text-xs text-amber-500">{'★'.repeat(t.rating)}</span>
-                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${t.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{t.is_active ? 'Active' : 'Inactive'}</span>
-                          </div>
-                          {t.quote && <p className="text-xs text-[#8C8278] truncate">{t.quote}</p>}
-                        </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <button
-                            onClick={async () => { setTogglingCardId(t.id); await supabase.from('testimonials').update({ is_active: !t.is_active }).eq('id', t.id); await loadTestimonials(); setTogglingCardId(null); }}
-                            disabled={togglingCardId === t.id}
-                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${t.is_visible ? 'bg-[#C4622D]' : 'bg-gray-200'} disabled:opacity-50`}
-                          >
-                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${t.is_visible ? 'translate-x-6' : 'translate-x-1'}`} />
-                          </button>
-                          {can('testimonials', 'edit') && (
-                            <button onClick={() => { setEditingTestimonial(t); setTestimonialForm({ ...t }); setTestimonialFormError(''); setTestimonialFormSuccess(''); setCardImageFile(null); setCardImagePreview(t.image_url || null); }} className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl font-semibold hover:bg-[#FDF6EE] transition-colors">Edit</button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                    {testimonials.length === 0 && <div className="bg-white rounded-2xl border border-[#EDE7DA] p-8 text-center"><p className="text-[#8C8278] text-sm">No testimonials found.</p></div>}
-                  </div>
-                )}
-                {editingCard && (
-                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-                      <div className="p-5 border-b border-[#EDE7DA] flex items-center justify-between">
-                        <h3 className="text-base font-bold text-[#1A1612]">Edit {CARD_TYPE_LABELS[editingCard.card_type]}</h3>
-                        <button onClick={() => setEditingCard(null)} className="text-[#8C8278] hover:text-[#1A1612]">✕</button>
-                      </div>
-                      <div className="p-5 space-y-3">
-                        <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Name *</label><input type="text" value={categoryForm.name} onChange={e => setCategoryForm(f => ({ ...f, name: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
-                        <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Slug *</label><input type="text" value={categoryForm.slug} onChange={e => setCategoryForm(f => ({ ...f, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
-                        <div className="flex items-center gap-2"><input type="checkbox" id="cat-active" checked={categoryForm.active} onChange={e => setCategoryForm(f => ({ ...f, active: e.target.checked }))} className="rounded" /><label htmlFor="cat-active" className="text-sm text-[#5C5347]">Active</label></div>
-                        <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Sort Order</label><input type="number" value={categoryForm.sort_order} onChange={e => setCategoryForm(f => ({ ...f, sort_order: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
-                        {categoryFormError && <p className="text-sm text-red-600">{categoryFormError}</p>}
-                        {categoryFormSuccess && <p className="text-sm text-green-600">{categoryFormSuccess}</p>}
-                      </div>
-                      <div className="p-5 border-t border-[#EDE7DA] flex gap-3">
-                        <button onClick={handleSaveCategory} disabled={savingCategory} className="bg-[#C4622D] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50">{savingCategory ? 'Saving…' : (editingCategory ? 'Save Changes' : 'Add Category')}</button>
-                        <button onClick={() => setShowCategoryForm(false)} className="px-6 py-2.5 rounded-xl text-sm font-semibold border border-[#DDD5C8] text-[#5C5347] hover:bg-[#FAF5EE] transition-colors">Cancel</button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* ── REPORTING TAB ── */}
-            {activeTab === 'reporting' && (
-              <div className="p-6">
-                <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
-                  <div>
-                    <h2 className="text-xl font-bold text-[#1A1612]">Reports Dashboard</h2>
-                    <p className="text-sm text-[#8C8278] mt-0.5">Summary of orders, revenue, and product activity</p>
-                  </div>
-                  <button
-                    onClick={loadReporting}
-                    disabled={productsOrderedLoading || packageMealsLoading || frozenMealsLoading || discountVouchersReportLoading || deliveredOrdersLoading}
-                    className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
-                  >
-                    {(productsOrderedLoading || packageMealsLoading || frozenMealsLoading || discountVouchersReportLoading || deliveredOrdersLoading) ? 'Loading…' : 'Refresh'}
-                  </button>
-                </div>
-
-                {(productsOrderedLoading || packageMealsLoading || frozenMealsLoading || discountVouchersReportLoading || deliveredOrdersLoading) ? (
-                  <div className="flex items-center justify-center py-16">
-                    <div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
-                  </div>
-                ) : (
-                  <>
-                    {/* ── Summary Metric Cards ── */}
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                      <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5">
-                        <p className="text-xs font-semibold text-[#8C8278] uppercase tracking-wide mb-1">Total Orders</p>
-                        <p className="text-2xl font-bold text-[#1A1612]">
-                          {(() => {
-                            const ids = new Set([
-                              ...productsOrderedRows.map(r => r.orderId),
-                              ...packageMealsRows.map(r => r.orderId),
-                              ...frozenMealsRows.map(r => r.orderId),
-                            ]);
-                            return ids.size;
-                          })()}
-                        </p>
-                        <p className="text-xs text-[#8C8278] mt-1">across all categories</p>
-                      </div>
-
-                      <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5">
-                        <p className="text-xs font-semibold text-[#8C8278] uppercase tracking-wide mb-1">Delivered Orders</p>
-                        <p className="text-2xl font-bold text-[#1A1612]">
-                          {(() => {
-                            const ids = new Set(deliveredOrdersRows.map(r => r.orderId));
-                            return ids.size;
-                          })()}
-                        </p>
-                        <p className="text-xs text-[#8C8278] mt-1">fulfilled to date</p>
-                      </div>
-
-                      <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5">
-                        <p className="text-xs font-semibold text-[#8C8278] uppercase tracking-wide mb-1">Product Line Items</p>
-                        <p className="text-2xl font-bold text-[#1A1612]">{productsOrderedRows.length}</p>
-                        <p className="text-xs text-[#8C8278] mt-1">individual product rows</p>
-                      </div>
-
-                      <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5">
-                        <p className="text-xs font-semibold text-[#8C8278] uppercase tracking-wide mb-1">Discount Vouchers</p>
-                        <p className="text-2xl font-bold text-[#1A1612]">{discountVouchersReportRows.length}</p>
-                        <p className="text-xs text-[#8C8278] mt-1">vouchers on record</p>
-                      </div>
-                    </div>
-
-                    {/* ── Top Products Table ── */}
-                    <div className="mb-8">
-                      <h3 className="text-base font-bold text-[#1A1612] mb-3">Top Products Ordered</h3>
-                      {productsOrderedRows.length === 0 ? (
-                        <div className="bg-white rounded-2xl border border-[#EDE7DA] p-8 text-center">
-                          <p className="text-[#8C8278] text-sm">No product data available.</p>
-                        </div>
-                      ) : (
-                        <div className="bg-white rounded-2xl border border-[#EDE7DA] overflow-hidden">
-                          <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                              <thead>
-                                <tr className="bg-[#FAF5EE] border-b border-[#EDE7DA]">
-                                  <th className="text-left px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wide">Product</th>
-                                  <th className="text-left px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wide">Category</th>
-                                  <th className="text-right px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wide">Times Ordered</th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-[#EDE7DA]">
-                                {(() => {
-                                  const counts: Record<string, { category: string; count: number }> = {};
-                                  productsOrderedRows.forEach(r => {
-                                    if (!counts[r.productName]) counts[r.productName] = { category: r.productType, count: 0 };
-                                    counts[r.productName].count += 1;
-                                  });
-                                  return Object.entries(counts)
-                                    .sort((a, b) => b[1].count - a[1].count)
-                                    .slice(0, 10)
-                                    .map(([name, info]) => (
-                                      <tr key={name} className="hover:bg-[#FAF5EE] transition-colors">
-                                        <td className="px-4 py-3 font-medium text-[#1A1612]">{name}</td>
-                                        <td className="px-4 py-3 text-[#5C5347] text-xs">{info.category || '—'}</td>
-                                        <td className="px-4 py-3 text-right font-semibold text-[#C4622D]">{info.count}</td>
-                                      </tr>
-                                    ));
-                                })()}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* ── Recent Activity Table ── */}
-                    <div>
-                      <h3 className="text-base font-bold text-[#1A1612] mb-3">Recent Activity</h3>
-                      {productsOrderedRows.length === 0 && packageMealsRows.length === 0 && frozenMealsRows.length === 0 ? (
-                        <div className="bg-white rounded-2xl border border-[#EDE7DA] p-8 text-center">
-                          <p className="text-[#8C8278] text-sm">No recent activity found.</p>
-                        </div>
-                      ) : (
-                        <div className="bg-white rounded-2xl border border-[#EDE7DA] overflow-hidden">
-                          <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                              <thead>
-                                <tr className="bg-[#FAF5EE] border-b border-[#EDE7DA]">
-                                  <th className="text-left px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wide">Order ID</th>
-                                  <th className="text-left px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wide">Customer</th>
-                                  <th className="text-left px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wide">Item</th>
-                                  <th className="text-left px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wide">Type</th>
-                                  <th className="text-left px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wide">Date</th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-[#EDE7DA]">
-                                {[...productsOrderedRows, ...packageMealsRows, ...frozenMealsRows]
-                                  .sort((a, b) => (b.orderedRaw || '').localeCompare(a.orderedRaw || ''))
-                                  .slice(0, 15)
-                                  .map((r, idx) => (
-                                    <tr key={`${r.orderId}-${idx}`} className="hover:bg-[#FAF5EE] transition-colors">
-                                      <td className="px-4 py-3 font-mono text-xs text-[#C4622D]">{r.orderId.slice(0, 8)}…</td>
-                                      <td className="px-4 py-3 text-[#1A1612] font-medium">{r.clientName}</td>
-                                      <td className="px-4 py-3 text-[#5C5347]">{r.productName}</td>
-                                      <td className="px-4 py-3 text-xs text-[#8C8278]">{r.productType || '—'}</td>
-                                      <td className="px-4 py-3 text-xs text-[#8C8278]">{r.orderedDate}</td>
-                                    </tr>
-                                  ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
-
-            {/* ── ANALYTICS TAB ── */}
-            {activeTab === 'analytics' && (
-              <div className="p-6">
-                {/* Header */}
-                <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
-                  <div>
-                    <h2 className="text-xl font-bold text-[#1A1612]">Analytics</h2>
-                    <p className="text-sm text-[#8C8278] mt-0.5">Order trends and performance metrics for the selected period</p>
-                  </div>
-                  <div className="flex items-center gap-3 flex-wrap">
-                    {/* Period selector */}
-                    <div className="flex items-center gap-1 bg-white border border-[#EDE7DA] rounded-xl p-1">
-                      {([['7d', 'Week'], ['30d', 'Month'], ['90d', 'Quarter'], ['12m', 'Year']] as [AnalyticsPeriod, string][]).map(([val, label]) => (
-                        <button
-                          key={val}
-                          onClick={() => { setAnalyticsPeriod(val); loadAnalytics(val); }}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${analyticsPeriod === val ? 'bg-[#C4622D] text-white' : 'text-[#5C5347] hover:bg-[#FAF5EE]'}`}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                    <button
-                      onClick={() => loadAnalytics(analyticsPeriod)}
-                      disabled={analyticsLoading}
-                      className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
-                    >
-                      {analyticsLoading ? 'Loading…' : 'Refresh'}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Error */}
-                {analyticsError && (
-                  <div className="mb-4 bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">{analyticsError}</div>
-                )}
-
-                {/* Loading spinner */}
-                {analyticsLoading ? (
-                  <div className="flex items-center justify-center py-16">
-                    <div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
-                  </div>
-                ) : (
-                  <>
-                    {/* ── Summary Metric Cards ── */}
-                    {summaryMetrics.length > 0 && (
-                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                        {summaryMetrics.map((m) => (
-                          <div key={m.label} className="bg-white rounded-2xl border border-[#EDE7DA] p-5">
-                            <div className="flex items-center gap-2 mb-2">
-                              <span className="text-xl">{m.icon}</span>
-                              <p className="text-xs font-semibold text-[#8C8278] uppercase tracking-wide">{m.label}</p>
-                            </div>
-                            <p className="text-2xl font-bold text-[#1A1612]">{m.value}</p>
-                            {m.sub && <p className="text-xs text-[#8C8278] mt-1">{m.sub}</p>}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* ── Order Trend Chart ── */}
-                    <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5 mb-6">
-                      <h3 className="text-base font-bold text-[#1A1612] mb-4">Order Trend</h3>
-                      {orderTrend.length === 0 ? (
-                        <div className="flex items-center justify-center py-12 text-[#8C8278] text-sm">No data for this period.</div>
-                      ) : (
-                        <AnalyticsLineChart data={orderTrend} />
-                      )}
-                    </div>
-
-                    {/* ── Revenue Bar Chart ── */}
-                    <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5 mb-6">
-                      <h3 className="text-base font-bold text-[#1A1612] mb-4">Revenue by Period</h3>
-                      {orderTrend.length === 0 ? (
-                        <div className="flex items-center justify-center py-12 text-[#8C8278] text-sm">No data for this period.</div>
-                      ) : (
-                        <AnalyticsBarChart data={orderTrend} />
-                      )}
-                    </div>
-
-                    {/* ── Voucher Usage Chart ── */}
-                    {voucherUsage.length > 0 && (
-                      <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5 mb-6">
-                        <h3 className="text-base font-bold text-[#1A1612] mb-4">Voucher Usage</h3>
-                        <AnalyticsVoucherChart data={voucherUsage} />
-                      </div>
-                    )}
-
-                    {/* ── Fulfillment Breakdown ── */}
-                    {fulfillmentMetrics.length > 0 && (
-                      <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5">
-                        <h3 className="text-base font-bold text-[#1A1612] mb-4">Fulfillment Breakdown</h3>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                          {fulfillmentMetrics.map((m) => (
-                            <div key={m.status} className="rounded-xl border border-[#EDE7DA] p-4 text-center">
-                              <div className="w-3 h-3 rounded-full mx-auto mb-2" style={{ backgroundColor: m.color }} />
-                              <p className="text-xl font-bold text-[#1A1612]">{m.count}</p>
-                              <p className="text-xs text-[#8C8278] mt-0.5 capitalize">{m.status.replace(/_/g, ' ')}</p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Empty state */}
-                    {orderTrend.length === 0 && summaryMetrics.length === 0 && (
-                      <div className="bg-white rounded-2xl border border-[#EDE7DA] p-12 text-center">
-                        <p className="text-4xl mb-3">📈</p>
-                        <p className="text-[#1A1612] font-semibold mb-1">No analytics data yet</p>
-                        <p className="text-[#8C8278] text-sm">Select a period and click Refresh to load analytics.</p>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            )}
-          </main>
-        </div>
-      </div>
-    </>
-  );
-}
+            {activeTab
