@@ -112,21 +112,20 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
   const [savingStatus, setSavingStatus] = useState(false);
   const [statusMsg, setStatusMsg] = useState('');
 
-  // (6) General Event Details block (no event_id) — 5 sessions
+  // (6) General Session Details block (no event_id) — dynamic sessions
   const [generalDateRows, setGeneralDateRows] = useState<EventDateRow[]>(
-    Array.from({ length: 5 }, (_, i) => ({ ...EMPTY_DATE_ROW('', i) }))
+    [{ ...EMPTY_DATE_ROW('', 0) }]
   );
   const [savingGeneralDates, setSavingGeneralDates] = useState(false);
   const [generalDatesMsg, setGeneralDatesMsg] = useState('');
 
-  // (6) Per-event Event Details block — 5 sessions per event, keyed by event_id
+  // (6) Per-event Session Details block — dynamic sessions per event, keyed by event_id
   const [eventDateRows, setEventDateRows] = useState<Record<string, EventDateRow[]>>({});
   const [savingEventDates, setSavingEventDates] = useState<Record<string, boolean>>({});
   const [eventDatesMsg, setEventDatesMsg] = useState<Record<string, string>>({});
 
-  // Collapsible state for event blocks and individual sessions
+  // Collapsible state for event blocks only (sessions are always expanded now)
   const [collapsedEventBlocks, setCollapsedEventBlocks] = useState<Record<string, boolean>>({});
-  const [collapsedSessions, setCollapsedSessions] = useState<Record<string, boolean>>({});
   const [sheetSyncCollapsed, setSheetSyncCollapsed] = useState(true);
 
   const [registrations, setRegistrations] = useState<Registration[]>([]);
@@ -227,10 +226,7 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
         status_id: r.status_id || '',
         class_fee: r.class_fee != null ? String(r.class_fee) : '',
       }));
-      while (filledGeneral.length < 5) {
-        filledGeneral.push({ ...EMPTY_DATE_ROW('', filledGeneral.length) });
-      }
-      setGeneralDateRows(filledGeneral.slice(0, 5));
+      setGeneralDateRows(filledGeneral);
 
       // Per-event rows
       const perEventMap: Record<string, EventDateRow[]> = {};
@@ -260,16 +256,33 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
     setEventDateRows(prev => {
       const updated = { ...prev };
       events.forEach(ev => {
-        if (!updated[ev.id]) {
-          updated[ev.id] = Array.from({ length: 5 }, (_, i) => ({ ...EMPTY_DATE_ROW(ev.id, i) }));
-        } else {
-          // Pad to 5
-          while (updated[ev.id].length < 5) {
-            updated[ev.id].push({ ...EMPTY_DATE_ROW(ev.id, updated[ev.id].length) });
-          }
+        if (!updated[ev.id] || updated[ev.id].length === 0) {
+          updated[ev.id] = [{ ...EMPTY_DATE_ROW(ev.id, 0) }];
         }
       });
       return updated;
+    });
+  }
+
+  function addGeneralSession() {
+    setGeneralDateRows(prev => [...prev, { ...EMPTY_DATE_ROW('', prev.length) }]);
+  }
+
+  function removeGeneralSession(index: number) {
+    setGeneralDateRows(prev => prev.filter((_, i) => i !== index));
+  }
+
+  function addEventSession(eventId: string) {
+    setEventDateRows(prev => {
+      const rows = prev[eventId] || [];
+      return { ...prev, [eventId]: [...rows, { ...EMPTY_DATE_ROW(eventId, rows.length) }] };
+    });
+  }
+
+  function removeEventSession(eventId: string, index: number) {
+    setEventDateRows(prev => {
+      const rows = (prev[eventId] || []).filter((_, i) => i !== index);
+      return { ...prev, [eventId]: rows.length > 0 ? rows : [{ ...EMPTY_DATE_ROW(eventId, 0) }] };
     });
   }
 
@@ -589,116 +602,119 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
     }
   }
 
-  // Reusable session card renderer
+  // Reusable session card renderer — always expanded, with optional remove button
   function renderSessionCard(
     row: EventDateRow,
     index: number,
     onChange: (field: keyof Omit<EventDateRow, 'id'>, value: string | number) => void,
-    sessionKey?: string
+    onRemove?: () => void
   ) {
-    const key = sessionKey || `general-${index}`;
-    const isCollapsed = collapsedSessions[key] ?? true;
+    const isFirst = index === 0;
 
     return (
       <div key={index} className="bg-[#FAF5EE] rounded-xl border border-[#EDE7DA] overflow-hidden">
-        {/* Session header — always visible, click to toggle */}
-        <button
-          type="button"
-          onClick={() => setCollapsedSessions(prev => ({ ...prev, [key]: !prev[key] }))}
-          className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-[#F0EAE0] transition-colors"
-        >
+        {/* Session header */}
+        <div className="w-full flex items-center justify-between px-3 py-2.5 border-b border-[#EDE7DA]">
           <p className="text-xs font-semibold text-[#5C5347]">Session {index + 1}</p>
-          <span className="text-[#8C8278] text-xs">{isCollapsed ? '▶' : '▼'}</span>
-        </button>
+          {!isFirst && onRemove && (
+            <button
+              type="button"
+              onClick={onRemove}
+              className="text-red-400 hover:text-red-600 transition-colors p-1 rounded"
+              title="Remove session"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
 
-        {/* Session body — collapsible */}
-        {!isCollapsed && (
-          <div className="px-3 pb-3 pt-1">
-            <div className="grid grid-cols-2 gap-2 mb-2">
-              <div>
-                <label className="block text-xs text-[#8C8278] mb-1">Date</label>
-                <input
-                  type="date"
-                  value={row.event_date || ''}
-                  onChange={e => onChange('event_date', e.target.value)}
-                  className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-xs text-[#8C8278] mb-1">Start Time</label>
-                  <input
-                    type="time"
-                    value={row.start_time || ''}
-                    onChange={e => onChange('start_time', e.target.value)}
-                    className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-[#8C8278] mb-1">End Time</label>
-                  <input
-                    type="time"
-                    value={row.end_time || ''}
-                    onChange={e => onChange('end_time', e.target.value)}
-                    className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
-                  />
-                </div>
-              </div>
-            </div>
-            <div className="mb-2">
-              <label className="block text-xs text-[#8C8278] mb-1">Location</label>
+        {/* Session body — always visible */}
+        <div className="px-3 pb-3 pt-2">
+          <div className="grid grid-cols-2 gap-2 mb-2">
+            <div>
+              <label className="block text-xs text-[#8C8278] mb-1">Date</label>
               <input
-                type="text"
-                value={row.location || DEFAULT_LOCATION}
-                onChange={e => onChange('location', e.target.value)}
-                placeholder={DEFAULT_LOCATION}
+                type="date"
+                value={row.event_date || ''}
+                onChange={e => onChange('event_date', e.target.value)}
                 className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
               />
             </div>
-            {/* (5) Class Fee inside each session card */}
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="block text-xs text-[#8C8278] mb-1">Seating Capacity</label>
+                <label className="block text-xs text-[#8C8278] mb-1">Start Time</label>
                 <input
-                  type="number"
-                  min="0"
-                  value={row.seating || 0}
-                  onChange={e => onChange('seating', parseInt(e.target.value) || 0)}
-                  placeholder="0"
+                  type="time"
+                  value={row.start_time || ''}
+                  onChange={e => onChange('start_time', e.target.value)}
                   className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
                 />
               </div>
               <div>
-                <label className="block text-xs text-[#8C8278] mb-1">Status</label>
-                <select
-                  value={row.status_id || ''}
-                  onChange={e => onChange('status_id', e.target.value)}
+                <label className="block text-xs text-[#8C8278] mb-1">End Time</label>
+                <input
+                  type="time"
+                  value={row.end_time || ''}
+                  onChange={e => onChange('end_time', e.target.value)}
                   className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
-                >
-                  <option value="">— Status —</option>
-                  {sessionStatuses.map(st => (
-                    <option key={st.id} value={st.id}>{st.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs text-[#8C8278] mb-1">Class Fee (ZAR)</label>
-                <div className="flex items-center gap-1">
-                  <span className="text-xs font-semibold text-[#5C5347]">R</span>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={row.class_fee || ''}
-                    onChange={e => onChange('class_fee', e.target.value)}
-                    placeholder="0.00"
-                    className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
-                  />
-                </div>
+                />
               </div>
             </div>
           </div>
-        )}
+          <div className="mb-2">
+            <label className="block text-xs text-[#8C8278] mb-1">Location</label>
+            <input
+              type="text"
+              value={row.location || DEFAULT_LOCATION}
+              onChange={e => onChange('location', e.target.value)}
+              placeholder={DEFAULT_LOCATION}
+              className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+            />
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <label className="block text-xs text-[#8C8278] mb-1">Seating Capacity</label>
+              <input
+                type="number"
+                min="0"
+                value={row.seating || 0}
+                onChange={e => onChange('seating', parseInt(e.target.value) || 0)}
+                placeholder="0"
+                className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-[#8C8278] mb-1">Status</label>
+              <select
+                value={row.status_id || ''}
+                onChange={e => onChange('status_id', e.target.value)}
+                className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+              >
+                <option value="">— Status —</option>
+                {sessionStatuses.map(st => (
+                  <option key={st.id} value={st.id}>{st.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-[#8C8278] mb-1">Class Fee (ZAR)</label>
+              <div className="flex items-center gap-1">
+                <span className="text-xs font-semibold text-[#5C5347]">R</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={row.class_fee || ''}
+                  onChange={e => onChange('class_fee', e.target.value)}
+                  placeholder="0.00"
+                  className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -1028,16 +1044,26 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
             )}
           </div>
 
-          {/* ── General Event Details (no event link) ── */}
+          {/* ── General Session Details (no event link) ── */}
           <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5">
-            <h3 className="text-base font-semibold text-[#1A1612] mb-1">Event Details</h3>
-            <p className="text-xs text-[#8C8278] mb-4">Enter up to 5 general event sessions. These dates will appear on the registration form under "Select Attendance" for all events.</p>
+            <h3 className="text-base font-semibold text-[#1A1612] mb-1">Session Details</h3>
+            <p className="text-xs text-[#8C8278] mb-4">Enter general event sessions. These dates will appear on the registration form under "Select Attendance" for all events.</p>
 
             <div className="space-y-3">
               {generalDateRows.map((row, i) =>
-                renderSessionCard(row, i, (field, value) => updateGeneralDateRow(i, field, value), `general-${i}`)
+                renderSessionCard(row, i, (field, value) => updateGeneralDateRow(i, field, value), i > 0 ? () => removeGeneralSession(i) : undefined)
               )}
             </div>
+
+            {/* + Add another session button */}
+            <button
+              type="button"
+              onClick={addGeneralSession}
+              className="mt-3 w-full flex items-center justify-center gap-2 border border-dashed border-[#C4622D] text-[#C4622D] rounded-xl py-2.5 text-sm font-medium hover:bg-[#FFF8F4] transition-colors"
+            >
+              <span className="text-lg leading-none">+</span>
+              Add another session
+            </button>
 
             {generalDatesMsg && (
               <p className={`text-xs mt-3 ${generalDatesMsg.includes('Failed') ? 'text-red-500' : 'text-green-600'}`}>{generalDatesMsg}</p>
@@ -1052,7 +1078,7 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
             </button>
           </div>
 
-          {/* (6) Per-event Event Details blocks — one per event, each collapsible */}
+          {/* (6) Per-event Session Details blocks — one per event, each collapsible */}
           {events.map(ev => {
             const isBlockCollapsed = collapsedEventBlocks[ev.id] ?? true;
             return (
@@ -1065,10 +1091,10 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
                 >
                   <div className="text-left">
                     <h3 className="text-base font-semibold text-[#1A1612]">
-                      Event Details — <span className="text-[#C4622D]">{ev.name}</span>
+                      Session Details — <span className="text-[#C4622D]">{ev.name}</span>
                     </h3>
                     <p className="text-xs text-[#8C8278] mt-0.5">
-                      Enter up to 5 sessions specific to <strong>{ev.name}</strong>. When a customer selects this event, only these dates will appear under "Select Attendance".
+                      Enter sessions specific to <strong>{ev.name}</strong>. When a customer selects this event, only these dates will appear under "Select Attendance".
                     </p>
                   </div>
                   <span className="text-[#8C8278] text-sm ml-4 flex-shrink-0">{isBlockCollapsed ? '▶' : '▼'}</span>
@@ -1078,10 +1104,20 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
                 {!isBlockCollapsed && (
                   <div className="px-5 pb-5">
                     <div className="space-y-3">
-                      {(eventDateRows[ev.id] || Array.from({ length: 5 }, (_, i) => ({ ...EMPTY_DATE_ROW(ev.id, i) }))).map((row, i) =>
-                        renderSessionCard(row, i, (field, value) => updateEventDateRow(ev.id, i, field, value), `${ev.id}-session-${i}`)
+                      {(eventDateRows[ev.id] || [{ ...EMPTY_DATE_ROW(ev.id, 0) }]).map((row, i) =>
+                        renderSessionCard(row, i, (field, value) => updateEventDateRow(ev.id, i, field, value), i > 0 ? () => removeEventSession(ev.id, i) : undefined)
                       )}
                     </div>
+
+                    {/* + Add another session button */}
+                    <button
+                      type="button"
+                      onClick={() => addEventSession(ev.id)}
+                      className="mt-3 w-full flex items-center justify-center gap-2 border border-dashed border-[#C4622D] text-[#C4622D] rounded-xl py-2.5 text-sm font-medium hover:bg-[#FFF8F4] transition-colors"
+                    >
+                      <span className="text-lg leading-none">+</span>
+                      Add another session
+                    </button>
 
                     {eventDatesMsg[ev.id] && (
                       <p className={`text-xs mt-3 ${eventDatesMsg[ev.id].includes('Failed') ? 'text-red-500' : 'text-green-600'}`}>{eventDatesMsg[ev.id]}</p>
