@@ -10,6 +10,7 @@ export default function ChunkErrorHandler() {
       msg.includes('Failed to fetch dynamically imported module') ||
       msg.includes('Importing a module script failed') ||
       (msg.includes('Cannot read properties of undefined') && msg.includes("'call'")) ||
+      msg.includes("reading 'call'") ||
       msg.includes('options.factory');
 
     const hardReload = () => {

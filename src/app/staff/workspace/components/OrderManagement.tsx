@@ -64,8 +64,13 @@ function getPaymentBadge(status: string) {
   return PAYMENT_STATUSES.find(s => s.value === status) ?? { label: status, color: 'bg-gray-100 text-gray-600 border-gray-200' };
 }
 
-export default function OrderManagement() {
+interface OrderManagementProps {
+  userRole?: string;
+}
+
+export default function OrderManagement({ userRole = '' }: OrderManagementProps) {
   const supabase = createClient();
+  const canConfirmPayment = userRole === 'admin' || userRole === 'super_admin';
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -100,6 +105,29 @@ export default function OrderManagement() {
   const showToast = (type: 'success' | 'error', text: string) => {
     setToastMessage({ type, text });
     setTimeout(() => setToastMessage(null), 4000);
+  };
+
+  const handleMarkPaymentReceived = async (orderId: string) => {
+    setUpdatingId(orderId);
+    const { error: updateError } = await supabase
+      .from('orders')
+      .update({
+        payment_status: 'awaiting_confirmation',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', orderId);
+
+    if (updateError) {
+      showToast('error', 'Failed to update payment: ' + updateError.message);
+    } else {
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.id === orderId ? { ...o, payment_status: 'awaiting_confirmation' } : o
+        )
+      );
+      showToast('success', 'Payment marked as received — open Payment Confirmation to email the customer');
+    }
+    setUpdatingId(null);
   };
 
   const handleUpdateFulfillmentStatus = async (orderId: string, newStatus: FulfillmentStatus) => {
@@ -379,6 +407,20 @@ export default function OrderManagement() {
                         )}
                       </div>
                     </div>
+
+                    {canConfirmPayment && order.payment_status === 'awaiting_payment' && (
+                      <div className="border-t border-[#EDE7DA] pt-3 mb-3">
+                        <p className="text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-2">Payment</p>
+                        <button
+                          type="button"
+                          onClick={() => handleMarkPaymentReceived(order.id)}
+                          disabled={isUpdating}
+                          className="text-xs px-4 py-2 rounded-lg font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                        >
+                          {isUpdating ? 'Updating…' : 'Payment received — queue for confirmation email'}
+                        </button>
+                      </div>
+                    )}
 
                     {/* Update Fulfillment Status */}
                     <div className="border-t border-[#EDE7DA] pt-3">

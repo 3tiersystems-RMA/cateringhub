@@ -112,6 +112,14 @@ const nextConfig = {
     ];
   },
   webpack(config, { dev: dev }) {
+    // Supabase uses guarded process.version checks; safe in middleware but noisy
+    // in Next.js static analysis. Suppress only — do not DefinePlugin process.*
+    // (that can break webpack module factories on Rocket / edge previews).
+    config.ignoreWarnings = [
+      ...(config.ignoreWarnings || []),
+      { module: /@supabase\/supabase-js/, message: /Edge Runtime/ },
+      { module: /@supabase\/realtime-js/, message: /Edge Runtime/ },
+    ];
     // The component-tagger is a development-only visual-editor tool. Its
     // nextLoader.js does require('chalk'), and chalk v5+ is ESM-only, which
     // breaks the build (ERR_REQUIRE_ESM). Apply it only in dev AND only when

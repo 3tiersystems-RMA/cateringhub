@@ -1,40 +1,87 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { requireSuperAdmin } from '@/lib/api/staff-auth';
+import { findAuthUserByEmail, getSupabaseAdmin } from '@/lib/api/supabase-admin';
+import { loadStaffEmailBranding, sendViaEdgeOrResend } from '@/lib/email/staff-email-delivery';
+import { sendStaffPasswordResetViaResend } from '@/lib/email/staff-password-reset';
 
 export async function POST(request: NextRequest) {
   try {
-    const { userId, email } = await request.json();
+    const auth = await requireSuperAdmin();
+    if ('error' in auth) return auth.error;
 
-    if (!userId || !email) {
-      return NextResponse.json({ error: 'Missing required fields.' }, { status: 400 });
+    const body = await request.json();
+    const email = String(body.email || '').trim().toLowerCase();
+    const full_name = String(body.full_name || '').trim();
+
+    if (!email) {
+      return NextResponse.json({ error: 'Email is required.' }, { status: 400 });
     }
 
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!serviceRoleKey) {
-      console.error('SUPABASE_SERVICE_ROLE_KEY is not set');
-      return NextResponse.json({ error: 'Server configuration error: service role key missing.' }, { status: 500 });
+    let supabaseAdmin;
+    try {
+      supabaseAdmin = getSupabaseAdmin();
+    } catch {
+      return NextResponse.json(
+        { error: 'Server configuration error: service role key missing.' },
+        { status: 500 }
+      );
     }
 
-    // Use service role key for admin operations
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      serviceRoleKey,
-      { auth: { autoRefreshToken: false, persistSession: false } }
+    const authUser = await findAuthUserByEmail(supabaseAdmin, email);
+    if (!authUser) {
+      return NextResponse.json(
+        { error: 'No account found for this email. Use "Send Invite" for new staff.' },
+        { status: 404 }
+      );
+    }
+
+    const siteUrl = (
+      process.env.NEXT_PUBLIC_SITE_URL || 'https://cardamomkitchen.co.za'
+    ).replace(/\/$/, '');
+    const recoveryRedirectTo = `${siteUrl}/auth/confirm?type=recovery`;
+
+    const { data: linkData, error: linkError } =
+      await supabaseAdmin.auth.admin.generateLink({
+        type: 'recovery',
+        email,
+        options: {
+          redirectTo: recoveryRedirectTo,
+        },
+      });
+
+    if (linkError || !linkData?.properties?.action_link) {
+      return NextResponse.json(
+        { error: linkError?.message || 'Failed to generate password reset link.' },
+        { status: 400 }
+      );
+    }
+
+    const branding = await loadStaffEmailBranding(supabaseAdmin);
+    const emailPayload = {
+      recipientEmail: email,
+      recipientName:
+        full_name ||
+        authUser.user_metadata?.full_name ||
+        email.split('@')[0],
+      resetLink: linkData.properties.action_link,
+      ...branding,
+    };
+
+    const emailId = await sendViaEdgeOrResend(
+      'send-staff-password-reset',
+      emailPayload,
+      () => sendStaffPasswordResetViaResend(emailPayload)
     );
 
-    // resetPasswordForEmail actually sends the email (generateLink only returns the link)
-    const { error } = await supabaseAdmin.auth.resetPasswordForEmail(email, {
-      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://cardamomkitchen.co.za'}/auth/callback?type=recovery`,
+    return NextResponse.json({
+      success: true,
+      message: `Password reset email sent to ${email}`,
+      emailId,
     });
-
-    if (error) {
-      console.error('Reset password error:', error.message);
-      return NextResponse.json({ error: error.message }, { status: 400 });
-    }
-
-    return NextResponse.json({ success: true, message: `Password reset email sent to ${email}` });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Reset password route error:', err);
-    return NextResponse.json({ error: 'Internal server error.' }, { status: 500 });
+    const message =
+      err instanceof Error ? err.message : 'Internal server error.';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

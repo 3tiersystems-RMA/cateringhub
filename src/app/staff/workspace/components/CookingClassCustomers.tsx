@@ -2,17 +2,19 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { filterFilledChildren, getChildDisplayName } from '@/lib/cooking-class-participants';
 
 interface ChildParticipant {
+  fullName?: string;
   full_name?: string;
   name?: string;
   dob?: string;
   age?: string | number;
   gender?: string;
   allergies?: string;
+  dietaryRestrictions?: string;
   school?: string;
   grade?: string;
-  [key: string]: unknown;
 }
 
 interface EmergencyContact {
@@ -141,8 +143,24 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
       if (regsErr) throw regsErr;
       if (!regs || regs.length === 0) { setRegistrations([]); return; }
 
+      // 1b. Strip blank participant slots (staff RLS allows update)
+      const cleanedRegs: Registration[] = await Promise.all(
+        (regs as Registration[]).map(async (reg) => {
+          const original = Array.isArray(reg.children) ? reg.children : [];
+          const filled = filterFilledChildren(reg.children) as ChildParticipant[];
+          if (filled.length >= original.length) return reg;
+
+          const { error: cleanErr } = await supabase
+            .from('cooking_class_registrations')
+            .update({ children: filled, updated_at: new Date().toISOString() })
+            .eq('id', reg.id);
+
+          return cleanErr ? reg : { ...reg, children: filled };
+        })
+      );
+
       // 2. Fetch booking counts (links registrations → event_dates)
-      const regIds = regs.map((r: Registration) => r.id);
+      const regIds = cleanedRegs.map((r: Registration) => r.id);
       const { data: bookings } = await supabase
         .from('cooking_class_booking_counts')
         .select('registration_id, event_date_id')
@@ -192,7 +210,7 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
       });
 
       // 5. Merge
-      const enriched: Registration[] = regs.map((r: Registration) => ({
+      const enriched: Registration[] = cleanedRegs.map((r: Registration) => ({
         ...r,
         session_dates: regSessionMap[r.id] || [],
       }));
@@ -200,7 +218,7 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
       setRegistrations(enriched);
 
       // 6. Build distinct payment status options from DB values + fallbacks
-      const dbStatuses = [...new Set(regs.map((r: Registration) => r.payment_status).filter(Boolean))] as string[];
+      const dbStatuses = [...new Set(cleanedRegs.map((r: Registration) => r.payment_status).filter(Boolean))] as string[];
       const merged = [...new Set([...FALLBACK_STATUSES, ...dbStatuses])].sort();
       setPaymentStatusOptions(merged);
     } catch (err: unknown) {
@@ -211,20 +229,6 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
   }, [supabase]);
 
   useEffect(() => { loadData(); }, [loadData]);
-
-  // Auto-clean blank participant rows from Supabase on mount
-  useEffect(() => {
-    fetch('/api/cooking-classes/cleanup-blank-participants', { method: 'POST' })
-      .then(res => res.json())
-      .then(data => {
-        if (data.updated > 0) {
-          // Reload data to reflect cleaned-up participants
-          loadData();
-        }
-      })
-      .catch(() => {/* non-blocking */});
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const filtered = registrations.filter(r => {
     const fullName = `${r.first_name} ${r.surname}`.toLowerCase();
@@ -432,12 +436,8 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
           {filtered.map(reg => {
             const isExpanded = expandedId === reg.id;
             const section = activeSection[reg.id] || 'registrant';
-            const children: ChildParticipant[] = Array.isArray(reg.children) ? reg.children : [];
-            const filledChildren = children.filter(c => {
-              const name = (c.fullName || c.full_name || c.name || '').trim();
-              return name.length > 0;
-            });
-            const participantCount = filledChildren.length; // only filled participants, registrant excluded
+            const filledChildren = filterFilledChildren(reg.children) as ChildParticipant[];
+            const participantCount = filledChildren.length;
             const sessions = reg.session_dates || [];
             const isPast = sessions.some(s => s.event_date && new Date(s.event_date) < new Date());
             const isUpcoming = sessions.some(s => s.event_date && new Date(s.event_date) >= new Date());
@@ -711,9 +711,10 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
                           </div>
 
                           {/* Children participants */}
-                          {children.length > 0 ? children.map((child, idx) => {
-                            const childName = child.fullName || child.full_name || child.name || `Child ${idx + 1}`;
+                          {filledChildren.length > 0 ? filledChildren.map((child, idx) => {
+                            const childName = getChildDisplayName(child) || `Child ${idx + 1}`;
                             const childAge = child.age != null && child.age !== '' ? String(child.age) : calcAge(child.dob);
+                            const childAllergies = child.allergies || child.dietaryRestrictions;
                             return (
                               <div key={idx} className="border border-[#EDE7DA] rounded-xl overflow-hidden">
                                 <div className="bg-[#e9e0cf] px-4 py-2.5 flex items-center gap-2">
@@ -731,7 +732,7 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
                                   {child.gender && <Field label="Gender" value={child.gender} />}
                                   {child.school && <Field label="School" value={child.school} />}
                                   {child.grade && <Field label="Grade" value={child.grade} />}
-                                  {child.allergies && <Field label="Allergies" value={child.allergies} />}
+                                  {childAllergies && <Field label="Allergies / Dietary" value={childAllergies} />}
                                   {/* Render any other fields */}
                                   {Object.entries(child)
                                     .filter(([k]) => !['full_name', 'name', 'dob', 'age', 'gender', 'school', 'grade', 'allergies'].includes(k))
@@ -835,11 +836,12 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
                           <Field label="Doctor First Name" value={reg.medical_doctor_first_name} />
                           <Field label="Doctor Surname" value={reg.medical_doctor_surname} />
                           <Field label="Allergies / Illness" value={reg.allergies_illness} />
-                          {children.map((child, idx) => {
-                            const childName = child.fullName || child.full_name || child.name || `Child ${idx + 1}`;
-                            if (!child.allergies) return null;
+                          {filledChildren.map((child, idx) => {
+                            const childName = getChildDisplayName(child) || `Child ${idx + 1}`;
+                            const childAllergies = child.allergies || child.dietaryRestrictions;
+                            if (!childAllergies) return null;
                             return (
-                              <Field key={idx} label={`${childName} – Allergies`} value={child.allergies} />
+                              <Field key={idx} label={`${childName} – Allergies / Dietary`} value={childAllergies} />
                             );
                           })}
                         </div>

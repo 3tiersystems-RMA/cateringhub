@@ -619,6 +619,13 @@ export default function GoogleDriveDocuments({ canManage }: GoogleDriveDocuments
 
   return (
     <div className="space-y-6">
+      <div>
+        <h2 className="text-lg font-bold text-[#1A1612]">Document Management</h2>
+        <p className="text-xs text-[#8C8278] mt-0.5">
+          View and manage Google Drive documents linked to the workspace
+        </p>
+      </div>
+
       {/* Edit Modal */}
       {editingDoc && (
         <EditModal

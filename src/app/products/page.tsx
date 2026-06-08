@@ -3,6 +3,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ProductsInteractive from "./components/ProductsInteractive";
 import { APP_NAME } from "@/lib/constants";
+import { fetchProductsCatalog } from "@/lib/products-catalog.server";
 
 export const metadata: Metadata = {
   title: `Menu & Order Online — ${APP_NAME}`,
@@ -11,12 +12,14 @@ export const metadata: Metadata = {
   keywords: ["catering menu", "meal prep order", "food platters", "online catering order"],
 };
 
-export default function ProductsPage() {
+export default async function ProductsPage() {
+  const initialCatalog = await fetchProductsCatalog();
+
   return (
     <>
       <Header />
       <main className="pt-20 min-h-screen bg-[#e9e0cf]">
-        <ProductsInteractive />
+        <ProductsInteractive initialCatalog={initialCatalog} />
       </main>
       <Footer />
     </>

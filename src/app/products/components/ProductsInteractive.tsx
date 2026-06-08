@@ -9,31 +9,17 @@ import CartSidebar from "./CartSidebar";
 import ProductModal from "./ProductModal";
 import { useCart } from "./CartContext";
 import { createClient } from "@/lib/supabase/client";
+import {
+  mapProductRows,
+  PRODUCT_LIST_COLUMNS,
+  type CatalogProduct,
+  type ProductsCatalog,
+} from "@/lib/products-catalog";
 import type { VoucherData } from "./CartContext";
 import VoucherErrorModal from "@/components/ui/VoucherErrorModal";
 import VoucherMealsList from "./VoucherMealsList";
 
-interface Product {
-  id: string;
-  name: string;
-  category: string;
-  price: number;
-  unit: string;
-  image: string;
-  imageAlt: string;
-  tags: string[];
-  rating: number;
-  reviews: number;
-  description: string;
-  minOrder?: number;
-  badge?: string;
-  available: boolean;
-  packageType?: string;
-  imageFit?: string;
-  oldPrice?: number;
-  savingPercent?: number;
-  visualType?: string | null;
-}
+type Product = CatalogProduct;
 
 function CartButton() {
   const { totalItems, setIsOpen } = useCart();
@@ -230,113 +216,114 @@ function ApplyVoucherBanner() {
   );
 }
 
-function ProductsContent() {
+function ProductCardSkeleton() {
+  return (
+    <div className="bg-[#FAF7F2] border border-[#DDD5C8] rounded-3xl overflow-hidden animate-pulse">
+      <div className="h-52 bg-[#DDD5C8]" />
+      <div className="p-5 space-y-3">
+        <div className="flex gap-2">
+          <div className="h-5 w-16 bg-[#DDD5C8] rounded-full" />
+          <div className="h-5 w-20 bg-[#DDD5C8] rounded-full" />
+        </div>
+        <div className="h-5 bg-[#DDD5C8] rounded w-3/4" />
+        <div className="h-4 bg-[#DDD5C8] rounded w-full" />
+        <div className="flex justify-between items-end pt-2">
+          <div className="h-6 bg-[#DDD5C8] rounded w-16" />
+          <div className="h-9 w-20 bg-[#DDD5C8] rounded-full" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function activateProductReveals(container: HTMLElement) {
+  container.querySelectorAll('.pc-reveal').forEach((el, i) => {
+    setTimeout(() => {
+      const node = el as HTMLElement;
+      node.style.opacity = '1';
+      node.style.transform = 'translateY(0)';
+    }, i * 80);
+  });
+}
+
+interface ProductsContentProps {
+  initialCatalog?: ProductsCatalog;
+}
+
+function ProductsContent({ initialCatalog }: ProductsContentProps) {
+  const isPrefetched = initialCatalog !== undefined;
   const [activeCategory, setActiveCategory] = useState<string>("All");
   const router = useRouter();
   const searchParams = useSearchParams();
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<"default" | "price-asc" | "price-desc" | "rating">("default");
-  const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [products, setProducts] = useState<Product[]>(initialCatalog?.products ?? []);
+  const [categories, setCategories] = useState<string[]>(initialCatalog?.categories ?? []);
+  const [loading, setLoading] = useState(!isPrefetched);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [modalAdded, setModalAdded] = useState(false);
-  const [visiblePackages, setVisiblePackages] = useState<Set<string>>(new Set());
-  const [visibilityLoaded, setVisibilityLoaded] = useState(false);
+  const [visiblePackages, setVisiblePackages] = useState<Set<string>>(
+    () => new Set(initialCatalog?.visiblePackages ?? [])
+  );
+  const [visibilityLoaded, setVisibilityLoaded] = useState(isPrefetched);
   const sectionRef = useRef<HTMLDivElement>(null);
   const { addItem, appliedVoucher } = useCart();
 
+  // Apply category from URL on first render
   useEffect(() => {
+    const categoryParam = searchParams.get("category");
+    if (categoryParam) setActiveCategory(categoryParam);
+  }, [searchParams]);
+
+  // Client refresh only when server did not prefetch (e.g. client navigation edge cases)
+  useEffect(() => {
+    if (isPrefetched) return;
+
+    let cancelled = false;
     const fetchData = async () => {
       setLoading(true);
       try {
         const supabase = createClient();
+        const [catResult, pvResult, productsResult] = await Promise.all([
+          supabase
+            .from('categories')
+            .select('name')
+            .eq('active', true)
+            .order('sort_order', { ascending: true }),
+          supabase.from('package_visibility').select('package_name, is_visible'),
+          supabase
+            .from('products')
+            .select(PRODUCT_LIST_COLUMNS)
+            .eq('available', true)
+            .order('sort_order', { ascending: true }),
+        ]);
 
-        const { data: catData } = await supabase
-          .from('categories')
-          .select('name')
-          .eq('active', true)
-          .order('sort_order', { ascending: true });
+        if (cancelled) return;
 
-        const activeCategories = (catData || []).map((c: any) => c.name as string);
-        setCategories(activeCategories);
-
-        // Load package visibility flags
-        const { data: pvData } = await supabase
-          .from('package_visibility')
-          .select('package_name, is_visible');
-        if (pvData) {
-          const visSet = new Set<string>(
-            pvData.filter((p: any) => p.is_visible).map((p: any) => p.package_name as string)
-          );
-          setVisiblePackages(visSet);
-        }
+        setCategories((catResult.data || []).map((c) => c.name as string));
+        setVisiblePackages(
+          new Set(
+            (pvResult.data || [])
+              .filter((p) => p.is_visible)
+              .map((p) => p.package_name as string)
+          )
+        );
         setVisibilityLoaded(true);
 
-        const { data, error } = await supabase
-          .from('products')
-          .select('*')
-          .eq('available', true)
-          .order('sort_order', { ascending: true });
-
-        if (error || !data || data.length === 0) {
+        if (productsResult.error || !productsResult.data) {
           setProducts([]);
-          setLoading(false);
-          return;
+        } else {
+          setProducts(mapProductRows(productsResult.data));
         }
-
-        const withImages = await Promise.all(
-          data.map(async (p) => {
-            let imageUrl = '/assets/images/no_image.png';
-            if (p.image_path) {
-              if (p.image_path.startsWith('/')) {
-                // Static asset path
-                imageUrl = p.image_path;
-              } else {
-                const { data: urlData } = supabase.storage
-                  .from('product-images')
-                  .getPublicUrl(p.image_path);
-                imageUrl = urlData?.publicUrl || imageUrl;
-              }
-            }
-            return {
-              id: p.id,
-              name: p.name,
-              category: p.category as string,
-              price: p.price,
-              unit: p.unit,
-              image: imageUrl,
-              imageAlt: `${p.name} - ${p.category}`,
-              tags: p.tags || [],
-              rating: 4.8,
-              reviews: 0,
-              description: p.description,
-              minOrder: p.min_order || undefined,
-              badge: p.badge || undefined,
-              available: p.available,
-              packageType: p.package_type || 'none',
-              imageFit: p.image_fit || 'fill',
-              oldPrice: p.old_price ?? undefined,
-              savingPercent: p.saving_percent ?? undefined,
-              visualType: p.visual_type ?? null,
-            } as Product;
-          })
-        );
-        setProducts(withImages);
-
-        // Apply category from URL query param after products load
-        const categoryParam = searchParams.get("category");
-        if (categoryParam) {
-          setActiveCategory(categoryParam);
-        }
-      } catch (err) {
-        setProducts([]);
+      } catch {
+        if (!cancelled) setProducts([]);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
     fetchData();
-  }, []);
+    return () => { cancelled = true; };
+  }, [isPrefetched]);
 
   const filtered = useMemo(() => {
     let result = products;
@@ -373,24 +360,31 @@ function ProductsContent() {
   }, [activeCategory, search, sortBy, products, appliedVoucher]);
 
   useEffect(() => {
+    if (loading || filtered.length === 0 || !sectionRef.current) return;
+
+    const section = sectionRef.current;
+    const rect = section.getBoundingClientRect();
+    const alreadyInView = rect.top < window.innerHeight * 0.95 && rect.bottom > 0;
+
+    if (alreadyInView) {
+      activateProductReveals(section);
+      return;
+    }
+
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
-            entry.target.querySelectorAll(".pc-reveal").forEach((el, i) => {
-              setTimeout(() => {
-                (el as HTMLElement).style.opacity = "1";
-                (el as HTMLElement).style.transform = "translateY(0)";
-              }, i * 80);
-            });
+            activateProductReveals(entry.target as HTMLElement);
+            observer.disconnect();
           }
         });
       },
       { threshold: 0.05 }
     );
-    if (sectionRef.current) observer.observe(sectionRef.current);
+    observer.observe(section);
     return () => observer.disconnect();
-  }, [filtered]);
+  }, [loading, filtered]);
 
   const handleOpenModal = (product: Product) => {
     setSelectedProduct(product);
@@ -567,11 +561,10 @@ function ProductsContent() {
 
         {/* Product Grid */}
         {loading ? (
-          <div className="flex items-center justify-center py-24">
-            <svg className="animate-spin h-10 w-10 text-[#C4622D]" viewBox="0 0 24 24" fill="none">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-            </svg>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <ProductCardSkeleton key={i} />
+            ))}
           </div>
         ) : activeCategory === "Voucher Meals" ? (
           <VoucherMealsList products={filtered.filter((p) => {
@@ -609,7 +602,11 @@ function ProductsContent() {
                     transition: `opacity 0.6s cubic-bezier(0.16,1,0.3,1) ${i * 0.05}s, transform 0.6s cubic-bezier(0.16,1,0.3,1) ${i * 0.05}s`,
                   }}
                 >
-                  <ProductCard product={product} onOpenModal={handleOpenModal} />
+                  <ProductCard
+                    product={product}
+                    onOpenModal={handleOpenModal}
+                    imagePriority={i < 3}
+                  />
                 </div>
               ))
             ) : (
@@ -660,10 +657,24 @@ function ProductsContent() {
   );
 }
 
-export default function ProductsInteractive() {
+interface ProductsInteractiveProps {
+  initialCatalog?: ProductsCatalog;
+}
+
+export default function ProductsInteractive({ initialCatalog }: ProductsInteractiveProps) {
   return (
-    <Suspense fallback={null}>
-      <ProductsContent />
+    <Suspense
+      fallback={
+        <div className="max-w-7xl mx-auto px-4 md:px-8 py-10">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <ProductCardSkeleton key={i} />
+            ))}
+          </div>
+        </div>
+      }
+    >
+      <ProductsContent initialCatalog={initialCatalog} />
     </Suspense>
   );
 }

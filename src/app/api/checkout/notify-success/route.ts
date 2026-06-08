@@ -34,6 +34,30 @@ export async function POST(req: NextRequest) {
 
       if (order) {
         orderDetails = order;
+
+        // PayFast ITN may not reach dev/preview hosts — promote to awaiting_confirmation
+        // when the customer returns from PayFast with COMPLETE (same as ITN handler).
+        const payfastComplete =
+          isPayFastReturn &&
+          (paymentStatus === "COMPLETE" || paymentStatus === "Complete");
+        if (
+          payfastComplete &&
+          order.payment_status === "awaiting_payment"
+        ) {
+          const { error: promoteErr } = await supabase
+            .from("orders")
+            .update({
+              payment_status: "awaiting_confirmation",
+              payment_method: "payfast",
+              notes: order.notes
+                ? `${order.notes} | PayFast return: payment complete`
+                : "PayFast return: payment complete",
+            })
+            .eq("m_payment_id", orderId);
+          if (!promoteErr) {
+            orderDetails = { ...order, payment_status: "awaiting_confirmation" };
+          }
+        }
       }
     }
 

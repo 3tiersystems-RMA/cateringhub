@@ -51,8 +51,9 @@
   "dependencies": {
     "@dhiwise/component-tagger": "^1.0.14",
     "@heroicons/react": "^2.2.0",
-    "@supabase/supabase-js": "^2.49.1",
     "@supabase/ssr": "^0.6.1",
+    "@supabase/supabase-js": "^2.49.1",
+    "server-only": "^0.0.1",
     "@tailwindcss/forms": "^0.5.10",
     "@tailwindcss/typography": "^0.5.16",
     "next": "15.1.11",

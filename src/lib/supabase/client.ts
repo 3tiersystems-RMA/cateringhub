@@ -88,7 +88,11 @@ if (typeof window !== 'undefined' && !(window as any).__sb_patched__) {
   };
 }
 
-export function createClient() {
+type BrowserClient = ReturnType<typeof createBrowserClient>;
+
+let browserClient: BrowserClient | undefined;
+
+function buildClient(): BrowserClient {
   return createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -115,4 +119,15 @@ export function createClient() {
       },
     }
   );
+}
+
+/** Singleton browser client — avoids re-fetch loops when used in useEffect deps. */
+export function createClient(): BrowserClient {
+  if (typeof window === 'undefined') {
+    return buildClient();
+  }
+  if (!browserClient) {
+    browserClient = buildClient();
+  }
+  return browserClient;
 }

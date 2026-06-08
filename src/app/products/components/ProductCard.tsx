@@ -10,6 +10,7 @@ import { shouldShowProductBadge } from "@/lib/product-badge";
 interface ProductCardProps {
   product: CartProduct;
   onOpenModal?: (product: CartProduct) => void;
+  imagePriority?: boolean;
 }
 
 const PACKAGE_LABEL: Record<string, string> = {
@@ -25,7 +26,7 @@ const PACKAGE_VOUCHER_MAP: Record<string, string> = {
   "package-24": "package-24",
 };
 
-export default function ProductCard({ product, onOpenModal }: ProductCardProps) {
+export default function ProductCard({ product, onOpenModal, imagePriority = false }: ProductCardProps) {
   const { addItem, appliedVoucher, openVoucherBanner } = useCart();
   const [added, setAdded] = useState(false);
 
@@ -68,6 +69,9 @@ export default function ProductCard({ product, onOpenModal }: ProductCardProps) 
           src={product.image}
           alt={product.imageAlt}
           fill
+          priority={imagePriority}
+          loading={imagePriority ? 'eager' : 'lazy'}
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
           className={`${product.imageFit === 'fit' ? 'object-contain' : 'object-cover'} group-hover:scale-105 transition-all duration-700`}
         />
         {/* Badges */}

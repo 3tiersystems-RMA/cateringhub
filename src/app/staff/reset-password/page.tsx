@@ -1,12 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import AppLogo from '@/components/ui/AppLogo';
 
-export default function ResetPasswordPage() {
+function ResetPasswordForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isInvite = searchParams.get('type') === 'invite';
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -17,38 +19,37 @@ export default function ResetPasswordPage() {
   useEffect(() => {
     const supabase = createClient();
 
-    // First check if a session already exists (e.g. page refresh)
+    const markReady = () => setSessionReady(true);
+
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        setSessionReady(true);
-      }
+      if (session) markReady();
     });
 
-    // Listen for the PASSWORD_RECOVERY or SIGNED_IN event fired after
-    // the server exchanges the recovery code for a session cookie.
-    // This fires even on the initial load when the browser client
-    // hasn't yet synced the session from the HTTP-only cookie.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         if (
-          (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') &&
-          session
+          session &&
+          (event === 'PASSWORD_RECOVERY' ||
+            event === 'SIGNED_IN' ||
+            event === 'INITIAL_SESSION' ||
+            event === 'TOKEN_REFRESHED')
         ) {
-          setSessionReady(true);
+          markReady();
         } else if (event === 'SIGNED_OUT') {
           router.replace('/staff/login');
         }
       }
     );
 
-    // Fallback: if no session event fires within 5 seconds, redirect to login
     const timeout = setTimeout(() => {
       supabase.auth.getSession().then(({ data: { session } }) => {
         if (!session) {
-          router.replace('/staff/login');
+          router.replace('/staff/login?error=link_expired');
+        } else {
+          markReady();
         }
       });
-    }, 5000);
+    }, 8000);
 
     return () => {
       subscription.unsubscribe();
@@ -93,7 +94,9 @@ export default function ResetPasswordPage() {
   if (!sessionReady) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-gray-500 text-sm">Verifying reset link…</div>
+        <div className="text-gray-500 text-sm">
+          {isInvite ? 'Verifying invitation…' : 'Verifying reset link…'}
+        </div>
       </div>
     );
   }
@@ -105,14 +108,20 @@ export default function ResetPasswordPage() {
           <AppLogo className="h-12 w-auto" />
         </div>
 
-        <h1 className="text-2xl font-bold text-gray-900 text-center mb-2">Set New Password</h1>
+        <h1 className="text-2xl font-bold text-gray-900 text-center mb-2">
+          {isInvite ? 'Set Your Password' : 'Set New Password'}
+        </h1>
         <p className="text-sm text-gray-500 text-center mb-8">
-          Enter your new password below to complete the reset.
+          {isInvite
+            ? 'Welcome to the staff portal. Choose a password to activate your account.'
+            : 'Enter your new password below to complete the reset.'}
         </p>
 
         {success ? (
           <div className="rounded-lg bg-green-50 border border-green-200 p-4 text-center">
-            <p className="text-green-700 font-medium">Password updated successfully!</p>
+            <p className="text-green-700 font-medium">
+              {isInvite ? 'Account activated successfully!' : 'Password updated successfully!'}
+            </p>
             <p className="text-green-600 text-sm mt-1">Redirecting you to login…</p>
           </div>
         ) : (
@@ -159,11 +168,25 @@ export default function ResetPasswordPage() {
               disabled={loading}
               className="w-full py-2.5 px-4 bg-amber-600 hover:bg-amber-700 disabled:bg-amber-400 text-white font-semibold rounded-lg text-sm transition-colors"
             >
-              {loading ? 'Updating Password…' : 'Update Password'}
+              {loading ? 'Saving…' : isInvite ? 'Activate Account' : 'Update Password'}
             </button>
           </form>
         )}
       </div>
     </div>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <div className="text-gray-500 text-sm">Loading…</div>
+        </div>
+      }
+    >
+      <ResetPasswordForm />
+    </Suspense>
   );
 }

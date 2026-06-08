@@ -1,54 +1,63 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { requireStaffMember } from '@/lib/api/staff-auth';
+import { filterFilledChildren } from '@/lib/cooking-class-participants';
+
+export const dynamic = 'force-dynamic';
 
 export async function POST() {
+  const auth = await requireStaffMember();
+  if ('error' in auth && auth.error) return auth.error;
+
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceRoleKey) {
+    return NextResponse.json(
+      { error: 'Server configuration error: SUPABASE_SERVICE_ROLE_KEY is not set' },
+      { status: 500 }
+    );
+  }
+
   try {
     const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
+      serviceRoleKey,
+      { auth: { persistSession: false, autoRefreshToken: false } }
     );
 
-    // Fetch all registrations that have children data
     const { data: registrations, error: fetchErr } = await supabaseAdmin
       .from('cooking_class_registrations')
       .select('id, children')
       .not('children', 'is', null);
 
-    if (fetchErr) throw fetchErr;
+    if (fetchErr) {
+      return NextResponse.json({ error: fetchErr.message }, { status: 500 });
+    }
 
     if (!registrations || registrations.length === 0) {
-      return NextResponse.json({ message: 'No registrations found', updated: 0 });
+      return NextResponse.json({ message: 'No registrations with participants found', updated: 0 });
     }
 
     let updatedCount = 0;
     const errors: string[] = [];
 
     for (const reg of registrations) {
-      const children = Array.isArray(reg.children) ? reg.children : [];
+      const original = Array.isArray(reg.children) ? reg.children : [];
+      const filledChildren = filterFilledChildren(reg.children);
 
-      // Filter out blank rows (where fullName / full_name / name is empty)
-      const filledChildren = children.filter((c: Record<string, unknown>) => {
-        const name = (
-          (c.fullName as string) ||
-          (c.full_name as string) ||
-          (c.name as string) ||
-          ''
-        ).trim();
-        return name.length > 0;
-      });
+      if (filledChildren.length >= original.length) continue;
 
-      // Only update if there were blank rows to remove
-      if (filledChildren.length < children.length) {
-        const { error: updateErr } = await supabaseAdmin
-          .from('cooking_class_registrations')
-          .update({ children: filledChildren })
-          .eq('id', reg.id);
+      const { error: updateErr } = await supabaseAdmin
+        .from('cooking_class_registrations')
+        .update({
+          children: filledChildren,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', reg.id);
 
-        if (updateErr) {
-          errors.push(`Failed to update registration ${reg.id}: ${updateErr.message}`);
-        } else {
-          updatedCount++;
-        }
+      if (updateErr) {
+        errors.push(`Registration ${reg.id}: ${updateErr.message}`);
+      } else {
+        updatedCount++;
       }
     }
 

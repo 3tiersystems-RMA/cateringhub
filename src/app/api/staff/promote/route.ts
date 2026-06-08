@@ -1,9 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { requireSuperAdmin } from '@/lib/api/staff-auth';
+import {
+  findAuthUserByEmail,
+  findProfileByEmail,
+  getSupabaseAdmin,
+} from '@/lib/api/supabase-admin';
+import { loadStaffEmailBranding, sendViaEdgeOrResend } from '@/lib/email/staff-email-delivery';
+import { sendStaffPromotedViaResend } from '@/lib/email/staff-promoted';
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, full_name, phone_number, role } = await request.json();
+    const auth = await requireSuperAdmin();
+    if ('error' in auth) return auth.error;
+
+    const body = await request.json();
+    const email = String(body.email || '').trim().toLowerCase();
+    const full_name = String(body.full_name || '').trim();
+    const phone_number = String(body.phone_number || '').trim();
+    const role = body.role;
 
     if (!email || !role) {
       return NextResponse.json({ error: 'Email and role are required.' }, { status: 400 });
@@ -13,68 +27,133 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid role. Must be admin or staff.' }, { status: 400 });
     }
 
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { auth: { autoRefreshToken: false, persistSession: false } }
-    );
-
-    // Check if already a staff/admin member
-    const { data: existingProfile } = await supabaseAdmin
-      .from('user_profiles')
-      .select('id, email, role')
-      .eq('email', email)
-      .in('role', ['staff', 'admin', 'super_admin'])
-      .maybeSingle();
-
-    if (existingProfile && existingProfile.role === role) {
+    let supabaseAdmin;
+    try {
+      supabaseAdmin = getSupabaseAdmin();
+    } catch {
       return NextResponse.json(
-        { error: `This user is already a ${role}.` },
-        { status: 409 }
+        { error: 'Server configuration error: service role key missing.' },
+        { status: 500 }
       );
     }
 
-    // Find the user in Supabase Auth by email
-    const { data: listData, error: listError } = await supabaseAdmin.auth.admin.listUsers();
-    if (listError) {
-      return NextResponse.json({ error: 'Failed to look up users.' }, { status: 500 });
-    }
-
-    const authUser = listData?.users?.find(
-      (u) => u.email?.toLowerCase() === email.toLowerCase()
-    );
+    const existingProfile = await findProfileByEmail(supabaseAdmin, email);
+    const authUser = await findAuthUserByEmail(supabaseAdmin, email);
 
     if (!authUser) {
+      if (existingProfile) {
+        return NextResponse.json(
+          {
+            error:
+              'A staff profile exists for this email but the login account is missing. Use "+ Invite Staff" to send a new invitation link.',
+          },
+          { status: 404 }
+        );
+      }
+
       return NextResponse.json(
-        { error: 'No Supabase account found for this email. Use "Send Invite" to create a new staff account.' },
+        {
+          error:
+            'No account found for this email. Use "+ Invite Staff" to create a new staff account instead.',
+        },
         { status: 404 }
       );
     }
 
-    // Upsert the user_profiles row with the staff role
+    const profileForAuth =
+      existingProfile?.id === authUser.id
+        ? existingProfile
+        : await findProfileByEmail(supabaseAdmin, authUser.email || email);
+
+    if (profileForAuth?.role === 'super_admin') {
+      return NextResponse.json(
+        { error: 'Cannot change the role of a super admin account.' },
+        { status: 403 }
+      );
+    }
+
+    if (
+      profileForAuth &&
+      profileForAuth.role === role &&
+      profileForAuth.is_active === true
+    ) {
+      return NextResponse.json(
+        {
+          error: `This user is already an active ${role}. Use Edit Details to change their information.`,
+        },
+        { status: 409 }
+      );
+    }
+
+    const resolvedName =
+      full_name ||
+      profileForAuth?.full_name ||
+      authUser.user_metadata?.full_name ||
+      authUser.email?.split('@')[0] ||
+      '';
+
+    const profilePayload = {
+      id: authUser.id,
+      email: (authUser.email || profileForAuth?.email || email).toLowerCase(),
+      full_name: resolvedName,
+      phone: phone_number || profileForAuth?.phone || authUser.phone || null,
+      role,
+      is_active: true,
+    };
+
     const { error: upsertError } = await supabaseAdmin
       .from('user_profiles')
-      .upsert(
-        {
-          id: authUser.id,
-          email: authUser.email,
-          full_name: full_name || authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || '',
-          phone: phone_number || authUser.phone || '',
-          role,
-          is_active: true,
-        },
-        { onConflict: 'id' }
-      );
+      .upsert(profilePayload, { onConflict: 'id' });
 
     if (upsertError) {
       return NextResponse.json({ error: upsertError.message }, { status: 500 });
     }
 
-    return NextResponse.json({
-      success: true,
-      message: `${authUser.email} has been promoted to ${role}. They can log in with their existing credentials.`,
+    await supabaseAdmin.auth.admin.updateUserById(authUser.id, {
+      user_metadata: {
+        ...authUser.user_metadata,
+        full_name: resolvedName,
+        role,
+      },
     });
-  } catch (err: any) {
+
+    const siteUrl = (
+      process.env.NEXT_PUBLIC_SITE_URL || 'https://cardamomkitchen.co.za'
+    ).replace(/\/$/, '');
+
+    const branding = await loadStaffEmailBranding(supabaseAdmin);
+    const emailPayload = {
+      recipientEmail: email,
+      recipientName: resolvedName,
+      role,
+      loginUrl: `${siteUrl}/staff/login`,
+      ...branding,
+    };
+
+    try {
+      await sendViaEdgeOrResend('send-staff-promoted', emailPayload, () =>
+        sendStaffPromotedViaResend(emailPayload)
+      );
+    } catch (emailErr) {
+      console.warn('[promote] Notification email failed (promotion still saved):', emailErr);
+    }
+
+    const wasReactivated =
+      profileForAuth?.is_active === false && profileForAuth.role === role;
+    const wasRoleChange =
+      profileForAuth && profileForAuth.role !== role;
+
+    let message = `${email} has been promoted to ${role}. They can log in with their existing password.`;
+    if (wasReactivated) {
+      message = `${resolvedName} has been reactivated as ${role}. A notification email was sent.`;
+    } else if (wasRoleChange) {
+      message = `${resolvedName}'s role has been updated to ${role}. A notification email was sent.`;
+    } else {
+      message = `${resolvedName} has been promoted to ${role}. A notification email was sent with login instructions.`;
+    }
+
+    return NextResponse.json({ success: true, message });
+  } catch (err: unknown) {
     console.error('Promote staff error:', err);
     return NextResponse.json({ error: 'Internal server error.' }, { status: 500 });
   }

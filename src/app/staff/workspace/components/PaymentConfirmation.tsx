@@ -60,38 +60,43 @@ export default function PaymentConfirmation({ userRole }: PaymentConfirmationPro
   const isAuthorized = userRole === 'admin' || userRole === 'super_admin';
   const isSuperAdmin = userRole === 'super_admin';
 
-  const loadOrders = useCallback(async () => {
+  const loadData = useCallback(async () => {
+    if (!isAuthorized) return;
     setLoading(true);
     setError('');
-    const { data, error: fetchError } = await supabase
-      .from('orders')
-      .select('*')
-      .eq('payment_status', 'awaiting_confirmation')
-      .order('created_at', { ascending: false });
 
-    if (fetchError) {
-      setError('Failed to load orders: ' + fetchError.message);
+    const [ordersResult, settingsResult] = await Promise.all([
+      supabase
+        .from('orders')
+        .select(
+          'id, customer_name, customer_email, customer_phone, items, subtotal, delivery_fee, total, payment_status, fulfillment_status, event_date, delivery_address, notes, created_at, m_payment_id, payment_method'
+        )
+        .eq('payment_status', 'awaiting_confirmation')
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('correspondence_settings')
+        .select('form_header_title, logo_url')
+        .limit(1)
+        .maybeSingle(),
+    ]);
+
+    if (ordersResult.error) {
+      setError('Failed to load orders: ' + ordersResult.error.message);
+      setOrders([]);
     } else {
-      setOrders((data as AwaitingOrder[]) || []);
+      setOrders((ordersResult.data as AwaitingOrder[]) || []);
     }
-    setLoading(false);
-  }, [supabase]);
 
-  const loadCorrespondenceSettings = useCallback(async () => {
-    const { data } = await supabase
-      .from('correspondence_settings')
-      .select('form_header_title, logo_url')
-      .limit(1)
-      .single();
-    if (data) setCorrespondenceSettings(data);
-  }, [supabase]);
+    if (settingsResult.data) {
+      setCorrespondenceSettings(settingsResult.data);
+    }
+
+    setLoading(false);
+  }, [isAuthorized, supabase]);
 
   useEffect(() => {
-    if (isAuthorized) {
-      loadOrders();
-      loadCorrespondenceSettings();
-    }
-  }, [isAuthorized, loadOrders, loadCorrespondenceSettings]);
+    loadData();
+  }, [loadData]);
 
   const showToast = (type: 'success' | 'error', text: string) => {
     setToastMessage({ type, text });
@@ -317,7 +322,7 @@ export default function PaymentConfirmation({ userRole }: PaymentConfirmationPro
           <p className="text-sm text-[#8C8278] mt-0.5">Orders awaiting payment confirmation — send confirmation email to customer</p>
         </div>
         <button
-          onClick={loadOrders}
+          onClick={loadData}
           className="border border-[#DDD5C8] text-[#5C5347] px-4 py-2 rounded-xl text-sm hover:bg-[#F5F0E8] transition-colors flex items-center gap-2"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
@@ -354,8 +359,10 @@ export default function PaymentConfirmation({ userRole }: PaymentConfirmationPro
           <p className="text-[#1A1612] font-semibold">
             {searchQuery ? 'No orders match your search' : 'No orders awaiting confirmation'}
           </p>
-          <p className="text-[#8C8278] text-sm mt-1">
-            {searchQuery ? 'Try a different search term.' : 'All orders have been processed.'}
+          <p className="text-[#8C8278] text-sm mt-1 max-w-md mx-auto">
+            {searchQuery
+              ? 'Try a different search term.'
+              : 'PayFast orders appear here after payment. For EFT orders, open Order Management and use “Payment received” to queue them here.'}
           </p>
         </div>
       ) : (
