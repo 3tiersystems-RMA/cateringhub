@@ -4,15 +4,17 @@ import { useEffect } from 'react';
 
 export default function ChunkErrorHandler() {
   useEffect(() => {
+    const isChunkError = (msg: string) =>
+      msg.includes('ChunkLoadError') ||
+      msg.includes('Loading chunk') ||
+      msg.includes('Failed to fetch dynamically imported module') ||
+      msg.includes('Importing a module script failed') ||
+      (msg.includes('Cannot read properties of undefined') && msg.includes("'call'")) ||
+      msg.includes('options.factory');
+
     const handleError = (event: ErrorEvent) => {
       const msg = event?.message || '';
-      if (
-        msg.includes('ChunkLoadError') ||
-        msg.includes('Loading chunk') ||
-        msg.includes('Failed to fetch dynamically imported module') ||
-        msg.includes('Importing a module script failed')
-      ) {
-        // Prevent infinite reload loop by checking a session flag
+      if (isChunkError(msg)) {
         const reloaded = sessionStorage.getItem('chunk_reload');
         if (!reloaded) {
           sessionStorage.setItem('chunk_reload', '1');
@@ -25,12 +27,7 @@ export default function ChunkErrorHandler() {
       const reason = event?.reason;
       const msg =
         (reason instanceof Error ? reason.message : String(reason)) || '';
-      if (
-        msg.includes('ChunkLoadError') ||
-        msg.includes('Loading chunk') ||
-        msg.includes('Failed to fetch dynamically imported module') ||
-        msg.includes('Importing a module script failed')
-      ) {
+      if (isChunkError(msg)) {
         const reloaded = sessionStorage.getItem('chunk_reload');
         if (!reloaded) {
           sessionStorage.setItem('chunk_reload', '1');

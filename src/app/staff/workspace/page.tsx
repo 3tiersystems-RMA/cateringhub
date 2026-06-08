@@ -26,6 +26,9 @@ import OrganisationDetails from '@/app/staff/workspace/components/OrganisationDe
 import CorrespondenceSettings from '@/app/staff/workspace/components/CorrespondenceSettings';
 import { calculateOrderTotal, isFulfillmentStatusLocked } from '@/lib/order-totals';
 import OrderManagement from '@/app/staff/workspace/components/OrderManagement';
+import CustomerOrderHistory from '@/app/staff/workspace/components/CustomerOrderHistory';
+import AbandonedCarts from '@/app/staff/workspace/components/AbandonedCarts';
+import MediaProducts from '@/app/staff/workspace/components/MediaProducts';
 
 
 
@@ -1345,8 +1348,9 @@ export default function StaffWorkspacePage() {
 
   const loadCategories = async () => {
     setCategoriesLoading(true);
-    const { data } = await supabase.from('product_categories').select('*').order('sort_order');
-    if (data) setCategories(data);
+    const { data, error } = await supabase.from('categories').select('*').order('sort_order');
+    if (error) showGlobalError(error.message, 'Category Error');
+    else if (data) setCategories(data);
     setCategoriesLoading(false);
   };
 
@@ -1623,7 +1627,7 @@ export default function StaffWorkspacePage() {
         if (error || !data || data.length === 0) {
           showGlobalError('Could not delete the image — you may not have permission, or it was already removed.', 'Gallery Error');
         } else if (img.image_path) {
-          // Remove the underlying file so we don't leave orphaned objects in storage.await supabase.storage.from('gallery-images').remove([img.image_path]);
+          await supabase.storage.from('gallery-images').remove([img.image_path]);
         }
         await loadGallery();
       },
@@ -2356,9 +2360,11 @@ export default function StaffWorkspacePage() {
     };
     let saveError: any = null;
     if (editingCategory) {
-      ({ error: saveError } = await supabase.from('product_categories').update(payload).eq('id', editingCategory.id));
+      const { data: upd, error } = await supabase.from('categories').update(payload).eq('id', editingCategory.id).select('id');
+      saveError = error || (!upd || upd.length === 0 ? { message: 'Update was blocked — you may not have permission to edit categories.' } : null);
     } else {
-      ({ error: saveError } = await supabase.from('product_categories').insert(payload));
+      const { data: ins, error } = await supabase.from('categories').insert(payload).select('id');
+      saveError = error || (!ins || ins.length === 0 ? { message: 'Could not add the category. Please try again.' } : null);
     }
     if (saveError) { showCategoryFormError(saveError.message); }
     else {
@@ -2378,8 +2384,13 @@ export default function StaffWorkspacePage() {
       message: `Delete "${cat.name}"? This cannot be undone.`,
       onConfirm: async () => {
         setDeleteModal(prev => ({ ...prev, open: false }));
-        await supabase.from('product_categories').delete().eq('id', cat.id);
-        await loadCategories();
+        const { data, error } = await supabase.from('categories').delete().eq('id', cat.id).select('id');
+        if (error || !data || data.length === 0) {
+          showGlobalError(error?.message || 'Delete was blocked — you may not have permission to delete categories.', 'Category Error');
+        } else {
+          await loadCategories();
+          await loadCategoryNames();
+        }
       },
     });
   };
@@ -3087,6 +3098,11 @@ export default function StaffWorkspacePage() {
                       {canTab('gallery') && (
                         <button onClick={() => { handleTabChange('gallery'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'gallery' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
                         <span className="text-base">🖼️</span><span>Gallery</span>
+                        </button>
+                      )}
+                      {canTab('categories') && (
+                        <button onClick={() => { handleTabChange('categories'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'categories' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
+                          <span className="text-base">🏷️</span><span>Categories</span>
                         </button>
                       )}
                     </div>
@@ -4326,4 +4342,856 @@ export default function StaffWorkspacePage() {
             )}
 
             {/* ── CUSTOMER ORDER HISTORY TAB ── */}
-            {activeTab
+            {activeTab === 'customer_order_history' && (
+              <CustomerOrderHistory />
+            )}
+
+            {activeTab === 'abandoned_carts' && (<AbandonedCarts />)}
+
+            {activeTab === 'media_products' && (<MediaProducts canManage={can('media_products', 'edit')} />)}
+
+            {/* ── TESTIMONIALS TAB ── */}
+            {activeTab === 'testimonials' && (
+              <div className="p-6">
+                <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
+                  <div><h2 className="text-xl font-bold text-[#1A1612]">Testimonials</h2><p className="text-sm text-[#8C8278] mt-0.5">{testimonials.length} testimonials</p></div>
+                  <div className="flex items-center gap-3">
+                    <input type="text" placeholder="Search testimonials…" value={testimonialSearchQuery} onChange={e => setTestimonialSearchQuery(e.target.value)} className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white" />
+                    {can('testimonials', 'create') && (
+                      <button onClick={() => { setEditingTestimonial(null); setTestimonialForm({ quote: '', name: '', role: '', avatar_url: '', rating: 5, is_active: true, display_order: '0' }); setTestimonialFormError(''); setTestimonialFormSuccess(''); setShowTestimonialForm(true); }} className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors">+ Add Testimonial</button>
+                    )}
+                  </div>
+                </div>
+                {testimonialsLoading ? (
+                  <div className="flex items-center justify-center py-12"><div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>
+                ) : (
+                  <div className="space-y-3">
+                    {testimonials.filter(t => !testimonialSearchQuery || t.name.toLowerCase().includes(testimonialSearchQuery.toLowerCase()) || t.quote.toLowerCase().includes(testimonialSearchQuery.toLowerCase())).map(t => (
+                      <div key={t.id} className="bg-white rounded-2xl border border-[#EDE7DA] p-4 flex items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <p className="font-semibold text-[#1A1612] text-sm">{t.name}</p>
+                            <span className="text-xs text-[#8C8278]">{t.role}</span>
+                            <span className="text-xs text-amber-500">{'★'.repeat(t.rating)}</span>
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${t.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{t.is_active ? 'Active' : 'Inactive'}</span>
+                          </div>
+                          {t.quote && <p className="text-xs text-[#8C8278] truncate">{t.quote}</p>}
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {can('testimonials', 'edit') && (
+                            <button onClick={() => { setEditingTestimonial(t); setTestimonialForm({ quote: t.quote, name: t.name, role: t.role, avatar_url: t.avatar_url || '', rating: t.rating, is_active: t.is_active, display_order: String(t.display_order) }); setTestimonialFormError(''); setTestimonialFormSuccess(''); setShowTestimonialForm(true); }} className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl font-semibold hover:bg-[#FDF6EE] transition-colors">Edit</button>
+                          )}
+                          {can('testimonials', 'delete') && (
+                            <button onClick={() => handleDeleteTestimonial(t)} className="text-xs text-red-500 border border-red-300 px-3 py-1.5 rounded-xl font-semibold hover:bg-red-50 transition-colors">Delete</button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    {testimonials.length === 0 && <div className="bg-white rounded-2xl border border-[#EDE7DA] p-8 text-center"><p className="text-[#8C8278] text-sm">No testimonials found.</p></div>}
+                  </div>
+                )}
+                {showTestimonialForm && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+                      <div className="p-5 border-b border-[#EDE7DA] flex items-center justify-between">
+                        <h3 className="text-base font-bold text-[#1A1612]">{editingTestimonial ? 'Edit Testimonial' : 'Add Testimonial'}</h3>
+                        <button onClick={() => setShowTestimonialForm(false)} className="text-[#8C8278] hover:text-[#1A1612]">✕</button>
+                      </div>
+                      <div className="p-5 space-y-3">
+                        <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Quote *</label><textarea value={testimonialForm.quote} onChange={e => setTestimonialForm(f => ({ ...f, quote: e.target.value }))} rows={3} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] resize-none" /></div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Name *</label><input type="text" value={testimonialForm.name} onChange={e => setTestimonialForm(f => ({ ...f, name: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
+                          <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Role/Title</label><input type="text" value={testimonialForm.role} onChange={e => setTestimonialForm(f => ({ ...f, role: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
+                          <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Rating (1-5)</label><input type="number" min={1} max={5} value={testimonialForm.rating} onChange={e => setTestimonialForm(f => ({ ...f, rating: Number(e.target.value) }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
+                          <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Display Order</label><input type="number" value={testimonialForm.display_order} onChange={e => setTestimonialForm(f => ({ ...f, display_order: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
+                        </div>
+                        <div className="flex items-center gap-2"><input type="checkbox" id="t-active" checked={testimonialForm.is_active} onChange={e => setTestimonialForm(f => ({ ...f, is_active: e.target.checked }))} className="rounded" /><label htmlFor="t-active" className="text-sm text-[#5C5347]">Active (visible on site)</label></div>
+                        {testimonialFormError && <p className="text-sm text-red-600">{testimonialFormError}</p>}
+                        {testimonialFormSuccess && <p className="text-sm text-green-600">{testimonialFormSuccess}</p>}
+                      </div>
+                      <div className="p-5 border-t border-[#EDE7DA] flex gap-3">
+                        <button onClick={handleSaveTestimonial} disabled={savingTestimonial} className="bg-[#C4622D] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50">{savingTestimonial ? 'Saving…' : (editingTestimonial ? 'Save Changes' : 'Add Testimonial')}</button>
+                        <button onClick={() => setShowTestimonialForm(false)} className="px-6 py-2.5 rounded-xl text-sm font-semibold border border-[#DDD5C8] text-[#5C5347] hover:bg-[#FAF5EE] transition-colors">Cancel</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── GALLERY TAB ── */}
+            {activeTab === 'gallery' && (
+              <div className="p-6">
+                <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
+                  <div><h2 className="text-xl font-bold text-[#1A1612]">Gallery</h2><p className="text-sm text-[#8C8278] mt-0.5">{galleryImages.length} images</p></div>
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-[#5C5347]">Gallery Section</span>
+                      <button onClick={() => handleToggleGallerySectionVisible(!gallerySectionVisible)} disabled={gallerySettingsSaving} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${gallerySectionVisible ? 'bg-[#C4622D]' : 'bg-gray-200'} disabled:opacity-50`}>
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${gallerySectionVisible ? 'translate-x-6' : 'translate-x-1'}`} />
+                      </button>
+                    </div>
+                    {can('gallery', 'create') && (
+                      <button onClick={openAddGalleryForm} className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors">+ Add Image</button>
+                    )}
+                  </div>
+                </div>
+                {galleryLoading ? (
+                  <div className="flex items-center justify-center py-12"><div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>
+                ) : (
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {galleryImages.map(img => (
+                      <div key={img.id} className="bg-white rounded-2xl border border-[#EDE7DA] overflow-hidden">
+                        {img.imageUrl && <img src={img.imageUrl} alt={img.title} className="w-full h-32 object-cover" />}
+                        <div className="p-3">
+                          <p className="font-semibold text-[#1A1612] text-xs truncate">{img.title}</p>
+                          <div className="flex items-center justify-between mt-2">
+                            <button onClick={() => handleToggleGalleryImageVisible(img)} disabled={togglingGalleryId === img.id} className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${img.is_visible ? 'bg-[#C4622D]' : 'bg-gray-200'} disabled:opacity-50`}>
+                              <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${img.is_visible ? 'translate-x-5' : 'translate-x-1'}`} />
+                            </button>
+                            <div className="flex gap-1">
+                              {can('gallery', 'edit') && <button onClick={() => openEditGalleryForm(img)} className="text-xs text-[#C4622D] border border-[#C4622D] px-2 py-1 rounded-lg font-semibold hover:bg-[#FDF6EE] transition-colors">Edit</button>}
+                              {can('gallery', 'delete') && <button onClick={() => handleDeleteGalleryImage(img)} className="text-xs text-red-500 border border-red-300 px-2 py-1 rounded-lg font-semibold hover:bg-red-50 transition-colors">Del</button>}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    {galleryImages.length === 0 && <div className="col-span-4 bg-white rounded-2xl border border-[#EDE7DA] p-8 text-center"><p className="text-[#8C8278] text-sm">No gallery images found.</p></div>}
+                  </div>
+                )}
+                {showGalleryForm && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+                      <div className="p-5 border-b border-[#EDE7DA] flex items-center justify-between">
+                        <h3 className="text-base font-bold text-[#1A1612]">{editingGalleryImage ? 'Edit Image' : 'Add Gallery Image'}</h3>
+                        <button
+                          onClick={() => { setShowGalleryForm(false); setEditingGalleryImage(null); setGalleryFormError(''); }}
+                          className="text-[#8C8278] hover:text-[#1A1612]"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                      <div className="p-5 space-y-3">
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Title *</label>
+                          <input
+                            type="text"
+                            value={galleryForm.title}
+                            onChange={e => setGalleryForm(f => ({ ...f, title: e.target.value }))}
+                            className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                            placeholder="Image title"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Description</label>
+                          <textarea
+                            value={galleryForm.description}
+                            onChange={e => setGalleryForm(f => ({ ...f, description: e.target.value }))}
+                            rows={3}
+                            className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] resize-none"
+                            placeholder="Optional description"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Image {editingGalleryImage ? '(leave blank to keep current)' : '*'}</label>
+                          <input
+                            ref={galleryImageRef}
+                            type="file"
+                            accept="image/*"
+                            onChange={e => {
+                              const file = e.target.files?.[0] || null;
+                              setGalleryImageFile(file);
+                              if (file) setGalleryImagePreview(URL.createObjectURL(file));
+                            }}
+                            className="w-full text-sm text-[#5C5347]"
+                          />
+                          {galleryImagePreview && (
+                            <img src={galleryImagePreview} alt="Preview" className="mt-2 h-32 w-full object-cover rounded-xl border border-[#EDE7DA]" />
+                          )}
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Sort Order</label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={galleryForm.sort_order}
+                            onChange={e => setGalleryForm(f => ({ ...f, sort_order: e.target.value }))}
+                            className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                          />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            id="gallery-visible"
+                            checked={galleryForm.is_visible}
+                            onChange={e => setGalleryForm(f => ({ ...f, is_visible: e.target.checked }))}
+                            className="rounded"
+                          />
+                          <label htmlFor="gallery-visible" className="text-sm text-[#5C5347]">Visible on homepage</label>
+                        </div>
+                        {galleryFormError && <p className="text-sm text-red-600">{galleryFormError}</p>}
+                      </div>
+                      <div className="p-5 border-t border-[#EDE7DA] flex gap-3">
+                        <button
+                          onClick={handleSaveGalleryImage}
+                          disabled={savingGallery || uploadingGalleryImage}
+                          className="bg-[#C4622D] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
+                        >
+                          {savingGallery ? 'Saving…' : (editingGalleryImage ? 'Save Changes' : 'Add Image')}
+                        </button>
+                        <button
+                          onClick={() => { setShowGalleryForm(false); setEditingGalleryImage(null); setGalleryFormError(''); }}
+                          className="px-6 py-2.5 rounded-xl text-sm font-semibold border border-[#DDD5C8] text-[#5C5347] hover:bg-[#FAF5EE] transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── CATEGORIES TAB ── */}
+            {activeTab === 'categories' && (
+              <div className="p-6">
+                <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
+                  <div>
+                    <h2 className="text-xl font-bold text-[#1A1612]">Categories</h2>
+                    <p className="text-sm text-[#8C8278] mt-0.5">{categories.length} categor{categories.length !== 1 ? 'ies' : 'y'}</p>
+                  </div>
+                  {can('categories', 'create') && (
+                    <button
+                      onClick={openAddCategoryForm}
+                      className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors"
+                    >
+                      + Add Category
+                    </button>
+                  )}
+                </div>
+
+                {categoriesLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
+                  </div>
+                ) : (
+                  <div className="bg-white rounded-2xl border border-[#EDE7DA] overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-[#EDE7DA] bg-[#FAF5EE]">
+                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wide">Name</th>
+                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wide">Slug</th>
+                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wide">Status</th>
+                            <th className="text-left px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wide">Sort Order</th>
+                            <th className="text-right px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wide">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#EDE7DA]">
+                          {categories.map(cat => (
+                            <tr key={cat.id} className="hover:bg-[#FAF5EE] transition-colors">
+                              <td className="px-4 py-3 font-medium text-[#1A1612]">{cat.name}</td>
+                              <td className="px-4 py-3 text-[#5C5347] font-mono text-xs">{cat.slug}</td>
+                              <td className="px-4 py-3">
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${cat.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                                  {cat.active ? 'Active' : 'Inactive'}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-[#5C5347]">{cat.sort_order}</td>
+                              <td className="px-4 py-3 text-right">
+                                <div className="flex items-center justify-end gap-2">
+                                  {can('categories', 'edit') && (
+                                    <button
+                                      onClick={() => openEditCategoryForm(cat)}
+                                      className="text-xs text-[#C4622D] border border-[#C4622D] px-2.5 py-1 rounded-lg font-semibold hover:bg-[#FDF6EE] transition-colors"
+                                    >
+                                      Edit
+                                    </button>
+                                  )}
+                                  {can('categories', 'delete') && (
+                                    <button
+                                      onClick={() => handleDeleteCategory(cat)}
+                                      className="text-xs text-red-500 border border-red-300 px-2.5 py-1 rounded-lg font-semibold hover:bg-red-50 transition-colors"
+                                    >
+                                      Delete
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                          {categories.length === 0 && (
+                            <tr>
+                              <td colSpan={5} className="px-4 py-8 text-center text-[#8C8278] text-sm">No categories found.</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* Add / Edit Category Modal */}
+                {showCategoryForm && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+                      <div className="p-5 border-b border-[#EDE7DA] flex items-center justify-between">
+                        <h3 className="text-base font-bold text-[#1A1612]">
+                          {editingCategory ? 'Edit Category' : 'Add Category'}
+                        </h3>
+                        <button
+                          onClick={() => { setShowCategoryForm(false); setEditingCategory(null); setCategoryFormError(''); }}
+                          className="text-[#8C8278] hover:text-[#1A1612]"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                      <div className="p-5 space-y-3">
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Name *</label>
+                          <input
+                            type="text"
+                            value={categoryForm.name}
+                            onChange={e => setCategoryForm(f => ({ ...f, name: e.target.value }))}
+                            className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                            placeholder="e.g. Frozen Meals"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Slug *</label>
+                          <input
+                            type="text"
+                            value={categoryForm.slug}
+                            onChange={e => setCategoryForm(f => ({ ...f, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') }))}
+                            className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                            placeholder="e.g. frozen-meals"
+                          />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            id="cat-active"
+                            checked={categoryForm.active}
+                            onChange={e => setCategoryForm(f => ({ ...f, active: e.target.checked }))}
+                            className="rounded"
+                          />
+                          <label htmlFor="cat-active" className="text-sm text-[#5C5347]">Active</label>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Sort Order</label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={categoryForm.sort_order}
+                            onChange={e => setCategoryForm(f => ({ ...f, sort_order: e.target.value }))}
+                            className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                          />
+                        </div>
+                        {categoryFormError && <p className="text-sm text-red-600">{categoryFormError}</p>}
+                      </div>
+                      <div className="p-5 border-t border-[#EDE7DA] flex gap-3">
+                        <button
+                          onClick={handleSaveCategory}
+                          disabled={savingCategory}
+                          className="bg-[#C4622D] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
+                        >
+                          {savingCategory ? 'Saving…' : (editingCategory ? 'Save Changes' : 'Add Category')}
+                        </button>
+                        <button
+                          onClick={() => { setShowCategoryForm(false); setEditingCategory(null); setCategoryFormError(''); }}
+                          className="px-6 py-2.5 rounded-xl text-sm font-semibold border border-[#DDD5C8] text-[#5C5347] hover:bg-[#FAF5EE] transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── WEEKLY MENU TAB ── */}
+            {activeTab === 'weekly_menu' && (
+              <div className="p-6">
+                {/* Header */}
+                <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
+                  <div>
+                    <h2 className="text-xl font-bold text-[#1A1612]">Weekly Menu</h2>
+                    <p className="text-sm text-[#8C8278] mt-0.5">
+                      {getWeekDays()[0]?.shortDate} – {getWeekDays()[6]?.shortDate}
+                    </p>
+                  </div>
+                  {/* Week navigation */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setWeekOffset(w => w - 1)}
+                      className="px-3 py-2 rounded-xl border border-[#DDD5C8] text-sm font-semibold text-[#5C5347] hover:bg-[#FAF5EE] transition-colors"
+                    >
+                      ← Prev
+                    </button>
+                    <button
+                      onClick={() => setWeekOffset(0)}
+                      className="px-3 py-2 rounded-xl border border-[#DDD5C8] text-sm font-semibold text-[#5C5347] hover:bg-[#FAF5EE] transition-colors"
+                    >
+                      This Week
+                    </button>
+                    <button
+                      onClick={() => setWeekOffset(w => w + 1)}
+                      className="px-3 py-2 rounded-xl border border-[#DDD5C8] text-sm font-semibold text-[#5C5347] hover:bg-[#FAF5EE] transition-colors"
+                    >
+                      Next →
+                    </button>
+                  </div>
+                </div>
+
+                {weeklyMenuLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {getWeekDays().map(({ date, dayName, shortDate }) => {
+                      const dayEntries = weeklyMenuEntries.filter(e => e.meal_date === date);
+                      const closedEntry = dayEntries.find(e => e.is_closed);
+                      const isClosed = !!closedEntry;
+                      const isProcessing = closingDayDate === date && savingClosedDay;
+
+                      return (
+                        <div
+                          key={date}
+                          className={`bg-white rounded-2xl border ${isClosed ? 'border-red-200 bg-red-50' : 'border-[#EDE7DA]'} flex flex-col overflow-hidden`}
+                        >
+                          {/* Day header */}
+                          <div className={`px-4 py-3 border-b ${isClosed ? 'border-red-200 bg-red-100' : 'border-[#EDE7DA] bg-[#FAF5EE]'} flex items-center justify-between`}>
+                            <div>
+                              <p className="text-sm font-bold text-[#1A1612]">{dayName}</p>
+                              <p className="text-xs text-[#8C8278]">{shortDate}</p>
+                            </div>
+                            {isClosed ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">Closed</span>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">{dayEntries.length} item{dayEntries.length !== 1 ? 's' : ''}</span>
+                            )}
+                          </div>
+
+                          {/* Entries */}
+                          <div className="flex-1 p-3 space-y-2">
+                            {isClosed ? (
+                              <p className="text-xs text-red-500 italic">{closedEntry?.closed_reason || 'No service this day.'}</p>
+                            ) : dayEntries.length === 0 ? (
+                              <p className="text-xs text-[#8C8278] italic">No entries yet.</p>
+                            ) : (
+                              dayEntries.map(entry => (
+                                <div key={entry.id} className="bg-[#FAF5EE] rounded-xl p-2.5 flex items-start justify-between gap-2">
+                                  <div className="min-w-0">
+                                    <p className="text-sm font-semibold text-[#1A1612] truncate">{entry.meal_name}</p>
+                                    {entry.description && <p className="text-xs text-[#8C8278] mt-0.5 line-clamp-2">{entry.description}</p>}
+                                    {entry.price != null && (
+                                      <p className="text-xs font-semibold text-[#C4622D] mt-1">R{Number(entry.price).toFixed(2)}</p>
+                                    )}
+                                  </div>
+                                  {can('weekly_menu', 'edit') && (
+                                    <div className="flex flex-col gap-1 shrink-0">
+                                      <button
+                                        onClick={() => openEditWeeklyMenuForm(entry)}
+                                        className="text-xs text-[#C4622D] border border-[#C4622D] px-2 py-0.5 rounded-lg font-semibold hover:bg-[#FDF6EE] transition-colors"
+                                      >
+                                        Edit
+                                      </button>
+                                      {can('weekly_menu', 'delete') && (
+                                        <button
+                                          onClick={() => handleDeleteWeeklyEntry(entry)}
+                                          className="text-xs text-red-500 border border-red-300 px-2 py-0.5 rounded-lg font-semibold hover:bg-red-50 transition-colors"
+                                        >
+                                          Del
+                                        </button>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              ))
+                            )}
+                          </div>
+
+                          {/* Day actions */}
+                          <div className="px-3 pb-3 flex flex-col gap-2">
+                            {!isClosed && can('weekly_menu', 'create') && (
+                              <button
+                                onClick={() => openAddWeeklyMenuForm(date, dayName)}
+                                className="w-full text-xs text-[#C4622D] border border-dashed border-[#C4622D] px-3 py-1.5 rounded-xl font-semibold hover:bg-[#FDF6EE] transition-colors"
+                              >
+                                + Add Entry
+                              </button>
+                            )}
+                            {can('weekly_menu', 'edit') && (
+                              isClosed ? (
+                                <button
+                                  disabled={isProcessing}
+                                  onClick={() => closedEntry && handleReopenDay(closedEntry)}
+                                  className="w-full text-xs text-green-700 border border-green-400 px-3 py-1.5 rounded-xl font-semibold hover:bg-green-50 transition-colors disabled:opacity-50"
+                                >
+                                  {isProcessing ? 'Reopening…' : 'Reopen Day'}
+                                </button>
+                              ) : (
+                                <button
+                                  disabled={isProcessing}
+                                  onClick={() => handleCloseDay(date, dayName)}
+                                  className="w-full text-xs text-red-600 border border-red-300 px-3 py-1.5 rounded-xl font-semibold hover:bg-red-50 transition-colors disabled:opacity-50"
+                                >
+                                  {isProcessing ? 'Closing…' : 'Close Day'}
+                                </button>
+                              )
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Add / Edit Weekly Menu Entry Modal */}
+                {showWeeklyMenuForm && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+                      <div className="p-5 border-b border-[#EDE7DA] flex items-center justify-between">
+                        <h3 className="text-base font-bold text-[#1A1612]">
+                          {editingWeeklyEntry ? 'Edit Menu Entry' : `Add Entry — ${weeklyMenuForm.day_name}`}
+                        </h3>
+                        <button
+                          onClick={() => { setShowWeeklyMenuForm(false); setEditingWeeklyEntry(null); setWeeklyMenuFormError(''); setWeeklyMenuFormSuccess(''); }}
+                          className="text-[#8C8278] hover:text-[#1A1612]"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                      <div className="p-5 space-y-3">
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Meal Name *</label>
+                          <input
+                            type="text"
+                            value={weeklyMenuForm.meal_name}
+                            onChange={e => setWeeklyMenuForm(f => ({ ...f, meal_name: e.target.value }))}
+                            className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                            placeholder="e.g. Butter Chicken"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Description</label>
+                          <textarea
+                            value={weeklyMenuForm.description}
+                            onChange={e => setWeeklyMenuForm(f => ({ ...f, description: e.target.value }))}
+                            rows={3}
+                            className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] resize-none"
+                            placeholder="Optional description…"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] mb-1">Price (R)</label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={weeklyMenuForm.price}
+                            onChange={e => setWeeklyMenuForm(f => ({ ...f, price: e.target.value }))}
+                            className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                            placeholder="0.00"
+                          />
+                        </div>
+                        {weeklyMenuFormError && <p className="text-sm text-red-600">{weeklyMenuFormError}</p>}
+                        {weeklyMenuFormSuccess && <p className="text-sm text-green-600">{weeklyMenuFormSuccess}</p>}
+                      </div>
+                      <div className="p-5 border-t border-[#EDE7DA] flex gap-3">
+                        <button
+                          onClick={handleSaveWeeklyEntry}
+                          disabled={savingWeeklyEntry}
+                          className="bg-[#C4622D] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
+                        >
+                          {savingWeeklyEntry ? 'Saving…' : (editingWeeklyEntry ? 'Save Changes' : 'Add Entry')}
+                        </button>
+                        <button
+                          onClick={() => { setShowWeeklyMenuForm(false); setEditingWeeklyEntry(null); setWeeklyMenuFormError(''); setWeeklyMenuFormSuccess(''); }}
+                          className="px-6 py-2.5 rounded-xl text-sm font-semibold border border-[#DDD5C8] text-[#5C5347] hover:bg-[#FAF5EE] transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── REPORTING TAB ── */}
+            {activeTab === 'reporting' && (
+              <div className="p-6">
+                <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
+                  <div>
+                    <h2 className="text-xl font-bold text-[#1A1612]">Reports Dashboard</h2>
+                    <p className="text-sm text-[#8C8278] mt-0.5">Summary of orders, revenue, and product activity</p>
+                  </div>
+                  <button
+                    onClick={loadReporting}
+                    disabled={productsOrderedLoading || packageMealsLoading || frozenMealsLoading || discountVouchersReportLoading || deliveredOrdersLoading}
+                    className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
+                  >
+                    {(productsOrderedLoading || packageMealsLoading || frozenMealsLoading || discountVouchersReportLoading || deliveredOrdersLoading) ? 'Loading…' : 'Refresh'}
+                  </button>
+                </div>
+
+                {(productsOrderedLoading || packageMealsLoading || frozenMealsLoading || discountVouchersReportLoading || deliveredOrdersLoading) ? (
+                  <div className="flex items-center justify-center py-16">
+                    <div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
+                  </div>
+                ) : (
+                  <>
+                    {/* ── Summary Metric Cards ── */}
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                      <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5">
+                        <p className="text-xs font-semibold text-[#8C8278] uppercase tracking-wide mb-1">Total Orders</p>
+                        <p className="text-2xl font-bold text-[#1A1612]">
+                          {(() => {
+                            const ids = new Set([
+                              ...productsOrderedRows.map(r => r.orderId),
+                              ...packageMealsRows.map(r => r.orderId),
+                              ...frozenMealsRows.map(r => r.orderId),
+                            ]);
+                            return ids.size;
+                          })()}
+                        </p>
+                        <p className="text-xs text-[#8C8278] mt-1">across all categories</p>
+                      </div>
+
+                      <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5">
+                        <p className="text-xs font-semibold text-[#8C8278] uppercase tracking-wide mb-1">Delivered Orders</p>
+                        <p className="text-2xl font-bold text-[#1A1612]">
+                          {(() => {
+                            const ids = new Set(deliveredOrdersRows.map(r => r.orderId));
+                            return ids.size;
+                          })()}
+                        </p>
+                        <p className="text-xs text-[#8C8278] mt-1">fulfilled to date</p>
+                      </div>
+
+                      <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5">
+                        <p className="text-xs font-semibold text-[#8C8278] uppercase tracking-wide mb-1">Product Line Items</p>
+                        <p className="text-2xl font-bold text-[#1A1612]">{productsOrderedRows.length}</p>
+                        <p className="text-xs text-[#8C8278] mt-1">individual product rows</p>
+                      </div>
+
+                      <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5">
+                        <p className="text-xs font-semibold text-[#8C8278] uppercase tracking-wide mb-1">Discount Vouchers</p>
+                        <p className="text-2xl font-bold text-[#1A1612]">{discountVouchersReportRows.length}</p>
+                        <p className="text-xs text-[#8C8278] mt-1">vouchers on record</p>
+                      </div>
+                    </div>
+
+                    {/* ── Top Products Table ── */}
+                    <div className="mb-8">
+                      <h3 className="text-base font-bold text-[#1A1612] mb-3">Top Products Ordered</h3>
+                      {productsOrderedRows.length === 0 ? (
+                        <div className="bg-white rounded-2xl border border-[#EDE7DA] p-8 text-center">
+                          <p className="text-[#8C8278] text-sm">No product data available.</p>
+                        </div>
+                      ) : (
+                        <div className="bg-white rounded-2xl border border-[#EDE7DA] overflow-hidden">
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="bg-[#FAF5EE] border-b border-[#EDE7DA]">
+                                  <th className="text-left px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wide">Product</th>
+                                  <th className="text-left px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wide">Category</th>
+                                  <th className="text-right px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wide">Times Ordered</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-[#EDE7DA]">
+                                {(() => {
+                                  const counts: Record<string, { category: string; count: number }> = {};
+                                  productsOrderedRows.forEach(r => {
+                                    if (!counts[r.productName]) counts[r.productName] = { category: r.productType, count: 0 };
+                                    counts[r.productName].count += 1;
+                                  });
+                                  return Object.entries(counts)
+                                    .sort((a, b) => b[1].count - a[1].count)
+                                    .slice(0, 10)
+                                    .map(([name, info]) => (
+                                      <tr key={name} className="hover:bg-[#FAF5EE] transition-colors">
+                                        <td className="px-4 py-3 font-medium text-[#1A1612]">{name}</td>
+                                        <td className="px-4 py-3 text-[#5C5347] text-xs">{info.category || '—'}</td>
+                                        <td className="px-4 py-3 text-right font-semibold text-[#C4622D]">{info.count}</td>
+                                      </tr>
+                                    ));
+                                })()}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* ── Recent Activity Table ── */}
+                    <div>
+                      <h3 className="text-base font-bold text-[#1A1612] mb-3">Recent Activity</h3>
+                      {productsOrderedRows.length === 0 && packageMealsRows.length === 0 && frozenMealsRows.length === 0 ? (
+                        <div className="bg-white rounded-2xl border border-[#EDE7DA] p-8 text-center">
+                          <p className="text-[#8C8278] text-sm">No recent activity found.</p>
+                        </div>
+                      ) : (
+                        <div className="bg-white rounded-2xl border border-[#EDE7DA] overflow-hidden">
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="bg-[#FAF5EE] border-b border-[#EDE7DA]">
+                                  <th className="text-left px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wide">Order ID</th>
+                                  <th className="text-left px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wide">Customer</th>
+                                  <th className="text-left px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wide">Item</th>
+                                  <th className="text-left px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wide">Type</th>
+                                  <th className="text-left px-4 py-3 text-xs font-semibold text-[#5C5347] uppercase tracking-wide">Date</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-[#EDE7DA]">
+                                {[...productsOrderedRows, ...packageMealsRows, ...frozenMealsRows]
+                                  .sort((a, b) => (b.orderedRaw || '').localeCompare(a.orderedRaw || ''))
+                                  .slice(0, 15)
+                                  .map((r, idx) => (
+                                    <tr key={`${r.orderId}-${idx}`} className="hover:bg-[#FAF5EE] transition-colors">
+                                      <td className="px-4 py-3 font-mono text-xs text-[#C4622D]">{r.orderId.slice(0, 8)}…</td>
+                                      <td className="px-4 py-3 text-[#1A1612] font-medium">{r.clientName}</td>
+                                      <td className="px-4 py-3 text-[#5C5347]">{r.productName}</td>
+                                      <td className="px-4 py-3 text-xs text-[#8C8278]">{r.productType || '—'}</td>
+                                      <td className="px-4 py-3 text-xs text-[#8C8278]">{r.orderedDate}</td>
+                                    </tr>
+                                  ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* ── ANALYTICS TAB ── */}
+            {activeTab === 'analytics' && (
+              <div className="p-6">
+                {/* Header */}
+                <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
+                  <div>
+                    <h2 className="text-xl font-bold text-[#1A1612]">Analytics</h2>
+                    <p className="text-sm text-[#8C8278] mt-0.5">Order trends and performance metrics for the selected period</p>
+                  </div>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    {/* Period selector */}
+                    <div className="flex items-center gap-1 bg-white border border-[#EDE7DA] rounded-xl p-1">
+                      {([['7d', 'Week'], ['30d', 'Month'], ['90d', 'Quarter'], ['12m', 'Year']] as [AnalyticsPeriod, string][]).map(([val, label]) => (
+                        <button
+                          key={val}
+                          onClick={() => { setAnalyticsPeriod(val); loadAnalytics(val); }}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${analyticsPeriod === val ? 'bg-[#C4622D] text-white' : 'text-[#5C5347] hover:bg-[#FAF5EE]'}`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      onClick={() => loadAnalytics(analyticsPeriod)}
+                      disabled={analyticsLoading}
+                      className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
+                    >
+                      {analyticsLoading ? 'Loading…' : 'Refresh'}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Error */}
+                {analyticsError && (
+                  <div className="mb-4 bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">{analyticsError}</div>
+                )}
+
+                {/* Loading spinner */}
+                {analyticsLoading ? (
+                  <div className="flex items-center justify-center py-16">
+                    <div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
+                  </div>
+                ) : (
+                  <>
+                    {/* ── Summary Metric Cards ── */}
+                    {summaryMetrics.length > 0 && (
+                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                        {summaryMetrics.map((m) => (
+                          <div key={m.label} className="bg-white rounded-2xl border border-[#EDE7DA] p-5">
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="text-xl">{m.icon}</span>
+                              <p className="text-xs font-semibold text-[#8C8278] uppercase tracking-wide">{m.label}</p>
+                            </div>
+                            <p className="text-2xl font-bold text-[#1A1612]">{m.value}</p>
+                            {m.sub && <p className="text-xs text-[#8C8278] mt-1">{m.sub}</p>}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* ── Order Trend Chart ── */}
+                    <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5 mb-6">
+                      <h3 className="text-base font-bold text-[#1A1612] mb-4">Order Trend</h3>
+                      {orderTrend.length === 0 ? (
+                        <div className="flex items-center justify-center py-12 text-[#8C8278] text-sm">No data for this period.</div>
+                      ) : (
+                        <AnalyticsLineChart data={orderTrend} />
+                      )}
+                    </div>
+
+                    {/* ── Revenue Bar Chart ── */}
+                    <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5 mb-6">
+                      <h3 className="text-base font-bold text-[#1A1612] mb-4">Revenue by Period</h3>
+                      {orderTrend.length === 0 ? (
+                        <div className="flex items-center justify-center py-12 text-[#8C8278] text-sm">No data for this period.</div>
+                      ) : (
+                        <AnalyticsBarChart data={orderTrend} />
+                      )}
+                    </div>
+
+                    {/* ── Voucher Usage Chart ── */}
+                    {voucherUsage.length > 0 && (
+                      <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5 mb-6">
+                        <h3 className="text-base font-bold text-[#1A1612] mb-4">Voucher Usage</h3>
+                        <AnalyticsVoucherChart data={voucherUsage} />
+                      </div>
+                    )}
+
+                    {/* ── Fulfillment Breakdown ── */}
+                    {fulfillmentMetrics.length > 0 && (
+                      <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5">
+                        <h3 className="text-base font-bold text-[#1A1612] mb-4">Fulfillment Breakdown</h3>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                          {fulfillmentMetrics.map((m) => (
+                            <div key={m.status} className="rounded-xl border border-[#EDE7DA] p-4 text-center">
+                              <div className="w-3 h-3 rounded-full mx-auto mb-2" style={{ backgroundColor: m.color }} />
+                              <p className="text-xl font-bold text-[#1A1612]">{m.count}</p>
+                              <p className="text-xs text-[#8C8278] mt-0.5 capitalize">{m.status.replace(/_/g, ' ')}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Empty state */}
+                    {orderTrend.length === 0 && summaryMetrics.length === 0 && (
+                      <div className="bg-white rounded-2xl border border-[#EDE7DA] p-12 text-center">
+                        <p className="text-4xl mb-3">📈</p>
+                        <p className="text-[#1A1612] font-semibold mb-1">No analytics data yet</p>
+                        <p className="text-[#8C8278] text-sm">Select a period and click Refresh to load analytics.</p>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </main>
+        </div>
+      </div>
+    </>
+  );
+}
