@@ -47,13 +47,13 @@ interface ChildRow {
   gender: string;
   grade: string;
   dietaryRestrictions: string;
+  picturesTaken: string;
+  indemnityConsent: boolean;
 }
 
 interface FormPage4 {
   children: ChildRow[];
   attendSchoolHoliday: string;
-  picturesTaken: string;
-  indemnityConsent: boolean;
   indemnityFile: File | null;
   indemnityFilePreview: string;
 }
@@ -109,7 +109,7 @@ const RELATIONSHIP_OPTIONS = ['Father', 'Mother', 'Grandparent', 'Guardian', 'Au
 const RELATIONSHIP_TO_CHILD_OPTIONS = ['Father', 'Mother', 'Grandparent', 'Guardian', 'Au pair', 'Sibling', 'Friend'];
 const DIETARY_OPTIONS = ['None', 'Vegetarian', 'Vegan', 'Gluten-free', 'Lactose Intolerant', 'Peanut Allergy'];
 
-const EMPTY_CHILD: ChildRow = { fullName: '', dob: '', age: '', gender: '', grade: '', dietaryRestrictions: '' };
+const EMPTY_CHILD: ChildRow = { fullName: '', dob: '', age: '', gender: '', grade: '', dietaryRestrictions: '', picturesTaken: '', indemnityConsent: false };
 const EMPTY_CONTACT: ContactPerson = { title: '', firstName: '', surname: '', cellNo: '', relationshipToChild: '' };
 
 function formatEventDate(row: EventDateRow): string {
@@ -171,9 +171,7 @@ export default function CookingClassesPage() {
   const [emergencyContactOpen, setEmergencyContactOpen] = useState(true);
   const [medicalDetailsOpen, setMedicalDetailsOpen] = useState(false);
   const [cookingClassesOpen, setCookingClassesOpen] = useState(true);
-  const [collapsedChildren, setCollapsedChildren] = useState<Record<number, boolean>>(
-    Object.fromEntries(Array.from({ length: 10 }, (_, i) => [i, true]))
-  );
+  const [collapsedChildren, setCollapsedChildren] = useState<Record<number, boolean>>({ 0: false });
 
   const [page1, setPage1] = useState<FormPage1>({
     title: '',
@@ -203,10 +201,8 @@ export default function CookingClassesPage() {
   });
 
   const [page4, setPage4] = useState<FormPage4>({
-    children: Array.from({ length: 10 }, () => ({ ...EMPTY_CHILD })),
+    children: [{ ...EMPTY_CHILD }],
     attendSchoolHoliday: '',
-    picturesTaken: '',
-    indemnityConsent: false,
     indemnityFile: null,
     indemnityFilePreview: '',
   });
@@ -554,12 +550,12 @@ export default function CookingClassesPage() {
           if (age !== null && age < 5) errors[`child_${idx}_age`] = 'Minimum participant age is 5';
           if (age !== null && age > 16) errors[`child_${idx}_age`] = 'Maximum participant age is 16';
         }
+        if (!child.picturesTaken) errors[`child_${idx}_pictures`] = 'Please indicate your photo consent';
+        if (!child.indemnityConsent) errors[`child_${idx}_indemnity`] = 'Please consent to the Indemnity Form clauses';
       }
     });
 
     // School Holiday is now optional — no validation required
-    if (!page4.picturesTaken) errors.picturesTaken = 'Please indicate your consent for pictures';
-    if (!page4.indemnityConsent) errors.indemnityConsent = 'Please consent to the Indemnity Form clauses';
     if (!page4.indemnityFile) errors.indemnityFile = 'Please upload your signed Indemnity Form';
     setPage4Errors(errors);
     return Object.keys(errors).length === 0;
@@ -629,16 +625,41 @@ export default function CookingClassesPage() {
   }
 
   // (5) Update child and auto-calculate age from DOB
-  function updateChild(index: number, field: keyof ChildRow, value: string) {
+  function updateChild(index: number, field: keyof ChildRow, value: string | boolean) {
     setPage4(prev => {
       const updated = [...prev.children];
       const updatedChild = { ...updated[index], [field]: value };
       // Auto-calculate age when DOB changes
-      if (field === 'dob') {
+      if (field === 'dob' && typeof value === 'string') {
         let age = calculateAge(value);
         updatedChild.age = age !== null ? String(age) : '';
       }
       updated[index] = updatedChild;
+      return { ...prev, children: updated };
+    });
+  }
+
+  function addChild() {
+    setPage4(prev => {
+      if (prev.children.length >= 10) return prev;
+      const newIdx = prev.children.length;
+      setCollapsedChildren(c => ({ ...c, [newIdx]: false }));
+      return { ...prev, children: [...prev.children, { ...EMPTY_CHILD }] };
+    });
+  }
+
+  function removeChild(index: number) {
+    setPage4(prev => {
+      if (index === 0) return prev; // Child 1 cannot be removed
+      const updated = prev.children.filter((_, i) => i !== index);
+      // Rebuild collapsedChildren map
+      setCollapsedChildren(prev => {
+        const rebuilt: Record<number, boolean> = {};
+        updated.forEach((_, i) => {
+          rebuilt[i] = i < index ? (prev[i] ?? true) : (prev[i + 1] ?? true);
+        });
+        return rebuilt;
+      });
       return { ...prev, children: updated };
     });
   }
@@ -803,10 +824,12 @@ export default function CookingClassesPage() {
               gender: c.gender,
               grade: c.grade,
               dietaryRestrictions: c.dietaryRestrictions,
+              picturesTaken: c.picturesTaken,
+              indemnityConsent: c.indemnityConsent,
             })),
           attend_school_holiday: page4.attendSchoolHoliday,
-          pictures_taken: page4.picturesTaken,
-          indemnity_consent: page4.indemnityConsent,
+          pictures_taken: page4.children.filter(c => c.fullName.trim()).map(c => c.picturesTaken).join(', '),
+          indemnity_consent: page4.children.filter(c => c.fullName.trim()).every(c => c.indemnityConsent),
           indemnity_file_url: indemnityFileUrl,
           // Page 5 — Payment
           payment_method: page5.paymentMethod,
@@ -1664,16 +1687,12 @@ export default function CookingClassesPage() {
                 </p>
                 {page4Errors.children && <p className="text-xs text-red-500 mb-3">{page4Errors.children}</p>}
 
-                {/* Child cards — each collapsible */}
-                <div className="space-y-3 mb-6">
+                {/* Child cards — dynamic, each collapsible */}
+                <div className="space-y-3 mb-4">
                   {page4.children.map((child, idx) => {
                     const isOpen = !collapsedChildren[idx];
-                    // (4) Determine if this child has a name entered (makes DOB/Gender/Dietary mandatory)
                     const hasName = child.fullName.trim().length > 0;
-                    // (5) Age validation message
-                    const ageNum = child.dob ? calculateAge(child.dob) : null;
                     const ageError = page4Errors[`child_${idx}_age`];
-                    // (NEW) Determine if this child card is beyond the seats limit
                     const isDisabledBySeats = availableSeats !== null && idx >= availableSeats;
                     return (
                       <div key={idx} className={`border rounded-xl overflow-hidden ${isDisabledBySeats ? 'border-[#DDD5C8] opacity-50' : 'border-[#DDD5C8]'}`}>
@@ -1682,7 +1701,6 @@ export default function CookingClassesPage() {
                           type="button"
                           onClick={() => {
                             if (isDisabledBySeats) {
-                              // Show "Limited seats available" warning once if seats < 10
                               if (availableSeats !== null && availableSeats < 10 && !limitedSeatsWarningShown) {
                                 setShowLimitedSeatsWarning(true);
                                 setLimitedSeatsWarningShown(true);
@@ -1699,15 +1717,31 @@ export default function CookingClassesPage() {
                             Child ({idx + 1}){child.fullName.trim() ? ` — ${child.fullName.trim()}` : ''}
                             {isDisabledBySeats && <span className="ml-2 text-xs font-normal text-[#8C8278]">(seat unavailable)</span>}
                           </span>
-                          <svg
-                            className={`w-4 h-4 text-[#8C8278] transition-transform ${isOpen && !isDisabledBySeats ? 'rotate-180' : ''}`}
-                            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
-                          >
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                          </svg>
+                          <div className="flex items-center gap-2">
+                            {idx > 0 && !isDisabledBySeats && (
+                              <span
+                                role="button"
+                                tabIndex={0}
+                                onClick={e => { e.stopPropagation(); removeChild(idx); }}
+                                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); removeChild(idx); } }}
+                                className="text-[#8C8278] hover:text-red-500 transition-colors p-1 rounded"
+                                aria-label={`Remove Child ${idx + 1}`}
+                              >
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </span>
+                            )}
+                            <svg
+                              className={`w-4 h-4 text-[#8C8278] transition-transform ${isOpen && !isDisabledBySeats ? 'rotate-180' : ''}`}
+                              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </div>
                         </button>
 
-                        {/* Card body — hidden if disabled by seats */}
+                        {/* Card body */}
                         {isOpen && !isDisabledBySeats && (
                           <div className="px-4 py-4 space-y-3">
                             {/* Row 1: Full Name + DOB */}
@@ -1722,7 +1756,6 @@ export default function CookingClassesPage() {
                                 />
                               </div>
                               <div>
-                                {/* (4) DOB mandatory if name entered */}
                                 <label className="block text-xs font-medium text-[#5C5347] mb-1">
                                   DOB {hasName && <span className="text-red-500">*</span>}
                                 </label>
@@ -1737,10 +1770,9 @@ export default function CookingClassesPage() {
                                 )}
                               </div>
                             </div>
-                            {/* Row 2: Age (read-only, auto-calculated) + Gender + Grade */}
+                            {/* Row 2: Age + Gender + Grade */}
                             <div className="grid grid-cols-3 gap-3">
                               <div>
-                                {/* (5) Age is read-only, auto-calculated from DOB */}
                                 <label className="block text-xs font-medium text-[#5C5347] mb-1">Age</label>
                                 <input
                                   type="text"
@@ -1754,7 +1786,6 @@ export default function CookingClassesPage() {
                                 )}
                               </div>
                               <div>
-                                {/* (4) Gender mandatory if name entered */}
                                 <label className="block text-xs font-medium text-[#5C5347] mb-1">
                                   Gender {hasName && <span className="text-red-500">*</span>}
                                 </label>
@@ -1783,7 +1814,6 @@ export default function CookingClassesPage() {
                             </div>
                             {/* Row 3: Dietary Restrictions */}
                             <div>
-                              {/* (4) Dietary mandatory if name entered */}
                               <label className="block text-xs font-medium text-[#5C5347] mb-1">
                                 Dietary Restrictions {hasName && <span className="text-red-500">*</span>}
                               </label>
@@ -1801,12 +1831,78 @@ export default function CookingClassesPage() {
                                 <p className="text-xs text-red-500 mt-0.5">{page4Errors[`child_${idx}_dietary`]}</p>
                               )}
                             </div>
+
+                            {/* Consent & Indemnity — per child */}
+                            <div className="mt-2 pt-3 border-t border-[#EDE7DA]">
+                              <p className="text-xs font-semibold text-[#4A4540] uppercase tracking-wide mb-2">Consent &amp; Indemnity</p>
+                              <hr className="border-[#EDE7DA] mb-3" />
+                              {/* Photo consent */}
+                              <div className="mb-3">
+                                <p className="text-xs text-[#1A1612] mb-2">
+                                  Photos taken of my/our child(ren) at the cooking classes{' '}
+                                  {hasName && <span className="text-red-500">*</span>}
+                                </p>
+                                <div className="flex items-center gap-6">
+                                  {[
+                                    { value: 'yes', label: 'Yes, I give consent' },
+                                    { value: 'no', label: 'No, I do not consent' },
+                                  ].map(opt => (
+                                    <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
+                                      <input
+                                        type="radio"
+                                        name={`picturesTaken_${idx}`}
+                                        value={opt.value}
+                                        checked={child.picturesTaken === opt.value}
+                                        onChange={() => updateChild(idx, 'picturesTaken', opt.value)}
+                                        className="w-4 h-4 border-[#DDD5C8] text-[#C4622D] focus:ring-[#C4622D]"
+                                      />
+                                      <span className="text-xs text-[#1A1612]">{opt.label}</span>
+                                    </label>
+                                  ))}
+                                </div>
+                                {page4Errors[`child_${idx}_pictures`] && (
+                                  <p className="text-xs text-red-500 mt-1">{page4Errors[`child_${idx}_pictures`]}</p>
+                                )}
+                              </div>
+                              {/* Indemnity checkbox */}
+                              <div>
+                                <label className="flex items-start gap-2 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={child.indemnityConsent}
+                                    onChange={e => updateChild(idx, 'indemnityConsent', e.target.checked)}
+                                    className="w-4 h-4 mt-0.5 border-2 border-[#DDD5C8] text-[#C4622D] focus:ring-[#C4622D] rounded flex-shrink-0"
+                                  />
+                                  <span className="text-xs text-[#1A1612]">
+                                    I consent to the clauses in the Business Indemnity Form{' '}
+                                    {hasName && <span className="text-red-500">*</span>}
+                                  </span>
+                                </label>
+                                {page4Errors[`child_${idx}_indemnity`] && (
+                                  <p className="text-xs text-red-500 mt-1">{page4Errors[`child_${idx}_indemnity`]}</p>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         )}
                       </div>
                     );
                   })}
                 </div>
+
+                {/* + Add another child button */}
+                {page4.children.length < 10 && (
+                  <button
+                    type="button"
+                    onClick={addChild}
+                    className="w-full border-2 border-dashed border-[#C4622D] rounded-xl py-3 px-4 text-sm font-semibold text-[#C4622D] hover:bg-[#FDF6EE] transition-colors flex items-center justify-center gap-2 mb-6"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                    </svg>
+                    + Add another child
+                  </button>
+                )}
 
                 {/* Attend School Holiday programme */}
                 <div className="mb-4">
@@ -1830,107 +1926,51 @@ export default function CookingClassesPage() {
                   </div>
                 </div>
 
-                {/* Pictures, Indemnity & File Upload — styled card */}
+                {/* SIGNED Indemnity Form upload */}
                 <div className="mt-6 bg-white border border-[#EDE7DA] rounded-2xl shadow-sm overflow-hidden">
                   <div className="bg-[#4A4540] text-white px-5 py-4">
-                    <h3 className="text-sm font-semibold">Consent &amp; Indemnity</h3>
+                    <h3 className="text-sm font-semibold">SIGNED Indemnity Form</h3>
                   </div>
-                  <div className="p-5 space-y-6">
-                    {/* Pictures Taken consent */}
-                    <div>
-                      <p className="text-sm text-[#1A1612] mb-4 leading-relaxed">
-                        Pictures taken of my/our child at the Business cooking classes can be used / not be used as per my/our consent below:
-                      </p>
-                      <label className="block text-sm font-medium text-[#1A1612] mb-3">
-                        Pictures taken <span className="text-red-500">*</span>
-                      </label>
-                      <div className="grid grid-cols-2 gap-x-8">
-                        {[
-                          { value: 'yes', label: 'Yes, I give consent' },
-                          { value: 'no', label: 'No, I do not consent' },
-                        ].map(opt => (
-                          <label key={opt.value} className="flex items-center gap-3 cursor-pointer">
-                            <input
-                              type="radio"
-                              name="picturesTaken"
-                              value={opt.value}
-                              checked={page4.picturesTaken === opt.value}
-                              onChange={() => setPage4(p => ({ ...p, picturesTaken: opt.value }))}
-                              className="w-5 h-5 border-2 border-[#DDD5C8] text-[#C4622D] focus:ring-[#C4622D]"
-                            />
-                            <span className="text-sm text-[#1A1612]">{opt.label}</span>
-                          </label>
-                        ))}
-                      </div>
-                      {page4Errors.picturesTaken && <p className="text-xs text-red-500 mt-2">{page4Errors.picturesTaken}</p>}
+                  <div className="p-5">
+                    <div
+                      className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer ${page4Errors.indemnityFile ? 'border-red-400 bg-red-50' : 'border-[#DDD5C8] bg-[#F8F5FF] hover:border-[#C4622D]/50'}`}
+                      onClick={() => document.getElementById('indemnity-file-input')?.click()}
+                    >
+                      {page4.indemnityFilePreview ? (
+                        <div>
+                          {page4.indemnityFile?.type?.startsWith('image/') ? (
+                            <img src={page4.indemnityFilePreview} alt="Signed indemnity form preview" className="max-h-32 mx-auto rounded-lg mb-3 object-contain" />
+                          ) : (
+                            <div className="text-4xl mb-3">📄</div>
+                          )}
+                          <p className="text-sm text-[#5C5347] font-medium">{page4.indemnityFile?.name}</p>
+                          <button
+                            type="button"
+                            onClick={e => { e.stopPropagation(); setPage4(p => ({ ...p, indemnityFile: null, indemnityFilePreview: '' })); }}
+                            className="text-xs text-red-500 hover:underline mt-1"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ) : (
+                        <div>
+                          <svg className="w-12 h-12 text-[#9CA3AF] mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                          </svg>
+                          <p className="text-base font-bold text-[#1A1612] mb-1">Browse Files</p>
+                          <p className="text-sm text-[#8C8278]">Drag and drop files here</p>
+                        </div>
+                      )}
+                      <input
+                        id="indemnity-file-input"
+                        type="file"
+                        accept="image/*,.pdf"
+                        onChange={handleIndemnityUpload}
+                        className="hidden"
+                      />
                     </div>
-
-                    <hr className="border-[#EDE7DA]" />
-
-                    {/* Indemnity Form Consent */}
-                    <div>
-                      <div className="flex items-start gap-3">
-                        <label className="block text-sm font-medium text-[#1A1612] whitespace-nowrap">
-                          Indemnity Form Consent <span className="text-red-500">*</span>
-                        </label>
-                        <label className="flex items-start gap-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={page4.indemnityConsent}
-                            onChange={e => setPage4(p => ({ ...p, indemnityConsent: e.target.checked }))}
-                            className="w-4 h-4 mt-0.5 border-2 border-[#DDD5C8] text-[#C4622D] focus:ring-[#C4622D] rounded flex-shrink-0"
-                          />
-                          <span className="text-sm text-[#1A1612]">I Consent to the clauses in the Business Indemnity Form</span>
-                        </label>
-                      </div>
-                      {page4Errors.indemnityConsent && <p className="text-xs text-red-500 mt-2">{page4Errors.indemnityConsent}</p>}
-                    </div>
-
-                    {/* SIGNED Indemnity Form upload */}
-                    <div>
-                      <label className="block text-sm font-semibold text-[#1A1612] mb-3">
-                        SIGNED Indemnity Form <span className="text-red-500">*</span>
-                      </label>
-                      <div
-                        className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer ${page4Errors.indemnityFile ? 'border-red-400 bg-red-50' : 'border-[#DDD5C8] bg-[#F8F5FF] hover:border-[#C4622D]/50'}`}
-                        onClick={() => document.getElementById('indemnity-file-input')?.click()}
-                      >
-                        {page4.indemnityFilePreview ? (
-                          <div>
-                            {page4.indemnityFile?.type?.startsWith('image/') ? (
-                              <img src={page4.indemnityFilePreview} alt="Signed indemnity form preview" className="max-h-32 mx-auto rounded-lg mb-3 object-contain" />
-                            ) : (
-                              <div className="text-4xl mb-3">📄</div>
-                            )}
-                            <p className="text-sm text-[#5C5347] font-medium">{page4.indemnityFile?.name}</p>
-                            <button
-                              type="button"
-                              onClick={e => { e.stopPropagation(); setPage4(p => ({ ...p, indemnityFile: null, indemnityFilePreview: '' })); }}
-                              className="text-xs text-red-500 hover:underline mt-1"
-                            >
-                              Remove
-                            </button>
-                          </div>
-                        ) : (
-                          <div>
-                            <svg className="w-12 h-12 text-[#9CA3AF] mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
-                            </svg>
-                            <p className="text-base font-bold text-[#1A1612] mb-1">Browse Files</p>
-                            <p className="text-sm text-[#8C8278]">Drag and drop files here</p>
-                          </div>
-                        )}
-                        <input
-                          id="indemnity-file-input"
-                          type="file"
-                          accept="image/*,.pdf"
-                          onChange={handleIndemnityUpload}
-                          className="hidden"
-                        />
-                      </div>
-                      <p className="text-xs text-[#5C5347] mt-2">Upload your SIGNED Cardamom Kitchen cooking classes Indemnity Form</p>
-                      {page4Errors.indemnityFile && <p className="text-xs text-red-500 mt-1">{page4Errors.indemnityFile}</p>}
-                    </div>
+                    <p className="text-xs text-[#5C5347] mt-2">Upload your SIGNED Cardamom Kitchen cooking classes Indemnity Form</p>
+                    {page4Errors.indemnityFile && <p className="text-xs text-red-500 mt-1">{page4Errors.indemnityFile}</p>}
                   </div>
                 </div>
               </div>
