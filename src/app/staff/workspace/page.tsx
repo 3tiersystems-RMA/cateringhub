@@ -45,7 +45,7 @@ import AbandonedCarts from '@/app/staff/workspace/components/AbandonedCarts';
 import MediaProducts from '@/app/staff/workspace/components/MediaProducts';
 import PaymentConfirmation from '@/app/staff/workspace/components/PaymentConfirmation';
 import CollectionNotification from '@/app/staff/workspace/components/CollectionNotification';
-import MediaEvents from '@/app/staff/workspace/components/MediaEvents';
+import EventManagement from '@/app/staff/workspace/components/EventManagement';
 import GoogleDriveDocuments from '@/app/staff/workspace/components/GoogleDriveDocuments';
 
 
@@ -609,7 +609,10 @@ export default function StaffWorkspacePage() {
             )}
 
             {activeTab === 'media_events' && (
-              <MediaEvents userRole={userProfile?.role || ''} />
+              <EventManagement
+                canCreate={can('media_events', 'create')}
+                canDelete={can('media_events', 'delete')}
+              />
             )}
 
             {activeTab === 'media' && (
