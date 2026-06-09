@@ -48,6 +48,10 @@ import CollectionNotification from '@/app/staff/workspace/components/CollectionN
 import EventManagement from '@/app/staff/workspace/components/EventManagement';
 import GoogleDriveDocuments from '@/app/staff/workspace/components/GoogleDriveDocuments';
 import GlobalSettings from '@/app/staff/workspace/components/GlobalSettings';
+import EventManagementSettings from '@/app/staff/workspace/components/EventManagementSettings';
+import EventManagementCustomers from '@/app/staff/workspace/components/EventManagementCustomers';
+import EventManagementRegistrations from '@/app/staff/workspace/components/EventManagementRegistrations';
+import EventManagementAnalytics from '@/app/staff/workspace/components/EventManagementAnalytics';
 
 
 
@@ -139,6 +143,7 @@ export default function StaffWorkspacePage() {
   const [vouchersMenuOpen, setVouchersMenuOpen] = useState(false);
   const [mediaMenuOpen, setMediaMenuOpen] = useState(false);
   const [cookingClassesOpen, setCookingClassesOpen] = useState(false);
+  const [eventManagementOpen, setEventManagementOpen] = useState(false);
 
   // Inactivity timer
   const [showInactivityWarning, setShowInactivityWarning] = useState(false);
@@ -400,6 +405,70 @@ export default function StaffWorkspacePage() {
                 </>
               )}
 
+              {/* ── Event Management ── */}
+              {canAnyTab('event_management', 'event_management_customers', 'event_management_registrations', 'event_management_analytics') && (
+                <>
+                  <button
+                    onClick={() => setEventManagementOpen(prev => !prev)}
+                    className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
+                      ['event_management', 'event_management_customers', 'event_management_registrations', 'event_management_analytics'].includes(activeTab) ? 'text-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
+                    }`}
+                  >
+                    <span className="text-base">🎪</span>
+                    <span className="flex-1">Event Management</span>
+                    <span className="text-xs">{eventManagementOpen ? '▲' : '▼'}</span>
+                  </button>
+                  {eventManagementOpen && (
+                    <div className="pl-4 border-l-2 border-[#E8DDD0] ml-4">
+                      {canTab('event_management') && (
+                        <button
+                          onClick={() => { handleTabChange('event_management'); }}
+                          className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${
+                            activeTab === 'event_management' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
+                          }`}
+                        >
+                          <span className="text-sm">⚙️</span>
+                          <span>Settings</span>
+                        </button>
+                      )}
+                      {canTab('event_management_customers') && (
+                        <button
+                          onClick={() => { handleTabChange('event_management_customers'); }}
+                          className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${
+                            activeTab === 'event_management_customers' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
+                          }`}
+                        >
+                          <span className="text-sm">🧑‍🤝‍🧑</span>
+                          <span>Event Customers</span>
+                        </button>
+                      )}
+                      {canTab('event_management_registrations') && (
+                        <button
+                          onClick={() => { handleTabChange('event_management_registrations'); }}
+                          className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${
+                            activeTab === 'event_management_registrations' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
+                          }`}
+                        >
+                          <span className="text-sm">📋</span>
+                          <span>Event Registrations</span>
+                        </button>
+                      )}
+                      {canTab('event_management_analytics') && (
+                        <button
+                          onClick={() => { handleTabChange('event_management_analytics'); }}
+                          className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${
+                            activeTab === 'event_management_analytics' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
+                          }`}
+                        >
+                          <span className="text-sm">📊</span>
+                          <span>Analytics</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+
               {/* ── Weekly Menu ── */}
               {canTab('weekly_menu') && (
                 <button onClick={() => { handleTabChange('weekly_menu'); }} className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${activeTab === 'weekly_menu' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'}`}>
@@ -638,6 +707,25 @@ export default function StaffWorkspacePage() {
             {activeTab === 'analytics' && <AnalyticsTab />}
 
             {activeTab === 'global_settings' && <GlobalSettings />}
+
+            {/* ── EVENT MANAGEMENT TABS ── */}
+            {activeTab === 'event_management' && (
+              <EventManagementSettings isSuperAdmin={userProfile?.role === 'super_admin'} readOnly={!can('event_management', 'edit')} isAdminOrAbove={canRole('admin', 'super_admin')} />
+            )}
+
+            {activeTab === 'event_management_customers' && (
+              <EventManagementCustomers isSuperAdmin={userProfile?.role === 'super_admin'} />
+            )}
+
+            {activeTab === 'event_management_registrations' && (
+              <div className="p-6">
+                <EventManagementRegistrations isSuperAdmin={userProfile?.role === 'super_admin'} />
+              </div>
+            )}
+
+            {activeTab === 'event_management_analytics' && (
+              <EventManagementAnalytics />
+            )}
           </main>
         </div>
       </div>

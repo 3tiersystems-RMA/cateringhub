@@ -1,0 +1,591 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { createClient } from '@/lib/supabase/client';
+
+interface EventSettings {
+  id: string;
+  flyer_image_url: string | null;
+  flyer_image_path: string | null;
+  sheet_id: string | null;
+  sheet_name: string | null;
+  event_fee: number;
+  online_form_status: string | null;
+}
+
+interface MgmtEvent {
+  id: string;
+  name: string;
+  sort_order: number;
+  is_active: boolean;
+}
+
+interface SessionStatus {
+  id: string;
+  label: string;
+  sort_order: number;
+}
+
+interface EventDateRow {
+  id?: string;
+  event_id: string;
+  event_date: string;
+  start_time: string;
+  end_time: string;
+  location: string;
+  sort_order: number;
+  seating: number;
+  status_id: string;
+  event_fee: string;
+}
+
+interface EventManagementSettingsProps {
+  isSuperAdmin?: boolean;
+  readOnly?: boolean;
+  isAdminOrAbove?: boolean;
+}
+
+const DEFAULT_LOCATION = '12 Cardamom Street, Cape Town, 7441';
+
+const EMPTY_DATE_ROW = (eventId = '', sortOrder = 0): Omit<EventDateRow, 'id'> => ({
+  event_id: eventId,
+  event_date: '',
+  start_time: '',
+  end_time: '',
+  location: DEFAULT_LOCATION,
+  sort_order: sortOrder,
+  seating: 0,
+  status_id: '',
+  event_fee: '',
+});
+
+export default function EventManagementSettings({ isSuperAdmin = false, readOnly = false, isAdminOrAbove = false }: EventManagementSettingsProps) {
+  const supabase = createClient();
+  const [settings, setSettings] = useState<EventSettings | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState('');
+  const [saveError, setSaveError] = useState('');
+  const [savingFormStatus, setSavingFormStatus] = useState(false);
+  const [statusSaveMsg, setStatusSaveMsg] = useState('');
+
+  const [flyerUrl, setFlyerUrl] = useState('');
+  const [eventFee, setEventFee] = useState('');
+  const [onlineFormStatus, setOnlineFormStatus] = useState<'active' | 'inactive'>('active');
+
+  const [events, setEvents] = useState<MgmtEvent[]>([]);
+  const [newEventName, setNewEventName] = useState('');
+  const [savingEvent, setSavingEvent] = useState(false);
+  const [eventMsg, setEventMsg] = useState('');
+
+  const [sessionStatuses, setSessionStatuses] = useState<SessionStatus[]>([]);
+  const [newStatusLabel, setNewStatusLabel] = useState('');
+  const [savingStatus, setSavingStatus] = useState(false);
+  const [statusMsg, setStatusMsg] = useState('');
+
+  const [eventDateRows, setEventDateRows] = useState<Record<string, EventDateRow[]>>({});
+  const [savingEventDates, setSavingEventDates] = useState<Record<string, boolean>>({});
+  const [eventDatesMsg, setEventDatesMsg] = useState<Record<string, string>>({});
+  const [collapsedEventBlocks, setCollapsedEventBlocks] = useState<Record<string, boolean>>({});
+
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadSettings();
+    loadEvents();
+    loadSessionStatuses();
+    loadAllDateRows();
+  }, []);
+
+  useEffect(() => {
+    if (events.length > 0) initEventDateRows();
+  }, [events]);
+
+  async function loadSettings() {
+    setLoading(true);
+    try {
+      const { data } = await supabase.from('event_management_settings').select('*').limit(1).single();
+      if (data) {
+        setSettings(data);
+        setFlyerUrl(data.flyer_image_url || '');
+        setEventFee(data.event_fee != null ? String(data.event_fee) : '');
+        setOnlineFormStatus(data.online_form_status === 'inactive' ? 'inactive' : 'active');
+      }
+    } catch { /* no settings yet */ }
+    finally { setLoading(false); }
+  }
+
+  async function loadEvents() {
+    try {
+      const { data } = await supabase.from('event_management_events').select('*').order('sort_order', { ascending: true });
+      if (data) setEvents(data);
+    } catch { /* ignore */ }
+  }
+
+  async function loadSessionStatuses() {
+    try {
+      const { data } = await supabase.from('event_management_session_statuses').select('*').order('sort_order', { ascending: true });
+      if (data) setSessionStatuses(data);
+    } catch { /* ignore */ }
+  }
+
+  async function loadAllDateRows() {
+    try {
+      const { data } = await supabase.from('event_management_event_dates').select('*').order('sort_order', { ascending: true });
+      if (!data) return;
+      const perEventMap: Record<string, EventDateRow[]> = {};
+      data.forEach((r: any) => {
+        if (!r.event_id) return;
+        if (!perEventMap[r.event_id]) perEventMap[r.event_id] = [];
+        perEventMap[r.event_id].push({
+          id: r.id,
+          event_id: r.event_id,
+          event_date: r.event_date || '',
+          start_time: r.start_time || '',
+          end_time: r.end_time || '',
+          location: r.location || DEFAULT_LOCATION,
+          sort_order: r.sort_order || 0,
+          seating: r.seating || 0,
+          status_id: r.status_id || '',
+          event_fee: r.event_fee != null ? String(r.event_fee) : '',
+        });
+      });
+      setEventDateRows(perEventMap);
+    } catch { /* ignore */ }
+  }
+
+  function initEventDateRows() {
+    setEventDateRows(prev => {
+      const updated = { ...prev };
+      events.forEach(ev => {
+        if (!updated[ev.id]) updated[ev.id] = [{ ...EMPTY_DATE_ROW(ev.id, 0) }];
+      });
+      return updated;
+    });
+  }
+
+  async function saveSettings() {
+    setSaving(true);
+    setSaveSuccess('');
+    setSaveError('');
+    try {
+      const payload = {
+        flyer_image_url: flyerUrl || null,
+        event_fee: Number(eventFee) || 0,
+        updated_at: new Date().toISOString(),
+      };
+      if (settings?.id) {
+        const { error } = await supabase.from('event_management_settings').update(payload).eq('id', settings.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('event_management_settings').insert({ ...payload, online_form_status: 'active' });
+        if (error) throw error;
+      }
+      setSaveSuccess('Settings saved successfully');
+      await loadSettings();
+    } catch (err: any) {
+      setSaveError(err.message || 'Failed to save settings');
+    } finally {
+      setSaving(false);
+      setTimeout(() => { setSaveSuccess(''); setSaveError(''); }, 3000);
+    }
+  }
+
+  async function saveFormStatus() {
+    setSavingFormStatus(true);
+    setStatusSaveMsg('');
+    try {
+      if (settings?.id) {
+        await supabase.from('event_management_settings').update({ online_form_status: onlineFormStatus, updated_at: new Date().toISOString() }).eq('id', settings.id);
+      }
+      setStatusSaveMsg('Status updated');
+    } catch { setStatusSaveMsg('Failed to update status'); }
+    finally {
+      setSavingFormStatus(false);
+      setTimeout(() => setStatusSaveMsg(''), 3000);
+    }
+  }
+
+  async function addEvent() {
+    if (!newEventName.trim()) return;
+    setSavingEvent(true);
+    setEventMsg('');
+    try {
+      const { error } = await supabase.from('event_management_events').insert({ name: newEventName.trim(), sort_order: events.length, is_active: true });
+      if (error) throw error;
+      setNewEventName('');
+      setEventMsg('Event added');
+      await loadEvents();
+    } catch (err: any) {
+      setEventMsg(err.message || 'Failed to add event');
+    } finally {
+      setSavingEvent(false);
+      setTimeout(() => setEventMsg(''), 3000);
+    }
+  }
+
+  async function toggleEventActive(ev: MgmtEvent) {
+    try {
+      await supabase.from('event_management_events').update({ is_active: !ev.is_active }).eq('id', ev.id);
+      await loadEvents();
+    } catch { /* ignore */ }
+  }
+
+  async function deleteEvent(id: string) {
+    setDeletingId(id);
+    try {
+      await supabase.from('event_management_events').delete().eq('id', id);
+      setDeleteConfirmId(null);
+      await loadEvents();
+      await loadAllDateRows();
+    } catch { /* ignore */ }
+    finally { setDeletingId(null); }
+  }
+
+  async function addStatus() {
+    if (!newStatusLabel.trim()) return;
+    setSavingStatus(true);
+    setStatusMsg('');
+    try {
+      const { error } = await supabase.from('event_management_session_statuses').insert({ label: newStatusLabel.trim(), sort_order: sessionStatuses.length });
+      if (error) throw error;
+      setNewStatusLabel('');
+      setStatusMsg('Status added');
+      await loadSessionStatuses();
+    } catch (err: any) {
+      setStatusMsg(err.message || 'Failed to add status');
+    } finally {
+      setSavingStatus(false);
+      setTimeout(() => setStatusMsg(''), 3000);
+    }
+  }
+
+  async function deleteStatus(id: string) {
+    try {
+      await supabase.from('event_management_session_statuses').delete().eq('id', id);
+      await loadSessionStatuses();
+    } catch { /* ignore */ }
+  }
+
+  function updateDateRow(eventId: string, idx: number, field: keyof EventDateRow, value: string | number) {
+    setEventDateRows(prev => {
+      const rows = [...(prev[eventId] || [])];
+      rows[idx] = { ...rows[idx], [field]: value };
+      return { ...prev, [eventId]: rows };
+    });
+  }
+
+  function addDateRow(eventId: string) {
+    setEventDateRows(prev => {
+      const rows = prev[eventId] || [];
+      return { ...prev, [eventId]: [...rows, { ...EMPTY_DATE_ROW(eventId, rows.length) }] };
+    });
+  }
+
+  function removeDateRow(eventId: string, idx: number) {
+    setEventDateRows(prev => {
+      const rows = [...(prev[eventId] || [])];
+      rows.splice(idx, 1);
+      return { ...prev, [eventId]: rows };
+    });
+  }
+
+  async function saveEventDates(eventId: string) {
+    setSavingEventDates(prev => ({ ...prev, [eventId]: true }));
+    setEventDatesMsg(prev => ({ ...prev, [eventId]: '' }));
+    try {
+      const rows = eventDateRows[eventId] || [];
+      const toUpsert = rows.filter(r => r.event_date).map((r, i) => ({
+        ...(r.id ? { id: r.id } : {}),
+        event_id: eventId,
+        event_date: r.event_date,
+        start_time: r.start_time || null,
+        end_time: r.end_time || null,
+        location: r.location || DEFAULT_LOCATION,
+        sort_order: i,
+        seating: Number(r.seating) || 0,
+        status_id: r.status_id || null,
+        event_fee: r.event_fee !== '' ? Number(r.event_fee) : null,
+      }));
+
+      // Delete removed rows
+      const existingIds = rows.filter(r => r.id).map(r => r.id!);
+      const { data: dbRows } = await supabase.from('event_management_event_dates').select('id').eq('event_id', eventId);
+      const dbIds = (dbRows || []).map((r: any) => r.id);
+      const toDelete = dbIds.filter((id: string) => !existingIds.includes(id));
+      if (toDelete.length > 0) {
+        await supabase.from('event_management_event_dates').delete().in('id', toDelete);
+      }
+
+      if (toUpsert.length > 0) {
+        const { error } = await supabase.from('event_management_event_dates').upsert(toUpsert, { onConflict: 'id' });
+        if (error) throw error;
+      }
+      setEventDatesMsg(prev => ({ ...prev, [eventId]: 'Saved' }));
+      await loadAllDateRows();
+    } catch (err: any) {
+      setEventDatesMsg(prev => ({ ...prev, [eventId]: err.message || 'Failed to save' }));
+    } finally {
+      setSavingEventDates(prev => ({ ...prev, [eventId]: false }));
+      setTimeout(() => setEventDatesMsg(prev => ({ ...prev, [eventId]: '' })), 3000);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <div className="w-8 h-8 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6 max-w-4xl mx-auto space-y-6">
+      <div className="flex items-center gap-3 mb-2">
+        <span className="text-2xl">🎪</span>
+        <h2 className="text-xl font-bold text-[#1A1612]">Event Management Settings</h2>
+      </div>
+
+      {/* Online Form Status */}
+      <div className="bg-white border border-[#EDE7DA] rounded-2xl p-5">
+        <h3 className="text-base font-semibold text-[#1A1612] mb-4">Online Form Status</h3>
+        <div className="flex gap-6 mb-4">
+          {(['active', 'inactive'] as const).map(opt => (
+            <label key={opt} className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="formStatus"
+                value={opt}
+                checked={onlineFormStatus === opt}
+                onChange={() => setOnlineFormStatus(opt)}
+                disabled={readOnly}
+                className="w-4 h-4 text-[#C4622D] border-[#DDD5C8] focus:ring-[#C4622D]"
+              />
+              <span className="text-sm text-[#1A1612] capitalize">{opt}</span>
+            </label>
+          ))}
+        </div>
+        {!readOnly && (
+          <button
+            onClick={saveFormStatus}
+            disabled={savingFormStatus}
+            className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
+          >
+            {savingFormStatus ? 'Saving…' : 'Save Status'}
+          </button>
+        )}
+        {statusSaveMsg && <p className="text-xs text-green-600 mt-2">{statusSaveMsg}</p>}
+      </div>
+
+      {/* General Settings */}
+      <div className="bg-white border border-[#EDE7DA] rounded-2xl p-5">
+        <h3 className="text-base font-semibold text-[#1A1612] mb-4">General Settings</h3>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-[#1A1612] mb-1">Flyer Image URL</label>
+            <input
+              type="text"
+              value={flyerUrl}
+              onChange={e => setFlyerUrl(e.target.value)}
+              disabled={readOnly}
+              placeholder="https://..."
+              className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] disabled:bg-[#F5F0E8]"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-[#1A1612] mb-1">Default Event Fee (R)</label>
+            <input
+              type="number"
+              value={eventFee}
+              onChange={e => setEventFee(e.target.value)}
+              disabled={readOnly}
+              placeholder="0.00"
+              min="0"
+              step="0.01"
+              className="w-full max-w-xs border border-[#DDD5C8] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] disabled:bg-[#F5F0E8]"
+            />
+          </div>
+        </div>
+        {!readOnly && (
+          <div className="mt-4 flex items-center gap-3">
+            <button
+              onClick={saveSettings}
+              disabled={saving}
+              className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
+            >
+              {saving ? 'Saving…' : 'Save Settings'}
+            </button>
+            {saveSuccess && <p className="text-xs text-green-600">{saveSuccess}</p>}
+            {saveError && <p className="text-xs text-red-500">{saveError}</p>}
+          </div>
+        )}
+      </div>
+
+      {/* Events */}
+      <div className="bg-white border border-[#EDE7DA] rounded-2xl p-5">
+        <h3 className="text-base font-semibold text-[#1A1612] mb-4">Events</h3>
+        <div className="space-y-2 mb-4">
+          {events.length === 0 && <p className="text-sm text-[#8C8278] italic">No events yet.</p>}
+          {events.map(ev => (
+            <div key={ev.id} className="flex items-center justify-between gap-3 bg-[#FAF5EE] border border-[#EDE7DA] rounded-xl px-4 py-2.5">
+              <span className={`text-sm font-medium ${ev.is_active ? 'text-[#1A1612]' : 'text-[#8C8278] line-through'}`}>{ev.name}</span>
+              {!readOnly && (
+                <div className="flex items-center gap-2">
+                  <button onClick={() => toggleEventActive(ev)} className="text-xs text-[#5C5347] hover:text-[#C4622D] transition-colors px-2 py-1 rounded-lg border border-[#DDD5C8] hover:border-[#C4622D]">
+                    {ev.is_active ? 'Deactivate' : 'Activate'}
+                  </button>
+                  {deleteConfirmId === ev.id ? (
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => deleteEvent(ev.id)} disabled={deletingId === ev.id} className="text-xs text-white bg-red-500 hover:bg-red-600 px-2 py-1 rounded-lg transition-colors disabled:opacity-50">
+                        {deletingId === ev.id ? '…' : 'Confirm'}
+                      </button>
+                      <button onClick={() => setDeleteConfirmId(null)} className="text-xs text-[#5C5347] hover:text-[#C4622D] px-2 py-1 rounded-lg border border-[#DDD5C8]">Cancel</button>
+                    </div>
+                  ) : (
+                    <button onClick={() => setDeleteConfirmId(ev.id)} className="text-xs text-red-500 hover:text-red-700 transition-colors px-2 py-1 rounded-lg border border-red-200 hover:border-red-400">Delete</button>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+        {!readOnly && (
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newEventName}
+              onChange={e => setNewEventName(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && addEvent()}
+              placeholder="New event name"
+              className="flex-1 border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+            />
+            <button onClick={addEvent} disabled={savingEvent || !newEventName.trim()} className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50">
+              {savingEvent ? '…' : '+ Add'}
+            </button>
+          </div>
+        )}
+        {eventMsg && <p className="text-xs text-green-600 mt-2">{eventMsg}</p>}
+      </div>
+
+      {/* Session Statuses */}
+      <div className="bg-white border border-[#EDE7DA] rounded-2xl p-5">
+        <h3 className="text-base font-semibold text-[#1A1612] mb-4">Session Statuses</h3>
+        <div className="space-y-2 mb-4">
+          {sessionStatuses.length === 0 && <p className="text-sm text-[#8C8278] italic">No statuses yet.</p>}
+          {sessionStatuses.map(st => (
+            <div key={st.id} className="flex items-center justify-between gap-3 bg-[#FAF5EE] border border-[#EDE7DA] rounded-xl px-4 py-2.5">
+              <span className="text-sm font-medium text-[#1A1612]">{st.label}</span>
+              {!readOnly && (
+                <button onClick={() => deleteStatus(st.id)} className="text-xs text-red-500 hover:text-red-700 transition-colors px-2 py-1 rounded-lg border border-red-200 hover:border-red-400">Delete</button>
+              )}
+            </div>
+          ))}
+        </div>
+        {!readOnly && (
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newStatusLabel}
+              onChange={e => setNewStatusLabel(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && addStatus()}
+              placeholder="New status label"
+              className="flex-1 border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+            />
+            <button onClick={addStatus} disabled={savingStatus || !newStatusLabel.trim()} className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50">
+              {savingStatus ? '…' : '+ Add'}
+            </button>
+          </div>
+        )}
+        {statusMsg && <p className="text-xs text-green-600 mt-2">{statusMsg}</p>}
+      </div>
+
+      {/* Per-event Session Details */}
+      {events.map(ev => {
+        const rows = eventDateRows[ev.id] || [];
+        const isCollapsed = collapsedEventBlocks[ev.id] ?? false;
+        return (
+          <div key={ev.id} className="bg-white border border-[#EDE7DA] rounded-2xl overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setCollapsedEventBlocks(prev => ({ ...prev, [ev.id]: !prev[ev.id] }))}
+              className="w-full flex items-center justify-between px-5 py-4 bg-[#F5F0E8] hover:bg-[#EDE7DA] transition-colors"
+            >
+              <span className="text-sm font-semibold text-[#1A1612]">Session Details — {ev.name}</span>
+              <span className="text-xs text-[#8C8278]">{isCollapsed ? '▼' : '▲'}</span>
+            </button>
+            {!isCollapsed && (
+              <div className="p-5">
+                <div className="space-y-3 mb-3">
+                  {rows.map((row, idx) => (
+                    <div key={idx} className="border border-[#EDE7DA] rounded-xl p-4 bg-[#FAF5EE]">
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-3">
+                        <div>
+                          <label className="block text-xs font-medium text-[#5C5347] mb-1">Date</label>
+                          <input type="date" value={row.event_date} onChange={e => updateDateRow(ev.id, idx, 'event_date', e.target.value)} disabled={readOnly} className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] disabled:bg-[#F5F0E8]" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-[#5C5347] mb-1">Start Time</label>
+                          <input type="time" value={row.start_time} onChange={e => updateDateRow(ev.id, idx, 'start_time', e.target.value)} disabled={readOnly} className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] disabled:bg-[#F5F0E8]" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-[#5C5347] mb-1">End Time</label>
+                          <input type="time" value={row.end_time} onChange={e => updateDateRow(ev.id, idx, 'end_time', e.target.value)} disabled={readOnly} className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] disabled:bg-[#F5F0E8]" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-[#5C5347] mb-1">Location</label>
+                          <input type="text" value={row.location} onChange={e => updateDateRow(ev.id, idx, 'location', e.target.value)} disabled={readOnly} className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] disabled:bg-[#F5F0E8]" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-[#5C5347] mb-1">Seating</label>
+                          <input type="number" value={row.seating} onChange={e => updateDateRow(ev.id, idx, 'seating', Number(e.target.value))} disabled={readOnly} min="0" className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] disabled:bg-[#F5F0E8]" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-[#5C5347] mb-1">Fee (R)</label>
+                          <input type="number" value={row.event_fee} onChange={e => updateDateRow(ev.id, idx, 'event_fee', e.target.value)} disabled={readOnly} min="0" step="0.01" placeholder="0.00" className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] disabled:bg-[#F5F0E8]" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-[#5C5347] mb-1">Status</label>
+                          <select value={row.status_id} onChange={e => updateDateRow(ev.id, idx, 'status_id', e.target.value)} disabled={readOnly} className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white disabled:bg-[#F5F0E8]">
+                            <option value="">— Select —</option>
+                            {sessionStatuses.map(st => <option key={st.id} value={st.id}>{st.label}</option>)}
+                          </select>
+                        </div>
+                      </div>
+                      {!readOnly && idx > 0 && (
+                        <button onClick={() => removeDateRow(ev.id, idx)} className="text-xs text-red-500 hover:text-red-700 transition-colors">Remove row</button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                {!readOnly && (
+                  <div className="flex items-center gap-3">
+                    <button onClick={() => addDateRow(ev.id)} className="text-sm text-[#C4622D] hover:text-[#A04E22] font-medium transition-colors">+ Add date</button>
+                    <button onClick={() => saveEventDates(ev.id)} disabled={savingEventDates[ev.id]} className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50">
+                      {savingEventDates[ev.id] ? 'Saving…' : 'Save Dates'}
+                    </button>
+                    {eventDatesMsg[ev.id] && <p className="text-xs text-green-600">{eventDatesMsg[ev.id]}</p>}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {/* Link to Event Bookings form */}
+      <div className="bg-[#FDF6EE] border border-[#EDE7DA] rounded-2xl p-5">
+        <h3 className="text-base font-semibold text-[#1A1612] mb-2">Online Registration Form</h3>
+        <p className="text-sm text-[#5C5347] mb-3">Share this link with customers to register for events.</p>
+        <a
+          href="/event-bookings"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors"
+        >
+          <span>🔗</span> Open Event Bookings Form
+        </a>
+      </div>
+    </div>
+  );
+}
