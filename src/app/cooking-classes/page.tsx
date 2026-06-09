@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
+import { usePaymentSettings } from '@/hooks/usePaymentSettings';
 
 
 interface FormPage1 {
@@ -152,6 +153,7 @@ function calculateAge(dob: string): number | null {
 
 export default function CookingClassesPage() {
   const supabase = createClient();
+  const paymentSettings = usePaymentSettings();
   const [currentPage, setCurrentPage] = useState(1);
   const [settings, setSettings] = useState<ClassSettings | null>(null);
   const [loadingSettings, setLoadingSettings] = useState(true);
@@ -2099,34 +2101,63 @@ export default function CookingClassesPage() {
             <h3 className="text-sm font-semibold text-[#1A1612] mb-3">Select Payment Method</h3>
 
             <div className="space-y-3 mb-6">
-              <label className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-colors ${page5.paymentMethod === 'payfast' ? 'border-[#C4622D] bg-[#FDF6EE]' : 'border-[#DDD5C8] hover:border-[#C4622D]/50'}`}>
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  value="payfast"
-                  checked={page5.paymentMethod === 'payfast'}
-                  onChange={() => setPage5(p => ({ ...p, paymentMethod: 'payfast', proofFile: null, proofPreview: '' }))}
-                  className="mt-0.5 text-[#C4622D]"
-                />
-                <div>
-                  <p className="text-sm font-semibold text-[#1A1612]">Pay Online via PayFast</p>
-                  <p className="text-xs text-[#8C8278] mt-0.5">Secure online payment — card, EFT, or SnapScan</p>
+              {/* PayFast */}
+              {paymentSettings.payfast_enabled ? (
+                <label className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-colors ${page5.paymentMethod === 'payfast' ? 'border-[#C4622D] bg-[#FDF6EE]' : 'border-[#DDD5C8] hover:border-[#C4622D]/50'}`}>
+                  <input
+                    type="radio"
+                    name="paymentMethod"
+                    value="payfast"
+                    checked={page5.paymentMethod === 'payfast'}
+                    onChange={() => setPage5(p => ({ ...p, paymentMethod: 'payfast', proofFile: null, proofPreview: '' }))}
+                    className="mt-0.5 text-[#C4622D]"
+                  />
+                  <div>
+                    <p className="text-sm font-semibold text-[#1A1612]">Pay Online via PayFast</p>
+                    <p className="text-xs text-[#8C8278] mt-0.5">Secure online payment — card, EFT, or SnapScan</p>
+                  </div>
+                </label>
+              ) : (
+                <div className="flex items-start gap-3 p-4 rounded-xl border-2 border-[#DDD5C8] bg-[#F5F3F0] opacity-60 cursor-not-allowed">
+                  <div className="mt-0.5 w-4 h-4 rounded-full border-2 border-[#DDD5C8] flex-shrink-0" />
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold text-[#B5ADA5]">Pay Online via PayFast</p>
+                      <span className="text-[10px] font-semibold uppercase tracking-wider bg-[#DDD5C8] text-[#8C8278] px-2 py-0.5 rounded-full">Not Available</span>
+                    </div>
+                    <p className="text-xs text-[#C4B8AC] mt-0.5">Secure online payment — card, EFT, or SnapScan</p>
+                  </div>
                 </div>
-              </label>
-              <label className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-colors ${page5.paymentMethod === 'eft' ? 'border-[#C4622D] bg-[#FDF6EE]' : 'border-[#DDD5C8] hover:border-[#C4622D]/50'}`}>
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  value="eft"
-                  checked={page5.paymentMethod === 'eft'}
-                  onChange={() => setPage5(p => ({ ...p, paymentMethod: 'eft' }))}
-                  className="mt-0.5 text-[#C4622D]"
-                />
-                <div>
-                  <p className="text-sm font-semibold text-[#1A1612]">EFT Pre-payment</p>
-                  <p className="text-xs text-[#8C8278] mt-0.5">Upload your proof of payment — confirmed by our accounts team</p>
+              )}
+
+              {/* EFT */}
+              {paymentSettings.eft_enabled ? (
+                <label className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-colors ${page5.paymentMethod === 'eft' ? 'border-[#C4622D] bg-[#FDF6EE]' : 'border-[#DDD5C8] hover:border-[#C4622D]/50'}`}>
+                  <input
+                    type="radio"
+                    name="paymentMethod"
+                    value="eft"
+                    checked={page5.paymentMethod === 'eft'}
+                    onChange={() => setPage5(p => ({ ...p, paymentMethod: 'eft' }))}
+                    className="mt-0.5 text-[#C4622D]"
+                  />
+                  <div>
+                    <p className="text-sm font-semibold text-[#1A1612]">EFT Pre-payment</p>
+                    <p className="text-xs text-[#8C8278] mt-0.5">Upload your proof of payment — confirmed by our accounts team</p>
+                  </div>
+                </label>
+              ) : (
+                <div className="flex items-start gap-3 p-4 rounded-xl border-2 border-[#DDD5C8] bg-[#F5F3F0] opacity-60 cursor-not-allowed">
+                  <div className="mt-0.5 w-4 h-4 rounded-full border-2 border-[#DDD5C8] flex-shrink-0" />
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold text-[#B5ADA5]">EFT Pre-payment</p>
+                      <span className="text-[10px] font-semibold uppercase tracking-wider bg-[#DDD5C8] text-[#8C8278] px-2 py-0.5 rounded-full">Not Available</span>
+                    </div>
+                    <p className="text-xs text-[#C4B8AC] mt-0.5">Upload your proof of payment — confirmed by our accounts team</p>
+                  </div>
                 </div>
-              </label>
+              )}
             </div>
 
             {/* EFT proof upload */}

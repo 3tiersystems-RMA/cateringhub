@@ -47,6 +47,7 @@ import PaymentConfirmation from '@/app/staff/workspace/components/PaymentConfirm
 import CollectionNotification from '@/app/staff/workspace/components/CollectionNotification';
 import EventManagement from '@/app/staff/workspace/components/EventManagement';
 import GoogleDriveDocuments from '@/app/staff/workspace/components/GoogleDriveDocuments';
+import GlobalSettings from '@/app/staff/workspace/components/GlobalSettings';
 
 
 
@@ -257,12 +258,12 @@ export default function StaffWorkspacePage() {
             <nav className="py-4 space-y-0.5">
 
               {/* ── Site Content (collapsible) ── */}
-              {canAnyTab('staff', 'homepage_cards', 'gallery', 'section_visibility', 'correspondence_settings', 'package_visibility', 'testimonials', 'social_media', 'organisation_details') && (
+              {canAnyTab('staff', 'homepage_cards', 'gallery', 'section_visibility', 'correspondence_settings', 'package_visibility', 'testimonials', 'social_media', 'organisation_details', 'global_settings') && (
                 <>
                   <button
                     onClick={() => setSiteContentOpen(prev => !prev)}
                     className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
-                      ['staff', 'homepage_cards', 'testimonials', 'social_media', 'gallery', 'section_visibility', 'correspondence_settings', 'package_visibility', 'organisation_details'].includes(activeTab) ? 'text-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
+                      ['staff', 'homepage_cards', 'testimonials', 'social_media', 'gallery', 'section_visibility', 'correspondence_settings', 'package_visibility', 'organisation_details', 'global_settings'].includes(activeTab) ? 'text-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
                     }`}
                   >
                     <span className="text-base">📁</span>
@@ -271,6 +272,11 @@ export default function StaffWorkspacePage() {
                   </button>
                   {siteContentOpen && (
                     <div className="pl-4 border-l-2 border-[#E8DDD0] ml-4">
+                      {canTab('global_settings') && (
+                        <button onClick={() => { handleTabChange('global_settings'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'global_settings' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
+                          <span className="text-base">⚙️</span><span>Global Settings</span>
+                        </button>
+                      )}
                       {canTab('organisation_details') && (
                         <button onClick={() => { handleTabChange('organisation_details'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'organisation_details' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
                           <span className="text-base">🏢</span><span>Organisation Details</span>
@@ -630,6 +636,8 @@ export default function StaffWorkspacePage() {
             {activeTab === 'reporting' && <ReportingTab />}
 
             {activeTab === 'analytics' && <AnalyticsTab />}
+
+            {activeTab === 'global_settings' && <GlobalSettings />}
           </main>
         </div>
       </div>

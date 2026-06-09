@@ -1,4 +1,4 @@
-export type WorkspaceTab = 'products' | 'media' | 'media_events' | 'media_products' | 'orders' | 'staff' | 'homepage_cards' | 'categories' | 'weekly_menu' | 'vouchers' | 'discount_vouchers' | 'testimonials' | 'reporting' | 'analytics' | 'social_media' | 'gallery' | 'section_visibility' | 'customer_order_history' | 'correspondence_settings' | 'abandoned_carts' | 'package_visibility' | 'cooking_classes' | 'cooking_class_customers' | 'cooking_class_analytics' | 'event_registrations' | 'organisation_details' | 'payment_confirmation' | 'collection_notification';
+export type WorkspaceTab = 'products' | 'media' | 'media_events' | 'media_products' | 'orders' | 'staff' | 'homepage_cards' | 'categories' | 'weekly_menu' | 'vouchers' | 'discount_vouchers' | 'testimonials' | 'reporting' | 'analytics' | 'social_media' | 'gallery' | 'section_visibility' | 'customer_order_history' | 'correspondence_settings' | 'abandoned_carts' | 'package_visibility' | 'cooking_classes' | 'cooking_class_customers' | 'cooking_class_analytics' | 'event_registrations' | 'organisation_details' | 'payment_confirmation' | 'collection_notification' | 'global_settings';
 
 export type StaffRole = 'admin' | 'staff' | 'super_admin';
 
@@ -42,6 +42,7 @@ export const TAB_ACCESS: Record<WorkspaceTab, StaffRole[]> = {
   organisation_details: ['super_admin', 'admin'],
   payment_confirmation: ['super_admin', 'admin'],
   collection_notification: ['super_admin', 'admin'],
+  global_settings: ['super_admin', 'admin'],
 };
 
 // Action-level permission model. super_admin = everything; admin = full CRUD on
