@@ -296,18 +296,39 @@ export default function EventManagementSettings({ isSuperAdmin = false, readOnly
     setEventDatesMsg(prev => ({ ...prev, [eventId]: '' }));
     try {
       const rows = eventDateRows[eventId] || [];
-      const toUpsert = rows.filter(r => r.event_date).map((r, i) => ({
-        ...(r.id ? { id: r.id } : {}),
-        event_id: eventId,
-        event_date: r.event_date,
-        start_time: r.start_time || null,
-        end_time: r.end_time || null,
-        location: r.location || DEFAULT_LOCATION,
-        sort_order: i,
-        seating: Number(r.seating) || 0,
-        status_id: r.status_id || null,
-        event_fee: r.event_fee !== '' ? Number(r.event_fee) : null,
-      }));
+      const toUpsert: any[] = [];
+      const toInsert: any[] = [];
+
+      rows.forEach((r, i) => {
+        if (r.id) {
+          toUpsert.push({
+            ...(r.id ? { id: r.id } : {}),
+            event_id: eventId,
+            event_date: r.event_date,
+            start_time: r.start_time || null,
+            end_time: r.end_time || null,
+            location: r.location || DEFAULT_LOCATION,
+            sort_order: i,
+            seating: Number(r.seating) || 0,
+            status_id: r.status_id || null,
+            event_fee: r.event_fee !== '' ? Number(r.event_fee) : null,
+          });
+        } else {
+          if (r.event_date) {
+            toInsert.push({
+              event_id: eventId,
+              event_date: r.event_date,
+              start_time: r.start_time || null,
+              end_time: r.end_time || null,
+              location: r.location || DEFAULT_LOCATION,
+              sort_order: i,
+              seating: Number(r.seating) || 0,
+              status_id: r.status_id || null,
+              event_fee: r.event_fee !== '' ? Number(r.event_fee) : null,
+            });
+          }
+        }
+      });
 
       // Delete removed rows
       const existingIds = rows.filter(r => r.id).map(r => r.id!);
@@ -320,6 +341,10 @@ export default function EventManagementSettings({ isSuperAdmin = false, readOnly
 
       if (toUpsert.length > 0) {
         const { error } = await supabase.from('event_management_event_dates').upsert(toUpsert, { onConflict: 'id' });
+        if (error) throw error;
+      }
+      if (toInsert.filter(r => r.event_date).length > 0) {
+        const { error } = await supabase.from('event_management_event_dates').insert(toInsert.filter(r => r.event_date));
         if (error) throw error;
       }
       setEventDatesMsg(prev => ({ ...prev, [eventId]: 'Saved' }));
