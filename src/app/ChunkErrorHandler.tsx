@@ -4,6 +4,25 @@ import { useEffect } from 'react';
 
 export default function ChunkErrorHandler() {
   useEffect(() => {
+    // Backup for the early inline script: this app ships no service worker, so
+    // proactively remove any stale worker/cache (e.g. a leftover "gogebet-v1"
+    // cache) that would otherwise serve mismatched webpack chunks and throw
+    // "options.factory is undefined". No reload here — layout.tsx owns that.
+    try {
+      if (navigator.serviceWorker?.getRegistrations) {
+        navigator.serviceWorker
+          .getRegistrations()
+          .then((rs) => Promise.all(rs.map((r) => r.unregister())))
+          .catch(() => {});
+      }
+      if (typeof caches !== 'undefined' && caches.keys) {
+        caches
+          .keys()
+          .then((keys) => Promise.all(keys.map((k) => caches.delete(k))))
+          .catch(() => {});
+      }
+    } catch {}
+
     const isChunkError = (msg: string) =>
       msg.includes('ChunkLoadError') ||
       msg.includes('Loading chunk') ||
@@ -13,15 +32,59 @@ export default function ChunkErrorHandler() {
       msg.includes("reading 'call'") ||
       msg.includes('options.factory');
 
-    const hardReload = () => {
-      const reloaded = sessionStorage.getItem('chunk_reload');
-      if (!reloaded) {
-        sessionStorage.setItem('chunk_reload', '1');
-        // Cache-busting hard reload to clear stale webpack chunks
+    const reloadWithCacheBust = () => {
+      try {
         const url = new URL(window.location.href);
         url.searchParams.set('_cb', Date.now().toString());
         window.location.replace(url.toString());
+      } catch {
+        window.location.reload();
       }
+    };
+
+    // Purge Cache Storage + service workers so the reload fetches fresh
+    // webpack runtime/chunks instead of a cached, mismatched build.
+    const purgeAndReload = () => {
+      let settled = false;
+      const go = () => {
+        if (settled) return;
+        settled = true;
+        reloadWithCacheBust();
+      };
+
+      const tasks: Promise<unknown>[] = [];
+      try {
+        if (typeof caches !== 'undefined' && caches.keys) {
+          tasks.push(
+            caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k)))).catch(() => {})
+          );
+        }
+      } catch {}
+      try {
+        if (navigator.serviceWorker?.getRegistrations) {
+          tasks.push(
+            navigator.serviceWorker
+              .getRegistrations()
+              .then((rs) => Promise.all(rs.map((r) => r.unregister())))
+              .catch(() => {})
+          );
+        }
+      } catch {}
+
+      if (tasks.length) {
+        Promise.all(tasks).then(go);
+        setTimeout(go, 1500);
+      } else {
+        go();
+      }
+    };
+
+    const hardReload = () => {
+      // Bounded retries so a genuinely broken build can't reload-loop forever.
+      const attempts = parseInt(sessionStorage.getItem('chunk_reload') || '0', 10) || 0;
+      if (attempts >= 2) return;
+      sessionStorage.setItem('chunk_reload', String(attempts + 1));
+      purgeAndReload();
     };
 
     const handleError = (event: ErrorEvent) => {
@@ -43,8 +106,8 @@ export default function ChunkErrorHandler() {
     window.addEventListener('error', handleError);
     window.addEventListener('unhandledrejection', handleUnhandledRejection);
 
-    // Clear the reload flag after 5 seconds — enough time for the page to fully
-    // load without errors, so future chunk errors can trigger a reload again.
+    // Clear the attempt counter after the page has loaded cleanly so future
+    // chunk errors (e.g. after the next deploy) can trigger recovery again.
     const clearTimer = setTimeout(() => {
       sessionStorage.removeItem('chunk_reload');
     }, 5000);

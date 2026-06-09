@@ -87,6 +87,7 @@ interface ParticipantBookingRow {
   age: string;
   gender: string;
   allergies: string;
+  location: string;
 }
 
 type ParticipantSortKey = 'dob' | 'age' | 'gender' | 'allergies' | 'datetime';
@@ -128,7 +129,7 @@ function calcAge(dob: string | null | undefined): string {
   } catch { return '—'; }
 }
 
-type FilterTab = 'event' | 'registrant' | 'venue' | 'sessions_booked' | 'participant_bookings';
+type FilterTab = 'event' | 'registrant' | 'venue' | 'sessions_booked' | 'participant_bookings' | 'participants_by_location';
 
 const PAGE_SIZE = 10;
 
@@ -271,6 +272,11 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
   const [participantSortKey, setParticipantSortKey] = useState<ParticipantSortKey | null>(null);
   const [participantSortDir, setParticipantSortDir] = useState<SortDir>('asc');
   const [participantEventFilter, setParticipantEventFilter] = useState<string>('all');
+
+  // Participants by Location sort/filter state
+  const [locationParticipantSortKey, setLocationParticipantSortKey] = useState<ParticipantSortKey | null>(null);
+  const [locationParticipantSortDir, setLocationParticipantSortDir] = useState<SortDir>('asc');
+  const [locationParticipantFilter, setLocationParticipantFilter] = useState<string>('all');
 
   // Delete state
   const [deleteTarget, setDeleteTarget] = useState<RegistrationRow | null>(null);
@@ -508,6 +514,7 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
             age: ageStr,
             gender: (child.gender || '').trim(),
             allergies: (child.dietaryRestrictions || child.allergies || '').trim(),
+            location: (sd.location || '').trim(),
           });
         });
       });
@@ -563,6 +570,55 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
     }
     const cmp = aVal.localeCompare(bVal);
     return participantSortDir === 'asc' ? cmp : -cmp;
+  });
+
+  // Filter/sort for Participants by Location
+  const handleLocationParticipantSort = (key: ParticipantSortKey) => {
+    if (locationParticipantSortKey === key) {
+      setLocationParticipantSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setLocationParticipantSortKey(key);
+      setLocationParticipantSortDir('asc');
+    }
+  };
+
+  const filteredLocationParticipantRows = locationParticipantFilter === 'all'
+    ? participantBookingRows
+    : participantBookingRows.filter(r => r.location === locationParticipantFilter);
+
+  const sortedLocationParticipantRows = [...filteredLocationParticipantRows].sort((a, b) => {
+    if (!locationParticipantSortKey) return 0;
+    let aVal = '';
+    let bVal = '';
+    if (locationParticipantSortKey === 'datetime') {
+      const aDate = a.eventDate || '';
+      const bDate = b.eventDate || '';
+      const dateCmp = aDate.localeCompare(bDate);
+      if (dateCmp !== 0) return locationParticipantSortDir === 'asc' ? dateCmp : -dateCmp;
+      aVal = a.timeslot;
+      bVal = b.timeslot;
+      const cmp = aVal.localeCompare(bVal);
+      return locationParticipantSortDir === 'asc' ? cmp : -cmp;
+    } else if (locationParticipantSortKey === 'dob') {
+      aVal = a.dob || '';
+      bVal = b.dob || '';
+    } else if (locationParticipantSortKey === 'age') {
+      const aNum = parseInt(a.age, 10);
+      const bNum = parseInt(b.age, 10);
+      if (!isNaN(aNum) && !isNaN(bNum)) {
+        return locationParticipantSortDir === 'asc' ? aNum - bNum : bNum - aNum;
+      }
+      aVal = a.age;
+      bVal = b.age;
+    } else if (locationParticipantSortKey === 'gender') {
+      aVal = a.gender.toLowerCase();
+      bVal = b.gender.toLowerCase();
+    } else if (locationParticipantSortKey === 'allergies') {
+      aVal = a.allergies.toLowerCase();
+      bVal = b.allergies.toLowerCase();
+    }
+    const cmp = aVal.localeCompare(bVal);
+    return locationParticipantSortDir === 'asc' ? cmp : -cmp;
   });
 
   // Create PDF for Participant Bookings
@@ -656,12 +712,107 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
     }
   };
 
+  // Create PDF for Participants by Location
+  const handleCreateLocationParticipantPDF = () => {
+    const rows = sortedLocationParticipantRows;
+    const locationLabel = locationParticipantFilter !== 'all' ? locationParticipantFilter : 'All Locations';
+    const generatedAt = new Date().toLocaleString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+    const tableRows = rows.map((row, idx) => `
+      <tr style="background:${idx % 2 === 0 ? '#ffffff' : '#faf5ee'}">
+        <td style="padding:8px 12px;border-bottom:1px solid #f0e8de;color:#8c7b6b;font-size:12px">${idx + 1}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #f0e8de;font-size:12px">
+          <div style="color:#c4622d;font-weight:500">${row.eventName}</div>
+          <div style="color:#8c7b6b;font-size:11px;margin-top:2px">📍 ${row.location || '—'}</div>
+        </td>
+        <td style="padding:8px 12px;border-bottom:1px solid #f0e8de;font-size:12px;color:#2c2420">
+          <div style="font-weight:500">${row.eventDate ? new Date(row.eventDate).toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</div>
+          <div style="color:#8c7b6b;font-size:11px">${row.timeslot}</div>
+        </td>
+        <td style="padding:8px 12px;border-bottom:1px solid #f0e8de;font-size:12px;font-weight:500;color:#2c2420">${row.fullName || '—'}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #f0e8de;font-size:12px;color:#5c5347">${row.dob ? new Date(row.dob).toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #f0e8de;font-size:12px;color:#5c5347;text-align:center">${row.age !== '—' ? row.age : '—'}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #f0e8de;font-size:12px;color:#5c5347;text-transform:capitalize">${row.gender || '—'}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #f0e8de;font-size:12px;color:#5c5347">${row.allergies || 'None'}</td>
+      </tr>
+    `).join('');
+
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Participants by Location — ${locationLabel}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #2c2420; background: #fff; padding: 24px; }
+    .header { border-bottom: 2px solid #c4622d; padding-bottom: 16px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-end; }
+    .header-left h1 { font-size: 20px; font-weight: 700; color: #1a1612; }
+    .header-left p { font-size: 12px; color: #8c7b6b; margin-top: 4px; }
+    .header-right { text-align: right; font-size: 11px; color: #8c7b6b; }
+    .meta { display: flex; gap: 24px; margin-bottom: 16px; }
+    .meta-item { background: #faf5ee; border: 1px solid #e8ddd0; border-radius: 8px; padding: 8px 14px; }
+    .meta-item .label { font-size: 10px; color: #8c7b6b; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+    .meta-item .value { font-size: 14px; font-weight: 700; color: #c4622d; margin-top: 2px; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    thead tr { background: #f5efe8; }
+    thead th { padding: 10px 12px; text-align: left; font-size: 10px; font-weight: 700; color: #5c5347; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 2px solid #e8ddd0; }
+    .footer { margin-top: 20px; padding-top: 12px; border-top: 1px solid #e8ddd0; font-size: 10px; color: #8c7b6b; text-align: center; }
+    @media print {
+      body { padding: 16px; }
+      @page { margin: 1cm; size: A4 landscape; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-left">
+      <h1>Participants by Location</h1>
+      <p>Location: ${locationLabel}</p>
+    </div>
+    <div class="header-right">
+      <div>Generated: ${generatedAt}</div>
+    </div>
+  </div>
+  <div class="meta">
+    <div class="meta-item"><div class="label">Total Participants</div><div class="value">${rows.length}</div></div>
+    <div class="meta-item"><div class="label">Location Filter</div><div class="value" style="font-size:12px;color:#5c5347">${locationLabel}</div></div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Event / Location</th>
+        <th>Date &amp; Time</th>
+        <th>Full Name</th>
+        <th>Date of Birth</th>
+        <th>Age</th>
+        <th>Gender</th>
+        <th>Allergies</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${tableRows}
+    </tbody>
+  </table>
+  <div class="footer">Cardamom Kitchen — Cooking &amp; Baking Classes · Participants by Location Report</div>
+  <script>window.onload = function() { window.print(); }<\/script>
+</body>
+</html>`;
+
+    const printWindow = window.open('', '_blank', 'width=1100,height=700');
+    if (printWindow) {
+      printWindow.document.write(html);
+      printWindow.document.close();
+    }
+  };
+
   const filterTabConfig: { key: FilterTab; label: string; icon: string }[] = [
     { key: 'event', label: 'By Event', icon: '🎓' },
     { key: 'registrant', label: 'By Registrant', icon: '👤' },
     { key: 'venue', label: 'By Venue Location', icon: '📍' },
     { key: 'sessions_booked', label: 'Registrant Bookings', icon: '📅' },
     { key: 'participant_bookings', label: 'Participant Bookings', icon: '👧' },
+    { key: 'participants_by_location', label: 'Participants by Location', icon: '📌' },
   ];
 
   return (
@@ -953,6 +1104,162 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
               </div>
             </>
             )}
+            </>
+          )
+
+        /* Participants by Location tab content */
+        ) : filterTab === 'participants_by_location' ? (
+          loading ? (
+            <div className="flex items-center justify-center py-16">
+              <div className="w-8 h-8 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : error ? (
+            <div className="p-6 text-center text-red-600 text-sm">{error}</div>
+          ) : (
+            <>
+              {/* Location filter dropdown */}
+              <div className="px-5 py-3 bg-[#FAF5EE] border-b border-[#E8DDD0] flex items-center gap-3 flex-wrap">
+                <label className="text-sm font-medium text-[#5C5347] whitespace-nowrap">Filter by Location:</label>
+                <select
+                  value={locationParticipantFilter}
+                  onChange={e => { setLocationParticipantFilter(e.target.value); setLocationParticipantSortKey(null); setLocationParticipantSortDir('asc'); }}
+                  className="flex-1 max-w-xs px-3 py-1.5 text-sm border border-[#E8DDD0] rounded-lg bg-white text-[#2C2420] focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30"
+                >
+                  <option value="all">All Locations</option>
+                  {venueOptions.map(v => (
+                    <option key={v} value={v}>{v}</option>
+                  ))}
+                </select>
+                {locationParticipantFilter !== 'all' && (
+                  <button onClick={() => { setLocationParticipantFilter('all'); setLocationParticipantSortKey(null); setLocationParticipantSortDir('asc'); }} className="text-xs text-[#C4622D] hover:underline">Clear</button>
+                )}
+                {/* Create PDF button */}
+                {sortedLocationParticipantRows.length > 0 && (
+                  <button
+                    onClick={handleCreateLocationParticipantPDF}
+                    className="ml-auto flex items-center gap-1.5 bg-[#C4622D] text-white px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-[#A04E22] transition-colors"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
+                      <path fillRule="evenodd" d="M4.5 2A1.5 1.5 0 0 0 3 3.5v13A1.5 1.5 0 0 0 4.5 18h11a1.5 1.5 0 0 0 1.5-1.5V7.621a1.5 1.5 0 0 0-.44-1.06l-4.12-4.122A1.5 1.5 0 0 0 11.378 2H4.5Zm4.75 6.75a.75.75 0 0 1 1.5 0v2.546l.943-1.048a.75.75 0 1 1 1.114 1.004l-2.25 2.5a.75.75 0 0 1-1.114 0l-2.25-2.5a.75.75 0 1 1 1.114-1.004l.943 1.048V8.75Z" clipRule="evenodd" />
+                    </svg>
+                    Create PDF
+                  </button>
+                )}
+              </div>
+
+              {sortedLocationParticipantRows.length === 0 ? (
+                <div className="p-12 text-center">
+                  <p className="text-3xl mb-2">📌</p>
+                  <p className="text-[#5C5347] font-medium">No participants found for this location</p>
+                  <p className="text-sm text-[#8C7B6B] mt-1">Try selecting a different location or &quot;All Locations&quot;</p>
+                </div>
+              ) : (
+              <>
+              <div className="px-5 py-2.5 bg-[#FAF5EE] border-b border-[#E8DDD0] flex items-center justify-between">
+                <p className="text-xs text-[#8C7B6B]">
+                  <span className="font-semibold text-[#2C2420]">{sortedLocationParticipantRows.length}</span> participant{sortedLocationParticipantRows.length !== 1 ? 's' : ''}{locationParticipantFilter !== 'all' ? ` at "${locationParticipantFilter}"` : ' across all locations'}
+                </p>
+                {locationParticipantSortKey && (
+                  <button
+                    onClick={() => { setLocationParticipantSortKey(null); setLocationParticipantSortDir('asc'); }}
+                    className="text-xs text-[#C4622D] hover:underline"
+                  >
+                    Clear sort
+                  </button>
+                )}
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-[#F5EFE8] text-[#5C5347] text-xs uppercase tracking-wide">
+                      <th className="px-4 py-3 text-left font-semibold">#</th>
+                      <th className="px-4 py-3 text-left font-semibold">Event</th>
+                      <th
+                        className="px-4 py-3 text-left font-semibold cursor-pointer select-none hover:text-[#C4622D] transition-colors"
+                        onClick={() => handleLocationParticipantSort('datetime')}
+                      >
+                        Date &amp; Time <SortIcon col="datetime" sortKey={locationParticipantSortKey} sortDir={locationParticipantSortDir} />
+                      </th>
+                      <th className="px-4 py-3 text-left font-semibold">Full Name</th>
+                      <th
+                        className="px-4 py-3 text-left font-semibold cursor-pointer select-none hover:text-[#C4622D] transition-colors"
+                        onClick={() => handleLocationParticipantSort('dob')}
+                      >
+                        DOB <SortIcon col="dob" sortKey={locationParticipantSortKey} sortDir={locationParticipantSortDir} />
+                      </th>
+                      <th
+                        className="px-4 py-3 text-left font-semibold cursor-pointer select-none hover:text-[#C4622D] transition-colors"
+                        onClick={() => handleLocationParticipantSort('age')}
+                      >
+                        Age <SortIcon col="age" sortKey={locationParticipantSortKey} sortDir={locationParticipantSortDir} />
+                      </th>
+                      <th
+                        className="px-4 py-3 text-left font-semibold cursor-pointer select-none hover:text-[#C4622D] transition-colors"
+                        onClick={() => handleLocationParticipantSort('gender')}
+                      >
+                        Gender <SortIcon col="gender" sortKey={locationParticipantSortKey} sortDir={locationParticipantSortDir} />
+                      </th>
+                      <th
+                        className="px-4 py-3 text-left font-semibold cursor-pointer select-none hover:text-[#C4622D] transition-colors"
+                        onClick={() => handleLocationParticipantSort('allergies')}
+                      >
+                        Allergies <SortIcon col="allergies" sortKey={locationParticipantSortKey} sortDir={locationParticipantSortDir} />
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#F0E8DE]">
+                    {sortedLocationParticipantRows.map((row, idx) => (
+                      <tr key={idx} className={idx % 2 === 0 ? 'bg-white hover:bg-[#FAF5EE]' : 'bg-[#FAF5EE] hover:bg-[#F5EFE8]'}>
+                        <td className="px-4 py-3 text-xs text-[#8C7B6B] font-medium">{idx + 1}</td>
+                        <td className="px-4 py-3">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-[#FDF6EE] to-[#F5EFE8] text-[#C4622D] text-xs font-medium rounded-lg border border-[#E8C9B0] shadow-sm">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#C4622D] flex-shrink-0" />
+                            {row.eventName}
+                          </span>
+                          {row.location && (
+                            <div className="flex items-center gap-1 mt-1 text-xs text-[#8C7B6B]">
+                              <span>📍</span>
+                              <span>{row.location}</span>
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="text-xs text-[#2C2420] font-medium">{formatDate(row.eventDate)}</div>
+                          <div className="text-xs text-[#8C7B6B] mt-0.5">{row.timeslot}</div>
+                        </td>
+                        <td className="px-4 py-3 font-medium text-[#2C2420]">{row.fullName || '—'}</td>
+                        <td className="px-4 py-3 text-[#5C5347] text-xs">{formatDate(row.dob)}</td>
+                        <td className="px-4 py-3 text-[#5C5347] text-xs">
+                          {row.age !== '—' ? (
+                            <span className="inline-flex items-center justify-center w-8 h-6 bg-[#F5EFE8] text-[#C4622D] text-xs font-semibold rounded-full border border-[#E8C9B0]">
+                              {row.age}
+                            </span>
+                          ) : '—'}
+                        </td>
+                        <td className="px-4 py-3 text-xs">
+                          {row.gender ? (
+                            <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded-full border capitalize ${
+                              row.gender.toLowerCase() === 'female' ? 'bg-pink-50 text-pink-700 border-pink-200'
+                                : row.gender.toLowerCase() === 'male' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-gray-50 text-gray-600 border-gray-200'
+                            }`}>
+                              {row.gender}
+                            </span>
+                          ) : <span className="text-[#8C7B6B]">—</span>}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-[#5C5347]">
+                          {row.allergies ? (
+                            <span className="inline-block px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-xs font-medium">
+                              {row.allergies}
+                            </span>
+                          ) : <span className="text-[#8C7B6B]">None</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              </>
+              )}
             </>
           )
 
