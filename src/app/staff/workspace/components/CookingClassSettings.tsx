@@ -105,6 +105,8 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
   const [newEventName, setNewEventName] = useState('');
   const [savingEvent, setSavingEvent] = useState(false);
   const [eventMsg, setEventMsg] = useState('');
+  const [editingEventId, setEditingEventId] = useState<string | null>(null);
+  const [editingEventName, setEditingEventName] = useState('');
 
   // Session statuses management
   const [sessionStatuses, setSessionStatuses] = useState<SessionStatus[]>([]);
@@ -419,6 +421,19 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
     if (readOnly) return;
     try {
       await supabase.from('cooking_class_events').delete().eq('id', id);
+      await loadEvents();
+    } catch {
+      // ignore
+    }
+  }
+
+  async function handleSaveEditEvent(id: string) {
+    if (readOnly) return;
+    if (!editingEventName.trim()) return;
+    try {
+      await supabase.from('cooking_class_events').update({ name: editingEventName.trim() }).eq('id', id);
+      setEditingEventId(null);
+      setEditingEventName('');
       await loadEvents();
     } catch {
       // ignore
@@ -961,19 +976,52 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
               <div className="space-y-2 mb-4">
                 {events.map(ev => (
                   <div key={ev.id} className="flex items-center gap-3 bg-[#FAF5EE] rounded-xl px-3 py-2">
-                    <span className={`flex-1 text-sm ${ev.is_active ? 'text-[#1A1612]' : 'text-[#8C8278] line-through'}`}>{ev.name}</span>
-                    <button
-                      onClick={() => handleToggleEventActive(ev)}
-                      className={`text-xs px-2 py-1 rounded-lg font-medium transition-colors ${ev.is_active ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
-                    >
-                      {ev.is_active ? 'Active' : 'Inactive'}
-                    </button>
-                    <button
-                      onClick={() => handleDeleteEvent(ev.id)}
-                      className="text-xs text-red-500 hover:text-red-700 px-2 py-1 rounded-lg hover:bg-red-50 transition-colors"
-                    >
-                      Remove
-                    </button>
+                    {editingEventId === ev.id ? (
+                      <>
+                        <input
+                          type="text"
+                          value={editingEventName}
+                          onChange={e => setEditingEventName(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') handleSaveEditEvent(ev.id); if (e.key === 'Escape') { setEditingEventId(null); setEditingEventName(''); } }}
+                          className="flex-1 border border-[#C4622D] rounded-lg px-2 py-1 text-sm focus:outline-none"
+                          autoFocus
+                        />
+                        <button
+                          onClick={() => handleSaveEditEvent(ev.id)}
+                          className="text-xs text-[#C4622D] hover:text-[#A04E22] px-2 py-1 rounded-lg hover:bg-orange-50 transition-colors font-medium"
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={() => { setEditingEventId(null); setEditingEventName(''); }}
+                          className="text-xs text-[#8C8278] hover:text-[#1A1612] px-2 py-1 rounded-lg hover:bg-gray-100 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <span className={`flex-1 text-sm ${ev.is_active ? 'text-[#1A1612]' : 'text-[#8C8278] line-through'}`}>{ev.name}</span>
+                        <button
+                          onClick={() => handleToggleEventActive(ev)}
+                          className={`text-xs px-2 py-1 rounded-lg font-medium transition-colors ${ev.is_active ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                        >
+                          {ev.is_active ? 'Active' : 'Inactive'}
+                        </button>
+                        <button
+                          onClick={() => { setEditingEventId(ev.id); setEditingEventName(ev.name); }}
+                          className="text-xs text-[#C4622D] hover:text-[#A04E22] px-2 py-1 rounded-lg hover:bg-orange-50 transition-colors"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeleteEvent(ev.id)}
+                          className="text-xs text-red-500 hover:text-red-700 px-2 py-1 rounded-lg hover:bg-red-50 transition-colors"
+                        >
+                          Remove
+                        </button>
+                      </>
+                    )}
                   </div>
                 ))}
               </div>
