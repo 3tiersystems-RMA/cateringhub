@@ -287,7 +287,7 @@ export default function EventManagementSettings({ isSuperAdmin = false, readOnly
     setEventDateRows(prev => {
       const rows = [...(prev[eventId] || [])];
       rows.splice(idx, 1);
-      return { ...prev, [eventId]: rows };
+      return { ...prev, [eventId]: rows.length > 0 ? rows : [{ ...EMPTY_DATE_ROW(eventId, 0) }] };
     });
   }
 
@@ -330,6 +330,128 @@ export default function EventManagementSettings({ isSuperAdmin = false, readOnly
       setSavingEventDates(prev => ({ ...prev, [eventId]: false }));
       setTimeout(() => setEventDatesMsg(prev => ({ ...prev, [eventId]: '' })), 3000);
     }
+  }
+
+  // Reusable session card renderer — always expanded, with optional remove button
+  function renderSessionCard(
+    row: EventDateRow,
+    index: number,
+    onChange: (field: keyof EventDateRow, value: string | number) => void,
+    onRemove?: () => void
+  ) {
+    const isFirst = index === 0;
+    return (
+      <div className="bg-[#FAF5EE] rounded-xl border border-[#EDE7DA] overflow-hidden">
+        {/* Session header */}
+        <div className="w-full flex items-center justify-between px-3 py-2.5 border-b border-[#EDE7DA]">
+          <p className="text-xs font-semibold text-[#5C5347]">Session {index + 1}</p>
+          {!isFirst && onRemove && (
+            <button
+              type="button"
+              onClick={onRemove}
+              className="text-red-400 hover:text-red-600 transition-colors p-1 rounded"
+              title="Remove session"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
+        {/* Session body */}
+        <div className="px-3 pb-3 pt-2">
+          <div className="grid grid-cols-2 gap-2 mb-2">
+            <div>
+              <label className="block text-xs text-[#8C8278] mb-1">Date</label>
+              <input
+                type="date"
+                value={row.event_date || ''}
+                onChange={e => onChange('event_date', e.target.value)}
+                disabled={readOnly}
+                className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white disabled:bg-[#F5F0E8]"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-xs text-[#8C8278] mb-1">Start Time</label>
+                <input
+                  type="time"
+                  value={row.start_time || ''}
+                  onChange={e => onChange('start_time', e.target.value)}
+                  disabled={readOnly}
+                  className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white disabled:bg-[#F5F0E8]"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-[#8C8278] mb-1">End Time</label>
+                <input
+                  type="time"
+                  value={row.end_time || ''}
+                  onChange={e => onChange('end_time', e.target.value)}
+                  disabled={readOnly}
+                  className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white disabled:bg-[#F5F0E8]"
+                />
+              </div>
+            </div>
+          </div>
+          <div className="mb-2">
+            <label className="block text-xs text-[#8C8278] mb-1">Location</label>
+            <input
+              type="text"
+              value={row.location || DEFAULT_LOCATION}
+              onChange={e => onChange('location', e.target.value)}
+              disabled={readOnly}
+              placeholder={DEFAULT_LOCATION}
+              className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white disabled:bg-[#F5F0E8]"
+            />
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <label className="block text-xs text-[#8C8278] mb-1">Seating Capacity</label>
+              <input
+                type="number"
+                min="0"
+                value={row.seating || 0}
+                onChange={e => onChange('seating', parseInt(e.target.value) || 0)}
+                disabled={readOnly}
+                placeholder="0"
+                className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white disabled:bg-[#F5F0E8]"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-[#8C8278] mb-1">Status</label>
+              <select
+                value={row.status_id || ''}
+                onChange={e => onChange('status_id', e.target.value)}
+                disabled={readOnly}
+                className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white disabled:bg-[#F5F0E8]"
+              >
+                <option value="">— Status —</option>
+                {sessionStatuses.map(st => (
+                  <option key={st.id} value={st.id}>{st.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-[#8C8278] mb-1">Event Fee (ZAR)</label>
+              <div className="flex items-center gap-1">
+                <span className="text-xs font-semibold text-[#5C5347]">R</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={row.event_fee || ''}
+                  onChange={e => onChange('event_fee', e.target.value)}
+                  disabled={readOnly}
+                  placeholder="0.00"
+                  className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white disabled:bg-[#F5F0E8]"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (loading) {
@@ -517,55 +639,39 @@ export default function EventManagementSettings({ isSuperAdmin = false, readOnly
             {!isCollapsed && (
               <div className="p-5">
                 <div className="space-y-3 mb-3">
-                  {rows.map((row, idx) => (
-                    <div key={idx} className="border border-[#EDE7DA] rounded-xl p-4 bg-[#FAF5EE]">
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-3">
-                        <div>
-                          <label className="block text-xs font-medium text-[#5C5347] mb-1">Date</label>
-                          <input type="date" value={row.event_date} onChange={e => updateDateRow(ev.id, idx, 'event_date', e.target.value)} disabled={readOnly} className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] disabled:bg-[#F5F0E8]" />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-[#5C5347] mb-1">Start Time</label>
-                          <input type="time" value={row.start_time} onChange={e => updateDateRow(ev.id, idx, 'start_time', e.target.value)} disabled={readOnly} className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] disabled:bg-[#F5F0E8]" />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-[#5C5347] mb-1">End Time</label>
-                          <input type="time" value={row.end_time} onChange={e => updateDateRow(ev.id, idx, 'end_time', e.target.value)} disabled={readOnly} className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] disabled:bg-[#F5F0E8]" />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-[#5C5347] mb-1">Location</label>
-                          <input type="text" value={row.location} onChange={e => updateDateRow(ev.id, idx, 'location', e.target.value)} disabled={readOnly} className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] disabled:bg-[#F5F0E8]" />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-[#5C5347] mb-1">Seating</label>
-                          <input type="number" value={row.seating} onChange={e => updateDateRow(ev.id, idx, 'seating', Number(e.target.value))} disabled={readOnly} min="0" className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] disabled:bg-[#F5F0E8]" />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-[#5C5347] mb-1">Fee (R)</label>
-                          <input type="number" value={row.event_fee} onChange={e => updateDateRow(ev.id, idx, 'event_fee', e.target.value)} disabled={readOnly} min="0" step="0.01" placeholder="0.00" className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] disabled:bg-[#F5F0E8]" />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-[#5C5347] mb-1">Status</label>
-                          <select value={row.status_id} onChange={e => updateDateRow(ev.id, idx, 'status_id', e.target.value)} disabled={readOnly} className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white disabled:bg-[#F5F0E8]">
-                            <option value="">— Select —</option>
-                            {sessionStatuses.map(st => <option key={st.id} value={st.id}>{st.label}</option>)}
-                          </select>
-                        </div>
-                      </div>
-                      {!readOnly && idx > 0 && (
-                        <button onClick={() => removeDateRow(ev.id, idx)} className="text-xs text-red-500 hover:text-red-700 transition-colors">Remove row</button>
-                      )}
-                    </div>
-                  ))}
+                  {(rows.length > 0 ? rows : [{ ...EMPTY_DATE_ROW(ev.id, 0) }]).map((row, idx) =>
+                    renderSessionCard(
+                      row,
+                      idx,
+                      (field, value) => updateDateRow(ev.id, idx, field, value),
+                      idx > 0 ? () => removeDateRow(ev.id, idx) : undefined
+                    )
+                  )}
                 </div>
                 {!readOnly && (
-                  <div className="flex items-center gap-3">
-                    <button onClick={() => addDateRow(ev.id)} className="text-sm text-[#C4622D] hover:text-[#A04E22] font-medium transition-colors">+ Add date</button>
-                    <button onClick={() => saveEventDates(ev.id)} disabled={savingEventDates[ev.id]} className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50">
-                      {savingEventDates[ev.id] ? 'Saving…' : 'Save Dates'}
+                  <>
+                    {/* + Add another session — dashed button */}
+                    <button
+                      type="button"
+                      onClick={() => addDateRow(ev.id)}
+                      className="mt-3 w-full flex items-center justify-center gap-2 border border-dashed border-[#C4622D] text-[#C4622D] rounded-xl py-2.5 text-sm font-medium hover:bg-[#FFF8F4] transition-colors"
+                    >
+                      <span className="text-lg leading-none">+</span>
+                      Add another session
                     </button>
-                    {eventDatesMsg[ev.id] && <p className="text-xs text-green-600">{eventDatesMsg[ev.id]}</p>}
-                  </div>
+
+                    {eventDatesMsg[ev.id] && (
+                      <p className={`text-xs mt-3 ${eventDatesMsg[ev.id].includes('Failed') ? 'text-red-500' : 'text-green-600'}`}>{eventDatesMsg[ev.id]}</p>
+                    )}
+
+                    <button
+                      onClick={() => saveEventDates(ev.id)}
+                      disabled={savingEventDates[ev.id]}
+                      className="mt-4 bg-[#C4622D] text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
+                    >
+                      {savingEventDates[ev.id] ? 'Saving…' : 'Save Event Dates'}
+                    </button>
+                  </>
                 )}
               </div>
             )}
