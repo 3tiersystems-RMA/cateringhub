@@ -229,6 +229,11 @@ export default function CookingClassesPage() {
   const [showLimitedSeatsWarning, setShowLimitedSeatsWarning] = useState(false);
   const [limitedSeatsWarningShown, setLimitedSeatsWarningShown] = useState(false);
 
+  // ── Derived: is this an Adult event? ────────────────────────────────────────
+  const isAdultEvent = page1.selectedEvents.some(name =>
+    name.toLowerCase().includes('adult')
+  );
+
   useEffect(() => {
     loadSettings();
     loadClassEvents();
@@ -542,20 +547,26 @@ export default function CookingClassesPage() {
     const filledChildren = page4.children.filter(c => c.fullName.trim());
     if (filledChildren.length === 0) errors.children = "Please enter at least one participant's details";
 
-    // (4) If child name entered, DOB/Gender/Dietary are mandatory
+    // (4) If child name entered, mandatory fields depend on event type
     page4.children.forEach((child, idx) => {
       if (child.fullName.trim()) {
-        if (!child.dob) errors[`child_${idx}_dob`] = 'DOB is required';
-        if (!child.gender) errors[`child_${idx}_gender`] = 'Gender is required';
-        if (!child.dietaryRestrictions) errors[`child_${idx}_dietary`] = 'Dietary info is required';
-        // (5) Age validation
-        if (child.dob) {
-          let age = calculateAge(child.dob);
-          if (age !== null && age < 5) errors[`child_${idx}_age`] = 'Minimum participant age is 5';
-          if (age !== null && age > 16) errors[`child_${idx}_age`] = 'Maximum participant age is 16';
+        if (isAdultEvent) {
+          // Adult event: only Gender and Dietary are mandatory; DOB optional, no age validation, no picturesTaken/indemnityConsent
+          if (!child.gender) errors[`child_${idx}_gender`] = 'Gender is required';
+          if (!child.dietaryRestrictions) errors[`child_${idx}_dietary`] = 'Dietary info is required';
+        } else {
+          if (!child.dob) errors[`child_${idx}_dob`] = 'DOB is required';
+          if (!child.gender) errors[`child_${idx}_gender`] = 'Gender is required';
+          if (!child.dietaryRestrictions) errors[`child_${idx}_dietary`] = 'Dietary info is required';
+          // (5) Age validation
+          if (child.dob) {
+            let age = calculateAge(child.dob);
+            if (age !== null && age < 5) errors[`child_${idx}_age`] = 'Minimum participant age is 5';
+            if (age !== null && age > 16) errors[`child_${idx}_age`] = 'Maximum participant age is 16';
+          }
+          if (!child.picturesTaken) errors[`child_${idx}_pictures`] = 'Please indicate your photo consent';
+          if (!child.indemnityConsent) errors[`child_${idx}_indemnity`] = 'Please consent to the Indemnity Form clauses';
         }
-        if (!child.picturesTaken) errors[`child_${idx}_pictures`] = 'Please indicate your photo consent';
-        if (!child.indemnityConsent) errors[`child_${idx}_indemnity`] = 'Please consent to the Indemnity Form clauses';
       }
     });
 
@@ -579,7 +590,12 @@ export default function CookingClassesPage() {
 
   function handlePage1Next() {
     if (validatePage1()) {
-      setCurrentPage(2);
+      // If selected event contains 'Adult', skip pages 2 & 3 and go straight to page 4
+      if (isAdultEvent) {
+        setCurrentPage(4);
+      } else {
+        setCurrentPage(2);
+      }
       window.scrollTo(0, 0);
     }
   }
@@ -647,6 +663,14 @@ export default function CookingClassesPage() {
   function isLastChildComplete(): boolean {
     const last = page4.children[page4.children.length - 1];
     if (!last) return true;
+    if (isAdultEvent) {
+      // Adult event: only Full Name, Gender, and Dietary are required to unlock next participant
+      return (
+        last.fullName.trim() !== '' &&
+        last.gender !== '' &&
+        last.dietaryRestrictions !== ''
+      );
+    }
     return (
       last.fullName.trim() !== '' &&
       last.dob !== '' &&
@@ -1763,7 +1787,7 @@ export default function CookingClassesPage() {
                         {isOpen && !isDisabledBySeats && (
                           <div className="px-4 py-4 space-y-3">
                             {/* Row 1: Full Name + DOB */}
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className={`grid gap-3 ${isAdultEvent ? 'grid-cols-1' : 'grid-cols-2'}`}>
                               <div>
                                 <label className="block text-xs font-medium text-[#5C5347] mb-1">Full Name</label>
                                 <input
@@ -1773,36 +1797,40 @@ export default function CookingClassesPage() {
                                   className="w-full border border-[#DDD5C8] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
                                 />
                               </div>
-                              <div>
-                                <label className="block text-xs font-medium text-[#5C5347] mb-1">
-                                  DOB {hasName && <span className="text-red-500">*</span>}
-                                </label>
-                                <input
-                                  type="date"
-                                  value={child.dob}
-                                  onChange={e => updateChild(idx, 'dob', e.target.value)}
-                                  className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] ${page4Errors[`child_${idx}_dob`] ? 'border-red-400' : 'border-[#DDD5C8]'}`}
-                                />
-                                {page4Errors[`child_${idx}_dob`] && (
-                                  <p className="text-xs text-red-500 mt-0.5">{page4Errors[`child_${idx}_dob`]}</p>
-                                )}
-                              </div>
+                              {!isAdultEvent && (
+                                <div>
+                                  <label className="block text-xs font-medium text-[#5C5347] mb-1">
+                                    DOB {hasName && <span className="text-red-500">*</span>}
+                                  </label>
+                                  <input
+                                    type="date"
+                                    value={child.dob}
+                                    onChange={e => updateChild(idx, 'dob', e.target.value)}
+                                    className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] ${page4Errors[`child_${idx}_dob`] ? 'border-red-400' : 'border-[#DDD5C8]'}`}
+                                  />
+                                  {page4Errors[`child_${idx}_dob`] && (
+                                    <p className="text-xs text-red-500 mt-0.5">{page4Errors[`child_${idx}_dob`]}</p>
+                                  )}
+                                </div>
+                              )}
                             </div>
-                            {/* Row 2: Age + Gender + Grade */}
-                            <div className="grid grid-cols-3 gap-3">
-                              <div>
-                                <label className="block text-xs font-medium text-[#5C5347] mb-1">Age</label>
-                                <input
-                                  type="text"
-                                  value={child.age}
-                                  readOnly
-                                  placeholder="Auto"
-                                  className="w-full border border-[#DDD5C8] rounded-lg px-3 py-2 text-sm bg-[#F5F0E8] text-[#5C5347] cursor-not-allowed"
-                                />
-                                {ageError && (
-                                  <p className="text-xs text-red-500 mt-0.5">{ageError}</p>
-                                )}
-                              </div>
+                            {/* Row 2: Age + Gender + Grade (adult: Gender + Grade only, no Age) */}
+                            <div className={`grid gap-3 ${isAdultEvent ? 'grid-cols-2' : 'grid-cols-3'}`}>
+                              {!isAdultEvent && (
+                                <div>
+                                  <label className="block text-xs font-medium text-[#5C5347] mb-1">Age</label>
+                                  <input
+                                    type="text"
+                                    value={child.age}
+                                    readOnly
+                                    placeholder="Auto"
+                                    className="w-full border border-[#DDD5C8] rounded-lg px-3 py-2 text-sm bg-[#F5F0E8] text-[#5C5347] cursor-not-allowed"
+                                  />
+                                  {ageError && (
+                                    <p className="text-xs text-red-500 mt-0.5">{ageError}</p>
+                                  )}
+                                </div>
+                              )}
                               <div>
                                 <label className="block text-xs font-medium text-[#5C5347] mb-1">
                                   Gender {hasName && <span className="text-red-500">*</span>}
@@ -1850,57 +1878,59 @@ export default function CookingClassesPage() {
                               )}
                             </div>
 
-                            {/* Consent & Indemnity — per child */}
-                            <div className="mt-2 pt-3 border-t border-[#EDE7DA]">
-                              <p className="text-xs font-semibold text-[#4A4540] uppercase tracking-wide mb-2">Consent &amp; Indemnity</p>
-                              <hr className="border-[#EDE7DA] mb-3" />
-                              {/* Photo consent */}
-                              <div className="mb-3">
-                                <p className="text-xs text-[#1A1612] mb-2">
-                                  Photos taken of my/our participant(s) at the cooking classes{' '}
-                                  {hasName && <span className="text-red-500">*</span>}
-                                </p>
-                                <div className="flex items-center gap-6">
-                                  {[
-                                    { value: 'yes', label: 'Yes, I give consent' },
-                                    { value: 'no', label: 'No, I do not consent' },
-                                  ].map(opt => (
-                                    <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
-                                      <input
-                                        type="radio"
-                                        name={`picturesTaken_${idx}`}
-                                        value={opt.value}
-                                        checked={child.picturesTaken === opt.value}
-                                        onChange={() => updateChild(idx, 'picturesTaken', opt.value)}
-                                        className="w-4 h-4 border-[#DDD5C8] text-[#C4622D] focus:ring-[#C4622D]"
-                                      />
-                                      <span className="text-xs text-[#1A1612]">{opt.label}</span>
-                                    </label>
-                                  ))}
-                                </div>
-                                {page4Errors[`child_${idx}_pictures`] && (
-                                  <p className="text-xs text-red-500 mt-1">{page4Errors[`child_${idx}_pictures`]}</p>
-                                )}
-                              </div>
-                              {/* Indemnity checkbox */}
-                              <div>
-                                <label className="flex items-start gap-2 cursor-pointer">
-                                  <input
-                                    type="checkbox"
-                                    checked={child.indemnityConsent}
-                                    onChange={e => updateChild(idx, 'indemnityConsent', e.target.checked)}
-                                    className="w-4 h-4 mt-0.5 border-2 border-[#DDD5C8] text-[#C4622D] focus:ring-[#C4622D] rounded flex-shrink-0"
-                                  />
-                                  <span className="text-xs text-[#1A1612]">
-                                    I consent to the clauses in the Business Indemnity Form{' '}
+                            {/* Consent & Indemnity — per child (hidden for adult events) */}
+                            {!isAdultEvent && (
+                              <div className="mt-2 pt-3 border-t border-[#EDE7DA]">
+                                <p className="text-xs font-semibold text-[#4A4540] uppercase tracking-wide mb-2">Consent &amp; Indemnity</p>
+                                <hr className="border-[#EDE7DA] mb-3" />
+                                {/* Photo consent */}
+                                <div className="mb-3">
+                                  <p className="text-xs text-[#1A1612] mb-2">
+                                    Photos taken of my/our participant(s) at the cooking classes{' '}
                                     {hasName && <span className="text-red-500">*</span>}
-                                  </span>
-                                </label>
-                                {page4Errors[`child_${idx}_indemnity`] && (
-                                  <p className="text-xs text-red-500 mt-1">{page4Errors[`child_${idx}_indemnity`]}</p>
-                                )}
+                                  </p>
+                                  <div className="flex items-center gap-6">
+                                    {[
+                                      { value: 'yes', label: 'Yes, I give consent' },
+                                      { value: 'no', label: 'No, I do not consent' },
+                                    ].map(opt => (
+                                      <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                          type="radio"
+                                          name={`picturesTaken_${idx}`}
+                                          value={opt.value}
+                                          checked={child.picturesTaken === opt.value}
+                                          onChange={() => updateChild(idx, 'picturesTaken', opt.value)}
+                                          className="w-4 h-4 border-[#DDD5C8] text-[#C4622D] focus:ring-[#C4622D]"
+                                        />
+                                        <span className="text-xs text-[#1A1612]">{opt.label}</span>
+                                      </label>
+                                    ))}
+                                  </div>
+                                  {page4Errors[`child_${idx}_pictures`] && (
+                                    <p className="text-xs text-red-500 mt-1">{page4Errors[`child_${idx}_pictures`]}</p>
+                                  )}
+                                </div>
+                                {/* Indemnity checkbox */}
+                                <div>
+                                  <label className="flex items-start gap-2 cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={child.indemnityConsent}
+                                      onChange={e => updateChild(idx, 'indemnityConsent', e.target.checked)}
+                                      className="w-4 h-4 mt-0.5 border-2 border-[#DDD5C8] text-[#C4622D] focus:ring-[#C4622D] rounded flex-shrink-0"
+                                    />
+                                    <span className="text-xs text-[#1A1612]">
+                                      I consent to the clauses in the Business Indemnity Form{' '}
+                                      {hasName && <span className="text-red-500">*</span>}
+                                    </span>
+                                  </label>
+                                  {page4Errors[`child_${idx}_indemnity`] && (
+                                    <p className="text-xs text-red-500 mt-1">{page4Errors[`child_${idx}_indemnity`]}</p>
+                                  )}
+                                </div>
                               </div>
-                            </div>
+                            )}
                           </div>
                         )}
                       </div>
@@ -1927,11 +1957,13 @@ export default function CookingClassesPage() {
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
                       </svg>
-                      + Add another child
+                      + Add another participant
                     </button>
                     {!isLastChildComplete() && (
                       <p className="text-xs text-amber-600 mt-2 text-center">
-                        Please complete all mandatory fields for the current participant (Full Name, DOB, Gender, Dietary Restrictions, Photo Consent, and Indemnity Consent) before adding another participant.
+                        {isAdultEvent
+                          ? 'Please complete all mandatory fields for the current participant (Full Name, Gender, Dietary Restrictions) before adding another participant.'
+                          : 'Please complete all mandatory fields for the current participant (Full Name, DOB, Gender, Dietary Restrictions, Photo Consent, and Indemnity Consent) before adding another participant.'}
                       </p>
                     )}
                   </div>
@@ -2011,8 +2043,13 @@ export default function CookingClassesPage() {
             <div className="flex gap-3 mt-6">
               <button
                 onClick={() => {
-                  const backPage = page2.firstTimePortal === 'No' ? 2 : 3;
-                  setCurrentPage(backPage);
+                  // Adult event: back goes to page 1; otherwise existing logic
+                  if (isAdultEvent) {
+                    setCurrentPage(1);
+                  } else {
+                    const backPage = page2.firstTimePortal === 'No' ? 2 : 3;
+                    setCurrentPage(backPage);
+                  }
                   window.scrollTo(0, 0);
                 }}
                 className="flex-1 border border-[#DDD5C8] text-[#5C5347] py-3 rounded-xl font-semibold text-sm hover:bg-[#FAF5EE] transition-colors"
