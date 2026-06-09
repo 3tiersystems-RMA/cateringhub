@@ -1281,6 +1281,11 @@ export default function CookingClassesPage() {
                           />
                           <span className={`text-sm ${selectable ? 'text-[#1A1612]' : 'text-[#8C8278]'}`}>{label}</span>
                         </label>
+                        {row.location && (
+                          <p className="text-xs mt-0.5 ml-7 text-[#5C5347]">
+                            {row.location}
+                          </p>
+                        )}
                         {availability.text && (
                           <p className={`text-xs mt-0.5 ml-7 font-medium ${availability.color}`}>
                             {availability.text}
