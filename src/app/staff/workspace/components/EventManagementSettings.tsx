@@ -91,6 +91,10 @@ export default function EventManagementSettings({ isSuperAdmin = false, readOnly
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  const [editingEventId, setEditingEventId] = useState<string | null>(null);
+  const [editingEventName, setEditingEventName] = useState('');
+  const [savingEventName, setSavingEventName] = useState(false);
+
   useEffect(() => {
     loadSettings();
     loadEvents();
@@ -241,6 +245,19 @@ export default function EventManagementSettings({ isSuperAdmin = false, readOnly
       await loadAllDateRows();
     } catch { /* ignore */ }
     finally { setDeletingId(null); }
+  }
+
+  async function updateEventName(id: string) {
+    if (!editingEventName.trim()) return;
+    setSavingEventName(true);
+    try {
+      const { error } = await supabase.from('event_management_events').update({ name: editingEventName.trim() }).eq('id', id);
+      if (error) throw error;
+      setEditingEventId(null);
+      setEditingEventName('');
+      await loadEvents();
+    } catch { /* ignore */ }
+    finally { setSavingEventName(false); }
   }
 
   async function addStatus() {
@@ -557,9 +574,29 @@ export default function EventManagementSettings({ isSuperAdmin = false, readOnly
           {events.length === 0 && <p className="text-sm text-[#8C8278] italic">No events yet.</p>}
           {events.map(ev => (
             <div key={ev.id} className="flex items-center justify-between gap-3 bg-[#FAF5EE] border border-[#EDE7DA] rounded-xl px-4 py-2.5">
-              <span className={`text-sm font-medium ${ev.is_active ? 'text-[#1A1612]' : 'text-[#8C8278] line-through'}`}>{ev.name}</span>
-              {!readOnly && (
+              {editingEventId === ev.id ? (
+                <div className="flex items-center gap-2 flex-1">
+                  <input
+                    type="text"
+                    value={editingEventName}
+                    onChange={e => setEditingEventName(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') updateEventName(ev.id); if (e.key === 'Escape') { setEditingEventId(null); setEditingEventName(''); } }}
+                    className="flex-1 border border-[#C4622D] rounded-lg px-2 py-1 text-sm focus:outline-none"
+                    autoFocus
+                  />
+                  <button onClick={() => updateEventName(ev.id)} disabled={savingEventName || !editingEventName.trim()} className="text-xs text-white bg-[#C4622D] hover:bg-[#A04E22] px-2 py-1 rounded-lg transition-colors disabled:opacity-50">
+                    {savingEventName ? '…' : 'Save'}
+                  </button>
+                  <button onClick={() => { setEditingEventId(null); setEditingEventName(''); }} className="text-xs text-[#5C5347] hover:text-[#C4622D] px-2 py-1 rounded-lg border border-[#DDD5C8]">Cancel</button>
+                </div>
+              ) : (
+                <span className={`text-sm font-medium ${ev.is_active ? 'text-[#1A1612]' : 'text-[#8C8278] line-through'}`}>{ev.name}</span>
+              )}
+              {!readOnly && editingEventId !== ev.id && (
                 <div className="flex items-center gap-2">
+                  <button onClick={() => { setEditingEventId(ev.id); setEditingEventName(ev.name); }} className="text-xs text-[#5C5347] hover:text-[#C4622D] transition-colors px-2 py-1 rounded-lg border border-[#DDD5C8] hover:border-[#C4622D]">
+                    Edit
+                  </button>
                   <button onClick={() => toggleEventActive(ev)} className="text-xs text-[#5C5347] hover:text-[#C4622D] transition-colors px-2 py-1 rounded-lg border border-[#DDD5C8] hover:border-[#C4622D]">
                     {ev.is_active ? 'Deactivate' : 'Activate'}
                   </button>
