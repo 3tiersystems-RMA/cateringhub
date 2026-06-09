@@ -37,6 +37,7 @@ export default function HomepageCardsTab({ can }: HomepageCardsTabProps) {
   const [homepageCardSearchQuery, setHomepageCardSearchQuery] = useState('');
   const [cardImageFile, setCardImageFile] = useState<File | null>(null);
   const [uploadingCardImage, setUploadingCardImage] = useState(false);
+  const [cardImagePreviewUrl, setCardImagePreviewUrl] = useState<string | null>(null);
   const [tickerBannerText, setTickerBannerText] = useState('Now Accepting 2027 Bookings');
   const [tickerBannerVisible, setTickerBannerVisible] = useState(false);
   const [tickerBannerLoading, setTickerBannerLoading] = useState(false);
@@ -71,6 +72,22 @@ export default function HomepageCardsTab({ can }: HomepageCardsTabProps) {
     loadHomepageCards();
     loadTickerBanner();
   }, []);
+
+  // When opening the edit modal for an announcement card that has image_path but no image_url,
+  // resolve the public URL from storage so the preview shows the existing image.
+  useEffect(() => {
+    if (!editingCard || editingCard.card_type !== 'announcement') {
+      setCardImagePreviewUrl(null);
+      return;
+    }
+    const path = cardForm.image_path;
+    if (path && !cardForm.image_url) {
+      const { data } = supabase.storage.from('homepage-card-images').getPublicUrl(path);
+      setCardImagePreviewUrl(data?.publicUrl ?? null);
+    } else {
+      setCardImagePreviewUrl(null);
+    }
+  }, [editingCard, cardForm.image_path, cardForm.image_url]);
 
   const handleSaveTickerBanner = async () => {
     setTickerBannerSaving(true);
@@ -109,6 +126,9 @@ export default function HomepageCardsTab({ can }: HomepageCardsTabProps) {
       const { data: urlData } = supabase.storage.from('homepage-card-images').getPublicUrl(path);
       image_url = urlData?.publicUrl || null;
       setUploadingCardImage(false);
+    } else if (image_url) {
+      // A direct URL was provided — clear any stale uploaded image_path
+      image_path = null;
     }
     const { data: upd, error } = await supabase.from('homepage_cards').update({
       ...cardForm,
@@ -222,17 +242,25 @@ export default function HomepageCardsTab({ can }: HomepageCardsTabProps) {
                 {editingCard.card_type === 'announcement' && (
                   <div>
                     <label className="block text-xs font-semibold text-[#5C5347] mb-2">Image</label>
-                    {/* Current image preview */}
-                    {(cardForm.image_url || cardImageFile) && (
+                    {/* Current image preview — show file preview, or image_url, or resolve image_path */}
+                    {(cardImageFile || cardForm.image_url || cardForm.image_path || cardImagePreviewUrl) && (
                       <div className="mb-3 relative w-full rounded-xl overflow-hidden border border-[#EDE7DA]">
                         <img
-                          src={cardImageFile ? URL.createObjectURL(cardImageFile) : (cardForm.image_url || '')}
+                          src={
+                            cardImageFile
+                              ? URL.createObjectURL(cardImageFile)
+                              : cardForm.image_url
+                              ? cardForm.image_url
+                              : cardImagePreviewUrl
+                              ? cardImagePreviewUrl
+                              : ''
+                          }
                           alt="Announcement image preview"
                           className="w-full h-auto max-h-48 object-contain bg-[#FAF5EE]"
                         />
                         <button
                           type="button"
-                          onClick={() => { setCardImageFile(null); setCardForm(f => ({ ...f, image_url: '', image_path: '' })); }}
+                          onClick={() => { setCardImageFile(null); setCardImagePreviewUrl(null); setCardForm(f => ({ ...f, image_url: '', image_path: '' })); }}
                           className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/50 text-white text-xs flex items-center justify-center hover:bg-black/70 transition-colors"
                           aria-label="Remove image"
                         >✕</button>
