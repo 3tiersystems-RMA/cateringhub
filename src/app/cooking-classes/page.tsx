@@ -54,6 +54,7 @@ interface ChildRow {
 interface FormPage4 {
   children: ChildRow[];
   attendSchoolHoliday: string;
+  hasIndemnityForm: string;
   indemnityFile: File | null;
   indemnityFilePreview: string;
 }
@@ -203,6 +204,7 @@ export default function CookingClassesPage() {
   const [page4, setPage4] = useState<FormPage4>({
     children: [{ ...EMPTY_CHILD }],
     attendSchoolHoliday: '',
+    hasIndemnityForm: '',
     indemnityFile: null,
     indemnityFilePreview: '',
   });
@@ -556,7 +558,8 @@ export default function CookingClassesPage() {
     });
 
     // School Holiday is now optional — no validation required
-    if (!page4.indemnityFile) errors.indemnityFile = 'Please upload your signed Indemnity Form';
+    if (!page4.hasIndemnityForm) errors.hasIndemnityForm = 'Please indicate if you have a Signed Indemnity Form';
+    if (page4.hasIndemnityForm === 'Yes' && !page4.indemnityFile) errors.indemnityFile = 'Please upload your signed Indemnity Form';
     setPage4Errors(errors);
     return Object.keys(errors).length === 0;
   }
@@ -1929,48 +1932,69 @@ export default function CookingClassesPage() {
                 {/* SIGNED Indemnity Form upload */}
                 <div className="mt-6 bg-white border border-[#EDE7DA] rounded-2xl shadow-sm overflow-hidden">
                   <div className="bg-[#4A4540] text-white px-5 py-4">
-                    <h3 className="text-sm font-semibold">SIGNED Indemnity Form</h3>
+                    <h3 className="text-sm font-semibold">Do you have a Signed Indemnity Form?</h3>
                   </div>
                   <div className="p-5">
-                    <div
-                      className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer ${page4Errors.indemnityFile ? 'border-red-400 bg-red-50' : 'border-[#DDD5C8] bg-[#F8F5FF] hover:border-[#C4622D]/50'}`}
-                      onClick={() => document.getElementById('indemnity-file-input')?.click()}
-                    >
-                      {page4.indemnityFilePreview ? (
-                        <div>
-                          {page4.indemnityFile?.type?.startsWith('image/') ? (
-                            <img src={page4.indemnityFilePreview} alt="Signed indemnity form preview" className="max-h-32 mx-auto rounded-lg mb-3 object-contain" />
-                          ) : (
-                            <div className="text-4xl mb-3">📄</div>
-                          )}
-                          <p className="text-sm text-[#5C5347] font-medium">{page4.indemnityFile?.name}</p>
-                          <button
-                            type="button"
-                            onClick={e => { e.stopPropagation(); setPage4(p => ({ ...p, indemnityFile: null, indemnityFilePreview: '' })); }}
-                            className="text-xs text-red-500 hover:underline mt-1"
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      ) : (
-                        <div>
-                          <svg className="w-12 h-12 text-[#9CA3AF] mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
-                          </svg>
-                          <p className="text-base font-bold text-[#1A1612] mb-1">Browse Files</p>
-                          <p className="text-sm text-[#8C8278]">Drag and drop files here</p>
-                        </div>
-                      )}
-                      <input
-                        id="indemnity-file-input"
-                        type="file"
-                        accept="image/*,.pdf"
-                        onChange={handleIndemnityUpload}
-                        className="hidden"
-                      />
+                    <div className="flex gap-6 mb-4">
+                      {['Yes', 'No'].map(opt => (
+                        <label key={opt} className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="hasIndemnityForm"
+                            value={opt}
+                            checked={page4.hasIndemnityForm === opt}
+                            onChange={() => setPage4(p => ({ ...p, hasIndemnityForm: opt, indemnityFile: opt === 'No' ? null : p.indemnityFile, indemnityFilePreview: opt === 'No' ? '' : p.indemnityFilePreview }))}
+                            className="w-5 h-5 border-2 border-[#DDD5C8] text-[#C4622D] focus:ring-[#C4622D]"
+                          />
+                          <span className="text-sm text-[#1A1612]">{opt}</span>
+                        </label>
+                      ))}
                     </div>
-                    <p className="text-xs text-[#5C5347] mt-2">Upload your SIGNED Cardamom Kitchen cooking classes Indemnity Form</p>
-                    {page4Errors.indemnityFile && <p className="text-xs text-red-500 mt-1">{page4Errors.indemnityFile}</p>}
+                    {page4Errors.hasIndemnityForm && <p className="text-xs text-red-500 mb-3">{page4Errors.hasIndemnityForm}</p>}
+
+                    {page4.hasIndemnityForm === 'Yes' && (
+                      <>
+                        <div
+                          className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer ${page4Errors.indemnityFile ? 'border-red-400 bg-red-50' : 'border-[#DDD5C8] bg-[#F8F5FF] hover:border-[#C4622D]/50'}`}
+                          onClick={() => document.getElementById('indemnity-file-input')?.click()}
+                        >
+                          {page4.indemnityFilePreview ? (
+                            <div>
+                              {page4.indemnityFile?.type?.startsWith('image/') ? (
+                                <img src={page4.indemnityFilePreview} alt="Signed indemnity form preview" className="max-h-32 mx-auto rounded-lg mb-3 object-contain" />
+                              ) : (
+                                <div className="text-4xl mb-3">📄</div>
+                              )}
+                              <p className="text-sm text-[#5C5347] font-medium">{page4.indemnityFile?.name}</p>
+                              <button
+                                type="button"
+                                onClick={e => { e.stopPropagation(); setPage4(p => ({ ...p, indemnityFile: null, indemnityFilePreview: '' })); }}
+                                className="text-xs text-red-500 hover:underline mt-1"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          ) : (
+                            <div>
+                              <svg className="w-12 h-12 text-[#9CA3AF] mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                              </svg>
+                              <p className="text-base font-bold text-[#1A1612] mb-1">Browse Files</p>
+                              <p className="text-sm text-[#8C8278]">Drag and drop files here</p>
+                            </div>
+                          )}
+                          <input
+                            id="indemnity-file-input"
+                            type="file"
+                            accept="image/*,.pdf"
+                            onChange={handleIndemnityUpload}
+                            className="hidden"
+                          />
+                        </div>
+                        <p className="text-xs text-[#5C5347] mt-2">Upload your SIGNED Cardamom Kitchen cooking classes Indemnity Form</p>
+                        {page4Errors.indemnityFile && <p className="text-xs text-red-500 mt-1">{page4Errors.indemnityFile}</p>}
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
