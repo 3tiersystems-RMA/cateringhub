@@ -316,7 +316,12 @@ export default function CookingClassesPage() {
         .select('*')
         .order('sort_order', { ascending: true });
       if (data) {
-        const filtered = data.filter((r: EventDateRow) => r.event_date);
+        const filtered = data
+          .filter((r: any) => r.event_date)
+          .map((r: any) => ({
+            ...r,
+            class_fee: r.class_fee != null ? Number(r.class_fee) : null,
+          })) as EventDateRow[];
         setEventDates(filtered);
         if (filtered.length > 0) {
           await loadBookingCounts(filtered.map((r: EventDateRow) => r.id));

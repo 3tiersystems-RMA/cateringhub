@@ -504,7 +504,7 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
           sort_order: i,
           seating: r.seating || 0,
           status_id: r.status_id || null,
-          class_fee: r.class_fee ? parseFloat(r.class_fee) : null,
+          class_fee: r.class_fee !== '' ? parseFloat(r.class_fee) : null,
         }));
 
       if (rowsToInsert.length > 0) {
@@ -541,7 +541,7 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
           sort_order: i,
           seating: r.seating || 0,
           status_id: r.status_id || null,
-          class_fee: r.class_fee ? parseFloat(r.class_fee) : null,
+          class_fee: r.class_fee !== '' ? parseFloat(r.class_fee) : null,
         }));
 
       if (rowsToInsert.length > 0) {
