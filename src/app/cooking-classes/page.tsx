@@ -642,6 +642,19 @@ export default function CookingClassesPage() {
     });
   }
 
+  function isLastChildComplete(): boolean {
+    const last = page4.children[page4.children.length - 1];
+    if (!last) return true;
+    return (
+      last.fullName.trim() !== '' &&
+      last.dob !== '' &&
+      last.gender !== '' &&
+      last.dietaryRestrictions !== '' &&
+      last.picturesTaken !== '' &&
+      last.indemnityConsent === true
+    );
+  }
+
   function addChild() {
     setPage4(prev => {
       if (prev.children.length >= 10) return prev;
@@ -1895,39 +1908,32 @@ export default function CookingClassesPage() {
 
                 {/* + Add another child button */}
                 {page4.children.length < 10 && (
-                  <button
-                    type="button"
-                    onClick={addChild}
-                    className="w-full border-2 border-dashed border-[#C4622D] rounded-xl py-3 px-4 text-sm font-semibold text-[#C4622D] hover:bg-[#FDF6EE] transition-colors flex items-center justify-center gap-2 mb-6"
-                  >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                    </svg>
-                    + Add another child
-                  </button>
-                )}
-
-                {/* Attend School Holiday programme */}
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-[#8C8278] mb-3">
-                    Attend our School Holiday programme
-                  </label>
-                  <div className="grid grid-cols-2 gap-x-8">
-                    {['Yes', 'No'].map(opt => (
-                      <label key={opt} className="flex items-center gap-3 cursor-pointer">
-                        <input
-                          type="radio"
-                          name="attendSchoolHoliday"
-                          value={opt}
-                          checked={page4.attendSchoolHoliday === opt}
-                          onChange={() => setPage4(p => ({ ...p, attendSchoolHoliday: opt }))}
-                          className="w-5 h-5 border-2 border-[#DDD5C8] text-[#C4622D] focus:ring-[#C4622D]"
-                        />
-                        <span className="text-sm text-[#1A1612]">{opt}</span>
-                      </label>
-                    ))}
+                  <div className="mb-6">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!isLastChildComplete()) return;
+                        addChild();
+                      }}
+                      disabled={!isLastChildComplete()}
+                      className={`w-full border-2 border-dashed rounded-xl py-3 px-4 text-sm font-semibold transition-colors flex items-center justify-center gap-2 ${
+                        isLastChildComplete()
+                          ? 'border-[#C4622D] text-[#C4622D] hover:bg-[#FDF6EE] cursor-pointer'
+                          : 'border-[#DDD5C8] text-[#8C8278] cursor-not-allowed bg-[#FAF5EE]'
+                      }`}
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                      </svg>
+                      + Add another child
+                    </button>
+                    {!isLastChildComplete() && (
+                      <p className="text-xs text-amber-600 mt-2 text-center">
+                        Please complete all mandatory fields for the current child (Full Name, DOB, Gender, Dietary Restrictions, Photo Consent, and Indemnity Consent) before adding another child.
+                      </p>
+                    )}
                   </div>
-                </div>
+                )}
 
                 {/* SIGNED Indemnity Form upload */}
                 <div className="mt-6 bg-white border border-[#EDE7DA] rounded-2xl shadow-sm overflow-hidden">
