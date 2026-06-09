@@ -128,26 +128,6 @@ serve(async (req) => {
             </td>
           </tr>
 
-          <!-- Customer Information -->
-          <tr>
-            <td style="padding: 0 32px 20px 32px;">
-              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f9f6f2; border-radius: 10px; overflow: hidden; border: 1px solid #E8E0D4;">
-                <tr>
-                  <td style="background-color: #EDE7DA; padding: 10px 16px; border-bottom: 1px solid #E8E0D4;">
-                    <p style="margin: 0; font-size: 11px; font-weight: 700; color: #8C8278; text-transform: uppercase; letter-spacing: 1px;">Customer Information</p>
-                  </td>
-                </tr>
-                ${hasValue(customerName) ? `<tr><td style="padding: 8px 16px; border-bottom: 1px solid #f0ebe4;"><table width="100%" cellpadding="0" cellspacing="0"><tr><td style="color: #8C8278; font-size: 13px; width: 40%;">Name</td><td style="color: #1A1612; font-size: 13px; font-weight: 600; text-align: right;">${customerName}</td></tr></table></td></tr>` : ""}
-                ${hasValue(customerEmail) ? `<tr><td style="padding: 8px 16px; border-bottom: 1px solid #f0ebe4;"><table width="100%" cellpadding="0" cellspacing="0"><tr><td style="color: #8C8278; font-size: 13px; width: 40%;">Email</td><td style="text-align: right;"><a href="mailto:${customerEmail}" style="color: #C4622D; font-size: 13px; font-weight: 600; text-decoration: none;">${customerEmail}</a></td></tr></table></td></tr>` : ""}
-                ${hasValue(customerPhone) ? `<tr><td style="padding: 8px 16px; border-bottom: 1px solid #f0ebe4;"><table width="100%" cellpadding="0" cellspacing="0"><tr><td style="color: #8C8278; font-size: 13px; width: 40%;">Phone</td><td style="color: #1A1612; font-size: 13px; font-weight: 600; text-align: right;">${customerPhone}</td></tr></table></td></tr>` : ""}
-                <tr><td style="padding: 8px 16px; border-bottom: 1px solid #f0ebe4;"><table width="100%" cellpadding="0" cellspacing="0"><tr><td style="color: #8C8278; font-size: 13px; width: 40%;">Order Date</td><td style="color: #1A1612; font-size: 13px; font-weight: 600; text-align: right;">${orderDate}</td></tr></table></td></tr>
-                ${hasValue(paymentMethod) ? `<tr><td style="padding: 8px 16px; border-bottom: 1px solid #f0ebe4;"><table width="100%" cellpadding="0" cellspacing="0"><tr><td style="color: #8C8278; font-size: 13px; width: 40%;">Payment Method</td><td style="color: #1A1612; font-size: 13px; font-weight: 600; text-align: right; text-transform: capitalize;">${paymentMethod}</td></tr></table></td></tr>` : ""}
-                <tr><td style="padding: 8px 16px; border-bottom: 1px solid #f0ebe4;"><table width="100%" cellpadding="0" cellspacing="0"><tr><td style="color: #8C8278; font-size: 13px; width: 40%; vertical-align: top;">Delivery Address</td><td style="color: #1A1612; font-size: 13px; font-weight: 600; text-align: right;">${hasValue(deliveryAddress) && deliveryAddress !== "N/A" ? deliveryAddress : "N/A"}</td></tr></table></td></tr>
-                ${hasValue(notes) ? `<tr><td style="padding: 8px 16px;"><table width="100%" cellpadding="0" cellspacing="0"><tr><td style="color: #8C8278; font-size: 13px; width: 40%; vertical-align: top;">Notes</td><td style="color: #1A1612; font-size: 13px; font-weight: 600; text-align: right;">${notes}</td></tr></table></td></tr>` : ""}
-              </table>
-            </td>
-          </tr>
-
           <!-- Order Summary -->
           <tr>
             <td style="padding: 0 32px 20px 32px;">
@@ -186,7 +166,7 @@ serve(async (req) => {
           <!-- CTA -->
           <tr>
             <td style="padding: 0 32px 28px 32px;">
-              <p style="margin: 0 0 12px 0; color: #5C5347; font-size: 14px;">View and manage this order in the staff workspace:</p>
+              <p style="margin: 0 0 12px 0; color: #5C5347; font-size: 14px;">View your order(s) :</p>
               <a href="https://cardamomkitchen.co.za/order-history" style="display: inline-block; background-color: #C4622D; color: #ffffff; font-size: 14px; font-weight: 700; padding: 12px 24px; border-radius: 8px; text-decoration: none;">
                 Open Orders Workspace →
               </a>
