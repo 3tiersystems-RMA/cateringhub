@@ -345,20 +345,16 @@ export default function EventBookingsPage() {
 
   function validatePage3(): boolean {
     const errors: Record<string, string> = {};
+    // All emergency contact fields are optional — only validate if data is partially entered
     const c1 = page3.contact1;
-    if (!c1.firstName.trim()) errors.contact1FirstName = 'First name is required';
-    if (!c1.surname.trim()) errors.contact1Surname = 'Surname is required';
-    if (!c1.cellNo.trim()) { errors.contact1CellNo = 'Cell number is required'; }
-    else if (!/^[0-9+\s\-()]{7,15}$/.test(c1.cellNo.trim())) { errors.contact1CellNo = 'Please enter a valid cellphone number'; }
-    if (!c1.relationshipToChild) errors.contact1Relationship = 'Please select relationship';
+    const c1HasData = c1.firstName.trim() || c1.surname.trim() || c1.cellNo.trim() || c1.relationshipToChild;
+    if (c1HasData) {
+      if (c1.cellNo.trim() && !/^[0-9+\s\-()]{7,15}$/.test(c1.cellNo.trim())) { errors.contact1CellNo = 'Please enter a valid cellphone number'; }
+    }
     const c2 = page3.contact2;
     const c2HasData = c2.firstName.trim() || c2.surname.trim() || c2.cellNo.trim() || c2.relationshipToChild;
     if (c2HasData) {
-      if (!c2.firstName.trim()) errors.contact2FirstName = 'First name is required';
-      if (!c2.surname.trim()) errors.contact2Surname = 'Surname is required';
-      if (!c2.cellNo.trim()) { errors.contact2CellNo = 'Cell number is required'; }
-      else if (!/^[0-9+\s\-()]{7,15}$/.test(c2.cellNo.trim())) { errors.contact2CellNo = 'Please enter a valid cellphone number'; }
-      if (!c2.relationshipToChild) errors.contact2Relationship = 'Please select relationship';
+      if (c2.cellNo.trim() && !/^[0-9+\s\-()]{7,15}$/.test(c2.cellNo.trim())) { errors.contact2CellNo = 'Please enter a valid cellphone number'; }
     }
     setPage3Errors(errors);
     return Object.keys(errors).length === 0;
@@ -370,21 +366,14 @@ export default function EventBookingsPage() {
     if (filled.length === 0) errors.children = "Please enter at least one participant's details";
     page4.children.forEach((child, idx) => {
       if (child.fullName.trim()) {
-        if (isAdultEvent) {
-          if (!child.gender) errors[`child_${idx}_gender`] = 'Gender is required';
-          if (!child.dietaryRestrictions) errors[`child_${idx}_dietary`] = 'Dietary info is required';
-        } else {
-          if (!child.dob) errors[`child_${idx}_dob`] = 'DOB is required';
-          if (!child.gender) errors[`child_${idx}_gender`] = 'Gender is required';
-          if (!child.dietaryRestrictions) errors[`child_${idx}_dietary`] = 'Dietary info is required';
-          if (child.dob) {
-            let age = calculateAge(child.dob);
-            if (age !== null && age < 5) errors[`child_${idx}_age`] = 'Minimum participant age is 5';
-            if (age !== null && age > 16) errors[`child_${idx}_age`] = 'Maximum participant age is 16';
-          }
-          if (!child.picturesTaken) errors[`child_${idx}_pictures`] = 'Please indicate your photo consent';
-          if (!child.indemnityConsent) errors[`child_${idx}_indemnity`] = 'Please consent to the Indemnity Form clauses';
+        if (!child.gender) errors[`child_${idx}_gender`] = 'Gender is required';
+        if (!child.dietaryRestrictions) errors[`child_${idx}_dietary`] = 'Dietary info is required';
+        if (!isAdultEvent && child.dob) {
+          let age = calculateAge(child.dob);
+          if (age !== null && age < 5) errors[`child_${idx}_age`] = 'Minimum participant age is 5';
+          if (age !== null && age > 16) errors[`child_${idx}_age`] = 'Maximum participant age is 16';
         }
+        if (!child.indemnityConsent) errors[`child_${idx}_indemnity`] = 'Please consent to the Indemnity Form clauses';
       }
     });
     if (!page4.hasIndemnityForm) errors.hasIndemnityForm = 'Please indicate if you have a Signed Indemnity Form';
@@ -447,8 +436,7 @@ export default function EventBookingsPage() {
   function isLastParticipantComplete(): boolean {
     const last = page4.children[page4.children.length - 1];
     if (!last) return true;
-    if (isAdultEvent) return last.fullName.trim() !== '' && last.gender !== '' && last.dietaryRestrictions !== '';
-    return last.fullName.trim() !== '' && last.dob !== '' && last.gender !== '' && last.dietaryRestrictions !== '' && last.picturesTaken !== '' && last.indemnityConsent === true;
+    return last.fullName.trim() !== '' && last.gender !== '' && last.dietaryRestrictions !== '' && last.indemnityConsent === true;
   }
 
   function addParticipant() {
@@ -817,9 +805,10 @@ export default function EventBookingsPage() {
                 <div>
                   {/* 1st Contact */}
                   <div className="mb-8">
-                    <h3 className="text-lg font-bold text-[#1A1612] pb-2 border-b border-[#EDE7DA] mb-4">Provide the Details of the 1st Contact person</h3>
+                    <h3 className="text-lg font-bold text-[#1A1612] pb-2 border-b border-[#EDE7DA] mb-1">Provide the Details of the 1st Contact person</h3>
+                    <p className="text-xs text-[#8C8278] mb-4">Optional — leave blank if not applicable</p>
                     <div className="mb-4">
-                      <label className="block text-sm font-medium text-[#1A1612] mb-2">Full Name <span className="text-red-500">*</span></label>
+                      <label className="block text-sm font-medium text-[#1A1612] mb-2">Full Name</label>
                       <div className="grid grid-cols-3 gap-3">
                         <div>
                           <select value={page3.contact1.title} onChange={e => updateContact('contact1', 'title', e.target.value)} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white">
@@ -842,12 +831,12 @@ export default function EventBookingsPage() {
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-[#1A1612] mb-2">Cell no <span className="text-red-500">*</span></label>
+                        <label className="block text-sm font-medium text-[#1A1612] mb-2">Cell no</label>
                         <input type="tel" value={page3.contact1.cellNo} onChange={e => updateContact('contact1', 'cellNo', e.target.value)} placeholder="(000) 000-0000" className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] ${page3Errors.contact1CellNo ? 'border-red-400' : 'border-[#DDD5C8]'}`} />
                         {page3Errors.contact1CellNo ? <p className="text-xs text-red-500 mt-1">{page3Errors.contact1CellNo}</p> : <p className="text-xs text-[#8C8278] mt-1">Please enter a valid cellphone number</p>}
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-[#1A1612] mb-2">Relationship <span className="text-red-500">*</span></label>
+                        <label className="block text-sm font-medium text-[#1A1612] mb-2">Relationship</label>
                         <select value={page3.contact1.relationshipToChild} onChange={e => updateContact('contact1', 'relationshipToChild', e.target.value)} className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white ${page3Errors.contact1Relationship ? 'border-red-400' : 'border-[#DDD5C8]'}`}>
                           <option value="">Please Select</option>
                           {RELATIONSHIP_TO_CHILD_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
@@ -995,7 +984,7 @@ export default function EventBookingsPage() {
                                 </div>
                                 {!isAdultEvent && (
                                   <div>
-                                    <label className="block text-xs font-medium text-[#5C5347] mb-1">DOB {hasName && <span className="text-red-500">*</span>}</label>
+                                    <label className="block text-xs font-medium text-[#5C5347] mb-1">DOB</label>
                                     <input type="date" value={child.dob} onChange={e => updateParticipant(idx, 'dob', e.target.value)} className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] ${page4Errors[`child_${idx}_dob`] ? 'border-red-400' : 'border-[#DDD5C8]'}`} />
                                     {page4Errors[`child_${idx}_dob`] && <p className="text-xs text-red-500 mt-0.5">{page4Errors[`child_${idx}_dob`]}</p>}
                                   </div>
@@ -1005,7 +994,7 @@ export default function EventBookingsPage() {
                                 {!isAdultEvent && (
                                   <div>
                                     <label className="block text-xs font-medium text-[#5C5347] mb-1">Age</label>
-                                    <input type="text" value={child.age} readOnly placeholder="Auto" className="w-full border border-[#DDD5C8] rounded-lg px-3 py-2 text-sm bg-[#F5F0E8] text-[#5C5347] cursor-not-allowed" />
+                                    <input type="text" value={child.age} readOnly disabled placeholder="Auto" className="w-full border border-[#DDD5C8] rounded-lg px-3 py-2 text-sm bg-[#F5F0E8] text-[#8C8278] cursor-not-allowed opacity-60" />
                                     {page4Errors[`child_${idx}_age`] && <p className="text-xs text-red-500 mt-0.5">{page4Errors[`child_${idx}_age`]}</p>}
                                   </div>
                                 )}
@@ -1032,31 +1021,17 @@ export default function EventBookingsPage() {
                                 {page4Errors[`child_${idx}_dietary`] && <p className="text-xs text-red-500 mt-0.5">{page4Errors[`child_${idx}_dietary`]}</p>}
                               </div>
 
-                              {!isAdultEvent && (
-                                <div className="mt-2 pt-3 border-t border-[#EDE7DA]">
-                                  <p className="text-xs font-semibold text-[#4A4540] uppercase tracking-wide mb-2">Consent &amp; Indemnity</p>
-                                  <hr className="border-[#EDE7DA] mb-3" />
-                                  <div className="mb-3">
-                                    <p className="text-xs text-[#1A1612] mb-2">Photos taken of my/our participant(s) at the event {hasName && <span className="text-red-500">*</span>}</p>
-                                    <div className="flex items-center gap-6">
-                                      {[{ value: 'yes', label: 'Yes, I give consent' }, { value: 'no', label: 'No, I do not consent' }].map(opt => (
-                                        <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
-                                          <input type="radio" name={`picturesTaken_${idx}`} value={opt.value} checked={child.picturesTaken === opt.value} onChange={() => updateParticipant(idx, 'picturesTaken', opt.value)} className="w-4 h-4 border-[#DDD5C8] text-[#C4622D] focus:ring-[#C4622D]" />
-                                          <span className="text-xs text-[#1A1612]">{opt.label}</span>
-                                        </label>
-                                      ))}
-                                    </div>
-                                    {page4Errors[`child_${idx}_pictures`] && <p className="text-xs text-red-500 mt-1">{page4Errors[`child_${idx}_pictures`]}</p>}
-                                  </div>
-                                  <div>
-                                    <label className="flex items-start gap-2 cursor-pointer">
-                                      <input type="checkbox" checked={child.indemnityConsent} onChange={e => updateParticipant(idx, 'indemnityConsent', e.target.checked)} className="w-4 h-4 mt-0.5 border-2 border-[#DDD5C8] text-[#C4622D] focus:ring-[#C4622D] rounded flex-shrink-0" />
-                                      <span className="text-xs text-[#1A1612]">I consent to the clauses in the Business Indemnity Form {hasName && <span className="text-red-500">*</span>}</span>
-                                    </label>
-                                    {page4Errors[`child_${idx}_indemnity`] && <p className="text-xs text-red-500 mt-1">{page4Errors[`child_${idx}_indemnity`]}</p>}
-                                  </div>
+                              <div className="mt-2 pt-3 border-t border-[#EDE7DA]">
+                                <p className="text-xs font-semibold text-[#4A4540] uppercase tracking-wide mb-2">Consent &amp; Indemnity</p>
+                                <hr className="border-[#EDE7DA] mb-3" />
+                                <div>
+                                  <label className="flex items-start gap-2 cursor-pointer">
+                                    <input type="checkbox" checked={child.indemnityConsent} onChange={e => updateParticipant(idx, 'indemnityConsent', e.target.checked)} className="w-4 h-4 mt-0.5 border-2 border-[#DDD5C8] text-[#C4622D] focus:ring-[#C4622D] rounded flex-shrink-0" />
+                                    <span className="text-xs text-[#1A1612]">I consent to the clauses in the Business Indemnity Form {hasName && <span className="text-red-500">*</span>}</span>
+                                  </label>
+                                  {page4Errors[`child_${idx}_indemnity`] && <p className="text-xs text-red-500 mt-1">{page4Errors[`child_${idx}_indemnity`]}</p>}
                                 </div>
-                              )}
+                              </div>
                             </div>
                           )}
                         </div>
@@ -1072,7 +1047,7 @@ export default function EventBookingsPage() {
                       </button>
                       {!isLastParticipantComplete() && (
                         <p className="text-xs text-amber-600 mt-2 text-center">
-                          {isAdultEvent ? 'Please complete all mandatory fields for the current participant (Full Name, Gender, Dietary Restrictions) before adding another participant.' : 'Please complete all mandatory fields for the current participant (Full Name, DOB, Gender, Dietary Restrictions, Photo Consent, and Indemnity Consent) before adding another participant.'}
+                          Please complete all mandatory fields for the current participant (Full Name, Gender, Dietary Restrictions, and Indemnity Consent) before adding another participant.
                         </p>
                       )}
                     </div>
