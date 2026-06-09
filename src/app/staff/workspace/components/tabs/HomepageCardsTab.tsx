@@ -219,6 +219,58 @@ export default function HomepageCardsTab({ can }: HomepageCardsTabProps) {
               <div className="p-5 space-y-3">
                 <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Title *</label><input type="text" value={cardForm.title || ''} onChange={e => setCardForm(f => ({ ...f, title: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
                 <div><label className="block text-xs font-semibold text-[#5C5347] mb-1">Subtitle</label><input type="text" value={cardForm.subtitle || ''} onChange={e => setCardForm(f => ({ ...f, subtitle: e.target.value }))} className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" /></div>
+                {editingCard.card_type === 'announcement' && (
+                  <div>
+                    <label className="block text-xs font-semibold text-[#5C5347] mb-2">Image</label>
+                    {/* Current image preview */}
+                    {(cardForm.image_url || cardImageFile) && (
+                      <div className="mb-3 relative w-full rounded-xl overflow-hidden border border-[#EDE7DA]">
+                        <img
+                          src={cardImageFile ? URL.createObjectURL(cardImageFile) : (cardForm.image_url || '')}
+                          alt="Announcement image preview"
+                          className="w-full h-auto max-h-48 object-contain bg-[#FAF5EE]"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => { setCardImageFile(null); setCardForm(f => ({ ...f, image_url: '', image_path: '' })); }}
+                          className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/50 text-white text-xs flex items-center justify-center hover:bg-black/70 transition-colors"
+                          aria-label="Remove image"
+                        >✕</button>
+                      </div>
+                    )}
+                    {/* Upload from device */}
+                    <div className="flex gap-2 mb-2">
+                      <label className="flex-1 cursor-pointer">
+                        <span className="block w-full text-center text-xs font-semibold text-[#C4622D] border border-[#C4622D] px-3 py-2 rounded-xl hover:bg-[#FDF6EE] transition-colors">
+                          {cardImageFile ? '📎 ' + cardImageFile.name : '📁 Upload from Device'}
+                        </span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={e => {
+                            const file = e.target.files?.[0] || null;
+                            setCardImageFile(file);
+                            if (file) setCardForm(f => ({ ...f, image_url: '' }));
+                          }}
+                        />
+                      </label>
+                    </div>
+                    {/* Or paste URL */}
+                    {!cardImageFile && (
+                      <div>
+                        <label className="block text-xs text-[#8C8278] mb-1">Or paste image URL</label>
+                        <input
+                          type="url"
+                          placeholder="https://example.com/image.jpg"
+                          value={cardForm.image_url || ''}
+                          onChange={e => setCardForm(f => ({ ...f, image_url: e.target.value }))}
+                          className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
                 {cardFormError && <p className="text-sm text-red-600">{cardFormError}</p>}
                 {cardFormSuccess && <p className="text-sm text-green-600">{cardFormSuccess}</p>}
               </div>
