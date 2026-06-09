@@ -113,8 +113,7 @@ function ResetPasswordForm() {
         </h1>
         <p className="text-sm text-gray-500 text-center mb-8">
           {isInvite
-            ? 'Welcome to the staff portal. Choose a password to activate your account.'
-            : 'Enter your new password below to complete the reset.'}
+            ? 'Welcome to the staff portal. Choose a password to activate your account.' :'Enter your new password below to complete the reset.'}
         </p>
 
         {success ? (

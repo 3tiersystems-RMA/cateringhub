@@ -19,7 +19,7 @@ export default function DiscountVouchersTab({ can }: DiscountVouchersTabProps) {
   const [editingDv, setEditingDv] = useState<DiscountVoucher | null>(null);
   const [dvForm, setDvForm] = useState({
     dv_code: '', dv_type: 'Discount' as 'Discount' | 'Gift', dv_amount: '',
-    status: 'Active' as 'Active' | 'Inactive', expiry_date: '', created_at: '',
+    status: 'Active\' as \'Active\' | \'Inactive', expiry_date: '', created_at: '',
   });
   const [dvFormError, setDvFormError] = useState('');
   const [dvFormSuccess, setDvFormSuccess] = useState('');
