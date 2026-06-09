@@ -1093,7 +1093,7 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
           </div>
 
           {/* ── General Session Details (no event link) ── */}
-          <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5">
+          <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5 opacity-50 pointer-events-none">
             <h3 className="text-base font-semibold text-[#1A1612] mb-1">Session Details</h3>
             <p className="text-xs text-[#8C8278] mb-4">Enter general event sessions. These dates will appear on the registration form under "Select Attendance" for all events.</p>
 
