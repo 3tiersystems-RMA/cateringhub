@@ -566,6 +566,7 @@ export default function EventManagement({ canCreate = true, canDelete = true }: 
                           onClick={() => {
                             setImageInputMode('device');
                             setForm((f) => ({ ...f, image_url: '' }));
+                            setTimeout(() => imageInputRef.current?.click(), 50);
                           }}
                           className={`flex-1 py-2 text-xs font-semibold transition-colors ${
                             imageInputMode === 'device' ? 'bg-[#C4622D] text-white' : 'bg-white text-[#5C5347] hover:bg-[#e9e0cf]'

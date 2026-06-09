@@ -733,9 +733,15 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
                                   {child.school && <Field label="School" value={child.school} />}
                                   {child.grade && <Field label="Grade" value={child.grade} />}
                                   {childAllergies && <Field label="Allergies / Dietary" value={childAllergies} />}
+                                  {child.picturesTaken !== undefined && child.picturesTaken !== null && child.picturesTaken !== '' && (
+                                    <Field label="Pictures Taken" value={String(child.picturesTaken)} />
+                                  )}
+                                  {(child as Record<string, unknown>).indemnityConsent !== undefined && (child as Record<string, unknown>).indemnityConsent !== null && (child as Record<string, unknown>).indemnityConsent !== '' && (
+                                    <Field label="Indemnity Consent" value={(child as Record<string, unknown>).indemnityConsent === true || (child as Record<string, unknown>).indemnityConsent === 'true' ? 'Yes' : 'No'} />
+                                  )}
                                   {/* Render any other fields */}
                                   {Object.entries(child)
-                                    .filter(([k]) => !['full_name', 'name', 'dob', 'age', 'gender', 'school', 'grade', 'allergies'].includes(k))
+                                    .filter(([k]) => !['full_name', 'fullName', 'name', 'dob', 'age', 'gender', 'school', 'grade', 'allergies', 'dietaryRestrictions', 'picturesTaken', 'indemnityConsent'].includes(k))
                                     .filter(([, v]) => v !== null && v !== undefined && v !== '')
                                     .map(([k, v]) => (
                                       <Field key={k} label={k.replace(/_/g, ' ')} value={String(v)} />
