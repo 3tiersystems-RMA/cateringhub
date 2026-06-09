@@ -540,7 +540,7 @@ export default function CookingClassesPage() {
   function validatePage4(): boolean {
     const errors: Record<string, string> = {};
     const filledChildren = page4.children.filter(c => c.fullName.trim());
-    if (filledChildren.length === 0) errors.children = "Please enter at least one child's details";
+    if (filledChildren.length === 0) errors.children = "Please enter at least one participant's details";
 
     // (4) If child name entered, DOB/Gender/Dietary are mandatory
     page4.children.forEach((child, idx) => {
@@ -1732,7 +1732,7 @@ export default function CookingClassesPage() {
                           className={`w-full flex items-center justify-between px-4 py-3 transition-colors ${isDisabledBySeats ? 'bg-[#EDE7DA] cursor-not-allowed' : 'bg-[#F5F0E8] hover:bg-[#EDE7DA]'}`}
                         >
                           <span className="text-sm font-semibold text-[#1A1612]">
-                            Child ({idx + 1}){child.fullName.trim() ? ` — ${child.fullName.trim()}` : ''}
+                            Participant ({idx + 1}){child.fullName.trim() ? ` — ${child.fullName.trim()}` : ''}
                             {isDisabledBySeats && <span className="ml-2 text-xs font-normal text-[#8C8278]">(seat unavailable)</span>}
                           </span>
                           <div className="flex items-center gap-2">
@@ -1743,7 +1743,7 @@ export default function CookingClassesPage() {
                                 onClick={e => { e.stopPropagation(); removeChild(idx); }}
                                 onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); removeChild(idx); } }}
                                 className="text-[#8C8278] hover:text-red-500 transition-colors p-1 rounded"
-                                aria-label={`Remove Child ${idx + 1}`}
+                                aria-label={`Remove Participant ${idx + 1}`}
                               >
                                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -1857,7 +1857,7 @@ export default function CookingClassesPage() {
                               {/* Photo consent */}
                               <div className="mb-3">
                                 <p className="text-xs text-[#1A1612] mb-2">
-                                  Photos taken of my/our child(ren) at the cooking classes{' '}
+                                  Photos taken of my/our participant(s) at the cooking classes{' '}
                                   {hasName && <span className="text-red-500">*</span>}
                                 </p>
                                 <div className="flex items-center gap-6">
@@ -1908,7 +1908,7 @@ export default function CookingClassesPage() {
                   })}
                 </div>
 
-                {/* + Add another child button */}
+                {/* + Add another participant button */}
                 {page4.children.length < 10 && (
                   <div className="mb-6">
                     <button
@@ -1931,7 +1931,7 @@ export default function CookingClassesPage() {
                     </button>
                     {!isLastChildComplete() && (
                       <p className="text-xs text-amber-600 mt-2 text-center">
-                        Please complete all mandatory fields for the current child (Full Name, DOB, Gender, Dietary Restrictions, Photo Consent, and Indemnity Consent) before adding another child.
+                        Please complete all mandatory fields for the current participant (Full Name, DOB, Gender, Dietary Restrictions, Photo Consent, and Indemnity Consent) before adding another participant.
                       </p>
                     )}
                   </div>
