@@ -296,58 +296,39 @@ export default function EventManagementSettings({ isSuperAdmin = false, readOnly
     setEventDatesMsg(prev => ({ ...prev, [eventId]: '' }));
     try {
       const rows = eventDateRows[eventId] || [];
-      const toUpsert: any[] = [];
-      const toInsert: any[] = [];
 
-      rows.forEach((r, i) => {
-        if (r.id) {
-          toUpsert.push({
-            ...(r.id ? { id: r.id } : {}),
-            event_id: eventId,
-            event_date: r.event_date,
-            start_time: r.start_time || null,
-            end_time: r.end_time || null,
-            location: r.location || DEFAULT_LOCATION,
-            sort_order: i,
-            seating: Number(r.seating) || 0,
-            status_id: r.status_id || null,
-            event_fee: r.event_fee !== '' ? Number(r.event_fee) : null,
-          });
-        } else {
-          if (r.event_date) {
-            toInsert.push({
-              event_id: eventId,
-              event_date: r.event_date,
-              start_time: r.start_time || null,
-              end_time: r.end_time || null,
-              location: r.location || DEFAULT_LOCATION,
-              sort_order: i,
-              seating: Number(r.seating) || 0,
-              status_id: r.status_id || null,
-              event_fee: r.event_fee !== '' ? Number(r.event_fee) : null,
-            });
-          }
-        }
-      });
+      // Build the list of rows to save — only rows that have an event_date filled in
+      const rowsToSave = rows
+        .filter(r => r.event_date && r.event_date.trim() !== '')
+        .map((r, i) => ({
+          event_id: eventId,
+          event_date: r.event_date,
+          start_time: r.start_time || null,
+          end_time: r.end_time || null,
+          location: r.location || DEFAULT_LOCATION,
+          sort_order: i,
+          seating: Number(r.seating) || 0,
+          status_id: r.status_id || null,
+          event_fee: r.event_fee !== '' ? Number(r.event_fee) : null,
+        }));
 
-      // Delete removed rows
-      const existingIds = rows.filter(r => r.id).map(r => r.id!);
-      const { data: dbRows } = await supabase.from('event_management_event_dates').select('id').eq('event_id', eventId);
-      const dbIds = (dbRows || []).map((r: any) => r.id);
-      const toDelete = dbIds.filter((id: string) => !existingIds.includes(id));
-      if (toDelete.length > 0) {
-        await supabase.from('event_management_event_dates').delete().in('id', toDelete);
+      // Step 1: Delete ALL existing rows for this event
+      const { error: deleteError } = await supabase
+        .from('event_management_event_dates')
+        .delete()
+        .eq('event_id', eventId);
+      if (deleteError) throw deleteError;
+
+      // Step 2: Insert all rows fresh (no id field — DB generates new UUIDs)
+      if (rowsToSave.length > 0) {
+        const { error: insertError } = await supabase
+          .from('event_management_event_dates')
+          .insert(rowsToSave);
+        if (insertError) throw insertError;
       }
 
-      if (toUpsert.length > 0) {
-        const { error } = await supabase.from('event_management_event_dates').upsert(toUpsert, { onConflict: 'id' });
-        if (error) throw error;
-      }
-      if (toInsert.filter(r => r.event_date).length > 0) {
-        const { error } = await supabase.from('event_management_event_dates').insert(toInsert.filter(r => r.event_date));
-        if (error) throw error;
-      }
       setEventDatesMsg(prev => ({ ...prev, [eventId]: 'Saved' }));
+      // Reload so state has fresh DB-generated IDs
       await loadAllDateRows();
     } catch (err: any) {
       setEventDatesMsg(prev => ({ ...prev, [eventId]: err.message || 'Failed to save' }));
