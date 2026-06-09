@@ -415,7 +415,7 @@ export default function StaffWorkspacePage() {
                     }`}
                   >
                     <span className="text-base">🎪</span>
-                    <span className="flex-1">Event Management</span>
+                    <span className="flex-1">Event Bookings</span>
                     <span className="text-xs">{eventManagementOpen ? '▲' : '▼'}</span>
                   </button>
                   {eventManagementOpen && (
