@@ -161,13 +161,11 @@ export default function ProductModal({ product, onClose, added, onAdd }: Product
             {product.visualType !== "Macro" ? (
               <button
                 onClick={onAdd}
-                disabled={!product.available}
+                disabled={!product.available || product.badge === "Sold Out"}
                 className={`flex items-center gap-2 px-6 py-3 rounded-full text-sm font-semibold transition-all duration-300 ${
                   added
                     ? "bg-green-500 text-white scale-95"
-                    : product.available
-                    ? "bg-[#C4622D] text-white hover:bg-[#A04E22] hover:shadow-lg"
-                    : "bg-[#EDE7DA] text-[#B5ADA5] cursor-not-allowed"
+                    : !product.available || product.badge === "Sold Out" ?"bg-[#EDE7DA] text-[#B5ADA5] cursor-not-allowed" :"bg-[#C4622D] text-white hover:bg-[#A04E22] hover:shadow-lg"
                 }`}
                 aria-label={`Add ${product.name} to cart`}
               >
