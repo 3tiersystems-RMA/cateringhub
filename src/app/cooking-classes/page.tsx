@@ -957,7 +957,7 @@ export default function CookingClassesPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         order: {
-          paymentId: `CC-${regId.slice(0, 8).toUpperCase()}`,
+          paymentId: registrationCode,
           itemName: 'Cooking & Baking Class Registration',
           itemDescription: `${page1.firstName} ${page1.surname} - ${page1.selectedEvents.join(', ')}`,
           amount,

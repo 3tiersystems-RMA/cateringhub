@@ -603,7 +603,7 @@ export default function EventBookingsPage() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        order: { paymentId: `EB-${regId.slice(0, 8).toUpperCase()}`, itemName: 'Event Booking Registration', itemDescription: `${page1.firstName} ${page1.surname} - ${page1.selectedEvents.join(', ')}`, amount },
+        order: { paymentId: registrationCode, itemName: 'Event Booking Registration', itemDescription: `${page1.firstName} ${page1.surname} - ${page1.selectedEvents.join(', ')}`, amount },
         buyer: { firstName: page1.firstName, lastName: page1.surname, email: page1.email, cellNumber: page1.cellphone },
         returnUrl: `${window.location.origin}/event-bookings/payment-return?id=${regId}&status=success`,
         cancelUrl: `${window.location.origin}/event-bookings/payment-return?id=${regId}&status=cancel`,
