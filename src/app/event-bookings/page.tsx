@@ -789,6 +789,11 @@ export default function EventBookingsPage() {
                             <input type="checkbox" checked={page1.selectedDates.includes(label)} onChange={() => selectable && toggleDate(label)} disabled={!selectable} className="w-4 h-4 rounded border-[#DDD5C8] text-[#C4622D] focus:ring-[#C4622D] disabled:opacity-50" />
                             <span className={`text-sm ${selectable ? 'text-[#1A1612]' : 'text-[#8C8278]'}`}>{label}</span>
                           </label>
+                          {row.location && (
+                            <p className="text-xs mt-0.5 ml-7 text-[#5C5347]">
+                              {row.location}
+                            </p>
+                          )}
                           {availability.text && <p className={`text-xs mt-0.5 ml-7 font-medium ${availability.color}`}>{availability.text}</p>}
                         </div>
                       );
