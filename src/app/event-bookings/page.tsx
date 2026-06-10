@@ -14,6 +14,7 @@ interface FormPage1 {
   cellphone: string;
   selectedEvents: string[];
   selectedDates: string[];
+  selectedDateIds: string[];
 }
 
 interface FormPage3 {
@@ -159,7 +160,7 @@ export default function EventBookingsPage() {
   const [showLimitedSeatsWarning, setShowLimitedSeatsWarning] = useState(false);
   const [limitedSeatsWarningShown, setLimitedSeatsWarningShown] = useState(false);
 
-  const [page1, setPage1] = useState<FormPage1>({ title: '', firstName: '', surname: '', email: '', emailConfirm: '', cellphone: '', selectedEvents: [], selectedDates: [] });
+  const [page1, setPage1] = useState<FormPage1>({ title: '', firstName: '', surname: '', email: '', emailConfirm: '', cellphone: '', selectedEvents: [], selectedDates: [], selectedDateIds: [] });
   const [page3, setPage3] = useState<FormPage3>({ contact1: { ...EMPTY_CONTACT }, contact2: { ...EMPTY_CONTACT }, medicalDoctorFirstName: '', medicalDoctorSurname: '', medicalAidName: '', medicalAidNumber: '' });
   const [page4, setPage4] = useState<FormPage4>({ children: [{ ...EMPTY_PARTICIPANT }], attendSchoolHoliday: '', hasIndemnityForm: '', indemnityFile: null, indemnityFilePreview: '' });
   const [page5, setPage5] = useState<FormPage5>({ paymentMethod: 'eft', proofFile: null, proofPreview: '' });
@@ -283,10 +284,14 @@ export default function EventBookingsPage() {
   }
 
   function getEventFee(): number {
-    if (page1.selectedDates.length > 0) {
-      const matchedRows = eventDates.filter(row => page1.selectedDates.includes(formatEventDate(row)));
-      for (const row of matchedRows) { if (row.event_fee != null && row.event_fee > 0) return row.event_fee; }
+    // ID-based lookup first (most reliable)
+    if (page1.selectedDateIds.length > 0) {
+      for (const id of page1.selectedDateIds) {
+        const row = eventDates.find(r => r.id === id);
+        if (row && row.event_fee != null && row.event_fee > 0) return row.event_fee;
+      }
     }
+    // Fall back to any date in the selected event that has a fee
     const filtered = getFilteredDates();
     for (const row of filtered) { if (row.event_fee != null && row.event_fee > 0) return row.event_fee; }
     return settings?.event_fee || 0;
@@ -295,8 +300,10 @@ export default function EventBookingsPage() {
   function getSessionBreakdown(): { dateLabel: string; fee: number; participants: number; amount: number }[] {
     const count = getParticipantCount();
     if (page1.selectedDates.length === 0) return [];
-    return page1.selectedDates.map(dateLabel => {
-      const row = eventDates.find(r => formatEventDate(r) === dateLabel);
+    return page1.selectedDates.map((dateLabel, idx) => {
+      // Use stored ID for reliable lookup
+      const id = page1.selectedDateIds[idx];
+      const row = id ? eventDates.find(r => r.id === id) : eventDates.find(r => formatEventDate(r) === dateLabel);
       const fee = (row && row.event_fee != null && row.event_fee > 0) ? row.event_fee : getEventFee();
       return { dateLabel, fee, participants: count, amount: fee * count };
     });
@@ -419,14 +426,25 @@ export default function EventBookingsPage() {
   function selectEvent(eventName: string) {
     setPage1(prev => {
       const alreadySelected = prev.selectedEvents.length === 1 && prev.selectedEvents[0] === eventName;
-      return { ...prev, selectedEvents: alreadySelected ? [] : [eventName], selectedDates: [] };
+      return { ...prev, selectedEvents: alreadySelected ? [] : [eventName], selectedDates: [], selectedDateIds: [] };
     });
   }
 
-  function toggleDate(dateLabel: string) {
+  function toggleDate(dateLabel: string, dateId: string) {
     setPage1(prev => {
       const exists = prev.selectedDates.includes(dateLabel);
-      return { ...prev, selectedDates: exists ? prev.selectedDates.filter(d => d !== dateLabel) : [...prev.selectedDates, dateLabel] };
+      if (exists) {
+        return {
+          ...prev,
+          selectedDates: prev.selectedDates.filter(d => d !== dateLabel),
+          selectedDateIds: prev.selectedDateIds.filter((_, i) => prev.selectedDates[i] !== dateLabel),
+        };
+      }
+      return {
+        ...prev,
+        selectedDates: [...prev.selectedDates, dateLabel],
+        selectedDateIds: [...prev.selectedDateIds, dateId],
+      };
     });
   }
 
@@ -796,7 +814,7 @@ export default function EventBookingsPage() {
                       return (
                         <div key={row.id}>
                           <label className={`flex items-center gap-3 ${selectable ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}>
-                            <input type="checkbox" checked={page1.selectedDates.includes(label)} onChange={() => selectable && toggleDate(label)} disabled={!selectable} className="w-4 h-4 rounded border-[#DDD5C8] text-[#C4622D] focus:ring-[#C4622D] disabled:opacity-50" />
+                            <input type="checkbox" checked={page1.selectedDates.includes(label)} onChange={() => selectable && toggleDate(label, row.id)} disabled={!selectable} className="w-4 h-4 rounded border-[#DDD5C8] text-[#C4622D] focus:ring-[#C4622D] disabled:opacity-50" />
                             <span className={`text-sm ${selectable ? 'text-[#1A1612]' : 'text-[#8C8278]'}`}>{label}</span>
                           </label>
                           {row.location && (
