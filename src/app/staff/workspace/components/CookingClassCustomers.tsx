@@ -15,6 +15,7 @@ interface ChildParticipant {
   dietaryRestrictions?: string;
   school?: string;
   grade?: string;
+  ticket_number?: string;
 }
 
 interface EmergencyContact {
@@ -54,6 +55,7 @@ interface Registration {
   indemnity_consent: boolean | null;
   proof_of_payment_url: string | null;
   notes: string | null;
+  registration_code?: string | null;
   // joined
   session_dates?: SessionDate[];
 }
@@ -465,6 +467,9 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
                       {reg.title ? `${reg.title} ` : ''}{reg.first_name} {reg.surname}
                     </p>
                     <p className={`text-xs truncate ${isExpanded ? 'text-gray-400' : 'text-[#8C8278]'}`}>{reg.email} · {reg.cellphone}</p>
+                    {reg.registration_code && (
+                      <p className={`text-xs font-mono font-semibold mt-0.5 ${isExpanded ? 'text-orange-300' : 'text-[#C4622D]'}`}>Reg: {reg.registration_code}</p>
+                    )}
                   </div>
 
                   {/* Sessions badge */}
@@ -723,10 +728,14 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
                                   {childAge !== '—' && (
                                     <span className="text-xs bg-white border border-[#DDD5C8] text-[#5C5347] px-2 py-0.5 rounded-full">Age {childAge}</span>
                                   )}
+                                  {child.ticket_number && (
+                                    <span className="text-xs font-mono font-semibold bg-[#FDF6EE] border border-[#C4622D]/30 text-[#C4622D] px-2 py-0.5 rounded-full">{child.ticket_number}</span>
+                                  )}
                                   <span className="ml-auto text-xs text-[#8C8278]">Child Participant</span>
                                 </div>
                                 <div className="p-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
                                   <Field label="Full Name" value={childName} />
+                                  {child.ticket_number && <Field label="Ticket Number" value={child.ticket_number} highlight />}
                                   <Field label="Date of Birth" value={child.dob ? formatDate(child.dob) : undefined} />
                                   <Field label="Age" value={childAge} />
                                   {child.gender && <Field label="Gender" value={child.gender} />}
@@ -741,7 +750,7 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
                                   )}
                                   {/* Render any other fields */}
                                   {Object.entries(child)
-                                    .filter(([k]) => !['full_name', 'fullName', 'name', 'dob', 'age', 'gender', 'school', 'grade', 'allergies', 'dietaryRestrictions', 'picturesTaken', 'indemnityConsent'].includes(k))
+                                    .filter(([k]) => !['full_name', 'fullName', 'name', 'dob', 'age', 'gender', 'school', 'grade', 'allergies', 'dietaryRestrictions', 'picturesTaken', 'indemnityConsent', 'ticket_number'].includes(k))
                                     .filter(([, v]) => v !== null && v !== undefined && v !== '')
                                     .map(([k, v]) => (
                                       <Field key={k} label={k.replace(/_/g, ' ')} value={String(v)} />

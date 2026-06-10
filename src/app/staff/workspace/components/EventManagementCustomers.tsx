@@ -53,6 +53,7 @@ interface Registration {
   indemnity_consent: boolean | null;
   proof_of_payment_url: string | null;
   notes: string | null;
+  registration_code?: string | null;
   session_dates?: SessionDate[];
 }
 
@@ -267,6 +268,9 @@ export default function EventManagementCustomers({ isSuperAdmin = false }: Event
                     <div>
                       <p className="text-sm font-semibold text-[#1A1612]">{reg.title} {reg.first_name} {reg.surname}</p>
                       <p className="text-xs text-[#8C8278]">{reg.email} · {reg.cellphone}</p>
+                      {reg.registration_code && (
+                        <p className="text-xs font-mono font-semibold text-[#C4622D] mt-0.5">Reg: {reg.registration_code}</p>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-3">

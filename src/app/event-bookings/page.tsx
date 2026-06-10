@@ -527,6 +527,24 @@ export default function EventBookingsPage() {
       }
 
       const amountDue = getAmountDue();
+
+      // Generate a unique registration code for this event booking
+      const regCodeSuffix = Math.random().toString(36).substring(2, 6).toUpperCase() + Math.random().toString(36).substring(2, 6).toUpperCase();
+      const registrationCode = `EB-${regCodeSuffix.substring(0, 8)}`;
+
+      // Generate a unique ticket number for each participant
+      const filledParticipants = page4.children.filter(c => c.fullName.trim().length > 0);
+      const participantsWithTickets = filledParticipants.map((c, idx) => {
+        const ticketSuffix = Math.random().toString(36).substring(2, 6).toUpperCase() + Math.random().toString(36).substring(2, 6).toUpperCase();
+        const ticketNumber = `TKT-${ticketSuffix.substring(0, 8)}-${String(idx + 1).padStart(2, '0')}`;
+        return {
+          fullName: c.fullName, dob: c.dob, age: c.dob ? String(calculateAge(c.dob) ?? '') : c.age,
+          gender: c.gender, grade: c.grade, dietaryRestrictions: c.dietaryRestrictions,
+          picturesTaken: c.picturesTaken, indemnityConsent: c.indemnityConsent,
+          ticket_number: ticketNumber,
+        };
+      });
+
       const { data: reg, error: regErr } = await supabase
         .from('event_management_registrations')
         .insert({
@@ -543,11 +561,7 @@ export default function EventBookingsPage() {
           medical_doctor_surname: page3.medicalDoctorSurname,
           medical_aid_name: page3.medicalAidName,
           medical_aid_number: page3.medicalAidNumber,
-          children: page4.children.filter(c => c.fullName.trim().length > 0).map(c => ({
-            fullName: c.fullName, dob: c.dob, age: c.dob ? String(calculateAge(c.dob) ?? '') : c.age,
-            gender: c.gender, grade: c.grade, dietaryRestrictions: c.dietaryRestrictions,
-            picturesTaken: c.picturesTaken, indemnityConsent: c.indemnityConsent,
-          })),
+          children: participantsWithTickets,
           attend_school_holiday: page4.attendSchoolHoliday,
           pictures_taken: page4.children.filter(c => c.fullName.trim()).map(c => c.picturesTaken).join(', '),
           indemnity_consent: page4.children.filter(c => c.fullName.trim()).every(c => c.indemnityConsent),
@@ -557,6 +571,7 @@ export default function EventBookingsPage() {
           proof_of_payment_url: proofSupabaseUrl,
           proof_of_payment_drive_url: proofDriveUrl,
           amount: amountDue,
+          registration_code: registrationCode,
         })
         .select('id')
         .single();
@@ -592,7 +607,7 @@ export default function EventBookingsPage() {
         buyer: { firstName: page1.firstName, lastName: page1.surname, email: page1.email, cellNumber: page1.cellphone },
         returnUrl: `${window.location.origin}/event-bookings/payment-return?id=${regId}&status=success`,
         cancelUrl: `${window.location.origin}/event-bookings/payment-return?id=${regId}&status=cancel`,
-        notifyUrl: `${window.location.origin}/api/cooking-classes/payfast-itn?id=${regId}`,
+        notifyUrl: `${window.location.origin}/api/event-bookings/payfast-itn?id=${regId}`,
       }),
     });
     const data = await res.json();
