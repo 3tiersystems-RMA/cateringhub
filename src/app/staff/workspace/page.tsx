@@ -434,7 +434,7 @@ export default function StaffWorkspacePage() {
                       {/* Events — moved from Customer Relations */}
                       {canTab('media_events') && (
                         <button onClick={() => { handleTabChange('media_events'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'media_events' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'}`}>
-                          <span className="text-base">🎉</span><span>Events</span>
+                          <span className="text-base">🎉</span><span>Events Marketing</span>
                         </button>
                       )}
                       {canTab('event_management_customers') && (
