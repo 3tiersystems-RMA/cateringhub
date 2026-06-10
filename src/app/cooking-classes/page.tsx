@@ -451,7 +451,7 @@ export default function CookingClassesPage() {
       if (row && row.class_fee != null && row.class_fee > 0) {
         fee = row.class_fee;
       } else {
-        fee = settings?.class_fee || 0;
+        fee = getEventClassFee();
       }
       return { dateLabel, fee, participants: count, amount: fee * count };
     });

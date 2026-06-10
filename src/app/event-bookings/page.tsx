@@ -297,7 +297,7 @@ export default function EventBookingsPage() {
     if (page1.selectedDates.length === 0) return [];
     return page1.selectedDates.map(dateLabel => {
       const row = eventDates.find(r => formatEventDate(r) === dateLabel);
-      const fee = (row && row.event_fee != null && row.event_fee > 0) ? row.event_fee : (settings?.event_fee || 0);
+      const fee = (row && row.event_fee != null && row.event_fee > 0) ? row.event_fee : getEventFee();
       return { dateLabel, fee, participants: count, amount: fee * count };
     });
   }
