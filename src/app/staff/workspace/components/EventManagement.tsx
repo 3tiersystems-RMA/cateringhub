@@ -103,7 +103,7 @@ export default function EventManagement({ canCreate = true, canDelete = true }: 
   const [listError, setListError] = useState('');
   // 'device' | 'url'
   const [imageInputMode, setImageInputMode] = useState<'device' | 'url'>('device');
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(true);
 
   useEffect(() => {
     loadEvents();
