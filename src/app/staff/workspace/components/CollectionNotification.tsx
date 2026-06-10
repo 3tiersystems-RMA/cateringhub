@@ -266,7 +266,6 @@ export default function CollectionNotification({ userRole }: CollectionNotificat
 
           {/* CTA preview */}
           <div>
-            <p className="text-[#5C5347] text-sm mb-2">View and manage this order in the staff workspace:</p>
             <a href="https://cardamomkitchen.co.za/order-history" className="inline-block bg-[#C4622D] text-white text-sm font-bold px-5 py-2.5 rounded-lg">View your Order(s) →</a>
           </div>
         </div>
