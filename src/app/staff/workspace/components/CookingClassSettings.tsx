@@ -1092,40 +1092,6 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
             )}
           </div>
 
-          {/* ── General Session Details (no event link) ── */}
-          <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5 opacity-50 pointer-events-none">
-            <h3 className="text-base font-semibold text-[#1A1612] mb-1">Session Details</h3>
-            <p className="text-xs text-[#8C8278] mb-4">Enter general event sessions. These dates will appear on the registration form under "Select Attendance" for all events.</p>
-
-            <div className="space-y-3">
-              {generalDateRows.map((row, i) =>
-                renderSessionCard(row, i, (field, value) => updateGeneralDateRow(i, field, value), i > 0 ? () => removeGeneralSession(i) : undefined)
-              )}
-            </div>
-
-            {/* + Add another session button */}
-            <button
-              type="button"
-              onClick={addGeneralSession}
-              className="mt-3 w-full flex items-center justify-center gap-2 border border-dashed border-[#C4622D] text-[#C4622D] rounded-xl py-2.5 text-sm font-medium hover:bg-[#FFF8F4] transition-colors"
-            >
-              <span className="text-lg leading-none">+</span>
-              Add another session
-            </button>
-
-            {generalDatesMsg && (
-              <p className={`text-xs mt-3 ${generalDatesMsg.includes('Failed') ? 'text-red-500' : 'text-green-600'}`}>{generalDatesMsg}</p>
-            )}
-
-            <button
-              onClick={handleSaveGeneralDates}
-              disabled={savingGeneralDates}
-              className="mt-4 bg-[#C4622D] text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
-            >
-              {savingGeneralDates ? 'Saving...' : 'Save Event Dates'}
-            </button>
-          </div>
-
           {/* (6) Per-event Session Details blocks — one per event, each collapsible */}
           {events.map(ev => {
             const isBlockCollapsed = collapsedEventBlocks[ev.id] ?? true;
