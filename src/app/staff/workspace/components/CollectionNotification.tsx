@@ -221,22 +221,6 @@ export default function CollectionNotification({ userRole }: CollectionNotificat
             We are pleased to confirm that your payment has been received and your order is now confirmed.
           </p>
 
-          {/* Customer Information */}
-          <div className="rounded-xl overflow-hidden border border-[#EDE7DA]">
-            <div className="bg-[#EDE7DA] px-4 py-2.5">
-              <p className="text-xs font-bold text-[#8C8278] uppercase tracking-wider">Customer Information</p>
-            </div>
-            <div className="divide-y divide-[#f0ebe4]">
-              <div className="flex justify-between px-4 py-2.5 text-sm"><span className="text-[#8C8278]">Name</span><span className="font-semibold text-[#1A1612]">{order.customer_name}</span></div>
-              <div className="flex justify-between px-4 py-2.5 text-sm"><span className="text-[#8C8278]">Email</span><span className="font-semibold text-[#C4622D]">{order.customer_email}</span></div>
-              {order.customer_phone && <div className="flex justify-between px-4 py-2.5 text-sm"><span className="text-[#8C8278]">Phone</span><span className="font-semibold text-[#1A1612]">{order.customer_phone}</span></div>}
-              <div className="flex justify-between px-4 py-2.5 text-sm"><span className="text-[#8C8278]">Order Date</span><span className="font-semibold text-[#1A1612]">{formatDate(order.created_at)}</span></div>
-              <div className="flex justify-between px-4 py-2.5 text-sm"><span className="text-[#8C8278]">Payment Method</span><span className="font-semibold text-[#1A1612]">{order.m_payment_id ? 'PayFast' : 'EFT'}</span></div>
-              <div className="flex justify-between px-4 py-2.5 text-sm"><span className="text-[#8C8278]">Delivery Address</span><span className="font-semibold text-[#1A1612]">{order.delivery_address || 'N/A'}</span></div>
-              {order.notes && <div className="flex justify-between px-4 py-2.5 text-sm"><span className="text-[#8C8278]">Notes</span><span className="font-semibold text-[#1A1612] text-right max-w-[60%]">{order.notes}</span></div>}
-            </div>
-          </div>
-
           {/* Order Summary */}
           <div className="rounded-xl overflow-hidden border border-[#EDE7DA]">
             <div className="bg-[#EDE7DA] px-4 py-2.5">
