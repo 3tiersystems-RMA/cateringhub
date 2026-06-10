@@ -406,12 +406,12 @@ export default function StaffWorkspacePage() {
               )}
 
               {/* ── Event Management ── */}
-              {canAnyTab('event_management', 'event_management_customers', 'event_management_registrations', 'event_management_analytics') && (
+              {canAnyTab('event_management', 'event_management_customers', 'event_management_registrations', 'event_management_analytics', 'media_events') && (
                 <>
                   <button
                     onClick={() => setEventManagementOpen(prev => !prev)}
                     className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
-                      ['event_management', 'event_management_customers', 'event_management_registrations', 'event_management_analytics'].includes(activeTab) ? 'text-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
+                      ['event_management', 'event_management_customers', 'event_management_registrations', 'event_management_analytics', 'media_events'].includes(activeTab) ? 'text-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
                     }`}
                   >
                     <span className="text-base">🎪</span>
@@ -429,6 +429,12 @@ export default function StaffWorkspacePage() {
                         >
                           <span className="text-sm">⚙️</span>
                           <span>Settings</span>
+                        </button>
+                      )}
+                      {/* Events — moved from Customer Relations */}
+                      {canTab('media_events') && (
+                        <button onClick={() => { handleTabChange('media_events'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'media_events' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'}`}>
+                          <span className="text-base">🎉</span><span>Events</span>
                         </button>
                       )}
                       {canTab('event_management_customers') && (
@@ -542,9 +548,9 @@ export default function StaffWorkspacePage() {
               )}
 
               {/* ── Customer Relations (collapsible) ── */}
-              {canAnyTab('media', 'media_events', 'cooking_class_customers', 'payment_confirmation', 'products', 'collection_notification') && (
+              {canAnyTab('media', 'cooking_class_customers', 'payment_confirmation', 'products', 'collection_notification') && (
                 <>
-                  <button onClick={() => setMediaMenuOpen(prev => !prev)} className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${['media', 'media_events', 'cooking_class_customers', 'payment_confirmation', 'products', 'collection_notification'].includes(activeTab) ? 'text-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'}`}>
+                  <button onClick={() => setMediaMenuOpen(prev => !prev)} className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${['media', 'cooking_class_customers', 'payment_confirmation', 'products', 'collection_notification'].includes(activeTab) ? 'text-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'}`}>
                     <span className="text-base">🗂️</span><span className="flex-1">Customer Relations</span><span className="text-xs">{mediaMenuOpen ? '▲' : '▼'}</span>
                   </button>
                   {mediaMenuOpen && (
@@ -573,13 +579,7 @@ export default function StaffWorkspacePage() {
                           <span className="text-base">🔔</span><span>Collection Notification</span>
                         </button>
                       )}
-                      {/* 5. Events */}
-                      {canTab('media_events') && (
-                        <button onClick={() => { handleTabChange('media_events'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'media_events' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
-                          <span className="text-base">🎉</span><span>Events</span>
-                        </button>
-                      )}
-                      {/* 6. Document Management */}
+                      {/* 5. Document Management */}
                       {canTab('media') && (
                         <button onClick={() => { handleTabChange('media'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'media' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
                           <span className="text-base">📄</span><span>Document Management</span>
