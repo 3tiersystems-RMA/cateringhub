@@ -218,7 +218,7 @@ export default function CollectionNotification({ userRole }: CollectionNotificat
           {/* Greeting */}
           <p className="text-[#5C5347] text-sm leading-relaxed">
             Dear <strong>{order.customer_name}</strong>,<br />
-            We are pleased to confirm that your payment has been received, your order is now confirmed, and ready for Collection. Thank you for your Order
+            We are pleased to confirm that your payment has been received, your order is now confirmed, and ready for Collection. Thank you for your Order !
           </p>
 
           {/* Order Summary */}
