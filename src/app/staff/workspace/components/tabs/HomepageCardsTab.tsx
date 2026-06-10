@@ -169,9 +169,6 @@ export default function HomepageCardsTab({ can }: HomepageCardsTabProps) {
               <p className="text-xs text-[#8C8278]">Scrolling announcement banner on the homepage</p>
             </div>
             <div className="flex items-center gap-3">
-              {can('edit') && (
-                <button onClick={() => setTickerBannerEditing(!tickerBannerEditing)} className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl font-semibold hover:bg-[#FDF6EE] transition-colors">Edit</button>
-              )}
               <button
                 onClick={handleToggleTickerBanner}
                 disabled={tickerBannerLoading}
@@ -179,6 +176,9 @@ export default function HomepageCardsTab({ can }: HomepageCardsTabProps) {
               >
                 <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${tickerBannerVisible ? 'translate-x-6' : 'translate-x-1'}`} />
               </button>
+              {can('edit') && (
+                <button onClick={() => setTickerBannerEditing(!tickerBannerEditing)} className="text-xs text-[#C4622D] border border-[#C4622D] px-3 py-1.5 rounded-xl font-semibold hover:bg-[#FDF6EE] transition-colors">Edit</button>
+              )}
             </div>
           </div>
           {tickerBannerEditing && (

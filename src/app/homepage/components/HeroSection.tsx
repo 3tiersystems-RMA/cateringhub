@@ -333,9 +333,9 @@ function HeroSectionInner() {
                     <p className="text-xs font-mono text-white/70 uppercase tracking-wider">Next Booking</p>
                   </div>
                   <p className="text-white font-semibold text-sm">{bookingCard.title}</p>
-                  {(bookingCard.event_date || bookingCard.guest_count) &&
+                  {bookingCard.guest_count &&
               <p className="text-white/60 text-xs mt-1">
-                      {bookingCard.event_date}{bookingCard.event_date && bookingCard.guest_count ? ' · ' : ''}{bookingCard.guest_count ? `${bookingCard.guest_count} guests` : ''}
+                      {new Date().toISOString().split('T')[0]}{bookingCard.guest_count ? ' · ' : ''}{bookingCard.guest_count ? `${bookingCard.guest_count} guests` : ''}
                     </p>
               }
                   {bookingCard.prep_percentage !== null &&
@@ -346,7 +346,7 @@ function HeroSectionInner() {
                     style={{ width: `${bookingCard.prep_percentage}%` }} />
                   
                       </div>
-                      <p className="text-white/50 text-xs mt-1.5">Prep: {bookingCard.prep_percentage}% complete</p>
+                      <p className="text-white/50 text-xs mt-1.5">{bookingCard.subtitle ?? `Prep: ${bookingCard.prep_percentage}% complete`}</p>
                     </>
               }
                 </div>
