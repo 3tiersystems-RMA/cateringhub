@@ -397,7 +397,7 @@ export default function StaffWorkspacePage() {
                           }`}
                         >
                           <span className="text-sm">📊</span>
-                          <span>Analytics</span>
+                          <span>Classes Analytics</span>
                         </button>
                       )}
                     </div>
