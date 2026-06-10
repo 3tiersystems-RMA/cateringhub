@@ -221,10 +221,20 @@ export default function EventBookingsPage() {
 
   async function loadBookingCounts(dateIds: string[]) {
     try {
-      const { data } = await supabase.from('event_management_booking_counts').select('event_date_id').in('event_date_id', dateIds);
+      const { data } = await supabase
+        .from('event_management_booking_counts')
+        .select('event_date_id, registration_id, event_management_registrations!registration_id(children)')
+        .in('event_date_id', dateIds);
       if (data) {
         const counts: Record<string, number> = {};
-        data.forEach((row: { event_date_id: string }) => { counts[row.event_date_id] = (counts[row.event_date_id] || 0) + 1; });
+        data.forEach((row: { event_date_id: string; registration_id: string; event_management_registrations: { children: unknown[] | null } | null }) => {
+          const reg = row.event_management_registrations;
+          const participantCount = Array.isArray(reg?.children) ? reg.children.filter((c: unknown) => {
+            const child = c as { fullName?: string };
+            return child?.fullName && String(child.fullName).trim().length > 0;
+          }).length : 1;
+          counts[row.event_date_id] = (counts[row.event_date_id] || 0) + participantCount;
+        });
         setBookingCounts(Object.entries(counts).map(([event_date_id, count]) => ({ event_date_id, count })));
       }
     } catch { /* ignore */ }
