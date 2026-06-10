@@ -597,7 +597,7 @@ export default function EventManagementSettings({ isSuperAdmin = false, readOnly
                   <button onClick={() => { setEditingEventId(ev.id); setEditingEventName(ev.name); }} className="text-xs text-[#5C5347] hover:text-[#C4622D] transition-colors px-2 py-1 rounded-lg border border-[#DDD5C8] hover:border-[#C4622D]">
                     Edit
                   </button>
-                  <button onClick={() => toggleEventActive(ev)} className="text-xs text-[#5C5347] hover:text-[#C4622D] transition-colors px-2 py-1 rounded-lg border border-[#DDD5C8] hover:border-[#C4622D]">
+                  <button onClick={() => toggleEventActive(ev)} className={`text-xs text-white transition-colors px-2 py-1 rounded-lg ${ev.is_active ? 'bg-black hover:bg-[#222]' : 'bg-[#C4622D] hover:bg-[#A04E22]'}`}>
                     {ev.is_active ? 'Deactivate' : 'Activate'}
                   </button>
                   {deleteConfirmId === ev.id ? (
