@@ -397,7 +397,7 @@ export default function EventManagement({ canCreate = true, canDelete = true }: 
           className="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-[#FAF5EE] transition-colors"
         >
           <div>
-            <span className="text-base font-bold text-[#1A1612]">Event Management</span>
+            <span className="text-base font-bold text-[#1A1612]">Current/Past Events</span>
             <p className="text-xs text-[#8C8278] mt-0.5">
               {events.length} event{events.length !== 1 ? 's' : ''} total
             </p>
