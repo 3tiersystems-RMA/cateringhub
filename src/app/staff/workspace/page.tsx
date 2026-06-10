@@ -385,7 +385,7 @@ export default function StaffWorkspacePage() {
                           }`}
                         >
                           <span className="text-sm">📋</span>
-                          <span>Event Registrations</span>
+                          <span>Class Registrations</span>
                         </button>
                       )}
                       {/* ── Analytics (sub-menu) ── */}
