@@ -169,9 +169,6 @@ export default function CookingClassConfirmation({ userRole }: CookingClassConfi
     setSendResult(null);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-
       const fullName = `${previewReg.title ? previewReg.title + ' ' : ''}${previewReg.first_name} ${previewReg.surname}`;
 
       // Build admin recipient list from correspondence settings
@@ -185,11 +182,10 @@ export default function CookingClassConfirmation({ userRole }: CookingClassConfi
       if (infoEmail) adminEmails.push(infoEmail);
       if (adminEmail && adminEmail !== infoEmail) adminEmails.push(adminEmail);
 
-      const res = await fetch(`${supabaseUrl}/functions/v1/send-cooking-class-confirmation`, {
+      const res = await fetch('/api/cooking-classes/send-confirmation', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token}`,
         },
         body: JSON.stringify({
           registrationId: previewReg.id,
