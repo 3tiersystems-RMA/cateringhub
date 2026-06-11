@@ -428,7 +428,7 @@ export default function StaffWorkspacePage() {
                           }`}
                         >
                           <span className="text-sm">⚙️</span>
-                          <span>Settings</span>
+                          <span>Event Settings</span>
                         </button>
                       )}
                       {/* Events — moved from Customer Relations */}
