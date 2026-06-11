@@ -458,7 +458,7 @@ export default function BookingQueryPage() {
                             {/* Actions */}
                             <div className="flex items-center gap-3 pt-2 flex-wrap">
                               <Link
-                                href={booking.type === "cooking_class" ? "/cooking-classes" : "/event-bookings"}
+                                href={booking.type === "cooking_class" ? "/cooking-classes" : "https://cardamomkitchen.co.za/events"}
                                 className="flex items-center gap-2 bg-[#C4622D] hover:bg-[#A04E22] text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
                               >
                                 <AppIcon name="CalendarDaysIcon" size={14} />
