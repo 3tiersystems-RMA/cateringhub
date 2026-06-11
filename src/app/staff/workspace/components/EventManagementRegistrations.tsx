@@ -708,7 +708,6 @@ export default function EventManagementRegistrations({ isSuperAdmin = false }: E
                                 <div className="p-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
                                   <Field label="Full Name" value={childName} />
                                   {child.ticket_number && <Field label="Ticket Number" value={child.ticket_number} highlight />}
-                                  <Field label="Date of Birth" value={child.dob ? formatDate(child.dob) : undefined} />
                                   <Field label="Age" value={childAge} />
                                   {child.gender && <Field label="Gender" value={child.gender} />}
                                   {child.school && <Field label="School" value={child.school} />}
