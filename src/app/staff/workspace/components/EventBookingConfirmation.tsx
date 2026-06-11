@@ -257,7 +257,12 @@ export default function EventBookingConfirmation({ userRole }: EventBookingConfi
                 <tbody>
                   {reg.session_dates.map((s, i) => (
                     <tr key={i} className="border-t border-[#f0ebe4]">
-                      <td className="px-4 py-2.5 text-[#1A1612]">{s.event_name || '—'}</td>
+                      <td className="px-4 py-2.5 text-[#1A1612]">
+                        {s.event_name || '—'}
+                        {s.location && (
+                          <p className="text-xs text-[#8C8278] mt-0.5">{s.location}</p>
+                        )}
+                      </td>
                       <td className="px-4 py-2.5 text-[#5C5347]">{formatDate(s.event_date)}</td>
                       <td className="px-4 py-2.5 text-[#5C5347] text-xs">
                         {s.start_time ? formatTime(s.start_time) : '—'}
@@ -292,7 +297,10 @@ export default function EventBookingConfirmation({ userRole }: EventBookingConfi
                 </thead>
                 <tbody>
                   <tr className="border-t border-[#f0ebe4]">
-                    <td className="px-4 py-2.5 text-[#1A1612]">Cardamom Kitchen Summer Gala</td>
+                    <td className="px-4 py-2.5 text-[#1A1612]">
+                      Cardamom Kitchen Summer Gala
+                      <p className="text-xs text-[#8C8278] mt-0.5">Cardamom Kitchen, Cape Town</p>
+                    </td>
                     <td className="px-4 py-2.5 text-[#5C5347]">15 Jul 2026</td>
                     <td className="px-4 py-2.5 text-[#5C5347] text-xs">06:00 PM – 10:00 PM</td>
                     <td className="px-4 py-2.5 text-right font-mono text-[#1A1612]">R 350.00</td>
