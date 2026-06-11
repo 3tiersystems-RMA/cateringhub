@@ -17,6 +17,14 @@ interface SessionDate {
   fee: number | null;
 }
 
+interface ParticipantRow {
+  fullName?: string;
+  full_name?: string;
+  name?: string;
+  ticket_number?: string;
+  [key: string]: unknown;
+}
+
 interface RawRegistration {
   id: string;
   title: string;
@@ -31,6 +39,7 @@ interface RawRegistration {
   selected_events: string[];
   notes: string | null;
   registration_code: string | null;
+  children: ParticipantRow[] | null;
 }
 
 interface BookingCount {
@@ -148,12 +157,12 @@ export async function GET(req: NextRequest) {
   const [ccResult, emResult] = await Promise.all([
     supabase
       .from("cooking_class_registrations")
-      .select("id, title, first_name, surname, email, cellphone, payment_status, payment_method, amount, created_at, selected_events, notes, registration_code")
+      .select("id, title, first_name, surname, email, cellphone, payment_status, payment_method, amount, created_at, selected_events, notes, registration_code, children")
       .ilike(ccColumn, searchValue)
       .order("created_at", { ascending: false }),
     supabase
       .from("event_management_registrations")
-      .select("id, title, first_name, surname, email, cellphone, payment_status, payment_method, amount, created_at, selected_events, notes, registration_code")
+      .select("id, title, first_name, surname, email, cellphone, payment_status, payment_method, amount, created_at, selected_events, notes, registration_code, children")
       .ilike(emColumn, searchValue)
       .order("created_at", { ascending: false }),
   ]);

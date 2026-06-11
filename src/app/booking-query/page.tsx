@@ -37,6 +37,24 @@ interface BookingResult {
   selected_events: string[];
   session_dates: SessionDate[];
   notes: string | null;
+  children: ParticipantRow[] | null;
+}
+
+interface ParticipantRow {
+  fullName?: string;
+  full_name?: string;
+  name?: string;
+  ticket_number?: string;
+  [key: string]: unknown;
+}
+
+function getParticipantName(p: ParticipantRow): string {
+  return String(p.fullName || p.full_name || p.name || "").trim();
+}
+
+function filterFilledParticipants(children: ParticipantRow[] | null | undefined): ParticipantRow[] {
+  if (!Array.isArray(children)) return [];
+  return children.filter((p) => getParticipantName(p).length > 0);
 }
 
 const PAYMENT_LABELS: Record<PaymentStatus, string> = {
@@ -408,6 +426,34 @@ export default function BookingQueryPage() {
                                 <p className="text-xs text-[#A09890]">{booking.notes}</p>
                               </div>
                             )}
+
+                            {/* Registered Participants */}
+                            {(() => {
+                              const participants = filterFilledParticipants(booking.children);
+                              if (participants.length === 0) return null;
+                              return (
+                                <>
+                                  <h4 className="text-xs font-semibold text-[#666] uppercase tracking-wider mb-3">
+                                    Registered Participants
+                                  </h4>
+                                  <div className="bg-[#0F0F0F] rounded-xl overflow-hidden mb-5">
+                                    {participants.map((p, idx) => (
+                                      <div
+                                        key={idx}
+                                        className="flex items-center gap-3 px-4 py-3 border-b border-[#1E1E1E] last:border-0"
+                                      >
+                                        <span className="font-mono text-xs font-semibold text-[#C4622D] shrink-0 min-w-[80px]">
+                                          {p.ticket_number || "—"}
+                                        </span>
+                                        <span className="text-sm text-[#A09890] truncate">
+                                          {getParticipantName(p) || "—"}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </>
+                              );
+                            })()}
 
                             {/* Actions */}
                             <div className="flex items-center gap-3 pt-2 flex-wrap">
