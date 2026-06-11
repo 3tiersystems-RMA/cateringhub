@@ -24,6 +24,7 @@ interface AwaitingRegistration {
   amount: number | null;
   created_at: string;
   notes: string | null;
+  registration_code: string | null;
   session_dates?: SessionDate[];
 }
 
@@ -63,7 +64,7 @@ export default function EventBookingConfirmation({ userRole }: EventBookingConfi
     const [regsResult, settingsResult] = await Promise.all([
       supabase
         .from('event_management_registrations')
-        .select('id, title, first_name, surname, email, cellphone, payment_status, amount, created_at, notes')
+        .select('id, title, first_name, surname, email, cellphone, payment_status, amount, created_at, notes, registration_code')
         .eq('payment_status', 'awaiting_confirmation')
         .order('created_at', { ascending: false }),
       supabase
@@ -216,7 +217,7 @@ export default function EventBookingConfirmation({ userRole }: EventBookingConfi
           <div className="rounded-xl overflow-hidden border border-[#EDE7DA]">
             <div className="bg-[#EDE7DA] px-4 py-2.5">
               <p className="text-xs font-bold text-[#8C8278] uppercase tracking-wider">
-                BOOKING REFERENCE — <span className="font-mono text-[#C4622D]">{reg.id.slice(0, 8).toUpperCase()}</span>
+                BOOKING REFERENCE — <span className="font-mono text-[#C4622D]">{reg.registration_code || reg.id.slice(0, 8).toUpperCase()}</span>
               </p>
             </div>
             <div className="px-4 py-3 space-y-2">
