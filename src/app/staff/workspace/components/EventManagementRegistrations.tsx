@@ -609,11 +609,7 @@ export default function EventManagementRegistrations({ isSuperAdmin = false }: E
                           <Field label="Full Name" value={`${reg.title ? reg.title + ' ' : ''}${reg.first_name} ${reg.surname}`} />
                           <Field label="Email" value={reg.email} />
                           <Field label="Cellphone" value={reg.cellphone} />
-                          <Field label="Relationship to Participants" value={reg.relationship} />
-                          <Field label="RSA ID / Passport" value={reg.rsa_id_passport} />
                           <Field label="Allergies / Illness" value={reg.allergies_illness} />
-                          <Field label="Pictures Consent" value={reg.pictures_taken} />
-                          <Field label="Indemnity Consent" value={reg.indemnity_consent != null ? (reg.indemnity_consent ? 'Yes' : 'No') : null} />
                           <Field label="Payment Method" value={reg.payment_method} />
                           <Field label="Amount Paid" value={formatCurrency(reg.amount)} highlight />
 
@@ -712,9 +708,7 @@ export default function EventManagementRegistrations({ isSuperAdmin = false }: E
                               <Field label="Full Name" value={`${reg.title ? reg.title + ' ' : ''}${reg.first_name} ${reg.surname}`} />
                               <Field label="Email" value={reg.email} />
                               <Field label="Cellphone" value={reg.cellphone} />
-                              <Field label="RSA ID / Passport" value={reg.rsa_id_passport} />
                               <Field label="Allergies / Illness" value={reg.allergies_illness} />
-                              <Field label="Relationship" value={reg.relationship} />
                             </div>
                           </div>
 
