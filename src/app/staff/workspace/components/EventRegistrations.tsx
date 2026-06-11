@@ -820,7 +820,7 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-[#2C2420]">Event Registrations</h2>
+          <h2 className="text-xl font-semibold text-[#2C2420]">Cooking Class Registrations</h2>
           <p className="text-sm text-[#8C7B6B] mt-0.5">Cooking &amp; Baking Class registrations with participant details</p>
         </div>
         <button
