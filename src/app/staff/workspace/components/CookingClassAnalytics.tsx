@@ -130,7 +130,7 @@ export default function CookingClassAnalytics() {
     .reduce((s, r) => s + (r.amount || 0), 0);
   const totalParticipants = registrations.reduce((s, r) => {
     const kids = Array.isArray(r.children) ? filterFilledChildren(r.children).length : 0;
-    return s + 1 + kids;
+    return s + kids;
   }, 0);
   const avgParticipantsPerReg = totalRegs > 0 ? (totalParticipants / totalRegs).toFixed(1) : '0';
   const conversionRate = totalRegs > 0 ? ((paidRegs.length / totalRegs) * 100).toFixed(0) : '0';
@@ -238,13 +238,13 @@ export default function CookingClassAnalytics() {
     .slice(0, 6)
     .map(d => {
       const capacity = d.seating || 0;
-      // Count total participants (registrant + children) for each booking linked to this event date
+      // Count only children (participants) for each booking linked to this event date
       const sessionBookings = bookings.filter(b => b.event_date_id === d.id);
       const booked = sessionBookings.reduce((sum, b) => {
         const reg = registrations.find(r => r.id === b.registration_id);
-        if (!reg) return sum + 1;
+        if (!reg) return sum;
         const kids = Array.isArray(reg.children) ? filterFilledChildren(reg.children).length : 0;
-        return sum + 1 + kids;
+        return sum + kids;
       }, 0);
       return {
         label: formatDate(d.event_date!),

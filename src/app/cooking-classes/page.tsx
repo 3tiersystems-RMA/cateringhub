@@ -358,7 +358,7 @@ export default function CookingClassesPage() {
                   return name.trim().length > 0;
                 }).length
               : 0;
-            regParticipantMap[reg.id] = 1 + kids;
+            regParticipantMap[reg.id] = kids;
           });
         }
         const counts: Record<string, number> = {};
