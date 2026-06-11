@@ -545,7 +545,6 @@ export default function EventBookingsPage() {
 
   function addParticipant() {
     setPage4(prev => {
-      if (prev.children.length >= 10) return prev;
       const newIdx = prev.children.length;
       setCollapsedParticipants(c => ({ ...c, [newIdx]: false }));
       return { ...prev, children: [...prev.children, { ...EMPTY_PARTICIPANT }] };
@@ -1187,7 +1186,7 @@ export default function EventBookingsPage() {
                     })}
                   </div>
 
-                  {page4.children.length < 10 && (
+                  {(availableSeats === null || page4.children.length < availableSeats) && (
                     <div className="mb-6">
                       <button type="button" onClick={() => { if (!isLastParticipantComplete()) return; addParticipant(); }} disabled={!isLastParticipantComplete()} className={`w-full border-2 border-dashed rounded-xl py-3 px-4 text-sm font-semibold transition-colors flex items-center justify-center gap-2 ${isLastParticipantComplete() ? 'border-[#C4622D] text-[#C4622D] hover:bg-[#FDF6EE] cursor-pointer' : 'border-[#DDD5C8] text-[#8C8278] cursor-not-allowed bg-[#FAF5EE]'}`}>
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
