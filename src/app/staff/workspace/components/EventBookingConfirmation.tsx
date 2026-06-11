@@ -381,7 +381,7 @@ export default function EventBookingConfirmation({ userRole }: EventBookingConfi
           {/* CTA */}
           <div>
             <p className="text-[#5C5347] text-sm mb-2">View your event bookings:</p>
-            <a href="https://cardamomkitchen.co.za/event-bookings" target="_blank" rel="noopener noreferrer" className="inline-block bg-[#C4622D] text-white text-sm font-bold px-5 py-2.5 rounded-lg">View My Bookings →</a>
+            <a href="https://cardamomkitchen.co.za/booking-query" target="_blank" rel="noopener noreferrer" className="inline-block bg-[#C4622D] text-white text-sm font-bold px-5 py-2.5 rounded-lg">View My Bookings →</a>
           </div>
 
           {/* Footer */}
