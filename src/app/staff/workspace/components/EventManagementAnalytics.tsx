@@ -2,7 +2,10 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { BarChart, Bar, PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,  } from 'recharts';
+import {
+  BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+} from 'recharts';
 
 interface RegistrationRow {
   id: string;
@@ -13,7 +16,6 @@ interface RegistrationRow {
   payment_method: string;
   amount: number | null;
   created_at: string;
-  children: unknown[] | null;
 }
 
 interface BookingRow {
@@ -46,7 +48,14 @@ function formatDate(d: string) {
   catch { return d; }
 }
 
-interface KpiCardProps { icon: string; label: string; value: string; sub?: string; color?: string; }
+interface KpiCardProps {
+  icon: string;
+  label: string;
+  value: string;
+  sub?: string;
+  color?: string;
+}
+
 function KpiCard({ icon, label, value, sub, color = 'text-[#1A1612]' }: KpiCardProps) {
   return (
     <div className="bg-white border border-[#EDE7DA] rounded-2xl p-5 flex flex-col gap-1">
@@ -72,7 +81,7 @@ export default function EventManagementAnalytics() {
     setError('');
     try {
       const [regsRes, bookingsRes, datesRes, eventsRes] = await Promise.all([
-        supabase.from('event_management_registrations').select('id, first_name, surname, email, payment_status, payment_method, amount, created_at, children'),
+        supabase.from('event_management_registrations').select('id, first_name, surname, email, payment_status, payment_method, amount, created_at'),
         supabase.from('event_management_booking_counts').select('registration_id, event_date_id'),
         supabase.from('event_management_event_dates').select('id, event_date, event_fee, event_id, seating'),
         supabase.from('event_management_events').select('id, name'),
@@ -91,24 +100,50 @@ export default function EventManagementAnalytics() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  if (loading) return <div className="flex items-center justify-center py-24"><div className="w-8 h-8 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" /></div>;
-  if (error) return <div className="p-6"><div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">{error}</div></div>;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <div className="w-8 h-8 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">{error}</div>
+      </div>
+    );
+  }
+
+  // ── Derived metrics ──────────────────────────────────────────────────────────
   const totalRegs = registrations.length;
   const paidRegs = registrations.filter(r => r.payment_status === 'paid');
   const totalRevenue = paidRegs.reduce((s, r) => s + (r.amount || 0), 0);
-  const pendingRevenue = registrations.filter(r => r.payment_status !== 'paid' && r.payment_status !== 'failed').reduce((s, r) => s + (r.amount || 0), 0);
-  const totalParticipants = registrations.reduce((s, r) => s + 1 + (Array.isArray(r.children) ? r.children.length : 0), 0);
+  const pendingRevenue = registrations
+    .filter(r => r.payment_status !== 'paid' && r.payment_status !== 'failed')
+    .reduce((s, r) => s + (r.amount || 0), 0);
+  const totalBookings = bookings.length;
+  const avgBookingsPerReg = totalRegs > 0 ? (totalBookings / totalRegs).toFixed(1) : '0';
   const conversionRate = totalRegs > 0 ? ((paidRegs.length / totalRegs) * 100).toFixed(0) : '0';
 
+  // ── Payment status breakdown (pie) ──────────────────────────────────────────
   const statusCounts: Record<string, number> = {};
-  registrations.forEach(r => { const key = r.payment_status.replace(/_/g, ' '); statusCounts[key] = (statusCounts[key] || 0) + 1; });
+  registrations.forEach(r => {
+    const key = r.payment_status.replace(/_/g, ' ');
+    statusCounts[key] = (statusCounts[key] || 0) + 1;
+  });
   const paymentStatusData = Object.entries(statusCounts).map(([name, value]) => ({ name, value }));
 
+  // ── Payment method breakdown ─────────────────────────────────────────────────
   const methodCounts: Record<string, number> = {};
-  registrations.forEach(r => { const key = r.payment_method || 'Unknown'; methodCounts[key] = (methodCounts[key] || 0) + 1; });
+  registrations.forEach(r => {
+    const key = r.payment_method || 'Unknown';
+    methodCounts[key] = (methodCounts[key] || 0) + 1;
+  });
   const paymentMethodData = Object.entries(methodCounts).map(([name, value]) => ({ name, value }));
 
+  // ── Registrations over time (last 12 months) ─────────────────────────────────
   const monthlyMap: Record<string, { registrations: number; revenue: number }> = {};
   const now = new Date();
   for (let i = 11; i >= 0; i--) {
@@ -119,12 +154,17 @@ export default function EventManagementAnalytics() {
   registrations.forEach(r => {
     const d = new Date(r.created_at);
     const key = d.toLocaleDateString('en-ZA', { month: 'short', year: '2-digit' });
-    if (monthlyMap[key]) { monthlyMap[key].registrations += 1; if (r.payment_status === 'paid') monthlyMap[key].revenue += r.amount || 0; }
+    if (monthlyMap[key]) {
+      monthlyMap[key].registrations += 1;
+      if (r.payment_status === 'paid') monthlyMap[key].revenue += r.amount || 0;
+    }
   });
   const monthlyTrendData = Object.entries(monthlyMap).map(([label, v]) => ({ label, ...v }));
 
+  // ── Revenue by event ─────────────────────────────────────────────────────────
   const eventsMap: Record<string, string> = {};
   events.forEach(e => { eventsMap[e.id] = e.name; });
+
   const eventDateMap: Record<string, EventDateRow> = {};
   eventDates.forEach(d => { eventDateMap[d.id] = d; });
 
@@ -135,11 +175,44 @@ export default function EventManagementAnalytics() {
     const eventName = eventsMap[ed.event_id] || 'Unknown Event';
     const reg = registrations.find(r => r.id === b.registration_id);
     if (reg && reg.payment_status === 'paid') {
-      revenueByEvent[eventName] = (revenueByEvent[eventName] || 0) + ((reg.amount != null && reg.amount > 0) ? reg.amount : (ed.event_fee || 0));
+      const revenueAmount = (reg.amount != null && reg.amount > 0)
+        ? reg.amount
+        : (ed.event_fee || 0);
+      revenueByEvent[eventName] = (revenueByEvent[eventName] || 0) + revenueAmount;
     }
   });
-  const revenueByEventData = Object.entries(revenueByEvent).map(([name, revenue]) => ({ name: name.length > 20 ? name.slice(0, 18) + '…' : name, revenue, fullName: name })).sort((a, b) => b.revenue - a.revenue).slice(0, 8);
 
+  const revenueByEventData = Object.entries(revenueByEvent)
+    .map(([name, revenue]) => ({ name: name.length > 20 ? name.slice(0, 18) + '…' : name, revenue, fullName: name }))
+    .sort((a, b) => b.revenue - a.revenue)
+    .slice(0, 8);
+
+  // Fallback: if no event-linked revenue found but paid registrations exist
+  const fallbackRevenueData = revenueByEventData.length === 0
+    ? (() => {
+        const fallback: Record<string, number> = {};
+        paidRegs.forEach(r => {
+          if ((r.amount || 0) > 0) {
+            const regBookings = bookings.filter(b => b.registration_id === r.id);
+            if (regBookings.length > 0) {
+              regBookings.forEach(b => {
+                const ed = eventDateMap[b.event_date_id];
+                const eventName = ed ? (eventsMap[ed.event_id] || 'Unknown Event') : 'Unknown Event';
+                fallback[eventName] = (fallback[eventName] || 0) + (r.amount || 0);
+              });
+            } else {
+              fallback['Unassigned'] = (fallback['Unassigned'] || 0) + (r.amount || 0);
+            }
+          }
+        });
+        return Object.entries(fallback)
+          .map(([name, revenue]) => ({ name: name.length > 20 ? name.slice(0, 18) + '…' : name, revenue, fullName: name }))
+          .sort((a, b) => b.revenue - a.revenue)
+          .slice(0, 8);
+      })()
+    : revenueByEventData;
+
+  // ── Upcoming sessions capacity ────────────────────────────────────────────────
   const upcomingSessions = eventDates
     .filter(d => d.event_date && new Date(d.event_date) >= new Date())
     .sort((a, b) => new Date(a.event_date!).getTime() - new Date(b.event_date!).getTime())
@@ -147,84 +220,251 @@ export default function EventManagementAnalytics() {
     .map(d => {
       const capacity = d.seating || 0;
       const booked = bookings.filter(b => b.event_date_id === d.id).length;
-      return { label: formatDate(d.event_date!), eventName: eventsMap[d.event_id] || 'Event', capacity, booked, available: Math.max(0, capacity - booked), fillPct: capacity ? Math.round((booked / capacity) * 100) : 0 };
+      return {
+        label: formatDate(d.event_date!),
+        eventName: eventsMap[d.event_id] || 'Event',
+        capacity,
+        booked,
+        available: Math.max(0, capacity - booked),
+        fillPct: capacity ? Math.round((booked / capacity) * 100) : 0,
+      };
     });
 
+  // ── Top spenders ──────────────────────────────────────────────────────────────
+  const topSpenders = [...registrations]
+    .filter(r => r.payment_status === 'paid' && (r.amount || 0) > 0)
+    .sort((a, b) => (b.amount || 0) - (a.amount || 0))
+    .slice(0, 5);
+
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center gap-3 mb-2">
-        <span className="text-2xl">📊</span>
-        <h2 className="text-xl font-bold text-[#1A1612]">Event Management Analytics</h2>
+    <div className="p-6 space-y-8">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-[#1A1612]">Event Management Analytics</h2>
+          <p className="text-sm text-[#8C8278] mt-0.5">Registration, revenue, and capacity insights</p>
+        </div>
+        <button
+          onClick={loadData}
+          className="flex items-center gap-2 px-3 py-2 rounded-xl border border-[#DDD5C8] text-xs font-medium text-[#5C5347] hover:bg-[#FAF5EE] transition-colors"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          Refresh
+        </button>
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <KpiCard icon="📝" label="Total Registrations" value={String(totalRegs)} />
-        <KpiCard icon="💰" label="Total Revenue" value={formatCurrency(totalRevenue)} color="text-[#C4622D]" />
-        <KpiCard icon="⏳" label="Pending Revenue" value={formatCurrency(pendingRevenue)} color="text-amber-600" />
-        <KpiCard icon="✅" label="Conversion Rate" value={`${conversionRate}%`} sub={`${paidRegs.length} paid`} color="text-green-600" />
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <KpiCard icon="📋" label="Total Registrations" value={String(totalRegs)} />
+        <KpiCard icon="✅" label="Paid Registrations" value={String(paidRegs.length)} color="text-green-700" />
+        <KpiCard icon="💰" label="Total Revenue" value={formatCurrency(totalRevenue)} color="text-green-700" sub="Confirmed paid" />
+        <KpiCard icon="⏳" label="Pending Revenue" value={formatCurrency(pendingRevenue)} color="text-amber-600" sub="Awaiting payment" />
+        <KpiCard icon="🎟️" label="Total Bookings" value={String(totalBookings)} sub={`${avgBookingsPerReg} avg per reg`} />
+        <KpiCard icon="📈" label="Conversion Rate" value={`${conversionRate}%`} color={Number(conversionRate) >= 70 ? 'text-green-700' : 'text-amber-600'} sub="Paid / Total" />
       </div>
 
       {/* Monthly Trend */}
       <div className="bg-white border border-[#EDE7DA] rounded-2xl p-5">
-        <h3 className="text-sm font-semibold text-[#1A1612] mb-4">Registrations Over Time (12 months)</h3>
-        <ResponsiveContainer width="100%" height={220}>
-          <LineChart data={monthlyTrendData}>
+        <h3 className="text-sm font-bold text-[#1A1612] mb-1">Registrations &amp; Revenue Trend</h3>
+        <p className="text-xs text-[#8C8278] mb-4">Monthly overview — last 12 months</p>
+        <ResponsiveContainer width="100%" height={240}>
+          <LineChart data={monthlyTrendData} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#EDE7DA" />
             <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#8C8278' }} />
-            <YAxis tick={{ fontSize: 11, fill: '#8C8278' }} />
-            <Tooltip />
-            <Line type="monotone" dataKey="registrations" stroke={BRAND} strokeWidth={2} dot={{ r: 3 }} name="Registrations" />
+            <YAxis yAxisId="left" tick={{ fontSize: 11, fill: '#8C8278' }} />
+            <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: '#8C8278' }} tickFormatter={v => `R${(v / 1000).toFixed(0)}k`} />
+            <Tooltip
+              contentStyle={{ borderRadius: 12, border: '1px solid #EDE7DA', fontSize: 12 }}
+              formatter={(value: number, name: string) => [
+                name === 'revenue' ? formatCurrency(value) : value,
+                name === 'revenue' ? 'Revenue' : 'Registrations',
+              ]}
+            />
+            <Legend wrapperStyle={{ fontSize: 12 }} />
+            <Line yAxisId="left" type="monotone" dataKey="registrations" stroke={BRAND} strokeWidth={2} dot={{ r: 3 }} name="Registrations" />
+            <Line yAxisId="right" type="monotone" dataKey="revenue" stroke="#5C5347" strokeWidth={2} dot={{ r: 3 }} name="Revenue (R)" />
           </LineChart>
         </ResponsiveContainer>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Payment Status */}
-        <div className="bg-white border border-[#EDE7DA] rounded-2xl p-5">
-          <h3 className="text-sm font-semibold text-[#1A1612] mb-4">Payment Status Breakdown</h3>
-          {paymentStatusData.length === 0 ? <p className="text-sm text-[#8C8278] italic">No data yet.</p> : (
-            <ResponsiveContainer width="100%" height={200}>
-              <PieChart>
-                <Pie data={paymentStatusData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
-                  {paymentStatusData.map((_, i) => <Cell key={i} fill={PALETTE[i % PALETTE.length]} />)}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          )}
-        </div>
-
+      {/* Revenue by Event + Payment Status */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Revenue by Event */}
         <div className="bg-white border border-[#EDE7DA] rounded-2xl p-5">
-          <h3 className="text-sm font-semibold text-[#1A1612] mb-4">Revenue by Event</h3>
-          {revenueByEventData.length === 0 ? <p className="text-sm text-[#8C8278] italic">No revenue data yet.</p> : (
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={revenueByEventData} layout="vertical">
+          <h3 className="text-sm font-bold text-[#1A1612] mb-1">Revenue by Event</h3>
+          <p className="text-xs text-[#8C8278] mb-4">Confirmed paid revenue per event (top 8)</p>
+          {fallbackRevenueData.length === 0 ? (
+            <div className="flex items-center justify-center h-40 text-sm text-[#8C8278]">No revenue data yet</div>
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={fallbackRevenueData} margin={{ top: 4, right: 8, left: 0, bottom: 40 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#EDE7DA" />
-                <XAxis type="number" tick={{ fontSize: 10, fill: '#8C8278' }} tickFormatter={v => `R${v}`} />
-                <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: '#8C8278' }} width={80} />
-                <Tooltip formatter={(v: number) => formatCurrency(v)} />
-                <Bar dataKey="revenue" fill={BRAND} radius={[0, 4, 4, 0]} name="Revenue" />
+                <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#8C8278' }} angle={-30} textAnchor="end" interval={0} />
+                <YAxis tick={{ fontSize: 11, fill: '#8C8278' }} tickFormatter={v => `R${(v / 1000).toFixed(0)}k`} />
+                <Tooltip
+                  contentStyle={{ borderRadius: 12, border: '1px solid #EDE7DA', fontSize: 12 }}
+                  formatter={(v: number) => [formatCurrency(v), 'Revenue']}
+                  labelFormatter={(_, payload) => payload?.[0]?.payload?.fullName || ''}
+                />
+                <Bar dataKey="revenue" fill={BRAND} radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           )}
         </div>
+
+        {/* Payment Status Pie */}
+        <div className="bg-white border border-[#EDE7DA] rounded-2xl p-5">
+          <h3 className="text-sm font-bold text-[#1A1612] mb-1">Payment Status Breakdown</h3>
+          <p className="text-xs text-[#8C8278] mb-4">Distribution of all registration payment statuses</p>
+          {paymentStatusData.length === 0 ? (
+            <div className="flex items-center justify-center h-40 text-sm text-[#8C8278]">No data yet</div>
+          ) : (
+            <div className="flex items-center gap-4">
+              <ResponsiveContainer width="55%" height={200}>
+                <PieChart>
+                  <Pie data={paymentStatusData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={3} dataKey="value">
+                    {paymentStatusData.map((_, i) => (
+                      <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #EDE7DA', fontSize: 12 }} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="flex-1 space-y-2">
+                {paymentStatusData.map((d, i) => (
+                  <div key={d.name} className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: PALETTE[i % PALETTE.length] }} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-[#1A1612] capitalize truncate">{d.name}</p>
+                      <p className="text-xs text-[#8C8278]">{d.value} ({totalRegs > 0 ? Math.round((d.value / totalRegs) * 100) : 0}%)</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Upcoming Sessions Capacity */}
+      {/* Payment Method */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <div className="bg-white border border-[#EDE7DA] rounded-2xl p-5">
+          <h3 className="text-sm font-bold text-[#1A1612] mb-1">Payment Method Preference</h3>
+          <p className="text-xs text-[#8C8278] mb-4">How customers prefer to pay</p>
+          {paymentMethodData.length === 0 ? (
+            <div className="flex items-center justify-center h-40 text-sm text-[#8C8278]">No data yet</div>
+          ) : (
+            <ResponsiveContainer width="100%" height={180}>
+              <BarChart data={paymentMethodData} layout="vertical" margin={{ top: 4, right: 16, left: 60, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#EDE7DA" horizontal={false} />
+                <XAxis type="number" tick={{ fontSize: 11, fill: '#8C8278' }} />
+                <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#5C5347' }} width={56} />
+                <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #EDE7DA', fontSize: 12 }} />
+                <Bar dataKey="value" fill={BRAND} radius={[0, 6, 6, 0]} name="Registrations" />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+
+        {/* Bookings per Event */}
+        <div className="bg-white border border-[#EDE7DA] rounded-2xl p-5">
+          <h3 className="text-sm font-bold text-[#1A1612] mb-1">Bookings per Event</h3>
+          <p className="text-xs text-[#8C8278] mb-4">Total booking count per event (top 8)</p>
+          {(() => {
+            const bookingsByEvent: Record<string, number> = {};
+            bookings.forEach(b => {
+              const ed = eventDateMap[b.event_date_id];
+              if (!ed) return;
+              const eventName = eventsMap[ed.event_id] || 'Unknown Event';
+              bookingsByEvent[eventName] = (bookingsByEvent[eventName] || 0) + 1;
+            });
+            const data = Object.entries(bookingsByEvent)
+              .map(([name, value]) => ({ name: name.length > 20 ? name.slice(0, 18) + '…' : name, value, fullName: name }))
+              .sort((a, b) => b.value - a.value)
+              .slice(0, 8);
+            return data.length === 0 ? (
+              <div className="flex items-center justify-center h-40 text-sm text-[#8C8278]">No booking data yet</div>
+            ) : (
+              <ResponsiveContainer width="100%" height={180}>
+                <BarChart data={data} layout="vertical" margin={{ top: 4, right: 16, left: 60, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#EDE7DA" horizontal={false} />
+                  <XAxis type="number" tick={{ fontSize: 11, fill: '#8C8278' }} />
+                  <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#5C5347' }} width={56} />
+                  <Tooltip
+                    contentStyle={{ borderRadius: 12, border: '1px solid #EDE7DA', fontSize: 12 }}
+                    labelFormatter={(_, payload) => payload?.[0]?.payload?.fullName || ''}
+                  />
+                  <Bar dataKey="value" fill="#5C5347" radius={[0, 6, 6, 0]} name="Bookings" />
+                </BarChart>
+              </ResponsiveContainer>
+            );
+          })()}
+        </div>
+      </div>
+
+      {/* Upcoming Session Capacity */}
       {upcomingSessions.length > 0 && (
         <div className="bg-white border border-[#EDE7DA] rounded-2xl p-5">
-          <h3 className="text-sm font-semibold text-[#1A1612] mb-4">Upcoming Sessions — Capacity</h3>
+          <h3 className="text-sm font-bold text-[#1A1612] mb-1">Upcoming Session Capacity</h3>
+          <p className="text-xs text-[#8C8278] mb-4">Seat availability for the next {upcomingSessions.length} sessions</p>
           <div className="space-y-3">
             {upcomingSessions.map((s, i) => (
-              <div key={i}>
-                <div className="flex items-center justify-between text-xs text-[#5C5347] mb-1">
-                  <span className="font-medium">{s.eventName} — {s.label}</span>
-                  <span>{s.booked}/{s.capacity} booked</span>
+              <div key={i} className="flex items-center gap-4">
+                <div className="w-32 flex-shrink-0">
+                  <p className="text-xs font-semibold text-[#1A1612] truncate">{s.eventName}</p>
+                  <p className="text-xs text-[#8C8278]">{s.label}</p>
                 </div>
-                <div className="w-full bg-[#EDE7DA] rounded-full h-2">
-                  <div className={`h-2 rounded-full transition-all ${s.fillPct >= 90 ? 'bg-red-500' : s.fillPct >= 70 ? 'bg-amber-500' : 'bg-[#C4622D]'}`} style={{ width: `${s.fillPct}%` }} />
+                <div className="flex-1">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs text-[#8C8278]">{s.booked} booked</span>
+                    <span className="text-xs font-medium text-[#1A1612]">{s.fillPct}% full</span>
+                  </div>
+                  <div className="h-2 bg-[#e9e0cf] rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{
+                        width: `${Math.min(s.fillPct, 100)}%`,
+                        backgroundColor: s.fillPct >= 90 ? '#DC2626' : s.fillPct >= 70 ? '#D97706' : BRAND,
+                      }}
+                    />
+                  </div>
+                </div>
+                <div className="w-20 text-right flex-shrink-0">
+                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
+                    s.available === 0
+                      ? 'bg-red-100 text-red-700 border-red-200'
+                      : s.available <= 3
+                      ? 'bg-amber-100 text-amber-700 border-amber-200' :'bg-green-100 text-green-700 border-green-200'
+                  }`}>
+                    {s.available === 0 ? 'Full' : `${s.available} left`}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Top Spenders */}
+      {topSpenders.length > 0 && (
+        <div className="bg-white border border-[#EDE7DA] rounded-2xl p-5">
+          <h3 className="text-sm font-bold text-[#1A1612] mb-1">Top Customers by Spend</h3>
+          <p className="text-xs text-[#8C8278] mb-4">Highest-value paid registrations</p>
+          <div className="space-y-2">
+            {topSpenders.map((r, i) => (
+              <div key={r.id} className="flex items-center gap-3 py-2 border-b border-[#e9e0cf] last:border-0">
+                <div className="w-7 h-7 rounded-full bg-[#e9e0cf] border border-[#DDD5C8] flex items-center justify-center flex-shrink-0">
+                  <span className="text-xs font-bold text-[#C4622D]">{i + 1}</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-[#1A1612] truncate">{r.first_name} {r.surname}</p>
+                  <p className="text-xs text-[#8C8278] truncate">{r.email}</p>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <p className="text-sm font-bold text-green-700">{formatCurrency(r.amount || 0)}</p>
+                  <p className="text-xs text-[#8C8278]">{formatDate(r.created_at)}</p>
                 </div>
               </div>
             ))}
