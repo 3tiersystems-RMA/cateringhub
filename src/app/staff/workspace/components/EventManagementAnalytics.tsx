@@ -430,11 +430,11 @@ export default function EventManagementAnalytics() {
           <div className="space-y-3">
             {upcomingSessions.map((s, i) => (
               <div key={i} className="flex items-center gap-4">
-                <div className="w-32 flex-shrink-0">
-                  <p className="text-xs font-semibold text-[#1A1612] truncate">{s.eventName}</p>
+                <div className="w-44 flex-shrink-0">
+                  <p className="text-xs font-semibold text-[#1A1612] leading-tight">{s.eventName}</p>
                   <p className="text-xs text-[#8C8278]">{s.label}</p>
                 </div>
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-xs text-[#8C8278]">{s.booked} booked</span>
                     <span className="text-xs font-medium text-[#1A1612]">{s.fillPct}% full</span>
