@@ -52,6 +52,7 @@ import EventManagementSettings from '@/app/staff/workspace/components/EventManag
 import EventManagementCustomers from '@/app/staff/workspace/components/EventManagementCustomers';
 import EventManagementRegistrations from '@/app/staff/workspace/components/EventManagementRegistrations';
 import EventManagementAnalytics from '@/app/staff/workspace/components/EventManagementAnalytics';
+import EventBookingConfirmation from '@/app/staff/workspace/components/EventBookingConfirmation';
 
 
 
@@ -406,7 +407,7 @@ export default function StaffWorkspacePage() {
               )}
 
               {/* ── Event Management ── */}
-              {canAnyTab('event_management', 'event_management_customers', 'event_management_registrations', 'event_management_analytics', 'media_events') && (
+              {canAnyTab('event_management', 'event_management_customers', 'event_management_registrations', 'event_management_analytics', 'event_booking_confirmation', 'media_events') && (
                 <>
                   <button
                     onClick={() => setEventManagementOpen(prev => !prev)}
@@ -457,6 +458,17 @@ export default function StaffWorkspacePage() {
                         >
                           <span className="text-sm">📋</span>
                           <span>Event Registrations</span>
+                        </button>
+                      )}
+                      {canTab('event_booking_confirmation') && (
+                        <button
+                          onClick={() => { handleTabChange('event_booking_confirmation'); }}
+                          className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${
+                            activeTab === 'event_booking_confirmation' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
+                          }`}
+                        >
+                          <span className="text-sm">✅</span>
+                          <span>Event Booking Confirmation</span>
                         </button>
                       )}
                       {canTab('event_management_analytics') && (
@@ -725,6 +737,10 @@ export default function StaffWorkspacePage() {
 
             {activeTab === 'event_management_analytics' && (
               <EventManagementAnalytics />
+            )}
+
+            {activeTab === 'event_booking_confirmation' && (
+              <EventBookingConfirmation userRole={userProfile?.role || ''} />
             )}
           </main>
         </div>
