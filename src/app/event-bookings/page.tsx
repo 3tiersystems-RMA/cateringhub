@@ -402,7 +402,6 @@ export default function EventBookingsPage() {
           if (age !== null && age < 5) errors[`child_${idx}_age`] = 'Minimum participant age is 5';
           if (age !== null && age > 16) errors[`child_${idx}_age`] = 'Maximum participant age is 16';
         }
-        if (!child.indemnityConsent) errors[`child_${idx}_indemnity`] = 'Please consent to the Indemnity Form clauses';
       }
     });
     setPage4Errors(errors);
@@ -474,7 +473,7 @@ export default function EventBookingsPage() {
   function isLastParticipantComplete(): boolean {
     const last = page4.children[page4.children.length - 1];
     if (!last) return true;
-    return last.fullName.trim() !== '' && last.gender !== '' && last.dietaryRestrictions !== '' && last.indemnityConsent === true;
+    return last.fullName.trim() !== '' && last.gender !== '' && last.dietaryRestrictions !== '';
   }
 
   function addParticipant() {
@@ -1076,18 +1075,6 @@ export default function EventBookingsPage() {
                                   {DIETARY_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                                 </select>
                                 {page4Errors[`child_${idx}_dietary`] && <p className="text-xs text-red-500 mt-0.5">{page4Errors[`child_${idx}_dietary`]}</p>}
-                              </div>
-
-                              <div className="mt-2 pt-3 border-t border-[#EDE7DA]">
-                                <p className="text-xs font-semibold text-[#4A4540] uppercase tracking-wide mb-2">Consent &amp; Indemnity</p>
-                                <hr className="border-[#EDE7DA] mb-3" />
-                                <div>
-                                  <label className="flex items-start gap-2 cursor-pointer">
-                                    <input type="checkbox" checked={child.indemnityConsent} onChange={e => updateParticipant(idx, 'indemnityConsent', e.target.checked)} className="w-4 h-4 mt-0.5 border-2 border-[#DDD5C8] text-[#C4622D] focus:ring-[#C4622D] rounded flex-shrink-0" />
-                                    <span className="text-xs text-[#1A1612]">I consent to the clauses in the Business Indemnity Form {hasName && <span className="text-red-500">*</span>}</span>
-                                  </label>
-                                  {page4Errors[`child_${idx}_indemnity`] && <p className="text-xs text-red-500 mt-1">{page4Errors[`child_${idx}_indemnity`]}</p>}
-                                </div>
                               </div>
                             </div>
                           )}
