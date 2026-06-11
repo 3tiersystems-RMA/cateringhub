@@ -54,7 +54,6 @@ interface RegistrationRow {
   medical_aid_name: string | null;
   medical_aid_number: string | null;
   pictures_taken: string | null;
-  indemnity_consent: boolean | null;
   notes: string | null;
   registration_code?: string | null;
   session_dates?: SessionDate[];
