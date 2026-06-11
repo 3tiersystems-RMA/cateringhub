@@ -838,7 +838,7 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
           <p className="text-2xl font-bold text-[#2C2420] mt-1">{filtered.length}</p>
         </div>
         <div className="bg-white border border-[#E8DDD0] rounded-xl p-4">
-          <p className="text-xs text-[#8C7B6B] uppercase tracking-wide font-medium">Child Participants</p>
+          <p className="text-xs text-[#8C7B6B] uppercase tracking-wide font-medium">Participants</p>
           <p className="text-2xl font-bold text-[#C4622D] mt-1">{totalParticipants}</p>
         </div>
         <div className="bg-white border border-[#E8DDD0] rounded-xl p-4">
