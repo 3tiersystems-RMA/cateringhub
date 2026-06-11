@@ -666,29 +666,6 @@ export default function EventManagementRegistrations({ isSuperAdmin = false }: E
                           <Field label="Registered On" value={formatDate(reg.created_at)} />
                           {reg.notes && <Field label="Notes" value={reg.notes} span2 />}
 
-                          {/* Emergency Contact 1 */}
-                          {reg.emergency_contact1 && Object.keys(reg.emergency_contact1).length > 0 && (
-                            <div className="col-span-2 sm:col-span-3">
-                              <p className="text-xs font-semibold text-[#8C8278] uppercase tracking-wide mb-2">Emergency Contact 1</p>
-                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-[#FAF5EE] rounded-xl p-3">
-                                {Object.entries(reg.emergency_contact1).map(([k, v]) => v ? (
-                                  <Field key={k} label={k.replace(/_/g, ' ')} value={String(v)} />
-                                ) : null)}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Emergency Contact 2 */}
-                          {reg.emergency_contact2 && Object.keys(reg.emergency_contact2).length > 0 && (
-                            <div className="col-span-2 sm:col-span-3">
-                              <p className="text-xs font-semibold text-[#8C8278] uppercase tracking-wide mb-2">Emergency Contact 2</p>
-                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-[#FAF5EE] rounded-xl p-3">
-                                {Object.entries(reg.emergency_contact2).map(([k, v]) => v ? (
-                                  <Field key={k} label={k.replace(/_/g, ' ')} value={String(v)} />
-                                ) : null)}
-                              </div>
-                            </div>
-                          )}
                         </div>
                       )}
 
