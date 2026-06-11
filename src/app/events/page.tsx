@@ -385,7 +385,7 @@ function EventsContent() {
                           rel="noopener noreferrer"
                           className="block w-full text-center bg-[#C4622D] text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors"
                         >
-                          Enroll Now
+                          Register Now
                         </a>
                       </div>
                     )}
