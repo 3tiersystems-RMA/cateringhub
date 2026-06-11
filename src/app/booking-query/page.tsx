@@ -139,8 +139,13 @@ export default function BookingQueryPage() {
       if (!res.ok) {
         setError(json.error || "Unable to find bookings. Please check your details and try again.");
       } else {
-        setBookings(json.bookings || []);
+        const results: BookingResult[] = json.bookings || [];
+        setBookings(results);
         setSearched(true);
+        // Auto-expand the first result when searching by reference
+        if (searchType === "reference" && results.length > 0) {
+          setExpandedId(results[0].id);
+        }
       }
     } catch {
       setError("Something went wrong. Please try again.");
