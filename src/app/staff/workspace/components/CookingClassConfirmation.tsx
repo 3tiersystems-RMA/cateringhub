@@ -194,7 +194,7 @@ export default function CookingClassConfirmation({ userRole }: CookingClassConfi
     }
   };
 
-  const formatCurrency = (val: number | null) => val != null ? `R ${Number(val).toFixed(2)}` : '—';
+  const formatCurrency = (val: number | null) => val != null ? `R${Number(val).toFixed(2)}` : '—';
 
   const formatDate = (dateStr: string | null | undefined) => {
     if (!dateStr) return '—';
