@@ -93,9 +93,9 @@ interface ParticipantBookingRow {
 type ParticipantSortKey = 'dob' | 'age' | 'gender' | 'allergies' | 'datetime';
 type SortDir = 'asc' | 'desc';
 
-interface EventRegistrationsProps {
-  isSuperAdmin?: boolean;
-}
+type FilterTab = 'event' | 'registrant' | 'venue' | 'sessions_booked' | 'participant_bookings' | 'participants_by_location';
+
+const PAGE_SIZE = 10;
 
 const PAYMENT_STATUS_COLORS: Record<string, string> = {
   pending: 'bg-amber-100 text-amber-700 border-amber-200',
@@ -129,9 +129,13 @@ function calcAge(dob: string | null | undefined): string {
   } catch { return '—'; }
 }
 
-type FilterTab = 'event' | 'registrant' | 'venue' | 'sessions_booked' | 'participant_bookings' | 'participants_by_location';
-
-const PAGE_SIZE = 10;
+function filterFilledChildren(children: ChildParticipant[] | null): ChildParticipant[] {
+  if (!Array.isArray(children)) return [];
+  return children.filter(c => {
+    const name = (c.fullName || c.full_name || c.name || '').trim();
+    return name.length > 0;
+  });
+}
 
 // Elegant paginator component
 function Paginator({
@@ -161,14 +165,10 @@ function Paginator({
     return pages;
   };
 
-  const btnBase =
-    'inline-flex items-center justify-center h-8 min-w-[2rem] px-2 text-xs font-medium rounded-lg border transition-all duration-150 select-none';
-  const btnActive =
-    'bg-[#C4622D] text-white border-[#C4622D] shadow-sm shadow-[#C4622D]/30';
-  const btnInactive =
-    'bg-white text-[#5C5347] border-[#E8DDD0] hover:bg-[#FDF6EE] hover:border-[#C4622D] hover:text-[#C4622D]';
-  const btnDisabled =
-    'bg-[#FAF5EE] text-[#C4B8A8] border-[#E8DDD0] cursor-not-allowed opacity-60';
+  const btnBase = 'inline-flex items-center justify-center h-8 min-w-[2rem] px-2 text-xs font-medium rounded-lg border transition-all duration-150 select-none';
+  const btnActive = 'bg-[#C4622D] text-white border-[#C4622D] shadow-sm shadow-[#C4622D]/30';
+  const btnInactive = 'bg-white text-[#5C5347] border-[#E8DDD0] hover:bg-[#FDF6EE] hover:border-[#C4622D] hover:text-[#C4622D]';
+  const btnDisabled = 'bg-[#FAF5EE] text-[#C4B8A8] border-[#E8DDD0] cursor-not-allowed opacity-60';
 
   return (
     <div className="flex items-center justify-between px-5 py-3 bg-gradient-to-r from-[#FAF5EE] to-[#F5EFE8] border-t border-[#E8DDD0]">
@@ -177,71 +177,35 @@ function Paginator({
         <span className="font-semibold text-[#5C5347]">{totalPages}</span>
       </p>
       <div className="flex items-center gap-1">
-        {/* First */}
-        <button
-          onClick={() => onPageChange(1)}
-          disabled={currentPage === 1}
-          className={`${btnBase} ${currentPage === 1 ? btnDisabled : btnInactive} gap-0.5`}
-          title="First page"
-        >
-          <span>«</span>
+        <button onClick={() => onPageChange(1)} disabled={currentPage === 1} className={`${btnBase} ${currentPage === 1 ? btnDisabled : btnInactive}`} title="First page">«</button>
+        <button onClick={() => onPageChange(currentPage - 1)} disabled={currentPage === 1} className={`${btnBase} ${currentPage === 1 ? btnDisabled : btnInactive} gap-0.5`} title="Previous page">
+          <span>‹</span><span className="hidden sm:inline">Prev</span>
         </button>
-        {/* Prev */}
-        <button
-          onClick={() => onPageChange(currentPage - 1)}
-          disabled={currentPage === 1}
-          className={`${btnBase} ${currentPage === 1 ? btnDisabled : btnInactive} gap-0.5`}
-          title="Previous page"
-        >
-          <span>‹</span>
-          <span className="hidden sm:inline">Prev</span>
-        </button>
-
-        {/* Page numbers */}
         <div className="flex items-center gap-1 mx-1">
           {getPageNumbers().map((p, i) =>
             p === 'ellipsis' ? (
               <span key={`e-${i}`} className="px-1 text-[#8C7B6B] text-xs">…</span>
             ) : (
-              <button
-                key={p}
-                onClick={() => onPageChange(p as number)}
-                className={`${btnBase} w-8 ${p === currentPage ? btnActive : btnInactive}`}
-              >
-                {p}
-              </button>
+              <button key={p} onClick={() => onPageChange(p as number)} className={`${btnBase} w-8 ${p === currentPage ? btnActive : btnInactive}`}>{p}</button>
             )
           )}
         </div>
-
-        {/* Next */}
-        <button
-          onClick={() => onPageChange(currentPage + 1)}
-          disabled={currentPage === totalPages}
-          className={`${btnBase} ${currentPage === totalPages ? btnDisabled : btnInactive} gap-0.5`}
-          title="Next page"
-        >
-          <span className="hidden sm:inline">Next</span>
-          <span>›</span>
+        <button onClick={() => onPageChange(currentPage + 1)} disabled={currentPage === totalPages} className={`${btnBase} ${currentPage === totalPages ? btnDisabled : btnInactive} gap-0.5`} title="Next page">
+          <span className="hidden sm:inline">Next</span><span>›</span>
         </button>
-        {/* Last */}
-        <button
-          onClick={() => onPageChange(totalPages)}
-          disabled={currentPage === totalPages}
-          className={`${btnBase} ${currentPage === totalPages ? btnDisabled : btnInactive} gap-0.5`}
-          title="Last page"
-        >
-          <span>»</span>
-        </button>
+        <button onClick={() => onPageChange(totalPages)} disabled={currentPage === totalPages} className={`${btnBase} ${currentPage === totalPages ? btnDisabled : btnInactive}`} title="Last page">»</button>
       </div>
     </div>
   );
 }
 
-// Sort icon helper
 function SortIcon({ col, sortKey, sortDir }: { col: ParticipantSortKey; sortKey: ParticipantSortKey | null; sortDir: SortDir }) {
   if (sortKey !== col) return <span className="ml-1 text-[#C4B8A8]">⇅</span>;
   return <span className="ml-1 text-[#C4622D]">{sortDir === 'asc' ? '↑' : '↓'}</span>;
+}
+
+interface EventRegistrationsProps {
+  isSuperAdmin?: boolean;
 }
 
 export default function EventRegistrations({ isSuperAdmin = false }: EventRegistrationsProps) {
@@ -288,27 +252,30 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
     setLoading(true);
     setError('');
     try {
+      // 1. Fetch all event management registrations
       const { data: regs, error: regsErr } = await supabase
-        .from('cooking_class_registrations')
+        .from('event_management_registrations')
         .select('*')
         .order('created_at', { ascending: false });
 
       if (regsErr) throw regsErr;
       if (!regs || regs.length === 0) { setRegistrations([]); return; }
 
+      // 2. Fetch booking counts (links registrations → event_dates)
       const regIds = regs.map((r: RegistrationRow) => r.id);
       const { data: bookings } = await supabase
-        .from('cooking_class_booking_counts')
+        .from('event_management_booking_counts')
         .select('registration_id, event_date_id')
         .in('registration_id', regIds);
 
+      // 3. Fetch event dates with event names
       const eventDateIds = [...new Set((bookings || []).map((b: { event_date_id: string }) => b.event_date_id))];
       let eventDatesMap: Record<string, SessionDate> = {};
 
       if (eventDateIds.length > 0) {
         const { data: dates } = await supabase
-          .from('cooking_class_event_dates')
-          .select('id, event_date, start_time, end_time, location, class_fee, event_id')
+          .from('event_management_event_dates')
+          .select('id, event_date, start_time, end_time, location, event_fee, event_id')
           .in('id', eventDateIds);
 
         if (dates && dates.length > 0) {
@@ -316,25 +283,26 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
           let eventsMap: Record<string, string> = {};
           if (eventIds.length > 0) {
             const { data: events } = await supabase
-              .from('cooking_class_events')
+              .from('event_management_events')
               .select('id, name')
               .in('id', eventIds);
             (events || []).forEach((e: { id: string; name: string }) => { eventsMap[e.id] = e.name; });
           }
-          dates.forEach((d: { id: string; event_date: string | null; start_time: string | null; end_time: string | null; location: string | null; class_fee: number | null; event_id: string }) => {
+          dates.forEach((d: { id: string; event_date: string | null; start_time: string | null; end_time: string | null; location: string | null; event_fee: number | null; event_id: string }) => {
             eventDatesMap[d.id] = {
               id: d.id,
               event_date: d.event_date,
               start_time: d.start_time,
               end_time: d.end_time,
               location: d.location,
-              class_fee: d.class_fee,
+              class_fee: d.event_fee,
               event_name: eventsMap[d.event_id] || null,
             };
           });
         }
       }
 
+      // 4. Build registration → session_dates map
       const regSessionMap: Record<string, SessionDate[]> = {};
       (bookings || []).forEach((b: { registration_id: string; event_date_id: string }) => {
         if (!regSessionMap[b.registration_id]) regSessionMap[b.registration_id] = [];
@@ -343,6 +311,7 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
         }
       });
 
+      // 5. Merge
       const enriched: RegistrationRow[] = regs.map((r: RegistrationRow) => ({
         ...r,
         session_dates: regSessionMap[r.id] || [],
@@ -350,7 +319,7 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
 
       setRegistrations(enriched);
 
-      // Build filter options
+      // 6. Build filter options
       const allEvents = new Set<string>();
       const allVenues = new Set<string>();
       enriched.forEach(r => {
@@ -396,16 +365,14 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
     setDeleting(true);
     setDeleteError('');
     try {
-      // Delete booking counts first (FK dependency)
       const { error: bookingErr } = await supabase
-        .from('cooking_class_booking_counts')
+        .from('event_management_booking_counts')
         .delete()
         .eq('registration_id', deleteTarget.id);
       if (bookingErr) throw bookingErr;
 
-      // Delete the registration record
       const { error: regErr } = await supabase
-        .from('cooking_class_registrations')
+        .from('event_management_registrations')
         .delete()
         .eq('id', deleteTarget.id);
       if (regErr) throw regErr;
@@ -438,8 +405,7 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
     return true;
   });
 
-  // Only count child participants (not the registrant) in stats
-  const totalParticipants = filtered.reduce((sum, r) => sum + (r.children || []).length, 0);
+  const totalParticipants = filtered.reduce((sum, r) => sum + filterFilledChildren(r.children).length, 0);
   const totalPaid = filtered.filter(r => r.payment_status === 'paid').length;
   const totalAmount = filtered.reduce((sum, r) => sum + (r.payment_status === 'paid' ? (r.amount || 0) : 0), 0);
 
@@ -451,7 +417,7 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
   const sessionsBookedGroups: SessionsBookedGroup[] = (() => {
     const eventMap: Record<string, Record<string, Record<string, { dateId: string; registrants: { name: string; email: string; paymentStatus: string }[] }>>> = {};
     registrations.forEach(r => {
-      const name = `${r.title} ${r.first_name} ${r.surname}`.trim();
+      const name = `${r.title ? r.title + ' ' : ''}${r.first_name} ${r.surname}`.trim();
       (r.session_dates || []).forEach(sd => {
         const evName = sd.event_name || 'Unknown Event';
         const dateKey = formatDate(sd.event_date);
@@ -489,14 +455,11 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
       }));
   })();
 
-  // Build Participant Bookings flat list: all participants (children only) per session, no blank rows
+  // Build Participant Bookings flat list
   const participantBookingRows: ParticipantBookingRow[] = (() => {
     const rows: ParticipantBookingRow[] = [];
     registrations.forEach(r => {
-      const children = (r.children || []).filter(c => {
-        const name = (c.fullName || c.full_name || c.name || '').trim();
-        return name.length > 0;
-      });
+      const children = filterFilledChildren(r.children);
       if (children.length === 0) return;
       (r.session_dates || []).forEach(sd => {
         const evName = sd.event_name || 'Unknown Event';
@@ -522,7 +485,6 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
     return rows;
   })();
 
-  // Sort participant bookings
   const handleParticipantSort = (key: ParticipantSortKey) => {
     if (participantSortKey === key) {
       setParticipantSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -532,47 +494,34 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
     }
   };
 
-  // Filter participant rows by selected event before sorting
   const filteredParticipantRows = participantEventFilter === 'all'
     ? participantBookingRows
     : participantBookingRows.filter(r => r.eventName === participantEventFilter);
 
   const sortedParticipantRows = [...filteredParticipantRows].sort((a, b) => {
     if (!participantSortKey) return 0;
-    let aVal = '';
-    let bVal = '';
+    let aVal = '', bVal = '';
     if (participantSortKey === 'datetime') {
-      const aDate = a.eventDate || '';
-      const bDate = b.eventDate || '';
-      const dateCmp = aDate.localeCompare(bDate);
+      const dateCmp = (a.eventDate || '').localeCompare(b.eventDate || '');
       if (dateCmp !== 0) return participantSortDir === 'asc' ? dateCmp : -dateCmp;
-      aVal = a.timeslot;
-      bVal = b.timeslot;
+      aVal = a.timeslot; bVal = b.timeslot;
       const cmp = aVal.localeCompare(bVal);
       return participantSortDir === 'asc' ? cmp : -cmp;
     } else if (participantSortKey === 'dob') {
-      aVal = a.dob || '';
-      bVal = b.dob || '';
+      aVal = a.dob || ''; bVal = b.dob || '';
     } else if (participantSortKey === 'age') {
-      const aNum = parseInt(a.age, 10);
-      const bNum = parseInt(b.age, 10);
-      if (!isNaN(aNum) && !isNaN(bNum)) {
-        return participantSortDir === 'asc' ? aNum - bNum : bNum - aNum;
-      }
-      aVal = a.age;
-      bVal = b.age;
+      const aNum = parseInt(a.age, 10), bNum = parseInt(b.age, 10);
+      if (!isNaN(aNum) && !isNaN(bNum)) return participantSortDir === 'asc' ? aNum - bNum : bNum - aNum;
+      aVal = a.age; bVal = b.age;
     } else if (participantSortKey === 'gender') {
-      aVal = a.gender.toLowerCase();
-      bVal = b.gender.toLowerCase();
+      aVal = a.gender.toLowerCase(); bVal = b.gender.toLowerCase();
     } else if (participantSortKey === 'allergies') {
-      aVal = a.allergies.toLowerCase();
-      bVal = b.allergies.toLowerCase();
+      aVal = a.allergies.toLowerCase(); bVal = b.allergies.toLowerCase();
     }
     const cmp = aVal.localeCompare(bVal);
     return participantSortDir === 'asc' ? cmp : -cmp;
   });
 
-  // Filter/sort for Participants by Location
   const handleLocationParticipantSort = (key: ParticipantSortKey) => {
     if (locationParticipantSortKey === key) {
       setLocationParticipantSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -588,45 +537,33 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
 
   const sortedLocationParticipantRows = [...filteredLocationParticipantRows].sort((a, b) => {
     if (!locationParticipantSortKey) return 0;
-    let aVal = '';
-    let bVal = '';
+    let aVal = '', bVal = '';
     if (locationParticipantSortKey === 'datetime') {
-      const aDate = a.eventDate || '';
-      const bDate = b.eventDate || '';
-      const dateCmp = aDate.localeCompare(bDate);
+      const dateCmp = (a.eventDate || '').localeCompare(b.eventDate || '');
       if (dateCmp !== 0) return locationParticipantSortDir === 'asc' ? dateCmp : -dateCmp;
-      aVal = a.timeslot;
-      bVal = b.timeslot;
+      aVal = a.timeslot; bVal = b.timeslot;
       const cmp = aVal.localeCompare(bVal);
       return locationParticipantSortDir === 'asc' ? cmp : -cmp;
     } else if (locationParticipantSortKey === 'dob') {
-      aVal = a.dob || '';
-      bVal = b.dob || '';
+      aVal = a.dob || ''; bVal = b.dob || '';
     } else if (locationParticipantSortKey === 'age') {
-      const aNum = parseInt(a.age, 10);
-      const bNum = parseInt(b.age, 10);
-      if (!isNaN(aNum) && !isNaN(bNum)) {
-        return locationParticipantSortDir === 'asc' ? aNum - bNum : bNum - aNum;
-      }
-      aVal = a.age;
-      bVal = b.age;
+      const aNum = parseInt(a.age, 10), bNum = parseInt(b.age, 10);
+      if (!isNaN(aNum) && !isNaN(bNum)) return locationParticipantSortDir === 'asc' ? aNum - bNum : bNum - aNum;
+      aVal = a.age; bVal = b.age;
     } else if (locationParticipantSortKey === 'gender') {
-      aVal = a.gender.toLowerCase();
-      bVal = b.gender.toLowerCase();
+      aVal = a.gender.toLowerCase(); bVal = b.gender.toLowerCase();
     } else if (locationParticipantSortKey === 'allergies') {
-      aVal = a.allergies.toLowerCase();
-      bVal = b.allergies.toLowerCase();
+      aVal = a.allergies.toLowerCase(); bVal = b.allergies.toLowerCase();
     }
     const cmp = aVal.localeCompare(bVal);
     return locationParticipantSortDir === 'asc' ? cmp : -cmp;
   });
 
-  // Create PDF for Participant Bookings
+  // PDF helpers
   const handleCreateParticipantPDF = () => {
     const rows = sortedParticipantRows;
     const eventLabel = participantEventFilter !== 'all' ? participantEventFilter : 'All Events';
     const generatedAt = new Date().toLocaleString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-
     const tableRows = rows.map((row, idx) => `
       <tr style="background:${idx % 2 === 0 ? '#ffffff' : '#faf5ee'}">
         <td style="padding:8px 12px;border-bottom:1px solid #f0e8de;color:#8c7b6b;font-size:12px">${idx + 1}</td>
@@ -642,82 +579,22 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
         <td style="padding:8px 12px;border-bottom:1px solid #f0e8de;font-size:12px;color:#5c5347">${row.allergies || 'None'}</td>
       </tr>
     `).join('');
-
-    const html = `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8" />
-  <title>Participant Bookings — ${eventLabel}</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #2c2420; background: #fff; padding: 24px; }
-    .header { border-bottom: 2px solid #c4622d; padding-bottom: 16px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-end; }
-    .header-left h1 { font-size: 20px; font-weight: 700; color: #1a1612; }
-    .header-left p { font-size: 12px; color: #8c7b6b; margin-top: 4px; }
-    .header-right { text-align: right; font-size: 11px; color: #8c7b6b; }
-    .meta { display: flex; gap: 24px; margin-bottom: 16px; }
-    .meta-item { background: #faf5ee; border: 1px solid #e8ddd0; border-radius: 8px; padding: 8px 14px; }
-    .meta-item .label { font-size: 10px; color: #8c7b6b; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
-    .meta-item .value { font-size: 14px; font-weight: 700; color: #c4622d; margin-top: 2px; }
-    table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    thead tr { background: #f5efe8; }
-    thead th { padding: 10px 12px; text-align: left; font-size: 10px; font-weight: 700; color: #5c5347; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 2px solid #e8ddd0; }
-    .footer { margin-top: 20px; padding-top: 12px; border-top: 1px solid #e8ddd0; font-size: 10px; color: #8c7b6b; text-align: center; }
-    @media print {
-      body { padding: 16px; }
-      @page { margin: 1cm; size: A4 landscape; }
-    }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <div class="header-left">
-      <h1>Participant Bookings</h1>
-      <p>Event: ${eventLabel}</p>
-    </div>
-    <div class="header-right">
-      <div>Generated: ${generatedAt}</div>
-    </div>
-  </div>
-  <div class="meta">
-    <div class="meta-item"><div class="label">Total Participants</div><div class="value">${rows.length}</div></div>
-    <div class="meta-item"><div class="label">Event Filter</div><div class="value" style="font-size:12px;color:#5c5347">${eventLabel}</div></div>
-  </div>
-  <table>
-    <thead>
-      <tr>
-        <th>#</th>
-        <th>Event</th>
-        <th>Date &amp; Time</th>
-        <th>Full Name</th>
-        <th>Date of Birth</th>
-        <th>Age</th>
-        <th>Gender</th>
-        <th>Allergies</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${tableRows}
-    </tbody>
-  </table>
-  <div class="footer">Cardamom Kitchen — Cooking &amp; Baking Classes · Participant Bookings Report</div>
-  <script>window.onload = function() { window.print(); }<\/script>
-</body>
-</html>`;
-
-    const printWindow = window.open('', '_blank', 'width=1100,height=700');
-    if (printWindow) {
-      printWindow.document.write(html);
-      printWindow.document.close();
-    }
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>Participant Bookings — ${eventLabel}</title>
+    <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#2c2420;background:#fff;padding:24px}.header{border-bottom:2px solid #c4622d;padding-bottom:16px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:flex-end}.header-left h1{font-size:20px;font-weight:700;color:#1a1612}.header-left p{font-size:12px;color:#8c7b6b;margin-top:4px}.meta{display:flex;gap:24px;margin-bottom:16px}.meta-item{background:#faf5ee;border:1px solid #e8ddd0;border-radius:8px;padding:8px 14px}.meta-item .label{font-size:10px;color:#8c7b6b;text-transform:uppercase;letter-spacing:.05em;font-weight:600}.meta-item .value{font-size:14px;font-weight:700;color:#c4622d;margin-top:2px}table{width:100%;border-collapse:collapse}thead tr{background:#f5efe8}thead th{padding:10px 12px;text-align:left;font-size:10px;font-weight:700;color:#5c5347;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid #e8ddd0}.footer{margin-top:20px;padding-top:12px;border-top:1px solid #e8ddd0;font-size:10px;color:#8c7b6b;text-align:center}@media print{body{padding:16px}@page{margin:1cm;size:A4 landscape}}</style>
+    </head><body>
+    <div class="header"><div class="header-left"><h1>Participant Bookings</h1><p>Event: ${eventLabel}</p></div><div style="text-align:right;font-size:11px;color:#8c7b6b">Generated: ${generatedAt}</div></div>
+    <div class="meta"><div class="meta-item"><div class="label">Total Participants</div><div class="value">${rows.length}</div></div><div class="meta-item"><div class="label">Event Filter</div><div class="value" style="font-size:12px;color:#5c5347">${eventLabel}</div></div></div>
+    <table><thead><tr><th>#</th><th>Event</th><th>Date &amp; Time</th><th>Full Name</th><th>Date of Birth</th><th>Age</th><th>Gender</th><th>Allergies</th></tr></thead><tbody>${tableRows}</tbody></table>
+    <div class="footer">Cardamom Kitchen — Event Bookings · Participant Bookings Report</div>
+    <script>window.onload=function(){window.print();}<\/script></body></html>`;
+    const w = window.open('', '_blank', 'width=1100,height=700');
+    if (w) { w.document.write(html); w.document.close(); }
   };
 
-  // Create PDF for Participants by Location
   const handleCreateLocationParticipantPDF = () => {
     const rows = sortedLocationParticipantRows;
     const locationLabel = locationParticipantFilter !== 'all' ? locationParticipantFilter : 'All Locations';
     const generatedAt = new Date().toLocaleString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-
     const tableRows = rows.map((row, idx) => `
       <tr style="background:${idx % 2 === 0 ? '#ffffff' : '#faf5ee'}">
         <td style="padding:8px 12px;border-bottom:1px solid #f0e8de;color:#8c7b6b;font-size:12px">${idx + 1}</td>
@@ -736,78 +613,20 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
         <td style="padding:8px 12px;border-bottom:1px solid #f0e8de;font-size:12px;color:#5c5347">${row.allergies || 'None'}</td>
       </tr>
     `).join('');
-
-    const html = `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8" />
-  <title>Participants by Location — ${locationLabel}</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #2c2420; background: #fff; padding: 24px; }
-    .header { border-bottom: 2px solid #c4622d; padding-bottom: 16px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-end; }
-    .header-left h1 { font-size: 20px; font-weight: 700; color: #1a1612; }
-    .header-left p { font-size: 12px; color: #8c7b6b; margin-top: 4px; }
-    .header-right { text-align: right; font-size: 11px; color: #8c7b6b; }
-    .meta { display: flex; gap: 24px; margin-bottom: 16px; }
-    .meta-item { background: #faf5ee; border: 1px solid #e8ddd0; border-radius: 8px; padding: 8px 14px; }
-    .meta-item .label { font-size: 10px; color: #8c7b6b; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
-    .meta-item .value { font-size: 14px; font-weight: 700; color: #c4622d; margin-top: 2px; }
-    table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    thead tr { background: #f5efe8; }
-    thead th { padding: 10px 12px; text-align: left; font-size: 10px; font-weight: 700; color: #5c5347; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 2px solid #e8ddd0; }
-    .footer { margin-top: 20px; padding-top: 12px; border-top: 1px solid #e8ddd0; font-size: 10px; color: #8c7b6b; text-align: center; }
-    @media print {
-      body { padding: 16px; }
-      @page { margin: 1cm; size: A4 landscape; }
-    }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <div class="header-left">
-      <h1>Participants by Location</h1>
-      <p>Location: ${locationLabel}</p>
-    </div>
-    <div class="header-right">
-      <div>Generated: ${generatedAt}</div>
-    </div>
-  </div>
-  <div class="meta">
-    <div class="meta-item"><div class="label">Total Participants</div><div class="value">${rows.length}</div></div>
-    <div class="meta-item"><div class="label">Location Filter</div><div class="value" style="font-size:12px;color:#5c5347">${locationLabel}</div></div>
-  </div>
-  <table>
-    <thead>
-      <tr>
-        <th>#</th>
-        <th>Event / Location</th>
-        <th>Date &amp; Time</th>
-        <th>Full Name</th>
-        <th>Date of Birth</th>
-        <th>Age</th>
-        <th>Gender</th>
-        <th>Allergies</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${tableRows}
-    </tbody>
-  </table>
-  <div class="footer">Cardamom Kitchen — Cooking &amp; Baking Classes · Participants by Location Report</div>
-  <script>window.onload = function() { window.print(); }<\/script>
-</body>
-</html>`;
-
-    const printWindow = window.open('', '_blank', 'width=1100,height=700');
-    if (printWindow) {
-      printWindow.document.write(html);
-      printWindow.document.close();
-    }
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>Participants by Location — ${locationLabel}</title>
+    <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#2c2420;background:#fff;padding:24px}.header{border-bottom:2px solid #c4622d;padding-bottom:16px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:flex-end}.header-left h1{font-size:20px;font-weight:700;color:#1a1612}.header-left p{font-size:12px;color:#8c7b6b;margin-top:4px}.meta{display:flex;gap:24px;margin-bottom:16px}.meta-item{background:#faf5ee;border:1px solid #e8ddd0;border-radius:8px;padding:8px 14px}.meta-item .label{font-size:10px;color:#8c7b6b;text-transform:uppercase;letter-spacing:.05em;font-weight:600}.meta-item .value{font-size:14px;font-weight:700;color:#c4622d;margin-top:2px}table{width:100%;border-collapse:collapse}thead tr{background:#f5efe8}thead th{padding:10px 12px;text-align:left;font-size:10px;font-weight:700;color:#5c5347;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid #e8ddd0}.footer{margin-top:20px;padding-top:12px;border-top:1px solid #e8ddd0;font-size:10px;color:#8c7b6b;text-align:center}@media print{body{padding:16px}@page{margin:1cm;size:A4 landscape}}</style>
+    </head><body>
+    <div class="header"><div class="header-left"><h1>Participants by Location</h1><p>Location: ${locationLabel}</p></div><div style="text-align:right;font-size:11px;color:#8c7b6b">Generated: ${generatedAt}</div></div>
+    <div class="meta"><div class="meta-item"><div class="label">Total Participants</div><div class="value">${rows.length}</div></div><div class="meta-item"><div class="label">Location Filter</div><div class="value" style="font-size:12px;color:#5c5347">${locationLabel}</div></div></div>
+    <table><thead><tr><th>#</th><th>Event / Location</th><th>Date &amp; Time</th><th>Full Name</th><th>Date of Birth</th><th>Age</th><th>Gender</th><th>Allergies</th></tr></thead><tbody>${tableRows}</tbody></table>
+    <div class="footer">Cardamom Kitchen — Event Bookings · Participants by Location Report</div>
+    <script>window.onload=function(){window.print();}<\/script></body></html>`;
+    const w = window.open('', '_blank', 'width=1100,height=700');
+    if (w) { w.document.write(html); w.document.close(); }
   };
 
   const filterTabConfig: { key: FilterTab; label: string; icon: string }[] = [
-    { key: 'event', label: 'By Event', icon: '🎓' },
+    { key: 'event', label: 'By Event', icon: '\uD83C\uDF9F' },
     { key: 'registrant', label: 'By Registrant', icon: '👤' },
     { key: 'venue', label: 'By Venue Location', icon: '📍' },
     { key: 'sessions_booked', label: 'Registrant Bookings', icon: '📅' },
@@ -815,13 +634,21 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
     { key: 'participants_by_location', label: 'Participants by Location', icon: '📌' },
   ];
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="w-7 h-7 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-[#2C2420]">Cooking Class Registrations</h2>
-          <p className="text-sm text-[#8C7B6B] mt-0.5">Cooking &amp; Baking Class registrations with participant details</p>
+          <h2 className="text-xl font-semibold text-[#2C2420]">Event Registrations</h2>
+          <p className="text-sm text-[#8C7B6B] mt-0.5">All event booking registrations with participant details</p>
         </div>
         <button
           onClick={loadData}
@@ -851,8 +678,9 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
         </div>
       </div>
 
-      {/* Filter Tabs */}
+      {/* Filter Tabs + Content */}
       <div className="bg-white border border-[#E8DDD0] rounded-xl overflow-hidden">
+        {/* Tab buttons */}
         <div className="flex flex-wrap gap-2 px-4 py-3 border-b border-[#E8DDD0] bg-[#FAF5EE]">
           {filterTabConfig.map(tab => (
             <button
@@ -870,13 +698,9 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
           ))}
         </div>
 
-        {/* Registrant Bookings tab content */}
+        {/* ── REGISTRANT BOOKINGS TAB ── */}
         {filterTab === 'sessions_booked' ? (
-          loading ? (
-            <div className="flex items-center justify-center py-16">
-              <div className="w-8 h-8 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
-            </div>
-          ) : error ? (
+          error ? (
             <div className="p-6 text-center text-red-600 text-sm">{error}</div>
           ) : sessionsBookedGroups.length === 0 ? (
             <div className="p-12 text-center">
@@ -887,7 +711,6 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
             <div className="divide-y divide-[#F0E8DE]">
               {sessionsBookedGroups.map(group => (
                 <div key={group.eventName} className="p-5">
-                  {/* Event header */}
                   <div className="flex items-center gap-3 mb-4">
                     <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#C4622D] to-[#E8845A] flex items-center justify-center text-white text-xs font-bold shadow-sm">
                       {group.eventName.charAt(0)}
@@ -897,21 +720,17 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
                       {group.dates.reduce((s, d) => s + d.timeslots.reduce((ts, t) => ts + t.registrants.length, 0), 0)} bookings
                     </span>
                   </div>
-
                   <div className="space-y-4 pl-11">
                     {group.dates.map(dateGroup => (
                       <div key={dateGroup.date}>
-                        {/* Date sub-header */}
                         <div className="flex items-center gap-2 mb-2">
                           <span className="text-xs font-semibold text-[#5C5347] bg-[#F5EFE8] border border-[#E8DDD0] px-3 py-1 rounded-full">
                             📆 {dateGroup.date}
                           </span>
                         </div>
-
                         <div className="space-y-3 pl-4">
                           {dateGroup.timeslots.map(slot => (
                             <div key={slot.timeslot} className="rounded-xl border border-[#E8DDD0] overflow-hidden">
-                              {/* Timeslot header */}
                               <div className="flex items-center justify-between px-4 py-2.5 bg-gradient-to-r from-[#FAF5EE] to-[#F5EFE8] border-b border-[#E8DDD0]">
                                 <div className="flex items-center gap-2">
                                   <span className="text-[#C4622D]">🕐</span>
@@ -921,7 +740,6 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
                                   {slot.registrants.length} registrant{slot.registrants.length !== 1 ? 's' : ''}
                                 </span>
                               </div>
-                              {/* Registrants table */}
                               <table className="w-full text-xs">
                                 <thead>
                                   <tr className="bg-[#F5EFE8] text-[#5C5347]">
@@ -957,17 +775,11 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
             </div>
           )
 
-        /* Participant Bookings tab content */
         ) : filterTab === 'participant_bookings' ? (
-          loading ? (
-            <div className="flex items-center justify-center py-16">
-              <div className="w-8 h-8 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
-            </div>
-          ) : error ? (
+          error ? (
             <div className="p-6 text-center text-red-600 text-sm">{error}</div>
           ) : (
             <>
-              {/* Event filter dropdown for Participant Bookings */}
               <div className="px-5 py-3 bg-[#FAF5EE] border-b border-[#E8DDD0] flex items-center gap-3 flex-wrap">
                 <label className="text-sm font-medium text-[#5C5347] whitespace-nowrap">Filter by Event:</label>
                 <select
@@ -976,19 +788,13 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
                   className="flex-1 max-w-xs px-3 py-1.5 text-sm border border-[#E8DDD0] rounded-lg bg-white text-[#2C2420] focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30"
                 >
                   <option value="all">All Events</option>
-                  {eventOptions.map(ev => (
-                    <option key={ev} value={ev}>{ev}</option>
-                  ))}
+                  {eventOptions.map(ev => <option key={ev} value={ev}>{ev}</option>)}
                 </select>
                 {participantEventFilter !== 'all' && (
-                  <button onClick={() => { setParticipantEventFilter('all'); setParticipantSortKey(null); setParticipantSortDir('asc'); }} className="text-xs text-[#C4622D] hover:underline">Clear</button>
+                  <button onClick={() => { setParticipantEventFilter('all'); setParticipantSortKey(null); }} className="text-xs text-[#C4622D] hover:underline">Clear</button>
                 )}
-                {/* Create PDF button */}
                 {sortedParticipantRows.length > 0 && (
-                  <button
-                    onClick={handleCreateParticipantPDF}
-                    className="ml-auto flex items-center gap-1.5 bg-[#C4622D] text-white px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-[#A04E22] transition-colors"
-                  >
+                  <button onClick={handleCreateParticipantPDF} className="ml-auto flex items-center gap-1.5 bg-[#C4622D] text-white px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-[#A04E22] transition-colors">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
                       <path fillRule="evenodd" d="M4.5 2A1.5 1.5 0 0 0 3 3.5v13A1.5 1.5 0 0 0 4.5 18h11a1.5 1.5 0 0 0 1.5-1.5V7.621a1.5 1.5 0 0 0-.44-1.06l-4.12-4.122A1.5 1.5 0 0 0 11.378 2H4.5Zm4.75 6.75a.75.75 0 0 1 1.5 0v2.546l.943-1.048a.75.75 0 1 1 1.114 1.004l-2.25 2.5a.75.75 0 0 1-1.114 0l-2.25-2.5a.75.75 0 1 1 1.114-1.004l.943 1.048V8.75Z" clipRule="evenodd" />
                     </svg>
@@ -996,7 +802,6 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
                   </button>
                 )}
               </div>
-
               {sortedParticipantRows.length === 0 ? (
                 <div className="p-12 text-center">
                   <p className="text-3xl mb-2">👧</p>
@@ -1004,120 +809,85 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
                   <p className="text-sm text-[#8C7B6B] mt-1">Try selecting a different event or &quot;All Events&quot;</p>
                 </div>
               ) : (
-              <>
-              <div className="px-5 py-2.5 bg-[#FAF5EE] border-b border-[#E8DDD0] flex items-center justify-between">
-                <p className="text-xs text-[#8C7B6B]">
-                  <span className="font-semibold text-[#2C2420]">{sortedParticipantRows.length}</span> participant{sortedParticipantRows.length !== 1 ? 's' : ''}{participantEventFilter !== 'all' ? ` for "${participantEventFilter}"` : ' across all sessions'}
-                </p>
-                {participantSortKey && (
-                  <button
-                    onClick={() => { setParticipantSortKey(null); setParticipantSortDir('asc'); }}
-                    className="text-xs text-[#C4622D] hover:underline"
-                  >
-                    Clear sort
-                  </button>
-                )}
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-[#F5EFE8] text-[#5C5347] text-xs uppercase tracking-wide">
-                      <th className="px-4 py-3 text-left font-semibold">#</th>
-                      <th className="px-4 py-3 text-left font-semibold">Event</th>
-                      <th
-                        className="px-4 py-3 text-left font-semibold cursor-pointer select-none hover:text-[#C4622D] transition-colors"
-                        onClick={() => handleParticipantSort('datetime')}
-                      >
-                        Date &amp; Time <SortIcon col="datetime" sortKey={participantSortKey} sortDir={participantSortDir} />
-                      </th>
-                      <th className="px-4 py-3 text-left font-semibold">Full Name</th>
-                      <th
-                        className="px-4 py-3 text-left font-semibold cursor-pointer select-none hover:text-[#C4622D] transition-colors"
-                        onClick={() => handleParticipantSort('dob')}
-                      >
-                        DOB <SortIcon col="dob" sortKey={participantSortKey} sortDir={participantSortDir} />
-                      </th>
-                      <th
-                        className="px-4 py-3 text-left font-semibold cursor-pointer select-none hover:text-[#C4622D] transition-colors"
-                        onClick={() => handleParticipantSort('age')}
-                      >
-                        Age <SortIcon col="age" sortKey={participantSortKey} sortDir={participantSortDir} />
-                      </th>
-                      <th
-                        className="px-4 py-3 text-left font-semibold cursor-pointer select-none hover:text-[#C4622D] transition-colors"
-                        onClick={() => handleParticipantSort('gender')}
-                      >
-                        Gender <SortIcon col="gender" sortKey={participantSortKey} sortDir={participantSortDir} />
-                      </th>
-                      <th
-                        className="px-4 py-3 text-left font-semibold cursor-pointer select-none hover:text-[#C4622D] transition-colors"
-                        onClick={() => handleParticipantSort('allergies')}
-                      >
-                        Allergies <SortIcon col="allergies" sortKey={participantSortKey} sortDir={participantSortDir} />
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#F0E8DE]">
-                    {sortedParticipantRows.map((row, idx) => (
-                      <tr key={idx} className={idx % 2 === 0 ? 'bg-white hover:bg-[#FAF5EE]' : 'bg-[#FAF5EE] hover:bg-[#F5EFE8]'}>
-                        <td className="px-4 py-3 text-xs text-[#8C7B6B] font-medium">{idx + 1}</td>
-                        <td className="px-4 py-3">
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-[#FDF6EE] to-[#F5EFE8] text-[#C4622D] text-xs font-medium rounded-lg border border-[#E8C9B0] shadow-sm">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#C4622D] flex-shrink-0" />
-                            {row.eventName}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="text-xs text-[#2C2420] font-medium">{formatDate(row.eventDate)}</div>
-                          <div className="text-xs text-[#8C7B6B] mt-0.5">{row.timeslot}</div>
-                        </td>
-                        <td className="px-4 py-3 font-medium text-[#2C2420]">{row.fullName || '—'}</td>
-                        <td className="px-4 py-3 text-[#5C5347] text-xs">{formatDate(row.dob)}</td>
-                        <td className="px-4 py-3 text-[#5C5347] text-xs">
-                          {row.age !== '—' ? (
-                            <span className="inline-flex items-center justify-center w-8 h-6 bg-[#F5EFE8] text-[#C4622D] text-xs font-semibold rounded-full border border-[#E8C9B0]">
-                              {row.age}
-                            </span>
-                          ) : '—'}
-                        </td>
-                        <td className="px-4 py-3 text-xs">
-                          {row.gender ? (
-                            <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded-full border capitalize ${
-                              row.gender.toLowerCase() === 'female' ?'bg-pink-50 text-pink-700 border-pink-200'
-                                : row.gender.toLowerCase() === 'male' ?'bg-blue-50 text-blue-700 border-blue-200' :'bg-gray-50 text-gray-600 border-gray-200'
-                            }`}>
-                              {row.gender}
-                            </span>
-                          ) : <span className="text-[#8C7B6B]">—</span>}
-                        </td>
-                        <td className="px-4 py-3 text-xs text-[#5C5347]">
-                          {row.allergies ? (
-                            <span className="inline-block px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-xs font-medium">
-                              {row.allergies}
-                            </span>
-                          ) : <span className="text-[#8C7B6B]">None</span>}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </>
-            )}
+                <>
+                  <div className="px-5 py-2.5 bg-[#FAF5EE] border-b border-[#E8DDD0] flex items-center justify-between">
+                    <p className="text-xs text-[#8C7B6B]">
+                      <span className="font-semibold text-[#2C2420]">{sortedParticipantRows.length}</span> participant{sortedParticipantRows.length !== 1 ? 's' : ''}{participantEventFilter !== 'all' ? ` for "${participantEventFilter}"` : ' across all sessions'}
+                    </p>
+                    {participantSortKey && (
+                      <button onClick={() => { setParticipantSortKey(null); setParticipantSortDir('asc'); }} className="text-xs text-[#C4622D] hover:underline">Clear sort</button>
+                    )}
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-[#F5EFE8] text-[#5C5347] text-xs uppercase tracking-wide">
+                          <th className="px-4 py-3 text-left font-semibold">#</th>
+                          <th className="px-4 py-3 text-left font-semibold">Event</th>
+                          <th className="px-4 py-3 text-left font-semibold cursor-pointer select-none hover:text-[#C4622D]" onClick={() => handleParticipantSort('datetime')}>
+                            Date &amp; Time <SortIcon col="datetime" sortKey={participantSortKey} sortDir={participantSortDir} />
+                          </th>
+                          <th className="px-4 py-3 text-left font-semibold">Full Name</th>
+                          <th className="px-4 py-3 text-left font-semibold cursor-pointer select-none hover:text-[#C4622D]" onClick={() => handleParticipantSort('dob')}>
+                            DOB <SortIcon col="dob" sortKey={participantSortKey} sortDir={participantSortDir} />
+                          </th>
+                          <th className="px-4 py-3 text-left font-semibold cursor-pointer select-none hover:text-[#C4622D]" onClick={() => handleParticipantSort('age')}>
+                            Age <SortIcon col="age" sortKey={participantSortKey} sortDir={participantSortDir} />
+                          </th>
+                          <th className="px-4 py-3 text-left font-semibold cursor-pointer select-none hover:text-[#C4622D]" onClick={() => handleParticipantSort('gender')}>
+                            Gender <SortIcon col="gender" sortKey={participantSortKey} sortDir={participantSortDir} />
+                          </th>
+                          <th className="px-4 py-3 text-left font-semibold cursor-pointer select-none hover:text-[#C4622D]" onClick={() => handleParticipantSort('allergies')}>
+                            Allergies <SortIcon col="allergies" sortKey={participantSortKey} sortDir={participantSortDir} />
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#F0E8DE]">
+                        {sortedParticipantRows.map((row, idx) => (
+                          <tr key={idx} className={idx % 2 === 0 ? 'bg-white hover:bg-[#FAF5EE]' : 'bg-[#FAF5EE] hover:bg-[#F5EFE8]'}>
+                            <td className="px-4 py-3 text-xs text-[#8C7B6B] font-medium">{idx + 1}</td>
+                            <td className="px-4 py-3">
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-[#FDF6EE] to-[#F5EFE8] text-[#C4622D] text-xs font-medium rounded-lg border border-[#E8C9B0] shadow-sm">
+                                <span className="w-1.5 h-1.5 rounded-full bg-[#C4622D] flex-shrink-0" />
+                                {row.eventName}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="text-xs text-[#2C2420] font-medium">{formatDate(row.eventDate)}</div>
+                              <div className="text-xs text-[#8C7B6B] mt-0.5">{row.timeslot}</div>
+                            </td>
+                            <td className="px-4 py-3 font-medium text-[#2C2420]">{row.fullName || '—'}</td>
+                            <td className="px-4 py-3 text-[#5C5347] text-xs">{formatDate(row.dob)}</td>
+                            <td className="px-4 py-3 text-[#5C5347] text-xs">
+                              {row.age !== '—' ? (
+                                <span className="inline-flex items-center justify-center w-8 h-6 bg-[#F5EFE8] text-[#C4622D] text-xs font-semibold rounded-full border border-[#E8C9B0]">{row.age}</span>
+                              ) : '—'}
+                            </td>
+                            <td className="px-4 py-3 text-xs">
+                              {row.gender ? (
+                                <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded-full border capitalize ${row.gender.toLowerCase() === 'female' ? 'bg-pink-50 text-pink-700 border-pink-200' : row.gender.toLowerCase() === 'male' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-gray-50 text-gray-600 border-gray-200'}`}>{row.gender}</span>
+                              ) : <span className="text-[#8C7B6B]">—</span>}
+                            </td>
+                            <td className="px-4 py-3 text-xs text-[#5C5347]">
+                              {row.allergies ? (
+                                <span className="inline-block px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-xs font-medium">{row.allergies}</span>
+                              ) : <span className="text-[#8C7B6B]">None</span>}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
             </>
           )
 
-        /* Participants by Location tab content */
         ) : filterTab === 'participants_by_location' ? (
-          loading ? (
-            <div className="flex items-center justify-center py-16">
-              <div className="w-8 h-8 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
-            </div>
-          ) : error ? (
+          error ? (
             <div className="p-6 text-center text-red-600 text-sm">{error}</div>
           ) : (
             <>
-              {/* Location filter dropdown */}
               <div className="px-5 py-3 bg-[#FAF5EE] border-b border-[#E8DDD0] flex items-center gap-3 flex-wrap">
                 <label className="text-sm font-medium text-[#5C5347] whitespace-nowrap">Filter by Location:</label>
                 <select
@@ -1126,19 +896,13 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
                   className="flex-1 max-w-xs px-3 py-1.5 text-sm border border-[#E8DDD0] rounded-lg bg-white text-[#2C2420] focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30"
                 >
                   <option value="all">All Locations</option>
-                  {venueOptions.map(v => (
-                    <option key={v} value={v}>{v}</option>
-                  ))}
+                  {venueOptions.map(v => <option key={v} value={v}>{v}</option>)}
                 </select>
                 {locationParticipantFilter !== 'all' && (
-                  <button onClick={() => { setLocationParticipantFilter('all'); setLocationParticipantSortKey(null); setLocationParticipantSortDir('asc'); }} className="text-xs text-[#C4622D] hover:underline">Clear</button>
+                  <button onClick={() => { setLocationParticipantFilter('all'); setLocationParticipantSortKey(null); }} className="text-xs text-[#C4622D] hover:underline">Clear</button>
                 )}
-                {/* Create PDF button */}
                 {sortedLocationParticipantRows.length > 0 && (
-                  <button
-                    onClick={handleCreateLocationParticipantPDF}
-                    className="ml-auto flex items-center gap-1.5 bg-[#C4622D] text-white px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-[#A04E22] transition-colors"
-                  >
+                  <button onClick={handleCreateLocationParticipantPDF} className="ml-auto flex items-center gap-1.5 bg-[#C4622D] text-white px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-[#A04E22] transition-colors">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
                       <path fillRule="evenodd" d="M4.5 2A1.5 1.5 0 0 0 3 3.5v13A1.5 1.5 0 0 0 4.5 18h11a1.5 1.5 0 0 0 1.5-1.5V7.621a1.5 1.5 0 0 0-.44-1.06l-4.12-4.122A1.5 1.5 0 0 0 11.378 2H4.5Zm4.75 6.75a.75.75 0 0 1 1.5 0v2.546l.943-1.048a.75.75 0 1 1 1.114 1.004l-2.25 2.5a.75.75 0 0 1-1.114 0l-2.25-2.5a.75.75 0 1 1 1.114-1.004l.943 1.048V8.75Z" clipRule="evenodd" />
                     </svg>
@@ -1146,7 +910,6 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
                   </button>
                 )}
               </div>
-
               {sortedLocationParticipantRows.length === 0 ? (
                 <div className="p-12 text-center">
                   <p className="text-3xl mb-2">📌</p>
@@ -1154,111 +917,81 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
                   <p className="text-sm text-[#8C7B6B] mt-1">Try selecting a different location or &quot;All Locations&quot;</p>
                 </div>
               ) : (
-              <>
-              <div className="px-5 py-2.5 bg-[#FAF5EE] border-b border-[#E8DDD0] flex items-center justify-between">
-                <p className="text-xs text-[#8C7B6B]">
-                  <span className="font-semibold text-[#2C2420]">{sortedLocationParticipantRows.length}</span> participant{sortedLocationParticipantRows.length !== 1 ? 's' : ''}{locationParticipantFilter !== 'all' ? ` at "${locationParticipantFilter}"` : ' across all locations'}
-                </p>
-                {locationParticipantSortKey && (
-                  <button
-                    onClick={() => { setLocationParticipantSortKey(null); setLocationParticipantSortDir('asc'); }}
-                    className="text-xs text-[#C4622D] hover:underline"
-                  >
-                    Clear sort
-                  </button>
-                )}
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-[#F5EFE8] text-[#5C5347] text-xs uppercase tracking-wide">
-                      <th className="px-4 py-3 text-left font-semibold">#</th>
-                      <th className="px-4 py-3 text-left font-semibold">Event</th>
-                      <th
-                        className="px-4 py-3 text-left font-semibold cursor-pointer select-none hover:text-[#C4622D] transition-colors"
-                        onClick={() => handleLocationParticipantSort('datetime')}
-                      >
-                        Date &amp; Time <SortIcon col="datetime" sortKey={locationParticipantSortKey} sortDir={locationParticipantSortDir} />
-                      </th>
-                      <th className="px-4 py-3 text-left font-semibold">Full Name</th>
-                      <th
-                        className="px-4 py-3 text-left font-semibold cursor-pointer select-none hover:text-[#C4622D] transition-colors"
-                        onClick={() => handleLocationParticipantSort('dob')}
-                      >
-                        DOB <SortIcon col="dob" sortKey={locationParticipantSortKey} sortDir={locationParticipantSortDir} />
-                      </th>
-                      <th
-                        className="px-4 py-3 text-left font-semibold cursor-pointer select-none hover:text-[#C4622D] transition-colors"
-                        onClick={() => handleLocationParticipantSort('age')}
-                      >
-                        Age <SortIcon col="age" sortKey={locationParticipantSortKey} sortDir={locationParticipantSortDir} />
-                      </th>
-                      <th
-                        className="px-4 py-3 text-left font-semibold cursor-pointer select-none hover:text-[#C4622D] transition-colors"
-                        onClick={() => handleLocationParticipantSort('gender')}
-                      >
-                        Gender <SortIcon col="gender" sortKey={locationParticipantSortKey} sortDir={locationParticipantSortDir} />
-                      </th>
-                      <th
-                        className="px-4 py-3 text-left font-semibold cursor-pointer select-none hover:text-[#C4622D] transition-colors"
-                        onClick={() => handleLocationParticipantSort('allergies')}
-                      >
-                        Allergies <SortIcon col="allergies" sortKey={locationParticipantSortKey} sortDir={locationParticipantSortDir} />
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#F0E8DE]">
-                    {sortedLocationParticipantRows.map((row, idx) => (
-                      <tr key={idx} className={idx % 2 === 0 ? 'bg-white hover:bg-[#FAF5EE]' : 'bg-[#FAF5EE] hover:bg-[#F5EFE8]'}>
-                        <td className="px-4 py-3 text-xs text-[#8C7B6B] font-medium">{idx + 1}</td>
-                        <td className="px-4 py-3">
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-[#FDF6EE] to-[#F5EFE8] text-[#C4622D] text-xs font-medium rounded-lg border border-[#E8C9B0] shadow-sm">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#C4622D] flex-shrink-0" />
-                            {row.eventName}
-                          </span>
-                          {row.location && (
-                            <div className="flex items-center gap-1 mt-1 text-xs text-[#8C7B6B]">
-                              <span>📍</span>
-                              <span>{row.location}</span>
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="text-xs text-[#2C2420] font-medium">{formatDate(row.eventDate)}</div>
-                          <div className="text-xs text-[#8C7B6B] mt-0.5">{row.timeslot}</div>
-                        </td>
-                        <td className="px-4 py-3 font-medium text-[#2C2420]">{row.fullName || '—'}</td>
-                        <td className="px-4 py-3 text-[#5C5347] text-xs">{formatDate(row.dob)}</td>
-                        <td className="px-4 py-3 text-[#5C5347] text-xs">
-                          {row.age !== '—' ? (
-                            <span className="inline-flex items-center justify-center w-8 h-6 bg-[#F5EFE8] text-[#C4622D] text-xs font-semibold rounded-full border border-[#E8C9B0]">
-                              {row.age}
-                            </span>
-                          ) : '—'}
-                        </td>
-                        <td className="px-4 py-3 text-xs">
-                          {row.gender ? (
-                            <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded-full border capitalize ${
-                              row.gender.toLowerCase() === 'female' ? 'bg-pink-50 text-pink-700 border-pink-200'
-                                : row.gender.toLowerCase() === 'male' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-gray-50 text-gray-600 border-gray-200'
-                            }`}>
-                              {row.gender}
-                            </span>
-                          ) : <span className="text-[#8C7B6B]">—</span>}
-                        </td>
-                        <td className="px-4 py-3 text-xs text-[#5C5347]">
-                          {row.allergies ? (
-                            <span className="inline-block px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-xs font-medium">
-                              {row.allergies}
-                            </span>
-                          ) : <span className="text-[#8C7B6B]">None</span>}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              </>
+                <>
+                  <div className="px-5 py-2.5 bg-[#FAF5EE] border-b border-[#E8DDD0] flex items-center justify-between">
+                    <p className="text-xs text-[#8C7B6B]">
+                      <span className="font-semibold text-[#2C2420]">{sortedLocationParticipantRows.length}</span> participant{sortedLocationParticipantRows.length !== 1 ? 's' : ''}{locationParticipantFilter !== 'all' ? ` at "${locationParticipantFilter}"` : ' across all locations'}
+                    </p>
+                    {locationParticipantSortKey && (
+                      <button onClick={() => { setLocationParticipantSortKey(null); setLocationParticipantSortDir('asc'); }} className="text-xs text-[#C4622D] hover:underline">Clear sort</button>
+                    )}
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-[#F5EFE8] text-[#5C5347] text-xs uppercase tracking-wide">
+                          <th className="px-4 py-3 text-left font-semibold">#</th>
+                          <th className="px-4 py-3 text-left font-semibold">Event</th>
+                          <th className="px-4 py-3 text-left font-semibold cursor-pointer select-none hover:text-[#C4622D]" onClick={() => handleLocationParticipantSort('datetime')}>
+                            Date &amp; Time <SortIcon col="datetime" sortKey={locationParticipantSortKey} sortDir={locationParticipantSortDir} />
+                          </th>
+                          <th className="px-4 py-3 text-left font-semibold">Full Name</th>
+                          <th className="px-4 py-3 text-left font-semibold cursor-pointer select-none hover:text-[#C4622D]" onClick={() => handleLocationParticipantSort('dob')}>
+                            DOB <SortIcon col="dob" sortKey={locationParticipantSortKey} sortDir={locationParticipantSortDir} />
+                          </th>
+                          <th className="px-4 py-3 text-left font-semibold cursor-pointer select-none hover:text-[#C4622D]" onClick={() => handleLocationParticipantSort('age')}>
+                            Age <SortIcon col="age" sortKey={locationParticipantSortKey} sortDir={locationParticipantSortDir} />
+                          </th>
+                          <th className="px-4 py-3 text-left font-semibold cursor-pointer select-none hover:text-[#C4622D]" onClick={() => handleLocationParticipantSort('gender')}>
+                            Gender <SortIcon col="gender" sortKey={locationParticipantSortKey} sortDir={locationParticipantSortDir} />
+                          </th>
+                          <th className="px-4 py-3 text-left font-semibold cursor-pointer select-none hover:text-[#C4622D]" onClick={() => handleLocationParticipantSort('allergies')}>
+                            Allergies <SortIcon col="allergies" sortKey={locationParticipantSortKey} sortDir={locationParticipantSortDir} />
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#F0E8DE]">
+                        {sortedLocationParticipantRows.map((row, idx) => (
+                          <tr key={idx} className={idx % 2 === 0 ? 'bg-white hover:bg-[#FAF5EE]' : 'bg-[#FAF5EE] hover:bg-[#F5EFE8]'}>
+                            <td className="px-4 py-3 text-xs text-[#8C7B6B] font-medium">{idx + 1}</td>
+                            <td className="px-4 py-3">
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-[#FDF6EE] to-[#F5EFE8] text-[#C4622D] text-xs font-medium rounded-lg border border-[#E8C9B0] shadow-sm">
+                                <span className="w-1.5 h-1.5 rounded-full bg-[#C4622D] flex-shrink-0" />
+                                {row.eventName}
+                              </span>
+                              {row.location && (
+                                <div className="flex items-center gap-1 mt-1 text-xs text-[#8C7B6B]">
+                                  <span>📍</span><span>{row.location}</span>
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="text-xs text-[#2C2420] font-medium">{formatDate(row.eventDate)}</div>
+                              <div className="text-xs text-[#8C7B6B] mt-0.5">{row.timeslot}</div>
+                            </td>
+                            <td className="px-4 py-3 font-medium text-[#2C2420]">{row.fullName || '—'}</td>
+                            <td className="px-4 py-3 text-[#5C5347] text-xs">{formatDate(row.dob)}</td>
+                            <td className="px-4 py-3 text-[#5C5347] text-xs">
+                              {row.age !== '—' ? (
+                                <span className="inline-flex items-center justify-center w-8 h-6 bg-[#F5EFE8] text-[#C4622D] text-xs font-semibold rounded-full border border-[#E8C9B0]">{row.age}</span>
+                              ) : '—'}
+                            </td>
+                            <td className="px-4 py-3 text-xs">
+                              {row.gender ? (
+                                <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded-full border capitalize ${row.gender.toLowerCase() === 'female' ? 'bg-pink-50 text-pink-700 border-pink-200' : row.gender.toLowerCase() === 'male' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-gray-50 text-gray-600 border-gray-200'}`}>{row.gender}</span>
+                              ) : <span className="text-[#8C7B6B]">—</span>}
+                            </td>
+                            <td className="px-4 py-3 text-xs text-[#5C5347]">
+                              {row.allergies ? (
+                                <span className="inline-block px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-xs font-medium">{row.allergies}</span>
+                              ) : <span className="text-[#8C7B6B]">None</span>}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
               )}
             </>
           )
@@ -1276,9 +1009,7 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
                     className="flex-1 max-w-xs px-3 py-1.5 text-sm border border-[#E8DDD0] rounded-lg bg-white text-[#2C2420] focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30"
                   >
                     <option value="all">All Events</option>
-                    {eventOptions.map(ev => (
-                      <option key={ev} value={ev}>{ev}</option>
-                    ))}
+                    {eventOptions.map(ev => <option key={ev} value={ev}>{ev}</option>)}
                   </select>
                   {selectedEvent !== 'all' && (
                     <button onClick={() => setSelectedEvent('all')} className="text-xs text-[#C4622D] hover:underline">Clear</button>
@@ -1309,9 +1040,7 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
                     className="flex-1 max-w-xs px-3 py-1.5 text-sm border border-[#E8DDD0] rounded-lg bg-white text-[#2C2420] focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30"
                   >
                     <option value="all">All Venues</option>
-                    {venueOptions.map(v => (
-                      <option key={v} value={v}>{v}</option>
-                    ))}
+                    {venueOptions.map(v => <option key={v} value={v}>{v}</option>)}
                   </select>
                   {selectedVenue !== 'all' && (
                     <button onClick={() => setSelectedVenue('all')} className="text-xs text-[#C4622D] hover:underline">Clear</button>
@@ -1321,11 +1050,7 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
             </div>
 
             {/* Table */}
-            {loading ? (
-              <div className="flex items-center justify-center py-16">
-                <div className="w-8 h-8 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
-              </div>
-            ) : error ? (
+            {error ? (
               <div className="p-6 text-center text-red-600 text-sm">{error}</div>
             ) : filtered.length === 0 ? (
               <div className="p-12 text-center">
@@ -1340,7 +1065,7 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
                     <tr className="bg-[#F5EFE8] text-[#5C5347] text-xs uppercase tracking-wide">
                       <th className="px-4 py-3 text-left font-semibold">Registrant</th>
                       <th className="px-4 py-3 text-left font-semibold">Contact</th>
-                      <th className="px-4 py-3 text-left font-semibold">Class</th>
+                      <th className="px-4 py-3 text-left font-semibold">Event</th>
                       <th className="px-4 py-3 text-left font-semibold">Venue</th>
                       <th className="px-4 py-3 text-left font-semibold">Date(s)</th>
                       <th className="px-4 py-3 text-left font-semibold">Payment</th>
@@ -1355,8 +1080,8 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
                       const sessions = reg.session_dates || [];
                       const uniqueEvents = [...new Set(sessions.map(s => s.event_name).filter(Boolean))];
                       const uniqueVenues = [...new Set(sessions.map(s => s.location).filter(Boolean))];
-                      const childCount = (reg.children || []).length;
-                      const participantCount = childCount;
+                      const filledChildren = filterFilledChildren(reg.children);
+                      const childCount = filledChildren.length;
 
                       return (
                         <>
@@ -1365,35 +1090,25 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
                             className={`hover:bg-[#FAF5EE] transition-colors cursor-pointer ${isExpanded ? 'bg-[#FDF6EE]' : 'bg-white'}`}
                             onClick={() => setExpandedId(isExpanded ? null : reg.id)}
                           >
-                            {/* Registrant Name */}
                             <td className="px-4 py-3">
-                              <div className="font-semibold text-[#2C2420]">
-                                {reg.title} {reg.first_name} {reg.surname}
-                              </div>
+                              <div className="font-semibold text-[#2C2420]">{reg.title} {reg.first_name} {reg.surname}</div>
                               <div className="text-xs text-[#8C7B6B] mt-0.5">{reg.relationship || '—'}</div>
                             </td>
-                            {/* Contact */}
                             <td className="px-4 py-3">
                               <div className="text-[#2C2420]">{reg.email}</div>
                               <div className="text-xs text-[#8C7B6B] mt-0.5">{reg.cellphone}</div>
                             </td>
-                            {/* Elegant Event(s) badge */}
                             <td className="px-4 py-3">
                               {uniqueEvents.length > 0 ? (
                                 <div className="flex flex-wrap gap-1.5">
                                   {uniqueEvents.map((ev, i) => (
-                                    <span
-                                      key={i}
-                                      className="inline-flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-[#FDF6EE] to-[#F5EFE8] text-[#C4622D] text-xs font-medium rounded-lg border border-[#E8C9B0] shadow-sm"
-                                    >
-                                      <span className="w-1.5 h-1.5 rounded-full bg-[#C4622D] flex-shrink-0" />
-                                      {ev}
+                                    <span key={i} className="inline-flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-[#FDF6EE] to-[#F5EFE8] text-[#C4622D] text-xs font-medium rounded-lg border border-[#E8C9B0] shadow-sm">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-[#C4622D] flex-shrink-0" />{ev}
                                     </span>
                                   ))}
                                 </div>
                               ) : <span className="text-[#8C7B6B]">—</span>}
                             </td>
-                            {/* Venue */}
                             <td className="px-4 py-3">
                               {uniqueVenues.length > 0 ? (
                                 <div className="space-y-0.5">
@@ -1403,43 +1118,31 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
                                 </div>
                               ) : <span className="text-[#8C7B6B]">—</span>}
                             </td>
-                            {/* Dates */}
                             <td className="px-4 py-3">
                               {sessions.length > 0 ? (
                                 <div className="space-y-0.5">
                                   {sessions.slice(0, 2).map((s, i) => (
                                     <div key={i} className="text-xs text-[#5C5347]">{formatDate(s.event_date)}</div>
                                   ))}
-                                  {sessions.length > 2 && (
-                                    <div className="text-xs text-[#8C7B6B]">+{sessions.length - 2} more</div>
-                                  )}
+                                  {sessions.length > 2 && <div className="text-xs text-[#8C7B6B]">+{sessions.length - 2} more</div>}
                                 </div>
                               ) : <span className="text-[#8C7B6B]">—</span>}
                             </td>
-                            {/* Payment Status */}
                             <td className="px-4 py-3">
                               <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded-full border capitalize ${PAYMENT_STATUS_COLORS[reg.payment_status] || 'bg-gray-100 text-gray-600 border-gray-200'}`}>
                                 {reg.payment_status.replace(/_/g, ' ')}
                               </span>
                             </td>
-                            {/* Amount */}
-                            <td className="px-4 py-3 font-medium text-[#2C2420]">
-                              {formatCurrency(reg.amount)}
-                            </td>
-                            {/* Registered date */}
-                            <td className="px-4 py-3 text-xs text-[#5C5347]">
-                              {formatDate(reg.created_at)}
-                            </td>
-                            {/* Participants toggle */}
+                            <td className="px-4 py-3 font-medium text-[#2C2420]">{formatCurrency(reg.amount)}</td>
+                            <td className="px-4 py-3 text-xs text-[#5C5347]">{formatDate(reg.created_at)}</td>
                             <td className="px-4 py-3 text-center">
                               <div className="flex items-center justify-center gap-2">
-                                {/* Super Admin DELETE button */}
                                 {isSuperAdmin && (
                                   <button
                                     type="button"
                                     onClick={(e) => openDeleteModal(reg, e)}
                                     className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-lg bg-red-50 border border-red-200 text-red-600 text-xs font-semibold hover:bg-red-100 hover:border-red-300 transition-colors"
-                                    title="Delete this registration (Super Admin only)"
+                                    title="Delete this registration"
                                   >
                                     <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                       <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -1449,13 +1152,9 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
                                 )}
                                 <button
                                   onClick={e => { e.stopPropagation(); setExpandedId(isExpanded ? null : reg.id); }}
-                                  className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-full border transition-colors ${
-                                    isExpanded
-                                      ? 'bg-[#C4622D] text-white border-[#C4622D]'
-                                      : 'bg-white text-[#C4622D] border-[#C4622D] hover:bg-[#FDF6EE]'
-                                  }`}
+                                  className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-full border transition-colors ${isExpanded ? 'bg-[#C4622D] text-white border-[#C4622D]' : 'bg-white text-[#C4622D] border-[#C4622D] hover:bg-[#FDF6EE]'}`}
                                 >
-                                  <span>{participantCount}</span>
+                                  <span>{childCount}</span>
                                   <span>{isExpanded ? '▲' : '▼'}</span>
                                 </button>
                               </div>
@@ -1466,12 +1165,9 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
                           {isExpanded && (
                             <tr key={`${reg.id}-expanded`} className="bg-[#FDF6EE]">
                               <td colSpan={9} className="p-0">
-                                {/* Black header bar — same style as CookingClassCustomers expanded card */}
                                 <div className="bg-black px-6 py-4 flex items-center gap-4">
                                   <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-bold text-white">
-                                      {reg.title} {reg.first_name} {reg.surname}
-                                    </p>
+                                    <p className="text-sm font-bold text-white">{reg.title} {reg.first_name} {reg.surname}</p>
                                     <p className="text-xs text-gray-400 mt-0.5">{reg.email} · {reg.cellphone}</p>
                                   </div>
                                   <div className="flex items-center gap-3 flex-shrink-0">
@@ -1482,9 +1178,8 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
                                     <span className="text-xs text-gray-400">{formatDate(reg.created_at)}</span>
                                   </div>
                                 </div>
-                                <div className="px-6 py-5">
-                                <div className="space-y-5">
-                                  {/* Registrant (Adult) participant row */}
+                                <div className="px-6 py-5 space-y-5">
+                                  {/* Registrant info */}
                                   <div>
                                     <h4 className="text-xs font-semibold text-[#8C7B6B] uppercase tracking-wide mb-2 flex items-center gap-2">
                                       <span className="w-5 h-5 bg-[#C4622D] text-white rounded-full flex items-center justify-center text-xs">R</span>
@@ -1556,9 +1251,7 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
                                           </thead>
                                           <tbody>
                                             <tr className="bg-white">
-                                              <td className="px-3 py-2 text-[#5C5347]">
-                                                {[reg.medical_doctor_first_name, reg.medical_doctor_surname].filter(Boolean).join(' ') || '—'}
-                                              </td>
+                                              <td className="px-3 py-2 text-[#5C5347]">{[reg.medical_doctor_first_name, reg.medical_doctor_surname].filter(Boolean).join(' ') || '—'}</td>
                                               <td className="px-3 py-2 text-[#5C5347]">{reg.medical_aid_name || '—'}</td>
                                               <td className="px-3 py-2 text-[#5C5347]">{reg.medical_aid_number || '—'}</td>
                                             </tr>
@@ -1568,7 +1261,7 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
                                     </div>
                                   )}
 
-                                  {/* Children / additional participants */}
+                                  {/* Child participants */}
                                   {childCount > 0 && (
                                     <div>
                                       <h4 className="text-xs font-semibold text-[#8C7B6B] uppercase tracking-wide mb-2 flex items-center gap-2">
@@ -1589,14 +1282,12 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
                                             </tr>
                                           </thead>
                                           <tbody className="divide-y divide-[#F0E8DE]">
-                                            {(reg.children || []).map((child, idx) => (
+                                            {filledChildren.map((child, idx) => (
                                               <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-[#FAF5EE]'}>
                                                 <td className="px-3 py-2 text-[#8C7B6B] font-medium">{idx + 1}</td>
                                                 <td className="px-3 py-2 font-medium text-[#2C2420]">{child.fullName || child.full_name || child.name || '—'}</td>
                                                 <td className="px-3 py-2 text-[#5C5347]">{formatDate(child.dob)}</td>
-                                                <td className="px-3 py-2 text-[#5C5347]">
-                                                  {child.age != null ? String(child.age) : calcAge(child.dob)}
-                                                </td>
+                                                <td className="px-3 py-2 text-[#5C5347]">{child.age != null ? String(child.age) : calcAge(child.dob)}</td>
                                                 <td className="px-3 py-2 text-[#5C5347] capitalize">{child.gender || '—'}</td>
                                                 <td className="px-3 py-2 text-[#5C5347]">{child.grade || '—'}</td>
                                                 <td className="px-3 py-2 text-[#5C5347]">{child.allergies || '—'}</td>
@@ -1631,9 +1322,7 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
                                               <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-[#FAF5EE]'}>
                                                 <td className="px-3 py-2 font-medium text-[#2C2420]">{s.event_name || '—'}</td>
                                                 <td className="px-3 py-2 text-[#5C5347]">{formatDate(s.event_date)}</td>
-                                                <td className="px-3 py-2 text-[#5C5347]">
-                                                  {s.start_time && s.end_time ? `${s.start_time} – ${s.end_time}` : s.start_time || '—'}
-                                                </td>
+                                                <td className="px-3 py-2 text-[#5C5347]">{s.start_time && s.end_time ? `${s.start_time} – ${s.end_time}` : s.start_time || '—'}</td>
                                                 <td className="px-3 py-2 text-[#5C5347]">{s.location || '—'}</td>
                                                 <td className="px-3 py-2 text-[#5C5347]">{formatCurrency(s.class_fee)}</td>
                                               </tr>
@@ -1652,7 +1341,6 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
                                     </div>
                                   )}
                                 </div>
-                                </div>
                               </td>
                             </tr>
                           )}
@@ -1664,28 +1352,23 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
               </div>
             )}
 
-            {/* Elegant themed paginator */}
-            {!loading && !error && filtered.length > 0 && (
+            {/* Paginator */}
+            {!error && filtered.length > 0 && (
               <>
                 <div className="px-5 py-2 bg-[#FAF5EE] border-t border-[#E8DDD0] text-xs text-[#8C7B6B]">
                   Showing {Math.min((currentPage - 1) * PAGE_SIZE + 1, filtered.length)}–{Math.min(currentPage * PAGE_SIZE, filtered.length)} of {filtered.length} registration{filtered.length !== 1 ? 's' : ''}
                 </div>
-                <Paginator
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  onPageChange={setCurrentPage}
-                />
+                <Paginator currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
               </>
             )}
           </>
         )}
       </div>
 
-      {/* ── DELETE CONFIRMATION MODAL (Super Admin only) ── */}
+      {/* ── DELETE CONFIRMATION MODAL ── */}
       {deleteTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl shadow-2xl border border-red-200 w-full max-w-md">
-            {/* Modal Header */}
             <div className="flex items-center gap-3 px-6 pt-6 pb-4 border-b border-red-100">
               <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
                 <svg className="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1697,22 +1380,14 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
                 <p className="text-xs text-red-600 font-medium">This action is permanent and cannot be undone</p>
               </div>
             </div>
-
-            {/* Modal Body */}
             <div className="px-6 py-5">
               <p className="text-sm text-[#5C5347] mb-1">You are about to permanently delete the complete record for:</p>
               <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-4">
-                <p className="text-sm font-bold text-[#1A1612]">
-                  {deleteTarget.title ? `${deleteTarget.title} ` : ''}{deleteTarget.first_name} {deleteTarget.surname}
-                </p>
+                <p className="text-sm font-bold text-[#1A1612]">{deleteTarget.title ? `${deleteTarget.title} ` : ''}{deleteTarget.first_name} {deleteTarget.surname}</p>
                 <p className="text-xs text-[#8C8278]">{deleteTarget.email} · {deleteTarget.cellphone}</p>
-                <p className="text-xs text-[#8C8278] mt-0.5">
-                  Registered: {formatDate(deleteTarget.created_at)} · Amount: {formatCurrency(deleteTarget.amount)}
-                </p>
+                <p className="text-xs text-[#8C8278] mt-0.5">Registered: {formatDate(deleteTarget.created_at)} · Amount: {formatCurrency(deleteTarget.amount)}</p>
               </div>
-              <p className="text-xs text-[#8C8278] mb-3">
-                This will permanently remove the registration, all participant data, session bookings, and payment records associated with this registrant.
-              </p>
+              <p className="text-xs text-[#8C8278] mb-3">This will permanently remove the registration, all participant data, session bookings, and payment records associated with this registrant.</p>
               <label className="block text-xs font-semibold text-[#5C5347] mb-1.5">
                 Type <span className="text-red-600 font-bold">DELETE</span> to confirm:
               </label>
@@ -1724,21 +1399,10 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
                 className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-red-400 bg-white"
                 autoFocus
               />
-              {deleteError && (
-                <p className="text-xs text-red-600 mt-2">{deleteError}</p>
-              )}
+              {deleteError && <p className="text-xs text-red-600 mt-2">{deleteError}</p>}
             </div>
-
-            {/* Modal Footer */}
             <div className="flex gap-3 px-6 pb-6">
-              <button
-                type="button"
-                onClick={closeDeleteModal}
-                disabled={deleting}
-                className="flex-1 px-4 py-2.5 rounded-xl border border-[#DDD5C8] text-sm font-medium text-[#5C5347] hover:bg-[#FAF5EE] transition-colors disabled:opacity-50"
-              >
-                Cancel
-              </button>
+              <button type="button" onClick={closeDeleteModal} disabled={deleting} className="flex-1 px-4 py-2.5 rounded-xl border border-[#DDD5C8] text-sm font-medium text-[#5C5347] hover:bg-[#FAF5EE] transition-colors disabled:opacity-50">Cancel</button>
               <button
                 type="button"
                 onClick={handleDelete}
@@ -1746,17 +1410,9 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
                 className="flex-1 px-4 py-2.5 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {deleting ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    Deleting…
-                  </>
+                  <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Deleting…</>
                 ) : (
-                  <>
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                    Delete Permanently
-                  </>
+                  <><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>Delete Permanently</>
                 )}
               </button>
             </div>
