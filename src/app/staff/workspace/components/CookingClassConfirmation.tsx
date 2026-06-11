@@ -39,6 +39,8 @@ interface AwaitingRegistration {
 interface CorrespondenceSettings {
   form_header_title: string | null;
   logo_url: string | null;
+  info_email: string | null;
+  admin_email: string | null;
 }
 
 interface CookingClassConfirmationProps {
@@ -77,7 +79,7 @@ export default function CookingClassConfirmation({ userRole }: CookingClassConfi
         .order('created_at', { ascending: false }),
       supabase
         .from('correspondence_settings')
-        .select('form_header_title, logo_url')
+        .select('form_header_title, logo_url, info_email, admin_email')
         .limit(1)
         .maybeSingle(),
     ]);
@@ -167,16 +169,62 @@ export default function CookingClassConfirmation({ userRole }: CookingClassConfi
     setSendResult(null);
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+
+      const fullName = `${previewReg.title ? previewReg.title + ' ' : ''}${previewReg.first_name} ${previewReg.surname}`;
+
+      // Build admin recipient list from correspondence settings
+      const normalize = (val: string | null | undefined): string | null => {
+        if (!val || val.trim() === '') return null;
+        return val.trim();
+      };
+      const infoEmail = normalize(correspondenceSettings?.info_email);
+      const adminEmail = normalize(correspondenceSettings?.admin_email);
+      const adminEmails: string[] = [];
+      if (infoEmail) adminEmails.push(infoEmail);
+      if (adminEmail && adminEmail !== infoEmail) adminEmails.push(adminEmail);
+
+      const res = await fetch(`${supabaseUrl}/functions/v1/send-cooking-class-confirmation`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({
+          registrationId: previewReg.id,
+          registrationCode: previewReg.registration_code,
+          fullName,
+          customerEmail: previewReg.email,
+          cellphone: previewReg.cellphone,
+          amount: previewReg.amount,
+          createdAt: previewReg.created_at,
+          notes: previewReg.notes,
+          sessionDates: previewReg.session_dates || [],
+          children: previewReg.children || [],
+          formHeaderTitle: correspondenceSettings?.form_header_title || 'Cardamom Kitchen',
+          logoUrl: correspondenceSettings?.logo_url || null,
+          adminEmails,
+        }),
+      });
+
+      const result = await res.json();
+
+      if (!res.ok || result.error) {
+        throw new Error(result.error || 'Failed to send confirmation email');
+      }
+
+      // Update payment_status to 'paid' (mark as confirmed)
       const { error: updateError } = await supabase
         .from('cooking_class_registrations')
         .update({ payment_status: 'paid' })
         .eq('id', previewReg.id);
 
       if (updateError) {
-        throw new Error('Failed to update registration status: ' + updateError.message);
+        throw new Error('Email sent but failed to update registration status: ' + updateError.message);
       }
 
-      setSendResult({ success: true, message: 'Class booking confirmed. Registration marked as Paid.' });
+      setSendResult({ success: true, message: 'Class booking confirmed. Confirmation email sent to customer.' + (adminEmails.length > 0 ? ` Admin copy sent to ${adminEmails.join(', ')}.` : '') });
       showToast('success', `Confirmation sent to ${previewReg.email}`);
 
       setTimeout(() => {
