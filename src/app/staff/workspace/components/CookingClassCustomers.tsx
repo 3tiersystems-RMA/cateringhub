@@ -46,7 +46,6 @@ interface Registration {
   emergency_contact1: EmergencyContact | null;
   emergency_contact2: EmergencyContact | null;
   children: ChildParticipant[] | null;
-  attend_school_holiday: string | null;
   medical_doctor_first_name: string | null;
   medical_doctor_surname: string | null;
   medical_aid_name: string | null;
@@ -591,7 +590,6 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
                           <Field label="Cellphone" value={reg.cellphone} />
                           <Field label="Relationship to Participants" value={reg.relationship} />
                           <Field label="First Time at Portal" value={reg.first_time_portal} />
-                          <Field label="Attend School Holiday" value={reg.attend_school_holiday} />
                           <Field label="RSA ID / Passport" value={reg.rsa_id_passport} />
                           <Field label="Allergies / Illness" value={reg.allergies_illness} />
                           <Field label="Pictures Consent" value={reg.pictures_taken} />

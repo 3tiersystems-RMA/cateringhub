@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { marketingFieldsFromSession, type BookableSession } from '@/lib/event-management-sync';
 
 interface EventSettings {
   id: string;
@@ -197,6 +198,9 @@ export default function EventManagementSettings({ isSuperAdmin = false, readOnly
           .not('event_id', 'is', null);
         if (syncError) throw syncError;
         await loadAllDateRows();
+        for (const ev of events) {
+          await syncLinkedMarketingEvents(ev.id);
+        }
       }
       setSaveSuccess(newFee > 0 ? 'Settings saved — all session fees updated to match default' : 'Settings saved successfully');
       await loadSettings();
@@ -259,12 +263,52 @@ export default function EventManagementSettings({ isSuperAdmin = false, readOnly
     finally { setDeletingId(null); }
   }
 
+  async function syncLinkedMarketingEvents(mgmtEventId: string, eventName?: string) {
+    const mgmtName = eventName || events.find(e => e.id === mgmtEventId)?.name;
+    if (!mgmtName) return;
+
+    const defaultFee = Number(eventFee) || Number(settings?.event_fee) || 0;
+    const { data: linkedCards } = await supabase
+      .from('events')
+      .select('id, event_management_session_id')
+      .eq('event_management_event_id', mgmtEventId)
+      .eq('is_registered', true);
+
+    if (!linkedCards?.length) return;
+
+    const sessionIds = linkedCards
+      .map(c => c.event_management_session_id)
+      .filter((id): id is string => !!id);
+
+    if (!sessionIds.length) return;
+
+    const { data: sessions } = await supabase
+      .from('event_management_event_dates')
+      .select('id, event_id, event_date, start_time, end_time, location, event_fee')
+      .in('id', sessionIds);
+
+    if (!sessions?.length) return;
+
+    const sessionMap = Object.fromEntries(sessions.map(s => [s.id, s]));
+
+    await Promise.all(
+      linkedCards.map(async card => {
+        if (!card.event_management_session_id) return;
+        const session = sessionMap[card.event_management_session_id] as BookableSession | undefined;
+        if (!session) return;
+        const fields = marketingFieldsFromSession(mgmtName, session, defaultFee);
+        await supabase.from('events').update(fields).eq('id', card.id);
+      })
+    );
+  }
+
   async function updateEventName(id: string) {
     if (!editingEventName.trim()) return;
     setSavingEventName(true);
     try {
       const { error } = await supabase.from('event_management_events').update({ name: editingEventName.trim() }).eq('id', id);
       if (error) throw error;
+      await syncLinkedMarketingEvents(id, editingEventName.trim());
       setEditingEventId(null);
       setEditingEventName('');
       await loadEvents();
@@ -345,6 +389,7 @@ export default function EventManagementSettings({ isSuperAdmin = false, readOnly
       const rowsToSave = rows
         .filter(r => r.event_date && r.event_date.trim() !== '')
         .map((r, i) => ({
+          id: r.id,
           event_id: eventId,
           event_date: r.event_date,
           start_time: r.start_time || null,
@@ -356,23 +401,57 @@ export default function EventManagementSettings({ isSuperAdmin = false, readOnly
           event_fee: r.event_fee !== '' ? Number(r.event_fee) : null,
         }));
 
-      // Step 1: Delete ALL existing rows for this event
-      const { error: deleteError } = await supabase
+      // Preserve session IDs where possible so linked marketing cards stay in sync.
+      // (Previously: delete all rows for this event and re-insert — that broke marketing links.)
+      const keptIds = rowsToSave.filter(r => r.id).map(r => r.id as string);
+      const { data: existingRows } = await supabase
         .from('event_management_event_dates')
-        .delete()
+        .select('id')
         .eq('event_id', eventId);
-      if (deleteError) throw deleteError;
 
-      // Step 2: Insert all rows fresh (no id field — DB generates new UUIDs)
-      if (rowsToSave.length > 0) {
-        const { error: insertError } = await supabase
+      const idsToRemove = (existingRows || [])
+        .map(r => r.id)
+        .filter(id => !keptIds.includes(id));
+
+      if (idsToRemove.length > 0) {
+        const { error: deleteError } = await supabase
           .from('event_management_event_dates')
-          .insert(rowsToSave);
-        if (insertError) throw insertError;
+          .delete()
+          .in('id', idsToRemove);
+        if (deleteError) throw deleteError;
       }
 
+      for (let i = 0; i < rowsToSave.length; i++) {
+        const r = rowsToSave[i];
+        const payload = {
+          event_id: eventId,
+          event_date: r.event_date,
+          start_time: r.start_time || null,
+          end_time: r.end_time || null,
+          location: r.location || DEFAULT_LOCATION,
+          sort_order: i,
+          seating: Number(r.seating) || 0,
+          status_id: r.status_id || null,
+          event_fee: r.event_fee,
+        };
+
+        if (r.id) {
+          const { error: updateError } = await supabase
+            .from('event_management_event_dates')
+            .update(payload)
+            .eq('id', r.id);
+          if (updateError) throw updateError;
+        } else {
+          const { error: insertError } = await supabase
+            .from('event_management_event_dates')
+            .insert(payload);
+          if (insertError) throw insertError;
+        }
+      }
+
+      await syncLinkedMarketingEvents(eventId);
+
       setEventDatesMsg(prev => ({ ...prev, [eventId]: 'Saved' }));
-      // Reload so state has fresh DB-generated IDs
       await loadAllDateRows();
     } catch (err: any) {
       setEventDatesMsg(prev => ({ ...prev, [eventId]: err.message || 'Failed to save' }));
@@ -497,7 +576,7 @@ export default function EventManagementSettings({ isSuperAdmin = false, readOnly
                   className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white disabled:bg-[#F5F0E8]"
                 />
               </div>
-              <p className="text-[10px] text-[#8C8278] mt-0.5">Used at checkout only when Default Event Fee is 0</p>
+              <p className="text-[10px] text-[#8C8278] mt-0.5">Used for this session when set; otherwise Default Event Fee applies</p>
             </div>
           </div>
         </div>
@@ -579,8 +658,8 @@ export default function EventManagementSettings({ isSuperAdmin = false, readOnly
               className="w-full max-w-xs border border-[#DDD5C8] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] disabled:bg-[#F5F0E8]"
             />
             <p className="text-xs text-[#8C8278] mt-1.5">
-              This fee is charged at checkout for all registrations. Saving updates every session fee below to match.
-              Set to 0 only if you need different per-session pricing (e.g. Kids vs Adults).
+              Fallback when a session has no Event Fee. Per-session fees always take priority at checkout and on the Events page.
+              Saving updates every session fee below to match this value.
             </p>
           </div>
         </div>

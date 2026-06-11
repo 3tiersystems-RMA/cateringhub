@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { usePaymentSettings } from '@/hooks/usePaymentSettings';
+import { resolveCheckoutFee } from '@/lib/event-management-sync';
 
 interface FormPage1 {
   title: string;
@@ -124,15 +125,26 @@ function formatEventDate(row: EventDateRow): string {
   return `${day} ${month} ${year}${timeStr}`;
 }
 
+function localDateInputMax(): string {
+  const now = new Date();
+  return [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, '0'),
+    String(now.getDate()).padStart(2, '0'),
+  ].join('-');
+}
+
 function calculateAge(dob: string): number | null {
   if (!dob) return null;
-  const birth = new Date(dob);
+  const birth = new Date(dob.includes('T') ? dob : `${dob}T00:00:00`);
   if (isNaN(birth.getTime())) return null;
   const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (birth > today) return null;
   let age = today.getFullYear() - birth.getFullYear();
   const m = today.getMonth() - birth.getMonth();
   if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
-  return age;
+  return age < 0 ? null : age;
 }
 
 export default function EventBookingsPage() {
@@ -159,6 +171,8 @@ export default function EventBookingsPage() {
   const [showSeatsFullPopup, setShowSeatsFullPopup] = useState(false);
   const [showLimitedSeatsWarning, setShowLimitedSeatsWarning] = useState(false);
   const [limitedSeatsWarningShown, setLimitedSeatsWarningShown] = useState(false);
+  const [enrollPreselected, setEnrollPreselected] = useState(false);
+  const preselectApplied = useRef(false);
 
   const [showEmailConfirm, setShowEmailConfirm] = useState(false);
 
@@ -279,23 +293,75 @@ export default function EventBookingsPage() {
     return true;
   }
 
+  function clearEnrollPreselection() {
+    setEnrollPreselected(false);
+    preselectApplied.current = false;
+    setPage1(prev => ({
+      ...prev,
+      selectedEvents: [],
+      selectedDates: [],
+      selectedDateIds: [],
+    }));
+    if (typeof window !== 'undefined') {
+      window.history.replaceState({}, '', '/event-bookings');
+    }
+  }
+
+  useEffect(() => {
+    if (preselectApplied.current || typeof window === 'undefined') return;
+    if (mgmtEvents.length === 0 || eventDates.length === 0) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const eventId = params.get('eventId');
+    const sessionId = params.get('sessionId');
+    const eventNameParam = params.get('event');
+    if (!eventId && !eventNameParam) return;
+
+    let mgmt = eventId ? mgmtEvents.find(e => e.id === eventId) : undefined;
+    if (!mgmt && eventNameParam) {
+      mgmt = mgmtEvents.find(e => e.name === eventNameParam);
+    }
+    if (!mgmt) return;
+
+    const datesForEvent = eventDates.filter(row => row.event_id === mgmt.id);
+    let targetRow = sessionId ? datesForEvent.find(row => row.id === sessionId) : undefined;
+    if (!targetRow || !isDateSelectable(targetRow)) {
+      targetRow = datesForEvent.find(row => isDateSelectable(row));
+    }
+
+    preselectApplied.current = true;
+    setEnrollPreselected(true);
+
+    if (targetRow) {
+      const label = formatEventDate(targetRow);
+      setPage1(prev => ({
+        ...prev,
+        selectedEvents: [mgmt!.name],
+        selectedDates: [label],
+        selectedDateIds: [targetRow!.id],
+      }));
+    } else {
+      setPage1(prev => ({
+        ...prev,
+        selectedEvents: [mgmt!.name],
+        selectedDates: [],
+        selectedDateIds: [],
+      }));
+    }
+  }, [mgmtEvents, eventDates, sessionStatuses, bookingCounts]);
+
   function getFilteredDates(): EventDateRow[] {
     if (page1.selectedEvents.length === 0) return [];
     const selectedEventIds = mgmtEvents.filter(ev => page1.selectedEvents.includes(ev.name)).map(ev => ev.id);
     return eventDates.filter(row => row.event_id && selectedEventIds.includes(row.event_id));
   }
 
-  /** Default Event Fee from settings is authoritative; session fees apply only when default is unset (0). */
+  /** Session fee when set; otherwise Default Event Fee from settings. */
   function resolveEventFee(row?: EventDateRow): number {
-    const defaultFee = settings?.event_fee ?? 0;
-    if (defaultFee > 0) return defaultFee;
-    if (row && row.event_fee != null && row.event_fee > 0) return row.event_fee;
-    return 0;
+    return resolveCheckoutFee(settings?.event_fee ?? 0, row?.event_fee ?? null);
   }
 
   function getEventFee(): number {
-    const defaultFee = settings?.event_fee ?? 0;
-    if (defaultFee > 0) return defaultFee;
     if (page1.selectedDateIds.length > 0) {
       for (const id of page1.selectedDateIds) {
         const row = eventDates.find(r => r.id === id);
@@ -308,7 +374,7 @@ export default function EventBookingsPage() {
       const fee = resolveEventFee(row);
       if (fee > 0) return fee;
     }
-    return 0;
+    return settings?.event_fee ?? 0;
   }
 
   function getSessionBreakdown(): { dateLabel: string; fee: number; participants: number; amount: number }[] {
@@ -398,9 +464,10 @@ export default function EventBookingsPage() {
         if (!child.gender) errors[`child_${idx}_gender`] = 'Gender is required';
         if (!child.dietaryRestrictions) errors[`child_${idx}_dietary`] = 'Dietary info is required';
         if (!isAdultEvent && child.dob) {
-          let age = calculateAge(child.dob);
-          if (age !== null && age < 5) errors[`child_${idx}_age`] = 'Minimum participant age is 5';
-          if (age !== null && age > 16) errors[`child_${idx}_age`] = 'Maximum participant age is 16';
+          const age = calculateAge(child.dob);
+          if (age === null) errors[`child_${idx}_dob`] = 'Date of birth cannot be in the future';
+          else if (age < 5) errors[`child_${idx}_age`] = 'Minimum participant age is 5';
+          else if (age > 16) errors[`child_${idx}_age`] = 'Maximum participant age is 16';
         }
       }
     });
@@ -564,44 +631,46 @@ export default function EventBookingsPage() {
         };
       });
 
-      const { data: reg, error: regErr } = await supabase
-        .from('event_management_registrations')
-        .insert({
-          title: page1.title,
-          first_name: page1.firstName,
-          surname: page1.surname,
-          email: page1.email,
-          cellphone: page1.cellphone,
-          selected_events: page1.selectedEvents,
-          adult_class_dates: page1.selectedDates,
-          emergency_contact1: { title: page3.contact1.title, firstName: page3.contact1.firstName, surname: page3.contact1.surname, cellNo: page3.contact1.cellNo, relationshipToChild: page3.contact1.relationshipToChild },
-          emergency_contact2: { title: page3.contact2.title, firstName: page3.contact2.firstName, surname: page3.contact2.surname, cellNo: page3.contact2.cellNo, relationshipToChild: page3.contact2.relationshipToChild },
-          medical_doctor_first_name: page3.medicalDoctorFirstName,
-          medical_doctor_surname: page3.medicalDoctorSurname,
-          medical_aid_name: page3.medicalAidName,
-          medical_aid_number: page3.medicalAidNumber,
-          children: participantsWithTickets,
-          attend_school_holiday: page4.attendSchoolHoliday,
-          pictures_taken: page4.children.filter(c => c.fullName.trim()).map(c => c.picturesTaken).join(', '),
-          indemnity_consent: page4.children.filter(c => c.fullName.trim()).every(c => c.indemnityConsent),
-          payment_method: page5.paymentMethod,
-          payment_status: page5.paymentMethod === 'eft' ? 'awaiting_confirmation' : 'pending',
-          proof_of_payment_url: proofSupabaseUrl,
-          proof_of_payment_drive_url: proofDriveUrl,
-          amount: amountDue,
-          registration_code: newRegistrationCode,
-        })
-        .select('id')
-        .single();
-
-      if (regErr || !reg) throw new Error(regErr?.message || 'Failed to save registration');
-      setRegistrationId(reg.id);
-      await recordBookingCounts(reg.id, page1.selectedDateIds);
+      const registerRes = await fetch('/api/event-bookings/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          registration: {
+            title: page1.title,
+            first_name: page1.firstName,
+            surname: page1.surname,
+            email: page1.email,
+            cellphone: page1.cellphone,
+            selected_events: page1.selectedEvents,
+            adult_class_dates: page1.selectedDates,
+            emergency_contact1: { title: page3.contact1.title, firstName: page3.contact1.firstName, surname: page3.contact1.surname, cellNo: page3.contact1.cellNo, relationshipToChild: page3.contact1.relationshipToChild },
+            emergency_contact2: { title: page3.contact2.title, firstName: page3.contact2.firstName, surname: page3.contact2.surname, cellNo: page3.contact2.cellNo, relationshipToChild: page3.contact2.relationshipToChild },
+            medical_doctor_first_name: page3.medicalDoctorFirstName,
+            medical_doctor_surname: page3.medicalDoctorSurname,
+            medical_aid_name: page3.medicalAidName,
+            medical_aid_number: page3.medicalAidNumber,
+            children: participantsWithTickets,
+            attend_school_holiday: page4.attendSchoolHoliday,
+            pictures_taken: page4.children.filter(c => c.fullName.trim()).map(c => c.picturesTaken).join(', '),
+            indemnity_consent: page4.children.filter(c => c.fullName.trim()).every(c => c.indemnityConsent),
+            payment_method: page5.paymentMethod,
+            payment_status: page5.paymentMethod === 'eft' ? 'awaiting_confirmation' : 'pending',
+            proof_of_payment_url: proofSupabaseUrl,
+            proof_of_payment_drive_url: proofDriveUrl,
+            amount: amountDue,
+            registration_code: newRegistrationCode,
+          },
+          selectedDateIds: page1.selectedDateIds,
+        }),
+      });
+      const registerData = await registerRes.json();
+      if (!registerRes.ok) throw new Error(registerData.error || 'Failed to save registration');
+      setRegistrationId(registerData.id);
 
       if (page5.paymentMethod === 'eft') {
         setCurrentPage(6);
       } else {
-        await initiatePayFast(reg.id, newRegistrationCode);
+        await initiatePayFast(registerData.id, newRegistrationCode);
       }
     } catch (err: unknown) {
       setSubmitError(err instanceof Error ? err.message : 'An error occurred. Please try again.');
@@ -788,26 +857,63 @@ export default function EventBookingsPage() {
                 </div>
               </div>
 
-              {/* Select Event */}
+              {/* Select Event — hidden when arriving from Enroll Now deep link */}
               <div className="mb-5">
-                <label className="block text-sm font-semibold text-[#1A1612] mb-2">Select an Event <span className="text-red-500">*</span></label>
-                {mgmtEvents.length === 0 ? (
-                  <p className="text-xs text-[#8C8278] italic">No events available at this time.</p>
-                ) : (
-                  <div className="space-y-2.5">
-                    {mgmtEvents.map(ev => (
-                      <label key={ev.id} className="flex items-center gap-3 cursor-pointer">
-                        <input type="radio" name="selectedEvent" checked={page1.selectedEvents.includes(ev.name)} onChange={() => selectEvent(ev.name)} className="w-4 h-4 border-[#DDD5C8] text-[#C4622D] focus:ring-[#C4622D]" />
-                        <span className="text-sm text-[#1A1612]">{ev.name}</span>
-                      </label>
-                    ))}
+                {enrollPreselected && page1.selectedEvents.length > 0 ? (
+                  <div className="bg-[#FDF6EE] border border-[#EDE7DA] rounded-xl p-4">
+                    <p className="text-xs font-semibold text-[#8C8278] uppercase tracking-wide mb-1">Your event</p>
+                    <p className="text-base font-semibold text-[#1A1612]">{page1.selectedEvents[0]}</p>
+                    <p className="text-xs text-[#5C5347] mt-1">Selected from the Events page — no need to pick again.</p>
+                    <button
+                      type="button"
+                      onClick={clearEnrollPreselection}
+                      className="text-xs font-semibold text-[#C4622D] mt-2 hover:underline"
+                    >
+                      Change event
+                    </button>
                   </div>
+                ) : (
+                  <>
+                    <label className="block text-sm font-semibold text-[#1A1612] mb-2">Select an Event <span className="text-red-500">*</span></label>
+                    {mgmtEvents.length === 0 ? (
+                      <p className="text-xs text-[#8C8278] italic">No events available at this time.</p>
+                    ) : (
+                      <div className="space-y-2.5">
+                        {mgmtEvents.map(ev => (
+                          <label key={ev.id} className="flex items-center gap-3 cursor-pointer">
+                            <input type="radio" name="selectedEvent" checked={page1.selectedEvents.includes(ev.name)} onChange={() => selectEvent(ev.name)} className="w-4 h-4 border-[#DDD5C8] text-[#C4622D] focus:ring-[#C4622D]" />
+                            <span className="text-sm text-[#1A1612]">{ev.name}</span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </>
                 )}
                 {page1Errors.selectedEvents && <p className="text-xs text-red-500 mt-1">{page1Errors.selectedEvents}</p>}
               </div>
 
               {/* Select Attendance */}
               <div className="mb-5">
+                {enrollPreselected && page1.selectedDates.length === 1 ? (
+                  <div className="bg-[#FDF6EE] border border-[#EDE7DA] rounded-xl p-4">
+                    <p className="text-xs font-semibold text-[#8C8278] uppercase tracking-wide mb-1">Session</p>
+                    <p className="text-sm font-medium text-[#1A1612]">{page1.selectedDates[0]}</p>
+                    {(() => {
+                      const row = eventDates.find(r => page1.selectedDateIds[0] === r.id);
+                      return row?.location ? (
+                        <p className="text-xs text-[#5C5347] mt-1">{row.location}</p>
+                      ) : null;
+                    })()}
+                    <button
+                      type="button"
+                      onClick={clearEnrollPreselection}
+                      className="text-xs font-semibold text-[#C4622D] mt-2 hover:underline"
+                    >
+                      Change session
+                    </button>
+                  </div>
+                ) : (
+                  <>
                 <label className="block text-sm font-semibold text-[#1A1612] mb-2">Select Attendance <span className="text-red-500">*</span></label>
                 {page1.selectedEvents.length === 0 ? (
                   <p className="text-xs text-[#8C8278] italic">Please select an event above to see available dates.</p>
@@ -835,6 +941,8 @@ export default function EventBookingsPage() {
                       );
                     })}
                   </div>
+                )}
+                  </>
                 )}
                 {page1Errors.selectedDates && <p className="text-xs text-red-500 mt-1">{page1Errors.selectedDates}</p>}
               </div>
@@ -1041,7 +1149,7 @@ export default function EventBookingsPage() {
                                 {!isAdultEvent && (
                                   <div>
                                     <label className="block text-xs font-medium text-[#5C5347] mb-1">DOB</label>
-                                    <input type="date" value={child.dob} onChange={e => updateParticipant(idx, 'dob', e.target.value)} className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] ${page4Errors[`child_${idx}_dob`] ? 'border-red-400' : 'border-[#DDD5C8]'}`} />
+                                    <input type="date" value={child.dob} max={localDateInputMax()} onChange={e => updateParticipant(idx, 'dob', e.target.value)} className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] ${page4Errors[`child_${idx}_dob`] ? 'border-red-400' : 'border-[#DDD5C8]'}`} />
                                     {page4Errors[`child_${idx}_dob`] && <p className="text-xs text-red-500 mt-0.5">{page4Errors[`child_${idx}_dob`]}</p>}
                                   </div>
                                 )}

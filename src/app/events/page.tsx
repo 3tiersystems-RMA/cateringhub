@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import { resolveEnrollmentUrl } from '@/lib/event-management-sync';
 
 interface Event {
   id: string;
@@ -20,6 +21,8 @@ interface Event {
   cost: number | null;
   enrollment_url: string | null;
   event_menu: string | null;
+  event_management_event_id: string | null;
+  event_management_session_id: string | null;
   imageUrl?: string;
 }
 
@@ -200,7 +203,20 @@ function EventsContent() {
   const ensureAbsoluteUrl = (url: string): string => {
     if (!url) return url;
     if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    if (url.startsWith('/')) {
+      if (typeof window !== 'undefined') return `${window.location.origin}${url}`;
+      return url;
+    }
     return `https://${url}`;
+  };
+
+  const getEnrollHref = (ev: Event): string => {
+    const resolved = resolveEnrollmentUrl(
+      ev.enrollment_url,
+      ev.event_management_event_id,
+      ev.event_management_session_id
+    );
+    return ensureAbsoluteUrl(resolved);
   };
 
   return (
@@ -364,7 +380,7 @@ function EventsContent() {
                     {ev.enrollment_url && activeTab === 'current' && (
                       <div className="mt-auto pt-1">
                         <a
-                          href={ensureAbsoluteUrl(ev.enrollment_url)}
+                          href={getEnrollHref(ev)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="block w-full text-center bg-[#C4622D] text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors"

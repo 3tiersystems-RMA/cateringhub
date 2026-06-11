@@ -2,6 +2,21 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import {
+  type BookableEvent,
+  type BookableSession,
+  toSASTDateTimeInput,
+  fromSASTDateTimeInputToUTCISO,
+  sessionToMarketingDateTimes,
+  marketingDateTimesToSession,
+  resolveCheckoutFee,
+  getEnrollmentUrl,
+  getEnrollmentUrlForBookableEvent,
+  resolveEnrollmentUrl,
+  pickDefaultSession,
+  formatSessionLabel,
+  SAST_OFFSET_MINUTES,
+} from '@/lib/event-management-sync';
 
 interface Event {
   id: string;
@@ -17,6 +32,8 @@ interface Event {
   cost: number | null;
   enrollment_url: string | null;
   event_menu: string | null;
+  event_management_event_id: string | null;
+  event_management_session_id: string | null;
   created_at: string;
   imageUrl?: string;
 }
@@ -33,6 +50,8 @@ interface EventForm {
   cost: string;
   enrollment_url: string;
   event_menu: string;
+  event_management_event_id: string;
+  event_management_session_id: string;
 }
 
 const emptyEventForm: EventForm = {
@@ -47,40 +66,9 @@ const emptyEventForm: EventForm = {
   cost: '',
   enrollment_url: '',
   event_menu: '',
+  event_management_event_id: '',
+  event_management_session_id: '',
 };
-
-const SAST_OFFSET_MINUTES = 120; // UTC+2
-
-/** Convert stored UTC ISO to a datetime-local value interpreted in SAST. */
-function toSASTDateTimeInput(isoString: string): string {
-  const d = new Date(isoString);
-  if (Number.isNaN(d.getTime())) return '';
-  const sastMs = d.getTime() + SAST_OFFSET_MINUTES * 60 * 1000;
-  const sast = new Date(sastMs);
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return (
-    sast.getUTCFullYear() +
-    '-' + pad(sast.getUTCMonth() + 1) +
-    '-' + pad(sast.getUTCDate()) +
-    'T' + pad(sast.getUTCHours()) +
-    ':' + pad(sast.getUTCMinutes())
-  );
-}
-
-/** Parse datetime-local (treated as SAST wall-clock) and return UTC ISO string. */
-function fromSASTDateTimeInputToUTCISO(input: string): string | null {
-  const m = input.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
-  if (!m) return null;
-  const year = Number(m[1]);
-  const month = Number(m[2]);
-  const day = Number(m[3]);
-  const hour = Number(m[4]);
-  const minute = Number(m[5]);
-  const utcMs = Date.UTC(year, month - 1, day, hour, minute) - SAST_OFFSET_MINUTES * 60 * 1000;
-  const d = new Date(utcMs);
-  if (Number.isNaN(d.getTime())) return null;
-  return d.toISOString();
-}
 
 export default function EventManagement({ canCreate = true, canDelete = true }: { canCreate?: boolean; canDelete?: boolean }) {
   const supabase = createClient();
@@ -104,10 +92,182 @@ export default function EventManagement({ canCreate = true, canDelete = true }: 
   // 'device' | 'url'
   const [imageInputMode, setImageInputMode] = useState<'device' | 'url'>('device');
   const [isOpen, setIsOpen] = useState(true);
+  const [bookableEvents, setBookableEvents] = useState<BookableEvent[]>([]);
+  const [defaultEventFee, setDefaultEventFee] = useState(0);
+  const [loadingBookable, setLoadingBookable] = useState(false);
+  const [showSyncedOverrides, setShowSyncedOverrides] = useState(false);
 
   useEffect(() => {
     loadEvents();
   }, []);
+
+  useEffect(() => {
+    if (!showForm) return;
+
+    let cancelled = false;
+    async function loadBookableEvents() {
+      setLoadingBookable(true);
+      try {
+        const [{ data: mgmtEvents }, { data: settings }] = await Promise.all([
+          supabase
+            .from('event_management_events')
+            .select('id, name')
+            .eq('is_active', true)
+            .order('sort_order', { ascending: true }),
+          supabase.from('event_management_settings').select('event_fee').limit(1).single(),
+        ]);
+
+        if (cancelled) return;
+        setDefaultEventFee(settings?.event_fee != null ? Number(settings.event_fee) : 0);
+
+        if (!mgmtEvents?.length) {
+          setBookableEvents([]);
+          return;
+        }
+
+        const eventIds = mgmtEvents.map(e => e.id);
+        const { data: sessions } = await supabase
+          .from('event_management_event_dates')
+          .select('id, event_id, event_date, start_time, end_time, location, event_fee')
+          .in('event_id', eventIds)
+          .order('event_date', { ascending: true });
+
+        if (cancelled) return;
+
+        const sessionsByEvent: Record<string, BookableSession[]> = {};
+        (sessions || []).forEach((s: BookableSession) => {
+          if (!sessionsByEvent[s.event_id]) sessionsByEvent[s.event_id] = [];
+          sessionsByEvent[s.event_id].push({
+            ...s,
+            event_fee: s.event_fee != null ? Number(s.event_fee) : null,
+          });
+        });
+
+        setBookableEvents(
+          mgmtEvents
+            .map(ev => ({
+              id: ev.id,
+              name: ev.name,
+              sessions: sessionsByEvent[ev.id] || [],
+            }))
+            .filter(ev => ev.sessions.length > 0)
+        );
+      } catch {
+        if (!cancelled) setBookableEvents([]);
+      } finally {
+        if (!cancelled) setLoadingBookable(false);
+      }
+    }
+
+    loadBookableEvents();
+    return () => { cancelled = true; };
+  }, [showForm, supabase]);
+
+  /** Remove fields populated from Event Bookings → Settings (dropdown sync). */
+  function clearBookableSyncedFields(prev: EventForm): EventForm {
+    return {
+      ...prev,
+      title: '',
+      event_date: '',
+      event_date_to: '',
+      location: '',
+      cost: '',
+      enrollment_url: '',
+      event_management_event_id: '',
+      event_management_session_id: '',
+    };
+  }
+
+  function setEventType(registered: boolean) {
+    setShowSyncedOverrides(false);
+    setForm((f) => {
+      if (registered) {
+        return { ...f, is_registered: true, enrollment_url: f.enrollment_url || getEnrollmentUrl() };
+      }
+      return clearBookableSyncedFields({ ...f, is_registered: false });
+    });
+  }
+
+  const isLinkedToSettings = !!(form.event_management_event_id && form.event_management_session_id);
+  const hasValidCost = !!(form.cost.trim() && !isNaN(parseFloat(form.cost)) && parseFloat(form.cost) > 0);
+  const bookableFormComplete = form.is_registered && isLinkedToSettings && hasValidCost && !!form.title.trim() && !!form.event_date;
+
+  function applySessionToForm(
+    bookable: BookableEvent,
+    session: BookableSession,
+    prev: EventForm
+  ): EventForm {
+    const { event_date, event_date_to } = sessionToMarketingDateTimes(session);
+    const fee = resolveCheckoutFee(defaultEventFee, session.event_fee);
+    return {
+      ...prev,
+      title: bookable.name,
+      event_date,
+      event_date_to,
+      location: session.location || '',
+      cost: fee > 0 ? String(fee) : '',
+      enrollment_url: getEnrollmentUrlForBookableEvent(bookable.id, session.id),
+      event_management_event_id: bookable.id,
+      event_management_session_id: session.id,
+      is_registered: true,
+    };
+  }
+
+  function handleSelectBookableEvent(eventId: string) {
+    setShowSyncedOverrides(false);
+    if (!eventId) {
+      setForm(prev => clearBookableSyncedFields(prev));
+      return;
+    }
+    const bookable = bookableEvents.find(e => e.id === eventId);
+    if (!bookable) return;
+    const session = pickDefaultSession(bookable.sessions);
+    if (!session) return;
+    setForm(prev => applySessionToForm(bookable, session, prev));
+  }
+
+  function handleSelectBookableSession(sessionId: string) {
+    setShowSyncedOverrides(false);
+    const bookable = bookableEvents.find(e => e.id === form.event_management_event_id);
+    if (!bookable) return;
+    const session = bookable.sessions.find(s => s.id === sessionId);
+    if (!session) return;
+    setForm(prev => applySessionToForm(bookable, session, prev));
+  }
+
+  async function syncLinkedSessionToSettings(
+    eventId: string,
+    sessionId: string,
+    data: {
+      title: string;
+      event_date: string;
+      event_date_to: string;
+      location: string;
+      cost: number | null;
+    }
+  ) {
+    const sessionFields = marketingDateTimesToSession(data.event_date, data.event_date_to);
+    if (!sessionFields) return;
+
+    await supabase
+      .from('event_management_events')
+      .update({ name: data.title.trim() })
+      .eq('id', eventId);
+
+    await supabase
+      .from('event_management_event_dates')
+      .update({
+        event_date: sessionFields.event_date,
+        start_time: sessionFields.start_time,
+        end_time: sessionFields.end_time,
+        location: data.location.trim() || null,
+        event_fee: data.cost,
+      })
+      .eq('id', sessionId);
+  }
+
+  const selectedBookable = bookableEvents.find(e => e.id === form.event_management_event_id);
+  const selectedSessions = selectedBookable?.sessions || [];
 
   const loadEvents = async () => {
     setLoading(true);
@@ -168,6 +328,7 @@ export default function EventManagement({ canCreate = true, canDelete = true }: 
     setPendingImageFile(null);
     setPendingImagePreview(null);
     setImageInputMode('device');
+    setShowSyncedOverrides(false);
     setFormError('');
     setFormSuccess('');
     setShowForm(true);
@@ -185,26 +346,160 @@ export default function EventManagement({ canCreate = true, canDelete = true }: 
       image_url: ev.image_url || '',
       is_registered: ev.is_registered || false,
       cost: ev.cost != null ? String(ev.cost) : '',
-      enrollment_url: ev.enrollment_url || '',
+      enrollment_url: ev.is_registered
+        ? resolveEnrollmentUrl(ev.enrollment_url, ev.event_management_event_id, ev.event_management_session_id)
+        : (ev.enrollment_url || ''),
       event_menu: ev.event_menu || '',
+      event_management_event_id: ev.event_management_event_id || '',
+      event_management_session_id: ev.event_management_session_id || '',
     });
     setPendingImageFile(null);
     // If there's a stored image_path preview use it, else use image_url
     setPendingImagePreview(ev.imageUrl || null);
     // Determine which mode to show based on existing data
     setImageInputMode(ev.image_url && !ev.image_path ? 'url' : 'device');
+    setShowSyncedOverrides(false);
     setFormError('');
     setFormSuccess('');
     setShowForm(true);
   };
 
+  function formatDateTimeLocalLabel(value: string): string {
+    if (!value) return '—';
+    const iso = fromSASTDateTimeInputToUTCISO(value);
+    if (!iso) return value;
+    try {
+      return new Date(iso).toLocaleString('en-ZA', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch {
+      return value;
+    }
+  }
+
+  const editableFieldClass = 'w-full border border-[#DDD5C8] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D]';
+
+  function renderEventImageSection() {
+    return (
+      <div>
+        <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">
+          Event Image
+        </label>
+        <div className="flex rounded-xl border border-[#DDD5C8] overflow-hidden mb-3">
+          <button
+            type="button"
+            onClick={() => {
+              setImageInputMode('device');
+              setForm((f) => ({ ...f, image_url: '' }));
+              setTimeout(() => imageInputRef.current?.click(), 50);
+            }}
+            className={`flex-1 py-2 text-xs font-semibold transition-colors ${
+              imageInputMode === 'device' ? 'bg-[#C4622D] text-white' : 'bg-white text-[#5C5347] hover:bg-[#e9e0cf]'
+            }`}
+          >
+            Upload from Device
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setImageInputMode('url');
+              setPendingImageFile(null);
+              setPendingImagePreview(null);
+            }}
+            className={`flex-1 py-2 text-xs font-semibold transition-colors ${
+              imageInputMode === 'url' ? 'bg-[#C4622D] text-white' : 'bg-white text-[#5C5347] hover:bg-[#e9e0cf]'
+            }`}
+          >
+            Enter Image URL
+          </button>
+        </div>
+        {imageInputMode === 'device' ? (
+          <>
+            {pendingImagePreview && (
+              <div className="mb-2 relative w-full h-36 rounded-xl overflow-hidden border border-[#DDD5C8]">
+                <img src={pendingImagePreview} alt="Event preview" className="w-full h-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPendingImageFile(null);
+                    setPendingImagePreview(null);
+                  }}
+                  className="absolute top-2 right-2 bg-black/60 text-white rounded-full p-1 hover:bg-black/80"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            )}
+            <input
+              ref={imageInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              onChange={handleImageSelect}
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => imageInputRef.current?.click()}
+              className="w-full border-2 border-dashed border-[#DDD5C8] rounded-xl py-3 text-sm text-[#8C8278] hover:border-[#C4622D] hover:text-[#C4622D] transition-colors"
+            >
+              {pendingImagePreview ? 'Change Image' : 'Upload Image'}
+            </button>
+          </>
+        ) : (
+          <>
+            <input
+              type="url"
+              value={form.image_url}
+              onChange={(e) => setForm((f) => ({ ...f, image_url: e.target.value }))}
+              placeholder="https://example.com/image.jpg"
+              className={editableFieldClass}
+            />
+            {form.image_url && (
+              <div className="mt-2 relative w-full h-36 rounded-xl overflow-hidden border border-[#DDD5C8]">
+                <img
+                  src={form.image_url}
+                  alt="URL image preview"
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none';
+                  }}
+                />
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    );
+  }
+
   const handleSave = async () => {
     setFormError('');
     setFormSuccess('');
+
+    if (form.is_registered) {
+      if (!form.event_management_event_id || !form.event_management_session_id) {
+        setFormError('Please select a bookable event from Event Bookings → Settings.');
+        return;
+      }
+      if (form.cost && isNaN(parseFloat(form.cost))) {
+        setFormError('Cost must be a valid number.');
+        return;
+      }
+      if (!form.cost.trim() || parseFloat(form.cost) <= 0) {
+        setFormError('Cost must be greater than zero.');
+        return;
+      }
+    }
+
     if (!form.title.trim()) { setFormError('Title is required.'); return; }
     if (!form.event_date) { setFormError('Event start date is required.'); return; }
 
-    // Validate date range
     if (form.event_date_to) {
       const fromIso = fromSASTDateTimeInputToUTCISO(form.event_date);
       const toIso = fromSASTDateTimeInputToUTCISO(form.event_date_to);
@@ -214,13 +509,6 @@ export default function EventManagement({ canCreate = true, canDelete = true }: 
       }
       if (new Date(toIso) < new Date(fromIso)) {
         setFormError('The "To" date cannot be before the "From" date.');
-        return;
-      }
-    }
-
-    if (form.is_registered) {
-      if (form.cost && isNaN(parseFloat(form.cost))) {
-        setFormError('Cost must be a valid number.');
         return;
       }
     }
@@ -261,6 +549,8 @@ export default function EventManagement({ canCreate = true, canDelete = true }: 
       return;
     }
 
+    const parsedCost = form.is_registered && form.cost.trim() ? parseFloat(form.cost) : null;
+
     const payload: Record<string, unknown> = {
       title: form.title.trim(),
       description: form.description.trim() || null,
@@ -271,10 +561,34 @@ export default function EventManagement({ canCreate = true, canDelete = true }: 
       image_url: imageUrlValue,
       is_published: form.is_published,
       is_registered: form.is_registered,
-      cost: form.is_registered && form.cost.trim() ? parseFloat(form.cost) : null,
-      enrollment_url: form.is_registered && form.enrollment_url.trim() ? form.enrollment_url.trim() : null,
+      cost: parsedCost,
+      enrollment_url: form.is_registered && form.event_management_event_id
+        ? getEnrollmentUrlForBookableEvent(form.event_management_event_id, form.event_management_session_id)
+        : null,
       event_menu: form.is_registered && form.event_menu.trim() ? form.event_menu.trim() : null,
+      event_management_event_id: form.is_registered ? form.event_management_event_id : null,
+      event_management_session_id: form.is_registered ? form.event_management_session_id : null,
     };
+
+    if (form.is_registered && form.event_management_event_id && form.event_management_session_id) {
+      try {
+        await syncLinkedSessionToSettings(
+          form.event_management_event_id,
+          form.event_management_session_id,
+          {
+            title: form.title.trim(),
+            event_date: form.event_date,
+            event_date_to: form.event_date_to || form.event_date,
+            location: form.location,
+            cost: parsedCost,
+          }
+        );
+      } catch (syncErr: unknown) {
+        setFormError(syncErr instanceof Error ? syncErr.message : 'Failed to sync with Event Bookings Settings.');
+        setSaving(false);
+        return;
+      }
+    }
 
     if (editingEvent) {
       const { data, error } = await supabase.from('events').update(payload).eq('id', editingEvent.id).select('id');
@@ -482,248 +796,363 @@ export default function EventManagement({ canCreate = true, canDelete = true }: 
                       </div>
                     )}
 
-                    {/* Title */}
-                    <div>
-                      <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">
-                        Title <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={form.title}
-                        onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-                        placeholder="Event title"
-                        className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D]"
-                      />
-                    </div>
-
-                    {/* Description */}
-                    <div>
-                      <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">
-                        Description
-                      </label>
-                      <textarea
-                        value={form.description}
-                        onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                        placeholder="Event description"
-                        rows={3}
-                        className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] resize-none"
-                      />
-                    </div>
-
-                    {/* Date Range */}
-                    <div>
-                      <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">
-                        Event Date &amp; Time <span className="text-red-500">*</span>
-                      </label>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <p className="text-xs text-[#8C8278] mb-1">From</p>
-                          <input
-                            type="datetime-local"
-                            value={form.event_date}
-                            onChange={(e) => setForm((f) => ({ ...f, event_date: e.target.value }))}
-                            className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D]"
-                          />
-                        </div>
-                        <div>
-                          <p className="text-xs text-[#8C8278] mb-1">To <span className="text-[#B0A89E] font-normal">(optional)</span></p>
-                          <input
-                            type="datetime-local"
-                            value={form.event_date_to}
-                            min={form.event_date || undefined}
-                            onChange={(e) => setForm((f) => ({ ...f, event_date_to: e.target.value }))}
-                            className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D]"
-                          />
-                        </div>
-                      </div>
-                      <p className="text-xs text-[#B0A89E] mt-1">If "To" is left blank, it will be set to the same as "From".</p>
-                    </div>
-
-                    {/* Location */}
-                    <div>
-                      <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">
-                        Location
-                      </label>
-                      <input
-                        type="text"
-                        value={form.location}
-                        onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}
-                        placeholder="Event location or venue"
-                        className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D]"
-                      />
-                    </div>
-
-                    {/* Image */}
-                    <div>
-                      <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">
-                        Event Image
-                      </label>
-
-                      {/* Image mode toggle */}
-                      <div className="flex rounded-xl border border-[#DDD5C8] overflow-hidden mb-3">
+                    {/* Event type — choose bookable vs info-only */}
+                    <div className="space-y-2">
+                      <p className="text-xs font-bold text-[#5C5347] uppercase tracking-wider">What type of event?</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <button
                           type="button"
-                          onClick={() => {
-                            setImageInputMode('device');
-                            setForm((f) => ({ ...f, image_url: '' }));
-                            setTimeout(() => imageInputRef.current?.click(), 50);
-                          }}
-                          className={`flex-1 py-2 text-xs font-semibold transition-colors ${
-                            imageInputMode === 'device' ? 'bg-[#C4622D] text-white' : 'bg-white text-[#5C5347] hover:bg-[#e9e0cf]'
+                          onClick={() => setEventType(true)}
+                          className={`text-left rounded-xl border-2 p-4 transition-colors ${
+                            form.is_registered
+                              ? 'border-[#C4622D] bg-[#FFF8F4] ring-1 ring-[#C4622D]/20'
+                              : 'border-[#EDE7DA] bg-white hover:border-[#DDD5C8]'
                           }`}
                         >
-                          Upload from Device
+                          <p className="text-sm font-bold text-[#1A1612]">Bookable event</p>
+                          <p className="text-xs text-[#5C5347] mt-1">
+                            Shows <strong>price</strong> and <strong>Enroll Now</strong> on the public Events page. Link to Event Bookings → Settings.
+                          </p>
                         </button>
                         <button
                           type="button"
-                          onClick={() => {
-                            setImageInputMode('url');
-                            setPendingImageFile(null);
-                            setPendingImagePreview(null);
-                          }}
-                          className={`flex-1 py-2 text-xs font-semibold transition-colors ${
-                            imageInputMode === 'url' ? 'bg-[#C4622D] text-white' : 'bg-white text-[#5C5347] hover:bg-[#e9e0cf]'
+                          onClick={() => setEventType(false)}
+                          className={`text-left rounded-xl border-2 p-4 transition-colors ${
+                            !form.is_registered
+                              ? 'border-[#5C5347] bg-[#F5F0E8] ring-1 ring-[#5C5347]/10'
+                              : 'border-[#EDE7DA] bg-white hover:border-[#DDD5C8]'
                           }`}
                         >
-                          Enter Image URL
+                          <p className="text-sm font-bold text-[#1A1612]">Info only</p>
+                          <p className="text-xs text-[#5C5347] mt-1">
+                            Display-only card — <strong>no price</strong>, <strong>no Enroll button</strong>. For announcements or past highlights.
+                          </p>
                         </button>
                       </div>
+                    </div>
 
-                      {imageInputMode === 'device' ? (
-                        <>
-                          {pendingImagePreview && (
-                            <div className="mb-2 relative w-full h-36 rounded-xl overflow-hidden border border-[#DDD5C8]">
-                              <img
-                                src={pendingImagePreview}
-                                alt="Event preview"
-                                className="w-full h-full object-cover"
-                              />
-                              <button
-                                onClick={() => {
-                                  setPendingImageFile(null);
-                                  setPendingImagePreview(null);
-                                }}
-                                className="absolute top-2 right-2 bg-black/60 text-white rounded-full p-1 hover:bg-black/80"
+                    {!form.is_registered && (
+                      <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-900 space-y-1">
+                        <p className="font-semibold">Info-only mode</p>
+                        <p>Fill in title, date, and image below. Visitors will see the event card but cannot book online. To add price and Enroll Now, switch to <strong>Bookable event</strong> above.</p>
+                      </div>
+                    )}
+
+                    {form.is_registered && !isLinkedToSettings && (
+                      <div className="bg-[#FFF8F4] border border-[#F0D5C4] rounded-xl px-4 py-3 text-xs text-[#5C5347] space-y-2">
+                        <p className="font-semibold text-[#C4622D]">Setup checklist</p>
+                        <ol className="list-decimal list-inside space-y-1">
+                          <li>Create the event + session + fee in <strong>Event Bookings → Settings</strong></li>
+                          <li>Select it in the dropdown below — title, date, location, and price load automatically</li>
+                          <li>Add description / image, then turn <strong>Published</strong> on</li>
+                        </ol>
+                      </div>
+                    )}
+
+                    {form.is_registered ? (
+                      <>
+                        {/* Step 2 — Link to Settings */}
+                        <div className="space-y-4 bg-[#FFF8F4] border border-[#F0D5C4] rounded-xl p-4">
+                          <p className="text-xs font-bold text-[#C4622D] uppercase tracking-wider">Step 1 — Link bookable event</p>
+
+                          <div>
+                            <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">
+                              Bookable Event (from Settings) <span className="text-red-500">*</span>
+                            </label>
+                            {loadingBookable ? (
+                              <p className="text-xs text-[#8C8278]">Loading bookable events…</p>
+                            ) : bookableEvents.length === 0 ? (
+                              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                                No bookable events found. Add an event with sessions in <strong>Event Bookings → Settings</strong> first.
+                              </p>
+                            ) : (
+                              <select
+                                value={form.event_management_event_id}
+                                onChange={(e) => handleSelectBookableEvent(e.target.value)}
+                                className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
                               >
-                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                </svg>
+                                <option value="">— Select bookable event —</option>
+                                {bookableEvents.map(ev => (
+                                  <option key={ev.id} value={ev.id}>{ev.name}</option>
+                                ))}
+                              </select>
+                            )}
+                          </div>
+
+                          {selectedSessions.length > 1 && (
+                            <div>
+                              <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">
+                                Session <span className="text-red-500">*</span>
+                              </label>
+                              <select
+                                value={form.event_management_session_id}
+                                onChange={(e) => handleSelectBookableSession(e.target.value)}
+                                className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+                              >
+                                {selectedSessions.map(s => (
+                                  <option key={s.id} value={s.id}>{formatSessionLabel(s)}</option>
+                                ))}
+                              </select>
+                            </div>
+                          )}
+
+                          {!form.event_management_event_id && (
+                            <p className="text-xs text-[#8C8278] italic">
+                              Select a bookable event above to load event details from Settings.
+                            </p>
+                          )}
+                        </div>
+
+                        {form.event_management_event_id && (
+                          <>
+                            {/* Synced summary from Settings */}
+                            <div className="bg-white border border-[#EDE7DA] rounded-xl p-4 space-y-3">
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="text-xs font-bold text-[#5C5347] uppercase tracking-wider">
+                                  From Event Bookings → Settings
+                                </p>
+                                <span className="text-xs px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-200 font-semibold">
+                                  Linked ✓
+                                </span>
+                              </div>
+
+                              {!showSyncedOverrides ? (
+                                <dl className="space-y-2 text-sm">
+                                  <div>
+                                    <dt className="text-xs text-[#8C8278]">Title</dt>
+                                    <dd className="font-medium text-[#1A1612]">{form.title || '—'}</dd>
+                                  </div>
+                                  <div>
+                                    <dt className="text-xs text-[#8C8278]">Date &amp; time</dt>
+                                    <dd className="text-[#1A1612]">
+                                      {formatDateTimeLocalLabel(form.event_date)}
+                                      {form.event_date_to && form.event_date_to !== form.event_date && (
+                                        <> – {formatDateTimeLocalLabel(form.event_date_to)}</>
+                                      )}
+                                    </dd>
+                                  </div>
+                                  <div>
+                                    <dt className="text-xs text-[#8C8278]">Location</dt>
+                                    <dd className="text-[#1A1612]">{form.location || '—'}</dd>
+                                  </div>
+                                  <div>
+                                    <dt className="text-xs text-[#8C8278]">Cost</dt>
+                                    <dd className="font-semibold text-[#C4622D]">
+                                      {form.cost ? `R${Number(form.cost).toFixed(2)}` : '—'} per person
+                                    </dd>
+                                  </div>
+                                  <div>
+                                    <dt className="text-xs text-[#8C8278]">Enrollment URL</dt>
+                                    <dd className="text-xs text-[#5C5347] break-all">{form.enrollment_url || getEnrollmentUrl()}</dd>
+                                  </div>
+                                </dl>
+                              ) : (
+                                <div className="space-y-3">
+                                  <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                                    Saving will update these details in <strong>Event Bookings → Settings</strong>.
+                                  </p>
+                                  <div>
+                                    <label className="block text-xs font-semibold text-[#5C5347] mb-1">Title</label>
+                                    <input
+                                      type="text"
+                                      value={form.title}
+                                      onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                                      className={editableFieldClass}
+                                    />
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                      <label className="block text-xs font-semibold text-[#5C5347] mb-1">From</label>
+                                      <input
+                                        type="datetime-local"
+                                        value={form.event_date}
+                                        onChange={(e) => setForm((f) => ({ ...f, event_date: e.target.value }))}
+                                        className={editableFieldClass}
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="block text-xs font-semibold text-[#5C5347] mb-1">To</label>
+                                      <input
+                                        type="datetime-local"
+                                        value={form.event_date_to}
+                                        min={form.event_date || undefined}
+                                        onChange={(e) => setForm((f) => ({ ...f, event_date_to: e.target.value }))}
+                                        className={editableFieldClass}
+                                      />
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-semibold text-[#5C5347] mb-1">Location</label>
+                                    <input
+                                      type="text"
+                                      value={form.location}
+                                      onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}
+                                      className={editableFieldClass}
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-semibold text-[#5C5347] mb-1">Cost (R)</label>
+                                    <div className="relative">
+                                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[#8C8278]">R</span>
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        value={form.cost}
+                                        onChange={(e) => setForm((f) => ({ ...f, cost: e.target.value }))}
+                                        className={`${editableFieldClass} pl-8`}
+                                      />
+                                    </div>
+                                    {defaultEventFee > 0 && (
+                                      <p className="text-[10px] text-[#8C8278] mt-1">
+                                        Session fee overrides Default Event Fee (R{defaultEventFee}) when set on the session.
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+
+                              <button
+                                type="button"
+                                onClick={() => setShowSyncedOverrides(prev => !prev)}
+                                className="text-xs font-semibold text-[#C4622D] hover:underline"
+                              >
+                                {showSyncedOverrides ? 'Hide editable fields' : 'Edit synced details'}
                               </button>
                             </div>
-                          )}
-                          <input
-                            ref={imageInputRef}
-                            type="file"
-                            accept="image/jpeg,image/png,image/webp,image/gif"
-                            onChange={handleImageSelect}
-                            className="hidden"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => imageInputRef.current?.click()}
-                            className="w-full border-2 border-dashed border-[#DDD5C8] rounded-xl py-3 text-sm text-[#8C8278] hover:border-[#C4622D] hover:text-[#C4622D] transition-colors"
-                          >
-                            {pendingImagePreview ? 'Change Image' : 'Upload Image'}
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <input
-                            type="url"
-                            value={form.image_url}
-                            onChange={(e) => setForm((f) => ({ ...f, image_url: e.target.value }))}
-                            placeholder="https://example.com/image.jpg"
-                            className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D]"
-                          />
-                          {form.image_url && (
-                            <div className="mt-2 relative w-full h-36 rounded-xl overflow-hidden border border-[#DDD5C8]">
-                              <img
-                                src={form.image_url}
-                                alt="URL image preview"
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  (e.target as HTMLImageElement).style.display = 'none';
-                                }}
-                              />
+
+                            {/* Marketing-only fields */}
+                            <div className="space-y-4 border-t border-[#EDE7DA] pt-4">
+                              <p className="text-xs font-bold text-[#5C5347] uppercase tracking-wider">Step 2 — Marketing details</p>
+                              <p className="text-xs text-[#8C8278] -mt-2">These appear on the public Events page only.</p>
+
+                              <div>
+                                <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">
+                                  Description
+                                </label>
+                                <textarea
+                                  value={form.description}
+                                  onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                                  placeholder="Event description for the public card"
+                                  rows={3}
+                                  className={`${editableFieldClass} resize-none`}
+                                />
+                              </div>
+
+                              {renderEventImageSection()}
+
+                              <div>
+                                <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">
+                                  Event Menu
+                                </label>
+                                <textarea
+                                  value={form.event_menu}
+                                  onChange={(e) => setForm((f) => ({ ...f, event_menu: e.target.value }))}
+                                  placeholder="e.g. Chocolate Chip Cookies, Banana Bread..."
+                                  rows={3}
+                                  className={`${editableFieldClass} resize-none`}
+                                />
+                              </div>
                             </div>
-                          )}
-                        </>
-                      )}
-                    </div>
+                          </>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        {/* Info-only event — manual entry */}
+                        <p className="text-xs font-bold text-[#5C5347] uppercase tracking-wider">Event details</p>
 
-                    {/* Registered Event Toggle */}
-                    <div className="flex items-center justify-between bg-[#FFF8F4] border border-[#F0D5C4] rounded-xl px-4 py-3">
-                      <div>
-                        <p className="text-sm font-semibold text-[#1A1612]">Registered Event</p>
-                        <p className="text-xs text-[#8C8278]">Requires enrollment — add cost, URL &amp; menu</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setForm((f) => ({ ...f, is_registered: !f.is_registered }))}
-                        className={`relative w-11 h-6 rounded-full transition-colors ${
-                          form.is_registered ? 'bg-[#C4622D]' : 'bg-[#DDD5C8]'
-                        }`}
-                      >
-                        <span
-                          className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                            form.is_registered ? 'translate-x-5' : 'translate-x-0'
-                          }`}
-                        />
-                      </button>
-                    </div>
-
-                    {/* Registered Event Fields */}
-                    {form.is_registered && (
-                      <div className="space-y-4 bg-[#FFF8F4] border border-[#F0D5C4] rounded-xl p-4">
-                        <p className="text-xs font-bold text-[#C4622D] uppercase tracking-wider">Registered Event Details</p>
-
-                        {/* Cost */}
                         <div>
                           <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">
-                            Cost (R)
+                            Title <span className="text-red-500">*</span>
                           </label>
-                          <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[#8C8278] font-medium">R</span>
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={form.cost}
-                              onChange={(e) => setForm((f) => ({ ...f, cost: e.target.value }))}
-                              placeholder="0.00"
-                              className="w-full border border-[#DDD5C8] rounded-xl pl-8 pr-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D]"
-                            />
+                          <input
+                            type="text"
+                            value={form.title}
+                            onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                            placeholder="Event title"
+                            className={editableFieldClass}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">
+                            Description
+                          </label>
+                          <textarea
+                            value={form.description}
+                            onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                            placeholder="Event description"
+                            rows={3}
+                            className={`${editableFieldClass} resize-none`}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">
+                            Event Date &amp; Time <span className="text-red-500">*</span>
+                          </label>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <p className="text-xs text-[#8C8278] mb-1">From</p>
+                              <input
+                                type="datetime-local"
+                                value={form.event_date}
+                                onChange={(e) => setForm((f) => ({ ...f, event_date: e.target.value }))}
+                                className={editableFieldClass}
+                              />
+                            </div>
+                            <div>
+                              <p className="text-xs text-[#8C8278] mb-1">To <span className="text-[#B0A89E] font-normal">(optional)</span></p>
+                              <input
+                                type="datetime-local"
+                                value={form.event_date_to}
+                                min={form.event_date || undefined}
+                                onChange={(e) => setForm((f) => ({ ...f, event_date_to: e.target.value }))}
+                                className={editableFieldClass}
+                              />
+                            </div>
                           </div>
                         </div>
 
-                        {/* Enrollment URL */}
                         <div>
                           <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">
-                            Enrollment URL
+                            Location
                           </label>
                           <input
-                            type="url"
-                            value={form.enrollment_url}
-                            onChange={(e) => setForm((f) => ({ ...f, enrollment_url: e.target.value }))}
-                            placeholder="https://forms.example.com/enroll"
-                            className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D]"
+                            type="text"
+                            value={form.location}
+                            onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}
+                            placeholder="Event location or venue"
+                            className={editableFieldClass}
                           />
                         </div>
 
-                        {/* Event Menu */}
-                        <div>
-                          <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">
-                            Event Menu
-                          </label>
-                          <textarea
-                            value={form.event_menu}
-                            onChange={(e) => setForm((f) => ({ ...f, event_menu: e.target.value }))}
-                            placeholder="e.g. Chocolate Chip Cookies, Banana Bread, Cupcake Decorating..."
-                            rows={4}
-                            className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] resize-none"
-                          />
-                          <p className="text-xs text-[#B0A89E] mt-1">List the baking/cooking items covered in this class.</p>
-                        </div>
+                        {renderEventImageSection()}
+                      </>
+                    )}
+
+                    {form.is_registered && (
+                      <div className={`rounded-xl px-4 py-3 text-xs border ${
+                        bookableFormComplete && form.is_published
+                          ? 'bg-green-50 border-green-200 text-green-800'
+                          : 'bg-[#F5F0E8] border-[#EDE7DA] text-[#5C5347]'
+                      }`}>
+                        <p className="font-semibold mb-2">Public Events page preview</p>
+                        <ul className="space-y-1">
+                          <li>{isLinkedToSettings ? '✓' : '○'} Linked to Event Bookings → Settings</li>
+                          <li>{hasValidCost ? '✓' : '○'} Price set {hasValidCost ? `(R${Number(form.cost).toFixed(2)})` : '— select a bookable event with a fee'}</li>
+                          <li>{form.is_published ? '✓' : '○'} Published (visible on /events)</li>
+                        </ul>
+                        <p className="mt-2 font-medium">
+                          {bookableFormComplete && form.is_published
+                            ? 'Enroll Now button and price will appear on the public Events page.'
+                            : form.is_published && !bookableFormComplete
+                              ? 'Published, but Enroll Now will not show until linked and a fee is set.'
+                              : !form.is_published && bookableFormComplete
+                                ? 'Almost ready — turn Published on to show this on /events.'
+                                : 'Complete the steps above, then publish.'}
+                        </p>
                       </div>
                     )}
 
@@ -731,7 +1160,11 @@ export default function EventManagement({ canCreate = true, canDelete = true }: 
                     <div className="flex items-center justify-between bg-[#e9e0cf] rounded-xl px-4 py-3">
                       <div>
                         <p className="text-sm font-semibold text-[#1A1612]">Published</p>
-                        <p className="text-xs text-[#8C8278]">Visible to the public on the Events page</p>
+                        <p className="text-xs text-[#8C8278]">
+                          {form.is_registered
+                            ? 'Must be on for the event and Enroll Now to appear on /events'
+                            : 'Visible to the public on the Events page'}
+                        </p>
                       </div>
                       <button
                         type="button"
@@ -842,9 +1275,18 @@ export default function EventManagement({ canCreate = true, canDelete = true }: 
                           <div className="flex items-start justify-between gap-2 flex-wrap">
                             <div className="flex items-center gap-2 flex-wrap">
                               <h3 className="text-sm font-bold text-[#1A1612]">{ev.title}</h3>
-                              {ev.is_registered && (
+                              {ev.is_registered ? (
                                 <span className="text-xs px-2 py-0.5 rounded-full bg-[#FFF0E8] text-[#C4622D] border border-[#F0D5C4] font-semibold">
-                                  Registered
+                                  Bookable
+                                </span>
+                              ) : (
+                                <span className="text-xs px-2 py-0.5 rounded-full bg-[#F5F0E8] text-[#5C5347] border border-[#EDE7DA] font-medium">
+                                  Info only
+                                </span>
+                              )}
+                              {ev.event_management_event_id && (
+                                <span className="text-xs px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-200 font-medium">
+                                  Linked
                                 </span>
                               )}
                             </div>
