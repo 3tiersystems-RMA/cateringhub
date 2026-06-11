@@ -16,6 +16,7 @@ interface RegistrationRow {
   payment_method: string;
   amount: number | null;
   created_at: string;
+  children?: Array<{ fullName?: string; full_name?: string; name?: string; [key: string]: unknown }> | null;
 }
 
 interface BookingRow {
@@ -81,7 +82,7 @@ export default function EventManagementAnalytics() {
     setError('');
     try {
       const [regsRes, bookingsRes, datesRes, eventsRes] = await Promise.all([
-        supabase.from('event_management_registrations').select('id, first_name, surname, email, payment_status, payment_method, amount, created_at'),
+        supabase.from('event_management_registrations').select('id, first_name, surname, email, payment_status, payment_method, amount, created_at, children'),
         supabase.from('event_management_booking_counts').select('registration_id, event_date_id'),
         supabase.from('event_management_event_dates').select('id, event_date, event_fee, event_id, seating'),
         supabase.from('event_management_events').select('id, name'),
@@ -126,6 +127,14 @@ export default function EventManagementAnalytics() {
   const totalBookings = bookings.length;
   const avgBookingsPerReg = totalRegs > 0 ? (totalBookings / totalRegs).toFixed(1) : '0';
   const conversionRate = totalRegs > 0 ? ((paidRegs.length / totalRegs) * 100).toFixed(0) : '0';
+
+  // ── Total participants (registrant + filled children per registration) ────────
+  const totalParticipants = registrations.reduce((sum, r) => {
+    const filledChildren = Array.isArray(r.children)
+      ? r.children.filter(c => !!(c.fullName || c.full_name || c.name)).length
+      : 0;
+    return sum + 1 + filledChildren; // 1 for the registrant themselves
+  }, 0);
 
   // ── Payment status breakdown (pie) ──────────────────────────────────────────
   const statusCounts: Record<string, number> = {};
@@ -261,7 +270,7 @@ export default function EventManagementAnalytics() {
         <KpiCard icon="✅" label="Paid Registrations" value={String(paidRegs.length)} color="text-green-700" />
         <KpiCard icon="💰" label="Total Revenue" value={formatCurrency(totalRevenue)} color="text-green-700" sub="Confirmed paid" />
         <KpiCard icon="⏳" label="Pending Revenue" value={formatCurrency(pendingRevenue)} color="text-amber-600" sub="Awaiting payment" />
-        <KpiCard icon="🎟️" label="Total Bookings" value={String(totalBookings)} sub={`${avgBookingsPerReg} avg per reg`} />
+        <KpiCard icon="🎟️" label="Participants" value={String(totalParticipants)} sub={`${totalRegs} registrations`} />
         <KpiCard icon="📈" label="Conversion Rate" value={`${conversionRate}%`} color={Number(conversionRate) >= 70 ? 'text-green-700' : 'text-amber-600'} sub="Paid / Total" />
       </div>
 
