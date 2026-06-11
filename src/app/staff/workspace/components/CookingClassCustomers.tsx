@@ -109,6 +109,15 @@ function calcAge(dob: string | null | undefined): string {
   } catch { return '—'; }
 }
 
+function normalizeConsent(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const lower = value.toLowerCase().trim();
+  if (lower.startsWith('yes')) return 'Yes';
+  if (lower.startsWith('no')) return 'No';
+  // Capitalize first letter of whatever is stored
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
 export default function CookingClassCustomers({ isSuperAdmin = false }: CookingClassCustomersProps) {
   const supabase = createClient();
   const [registrations, setRegistrations] = useState<Registration[]>([]);
@@ -592,7 +601,7 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
                           <Field label="First Time at Portal" value={reg.first_time_portal} />
                           <Field label="RSA ID / Passport" value={reg.rsa_id_passport} />
                           <Field label="Allergies / Illness" value={reg.allergies_illness} />
-                          <Field label="Pictures Consent" value={reg.pictures_taken} />
+                          <Field label="Pictures Consent" value={normalizeConsent(reg.pictures_taken)} />
                           <Field label="Indemnity Consent" value={reg.indemnity_consent ? 'Yes' : 'No'} />
                           <Field label="Payment Method" value={reg.payment_method} />
                           <Field label="Amount Paid" value={formatCurrency(reg.amount)} highlight />
