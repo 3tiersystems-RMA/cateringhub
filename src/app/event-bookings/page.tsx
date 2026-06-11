@@ -283,28 +283,39 @@ export default function EventBookingsPage() {
     return eventDates.filter(row => row.event_id && selectedEventIds.includes(row.event_id));
   }
 
+  /** Default Event Fee from settings is authoritative; session fees apply only when default is unset (0). */
+  function resolveEventFee(row?: EventDateRow): number {
+    const defaultFee = settings?.event_fee ?? 0;
+    if (defaultFee > 0) return defaultFee;
+    if (row && row.event_fee != null && row.event_fee > 0) return row.event_fee;
+    return 0;
+  }
+
   function getEventFee(): number {
-    // ID-based lookup first (most reliable)
+    const defaultFee = settings?.event_fee ?? 0;
+    if (defaultFee > 0) return defaultFee;
     if (page1.selectedDateIds.length > 0) {
       for (const id of page1.selectedDateIds) {
         const row = eventDates.find(r => r.id === id);
-        if (row && row.event_fee != null && row.event_fee > 0) return row.event_fee;
+        const fee = resolveEventFee(row);
+        if (fee > 0) return fee;
       }
     }
-    // Fall back to any date in the selected event that has a fee
     const filtered = getFilteredDates();
-    for (const row of filtered) { if (row.event_fee != null && row.event_fee > 0) return row.event_fee; }
-    return settings?.event_fee || 0;
+    for (const row of filtered) {
+      const fee = resolveEventFee(row);
+      if (fee > 0) return fee;
+    }
+    return 0;
   }
 
   function getSessionBreakdown(): { dateLabel: string; fee: number; participants: number; amount: number }[] {
     const count = getParticipantCount();
     if (page1.selectedDates.length === 0) return [];
     return page1.selectedDates.map((dateLabel, idx) => {
-      // Use stored ID for reliable lookup
       const id = page1.selectedDateIds[idx];
       const row = id ? eventDates.find(r => r.id === id) : eventDates.find(r => formatEventDate(r) === dateLabel);
-      const fee = (row && row.event_fee != null && row.event_fee > 0) ? row.event_fee : getEventFee();
+      const fee = resolveEventFee(row);
       return { dateLabel, fee, participants: count, amount: fee * count };
     });
   }
@@ -321,8 +332,7 @@ export default function EventBookingsPage() {
     }
     const fee = getEventFee();
     const count = getParticipantCount();
-    if (fee > 0 && count > 0) return fee * count;
-    return settings?.event_fee || 0;
+    return fee > 0 && count > 0 ? fee * count : 0;
   }
 
   function getAvailableSeats(): number | null {
@@ -511,11 +521,12 @@ export default function EventBookingsPage() {
     reader.readAsDataURL(file);
   }
 
-  async function recordBookingCounts(regId: string, selectedDateLabels: string[]) {
+  async function recordBookingCounts(regId: string, selectedDateIds: string[]) {
     try {
-      const matchedDateIds = eventDates.filter(row => selectedDateLabels.includes(formatEventDate(row))).map(row => row.id);
-      if (matchedDateIds.length === 0) return;
-      await supabase.from('event_management_booking_counts').insert(matchedDateIds.map(event_date_id => ({ event_date_id, registration_id: regId })));
+      if (selectedDateIds.length === 0) return;
+      await supabase.from('event_management_booking_counts').insert(
+        selectedDateIds.map(event_date_id => ({ event_date_id, registration_id: regId }))
+      );
     } catch { /* non-blocking */ }
   }
 
@@ -556,9 +567,8 @@ export default function EventBookingsPage() {
 
       const amountDue = getAmountDue();
 
-      // Generate a unique registration code for this event booking
       const regCodeSuffix = Math.random().toString(36).substring(2, 6).toUpperCase() + Math.random().toString(36).substring(2, 6).toUpperCase();
-      const registrationCode = `EB-${regCodeSuffix.substring(0, 8)}`;
+      const newRegistrationCode = `EB-${regCodeSuffix.substring(0, 8)}`;
 
       // Generate a unique ticket number for each participant
       const filledParticipants = page4.children.filter(c => c.fullName.trim().length > 0);
@@ -599,19 +609,19 @@ export default function EventBookingsPage() {
           proof_of_payment_url: proofSupabaseUrl,
           proof_of_payment_drive_url: proofDriveUrl,
           amount: amountDue,
-          registration_code: registrationCode,
+          registration_code: newRegistrationCode,
         })
         .select('id')
         .single();
 
       if (regErr || !reg) throw new Error(regErr?.message || 'Failed to save registration');
       setRegistrationId(reg.id);
-      await recordBookingCounts(reg.id, page1.selectedDates);
+      await recordBookingCounts(reg.id, page1.selectedDateIds);
 
       if (page5.paymentMethod === 'eft') {
         setCurrentPage(6);
       } else {
-        await initiatePayFast(reg.id);
+        await initiatePayFast(reg.id, newRegistrationCode);
       }
     } catch (err: unknown) {
       setSubmitError(err instanceof Error ? err.message : 'An error occurred. Please try again.');
@@ -620,7 +630,7 @@ export default function EventBookingsPage() {
     }
   }
 
-  async function initiatePayFast(regId: string) {
+  async function initiatePayFast(regId: string, regCode: string) {
     const amount = getAmountDue();
     if (amount <= 0) {
       await supabase.from('event_management_registrations').update({ payment_status: 'paid' }).eq('id', regId);
@@ -631,7 +641,7 @@ export default function EventBookingsPage() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        order: { paymentId: registrationCode, itemName: 'Event Booking Registration', itemDescription: `${page1.firstName} ${page1.surname} - ${page1.selectedEvents.join(', ')}`, amount },
+        order: { paymentId: regCode, itemName: 'Event Booking Registration', itemDescription: `${page1.firstName} ${page1.surname} - ${page1.selectedEvents.join(', ')}`, amount },
         buyer: { firstName: page1.firstName, lastName: page1.surname, email: page1.email, cellNumber: page1.cellphone },
         returnUrl: `${window.location.origin}/event-bookings/payment-return?id=${regId}&status=success`,
         cancelUrl: `${window.location.origin}/event-bookings/payment-return?id=${regId}&status=cancel`,
@@ -1054,10 +1064,6 @@ export default function EventBookingsPage() {
                                     <option value="Male">Male</option>
                                   </select>
                                   {page4Errors[`child_${idx}_gender`] && <p className="text-xs text-red-500 mt-0.5">{page4Errors[`child_${idx}_gender`]}</p>}
-                                </div>
-                                <div>
-                                  <label className="block text-xs font-medium text-[#5C5347] mb-1">Grade</label>
-                                  <input type="text" value={child.grade} onChange={e => updateParticipant(idx, 'grade', e.target.value)} className="w-full border border-[#DDD5C8] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]" />
                                 </div>
                               </div>
                               <div>

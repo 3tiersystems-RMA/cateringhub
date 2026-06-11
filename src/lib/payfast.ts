@@ -314,12 +314,12 @@ export function buildPaymentPayload(
     return_url: `${siteBase}/checkout/success?from=payfast`,
     cancel_url: `${siteBase}/checkout/cancel?from=payfast`,
     notify_url: `${itnBase}/api/payfast/itn`,
-    name_first: buyer.firstName,
-    name_last: buyer.lastName,
-    email_address: buyer.email,
-    m_payment_id: order.paymentId,
+    name_first: buyer.firstName.trim(),
+    name_last: buyer.lastName.trim(),
+    email_address: buyer.email.trim(),
+    m_payment_id: order.paymentId.trim(),
     amount: formatPayFastAmount(order.amount),
-    item_name: order.itemName.slice(0, 100),
+    item_name: order.itemName.trim().slice(0, 100),
   };
 
   if (isNonEmpty(buyer.cell)) {

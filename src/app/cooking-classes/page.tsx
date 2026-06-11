@@ -15,6 +15,7 @@ interface FormPage1 {
   cellphone: string;
   selectedEvents: string[];
   selectedDates: string[];
+  selectedDateIds: string[];
 }
 
 interface FormPage2 {
@@ -185,6 +186,7 @@ export default function CookingClassesPage() {
     cellphone: '',
     selectedEvents: [],
     selectedDates: [],
+    selectedDateIds: [],
   });
 
   const [page2, setPage2] = useState<FormPage2>({
@@ -423,19 +425,33 @@ export default function CookingClassesPage() {
     });
   }
 
-  // (6) Get the class_fee from the first matching event date for selected events
+  /** Resolve fee for a session row: prefer cooking_class_event_dates.class_fee, else settings fallback. */
+  function resolveClassFee(row?: EventDateRow): number {
+    if (row && row.class_fee != null && row.class_fee > 0) return row.class_fee;
+    return settings?.class_fee || 0;
+  }
+
+  // (6) Get the class_fee from the selected session row (UUID), then selected event dates
   function getEventClassFee(): number {
-    // First, try to match against the specifically selected date labels
-    if (page1.selectedDates.length > 0) {
-      const matchedRows = eventDates.filter(row => page1.selectedDates.includes(formatEventDate(row)));
-      for (const row of matchedRows) {
-        if (row.class_fee != null && row.class_fee > 0) return row.class_fee;
+    // ID-based lookup first (one-to-one with cooking_class_event_dates.id)
+    if (page1.selectedDateIds.length > 0) {
+      for (const id of page1.selectedDateIds) {
+        const row = eventDates.find(r => r.id === id);
+        if (row && row.class_fee != null && row.class_fee > 0) return row.class_fee;
       }
     }
-    // Fallback: any date for the selected event
+    // Fallback: any date for the selected event (scoped to active event selection)
     const filtered = getFilteredDates();
     for (const row of filtered) {
       if (row.class_fee != null && row.class_fee > 0) return row.class_fee;
+    }
+    // Legacy label-based lookup (kept for rows selected before selectedDateIds existed)
+    if (page1.selectedDates.length > 0) {
+      for (const row of filtered) {
+        if (page1.selectedDates.includes(formatEventDate(row)) && row.class_fee != null && row.class_fee > 0) {
+          return row.class_fee;
+        }
+      }
     }
     // Final fallback to settings class_fee
     return settings?.class_fee || 0;
@@ -445,14 +461,17 @@ export default function CookingClassesPage() {
   function getSessionBreakdown(): { dateLabel: string; fee: number; participants: number; amount: number }[] {
     const count = getParticipantCount();
     if (page1.selectedDates.length === 0) return [];
-    return page1.selectedDates.map(dateLabel => {
-      const row = eventDates.find(r => formatEventDate(r) === dateLabel);
-      let fee = 0;
-      if (row && row.class_fee != null && row.class_fee > 0) {
-        fee = row.class_fee;
+    const filtered = getFilteredDates();
+    return page1.selectedDates.map((dateLabel, idx) => {
+      const id = page1.selectedDateIds[idx];
+      let row: EventDateRow | undefined;
+      if (id) {
+        row = eventDates.find(r => r.id === id);
       } else {
-        fee = getEventClassFee();
+        // Legacy: label match scoped to selected event (avoids wrong row from another event)
+        row = filtered.find(r => formatEventDate(r) === dateLabel);
       }
+      const fee = resolveClassFee(row);
       return { dateLabel, fee, participants: count, amount: fee * count };
     });
   }
@@ -469,10 +488,9 @@ export default function CookingClassesPage() {
       const total = breakdown.reduce((sum, s) => sum + s.amount, 0);
       if (total > 0) return total;
     }
-    let fee = getEventClassFee();
+    const fee = getEventClassFee();
     const count = getParticipantCount();
-    if (fee > 0 && count > 0) return fee * count;
-    return settings?.class_fee || 0;
+    return fee > 0 && count > 0 ? fee * count : 0;
   }
 
   // ── Validation ──────────────────────────────────────────────────────────────
@@ -636,17 +654,25 @@ export default function CookingClassesPage() {
     setPage1(prev => {
       const alreadySelected = prev.selectedEvents.length === 1 && prev.selectedEvents[0] === eventName;
       const updated = alreadySelected ? [] : [eventName];
-      return { ...prev, selectedEvents: updated, selectedDates: [] };
+      return { ...prev, selectedEvents: updated, selectedDates: [], selectedDateIds: [] };
     });
   }
 
-  function toggleDate(dateLabel: string) {
+  function toggleDate(dateLabel: string, dateId: string) {
     setPage1(prev => {
       const exists = prev.selectedDates.includes(dateLabel);
-      const updated = exists
-        ? prev.selectedDates.filter(d => d !== dateLabel)
-        : [...prev.selectedDates, dateLabel];
-      return { ...prev, selectedDates: updated };
+      if (exists) {
+        return {
+          ...prev,
+          selectedDates: prev.selectedDates.filter(d => d !== dateLabel),
+          selectedDateIds: prev.selectedDateIds.filter((_, i) => prev.selectedDates[i] !== dateLabel),
+        };
+      }
+      return {
+        ...prev,
+        selectedDates: [...prev.selectedDates, dateLabel],
+        selectedDateIds: [...prev.selectedDateIds, dateId],
+      };
     });
   }
 
@@ -740,11 +766,15 @@ export default function CookingClassesPage() {
     reader.readAsDataURL(file);
   }
 
-  async function recordBookingCounts(regId: string, selectedDateLabels: string[]) {
+  async function recordBookingCounts(regId: string, selectedDateIds: string[], selectedDateLabels?: string[]) {
     try {
-      const matchedDateIds = eventDates
-        .filter(row => selectedDateLabels.includes(formatEventDate(row)))
-        .map(row => row.id);
+      let matchedDateIds = selectedDateIds.length > 0 ? selectedDateIds : [];
+      // Legacy fallback: label match scoped to selected event when IDs unavailable
+      if (matchedDateIds.length === 0 && selectedDateLabels && selectedDateLabels.length > 0) {
+        matchedDateIds = getFilteredDates()
+          .filter(row => selectedDateLabels.includes(formatEventDate(row)))
+          .map(row => row.id);
+      }
       if (matchedDateIds.length === 0) return;
       const inserts = matchedDateIds.map(event_date_id => ({
         event_date_id,
@@ -905,7 +935,7 @@ export default function CookingClassesPage() {
       if (regErr || !reg) throw new Error(regErr?.message || 'Failed to save registration');
       setRegistrationId(reg.id);
 
-      await recordBookingCounts(reg.id, page1.selectedDates);
+      await recordBookingCounts(reg.id, page1.selectedDateIds, page1.selectedDates);
 
       if (page5.paymentMethod === 'eft') {
         // ── TEMPORARILY DISABLED — Google Sheets sync deactivated until further notice ──
@@ -913,7 +943,7 @@ export default function CookingClassesPage() {
         // ── END DISABLE BLOCK ─────────────────────────────────────────────
         setCurrentPage(6);
       } else {
-        await initiatePayFast(reg.id);
+        await initiatePayFast(reg.id, registrationCode);
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'An error occurred. Please try again.';
@@ -938,7 +968,7 @@ export default function CookingClassesPage() {
     // ── END DISABLE BLOCK ─────────────────────────────────────────────────
   }
 
-  async function initiatePayFast(regId: string) {
+  async function initiatePayFast(regId: string, regCode: string) {
     const amount = getAmountDue();
     if (amount <= 0) {
       await supabase
@@ -957,16 +987,16 @@ export default function CookingClassesPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         order: {
-          paymentId: registrationCode,
+          paymentId: regCode,
           itemName: 'Cooking & Baking Class Registration',
           itemDescription: `${page1.firstName} ${page1.surname} - ${page1.selectedEvents.join(', ')}`,
           amount,
         },
         buyer: {
-          firstName: page1.firstName,
-          lastName: page1.surname,
-          email: page1.email,
-          cellNumber: page1.cellphone,
+          firstName: page1.firstName.trim(),
+          lastName: page1.surname.trim(),
+          email: page1.email.trim(),
+          cell: page1.cellphone.trim(),
         },
         returnUrl: `${window.location.origin}/cooking-classes/payment-return?id=${regId}&status=success`,
         cancelUrl: `${window.location.origin}/cooking-classes/payment-return?id=${regId}&status=cancel`,
@@ -986,6 +1016,7 @@ export default function CookingClassesPage() {
     form.method = 'POST';
     form.action = data.gatewayUrl;
     Object.entries(data.params).forEach(([key, value]) => {
+      if (value === undefined || value === null || String(value).trim() === '') return;
       const input = document.createElement('input');
       input.type = 'hidden';
       input.name = key;
@@ -1004,9 +1035,16 @@ export default function CookingClassesPage() {
 
   // (NEW) Get total available seats for selected dates (minimum across selected dates)
   function getAvailableSeatsForSelection(): number | null {
-    const selectedDateLabels = page1.selectedDates;
-    if (selectedDateLabels.length === 0) return null;
-    const matchedRows = eventDates.filter(row => selectedDateLabels.includes(formatEventDate(row)));
+    if (page1.selectedDateIds.length === 0 && page1.selectedDates.length === 0) return null;
+    let matchedRows: EventDateRow[] = [];
+    if (page1.selectedDateIds.length > 0) {
+      matchedRows = page1.selectedDateIds
+        .map(id => eventDates.find(r => r.id === id))
+        .filter((r): r is EventDateRow => r != null);
+    } else {
+      // Legacy: label match scoped to selected event
+      matchedRows = getFilteredDates().filter(row => page1.selectedDates.includes(formatEventDate(row)));
+    }
     if (matchedRows.length === 0) return null;
     let minAvailable: number | null = null;
     for (const row of matchedRows) {
@@ -1288,7 +1326,7 @@ export default function CookingClassesPage() {
                           <input
                             type="checkbox"
                             checked={page1.selectedDates.includes(label)}
-                            onChange={() => selectable && toggleDate(label)}
+                            onChange={() => selectable && toggleDate(label, row.id)}
                             disabled={!selectable}
                             className="w-4 h-4 rounded border-[#DDD5C8] text-[#C4622D] focus:ring-[#C4622D] disabled:opacity-50"
                           />

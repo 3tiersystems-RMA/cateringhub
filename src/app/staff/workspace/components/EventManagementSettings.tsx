@@ -166,7 +166,7 @@ export default function EventManagementSettings({ isSuperAdmin = false, readOnly
     setEventDateRows(prev => {
       const updated = { ...prev };
       events.forEach(ev => {
-        if (!updated[ev.id]) updated[ev.id] = [{ ...EMPTY_DATE_ROW(ev.id, 0) }];
+        if (!updated[ev.id]) updated[ev.id] = [{ ...EMPTY_DATE_ROW(ev.id, 0), event_fee: eventFee || '' }];
       });
       return updated;
     });
@@ -189,7 +189,16 @@ export default function EventManagementSettings({ isSuperAdmin = false, readOnly
         const { error } = await supabase.from('event_management_settings').insert({ ...payload, online_form_status: 'active' });
         if (error) throw error;
       }
-      setSaveSuccess('Settings saved successfully');
+      const newFee = Number(eventFee) || 0;
+      if (newFee > 0) {
+        const { error: syncError } = await supabase
+          .from('event_management_event_dates')
+          .update({ event_fee: newFee })
+          .not('event_id', 'is', null);
+        if (syncError) throw syncError;
+        await loadAllDateRows();
+      }
+      setSaveSuccess(newFee > 0 ? 'Settings saved — all session fees updated to match default' : 'Settings saved successfully');
       await loadSettings();
     } catch (err: any) {
       setSaveError(err.message || 'Failed to save settings');
@@ -299,7 +308,10 @@ export default function EventManagementSettings({ isSuperAdmin = false, readOnly
   function addDateRow(eventId: string) {
     setEventDateRows(prev => {
       const rows = prev[eventId] || [];
-      return { ...prev, [eventId]: [...rows, { ...EMPTY_DATE_ROW(eventId, rows.length) }] };
+      return {
+        ...prev,
+        [eventId]: [...rows, { ...EMPTY_DATE_ROW(eventId, rows.length), event_fee: eventFee || '' }],
+      };
     });
   }
 
@@ -485,6 +497,7 @@ export default function EventManagementSettings({ isSuperAdmin = false, readOnly
                   className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white disabled:bg-[#F5F0E8]"
                 />
               </div>
+              <p className="text-[10px] text-[#8C8278] mt-0.5">Used at checkout only when Default Event Fee is 0</p>
             </div>
           </div>
         </div>
@@ -565,6 +578,10 @@ export default function EventManagementSettings({ isSuperAdmin = false, readOnly
               step="0.01"
               className="w-full max-w-xs border border-[#DDD5C8] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] disabled:bg-[#F5F0E8]"
             />
+            <p className="text-xs text-[#8C8278] mt-1.5">
+              This fee is charged at checkout for all registrations. Saving updates every session fee below to match.
+              Set to 0 only if you need different per-session pricing (e.g. Kids vs Adults).
+            </p>
           </div>
         </div>
         {!readOnly && (
