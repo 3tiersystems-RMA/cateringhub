@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { createClient } from "@/lib/supabase/client";
+import { cacheBustImageUrl } from "@/lib/image-cache-bust";
 import Icon from "@/components/ui/AppIcon";
 
 interface AnnouncementCard {
@@ -12,6 +13,7 @@ interface AnnouncementCard {
   image_path: string | null;
   image_url: string | null;
   is_visible: boolean;
+  updated_at: string | null;
 }
 
 export default function AnnouncementCard() {
@@ -30,7 +32,7 @@ export default function AnnouncementCard() {
         const supabase = createClient();
         const { data, error } = await supabase
           .from("homepage_cards")
-          .select("id, title, description, image_path, image_url, is_visible")
+          .select("id, title, description, image_path, image_url, is_visible, updated_at")
           .eq("card_type", "announcement")
           .eq("is_visible", true)
           .single();
@@ -38,15 +40,18 @@ export default function AnnouncementCard() {
         if (!error && data) {
           setCard(data as AnnouncementCard);
 
-          // Resolve signed URL for uploaded image
-          if (data.image_path) {
+          // Prefer pasted URL over uploaded file (URL save clears image_path; this also
+          // handles stale rows where both fields were left set).
+          let imageSrc: string | null = null;
+          if (data.image_url) {
+            imageSrc = data.image_url;
+          } else if (data.image_path) {
             const { data: urlData } = supabase.storage
               .from("homepage-card-images")
               .getPublicUrl(data.image_path);
-            setResolvedImageUrl(urlData?.publicUrl ?? null);
-          } else if (data.image_url) {
-            setResolvedImageUrl(data.image_url);
+            imageSrc = urlData?.publicUrl ?? null;
           }
+          setResolvedImageUrl(imageSrc ? cacheBustImageUrl(imageSrc, data.updated_at) : null);
         }
       } catch {
         // no announcement card or not visible

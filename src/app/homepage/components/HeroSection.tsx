@@ -5,6 +5,7 @@ import Link from "next/link";
 import AppImage from "@/components/ui/AppImage";
 import Icon from "@/components/ui/AppIcon";
 import { createClient } from "@/lib/supabase/client";
+import { cacheBustImageUrl } from "@/lib/image-cache-bust";
 import { getHomepageSectionVisibility, getTickerBannerSettings } from "@/lib/homepage-sections";
 import AnnouncementCard from "./AnnouncementCard";
 import { useCart } from "@/app/products/components/CartContext";
@@ -32,6 +33,7 @@ interface HomepageCard {
   is_visible: boolean;
   display_order: number;
   image_path: string | null;
+  updated_at: string | null;
   imageUrl?: string | null;
 }
 
@@ -80,7 +82,11 @@ function HeroSectionInner() {
             const { data: urlData } = supabase.storage.
             from('homepage-card-images').
             getPublicUrl(card.image_path);
-            return { ...card, imageUrl: urlData?.publicUrl ?? null };
+            const publicUrl = urlData?.publicUrl ?? null;
+            return {
+              ...card,
+              imageUrl: publicUrl ? cacheBustImageUrl(publicUrl, card.updated_at) : null,
+            };
           }
           return { ...card, imageUrl: null };
         });

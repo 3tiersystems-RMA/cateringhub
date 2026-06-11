@@ -712,7 +712,7 @@ export default function EventManagementSettings({ isSuperAdmin = false, readOnly
                       disabled={savingEventDates[ev.id]}
                       className="mt-4 bg-[#C4622D] text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
                     >
-                      {savingEventDates[ev.id] ? 'Saving…' : 'Save Event Dates'}
+                      {savingEventDates[ev.id] ? 'Saving…' : 'Save the Event Details'}
                     </button>
                   </>
                 )}

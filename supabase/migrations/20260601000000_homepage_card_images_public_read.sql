@@ -1,13 +1,20 @@
 -- Make homepage-card-images readable by anonymous homepage visitors.
 -- The homepage (Hero "Today's Special" card, Announcement card) is public, so
 -- anon users must be able to read these images. Previously the bucket was
--- private with an authenticated-only read policy, causing signed-URL requests
--- from anon visitors to fail with 400 / not_found.
+-- private with an authenticated-only read policy, causing getPublicUrl links
+-- to fail for visitors who are not logged in.
 
--- 1. Mark the bucket public so getPublicUrl works without a signing round-trip.
-UPDATE storage.buckets
-SET public = true
-WHERE id = 'homepage-card-images';
+-- 1. Ensure the bucket exists and is public (idempotent for fresh + prod deploys).
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'homepage-card-images',
+  'homepage-card-images',
+  true,
+  10485760,
+  ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+)
+ON CONFLICT (id) DO UPDATE
+SET public = true;
 
 -- 2. Allow anyone (anon + authenticated) to read objects in this bucket.
 DROP POLICY IF EXISTS "authenticated_can_read_homepage_card_images" ON storage.objects;
