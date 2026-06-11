@@ -53,6 +53,7 @@ import EventManagementCustomers from '@/app/staff/workspace/components/EventMana
 import EventManagementRegistrations from '@/app/staff/workspace/components/EventManagementRegistrations';
 import EventManagementAnalytics from '@/app/staff/workspace/components/EventManagementAnalytics';
 import EventBookingConfirmation from '@/app/staff/workspace/components/EventBookingConfirmation';
+import CookingClassConfirmation from '@/app/staff/workspace/components/CookingClassConfirmation';
 
 
 
@@ -339,12 +340,12 @@ export default function StaffWorkspacePage() {
               )}
 
               {/* ── Cooking & Baking Classes ── */}
-              {canAnyTab('cooking_classes', 'cooking_class_customers', 'cooking_class_analytics', 'event_registrations') && (
+              {canAnyTab('cooking_classes', 'cooking_class_customers', 'cooking_class_analytics', 'cooking_class_confirmation', 'event_registrations') && (
                 <>
                   <button
                     onClick={() => setCookingClassesOpen(prev => !prev)}
                     className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
-                      ['cooking_classes', 'cooking_class_customers', 'cooking_class_analytics', 'event_registrations'].includes(activeTab) ? 'text-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
+                      ['cooking_classes', 'cooking_class_customers', 'cooking_class_analytics', 'cooking_class_confirmation', 'event_registrations'].includes(activeTab) ? 'text-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
                     }`}
                   >
                     <span className="text-base">👨‍🍳</span>
@@ -387,6 +388,18 @@ export default function StaffWorkspacePage() {
                         >
                           <span className="text-sm">📋</span>
                           <span>Class Registrations</span>
+                        </button>
+                      )}
+                      {/* ── Cooking Class Confirmation (sub-menu) ── */}
+                      {canTab('cooking_class_confirmation') && (
+                        <button
+                          onClick={() => { handleTabChange('cooking_class_confirmation'); }}
+                          className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${
+                            activeTab === 'cooking_class_confirmation' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
+                          }`}
+                        >
+                          <span className="text-sm">✅</span>
+                          <span>Cooking Class Confirmation</span>
                         </button>
                       )}
                       {/* ── Analytics (sub-menu) ── */}
@@ -639,6 +652,11 @@ export default function StaffWorkspacePage() {
             {/* ── COOKING CLASS ANALYTICS TAB ── */}
             {activeTab === 'cooking_class_analytics' && (
               <CookingClassAnalytics />
+            )}
+
+            {/* ── COOKING CLASS CONFIRMATION TAB ── */}
+            {activeTab === 'cooking_class_confirmation' && (
+              <CookingClassConfirmation userRole={userProfile?.role || ''} />
             )}
 
             {/* ── EVENT REGISTRATIONS TAB ── */}
