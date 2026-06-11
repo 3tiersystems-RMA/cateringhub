@@ -304,19 +304,24 @@ export default function CookingClassConfirmation({ userRole }: CookingClassConfi
             </div>
 
             {/* Participants Registered */}
-            {Array.isArray(reg.children) && reg.children.filter(c => (c.fullName || c.full_name || c.name || '').trim()).length > 0 && (() => {
-              const filled = reg.children!.filter(c => (c.fullName || c.full_name || c.name || '').trim());
+            {(() => {
+              const filled = Array.isArray(reg.children)
+                ? reg.children.filter(c => (c.fullName || c.full_name || c.name || '').trim())
+                : [];
+              if (filled.length === 0) return null;
               return (
-                <div className="border-t border-[#EDE7DA] pt-3">
-                  <p className="text-xs font-bold text-[#8C8278] uppercase tracking-wider mb-2">Participants Registered</p>
+                <div className="rounded-xl overflow-hidden border border-[#EDE7DA]">
+                  <div className="bg-[#EDE7DA] px-4 py-2.5">
+                    <p className="text-xs font-bold text-[#8C8278] uppercase tracking-wider">PARTICIPANTS REGISTERED</p>
+                  </div>
                   <div className="overflow-x-auto">
-                    <table className="w-full text-xs">
+                    <table className="w-full text-sm">
                       <thead>
                         <tr className="bg-[#f9f6f2]">
-                          <th className="px-3 py-2 text-left text-[#8C8278] font-semibold rounded-tl-lg">Ticket #</th>
-                          <th className="px-3 py-2 text-left text-[#8C8278] font-semibold">Full Name</th>
-                          <th className="px-3 py-2 text-left text-[#8C8278] font-semibold">Gender</th>
-                          <th className="px-3 py-2 text-left text-[#8C8278] font-semibold rounded-tr-lg">Age</th>
+                          <th className="px-4 py-2 text-left text-xs text-[#8C8278] font-semibold">Ticket #</th>
+                          <th className="px-4 py-2 text-left text-xs text-[#8C8278] font-semibold">Full Name</th>
+                          <th className="px-4 py-2 text-left text-xs text-[#8C8278] font-semibold">Gender</th>
+                          <th className="px-4 py-2 text-left text-xs text-[#8C8278] font-semibold">Age</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -324,10 +329,10 @@ export default function CookingClassConfirmation({ userRole }: CookingClassConfi
                           const name = (p.fullName || p.full_name || p.name || '').trim();
                           return (
                             <tr key={idx} className="border-t border-[#f0ebe4]">
-                              <td className="px-3 py-2 font-mono text-[#C4622D]">{p.ticket_number || '—'}</td>
-                              <td className="px-3 py-2 text-[#1A1612] font-medium">{name || '—'}</td>
-                              <td className="px-3 py-2 text-[#5C5347]">{p.gender || '—'}</td>
-                              <td className="px-3 py-2 text-[#5C5347]">{p.age != null && p.age !== '' ? String(p.age) : '—'}</td>
+                              <td className="px-4 py-2.5 font-mono text-[#C4622D] text-xs">{p.ticket_number || '—'}</td>
+                              <td className="px-4 py-2.5 text-[#1A1612] font-medium">{name || '—'}</td>
+                              <td className="px-4 py-2.5 text-[#5C5347]">{p.gender || '—'}</td>
+                              <td className="px-4 py-2.5 text-[#5C5347]">{p.age != null && p.age !== '' ? String(p.age) : '—'}</td>
                             </tr>
                           );
                         })}
