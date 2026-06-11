@@ -442,7 +442,7 @@ export default function CookingClassConfirmation({ userRole }: CookingClassConfi
           {/* CTA */}
           <div>
             <p className="text-[#5C5347] text-sm mb-2">View your cooking class bookings:</p>
-            <a href="https://cardamomkitchen.co.za/cooking-classes" target="_blank" rel="noopener noreferrer" className="inline-block bg-[#C4622D] text-white text-sm font-bold px-5 py-2.5 rounded-lg">View My Classes →</a>
+            <a href="https://cardamomkitchen.co.za" target="_blank" rel="noopener noreferrer" className="inline-block bg-[#C4622D] text-white text-sm font-bold px-5 py-2.5 rounded-lg">View My Classes →</a>
           </div>
 
           {/* Footer */}
