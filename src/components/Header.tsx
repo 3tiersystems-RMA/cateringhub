@@ -20,6 +20,7 @@ const eventsSubLinks = [
 const customerProfileSubLinks = [
   { label: "View Profile", href: "/customer-profile" },
   { label: "Order History", href: "/order-history" },
+  { label: "Booking Query", href: "/booking-query" },
   { label: "Voucher Dashboard", href: "/customer-dashboard" },
 ];
 
@@ -59,7 +60,7 @@ export default function Header() {
   }, []);
 
   const isCustomerProfileActive =
-    mounted && (pathname === "/customer-profile" || pathname === "/order-history" || pathname === "/customer-dashboard");
+    mounted && (pathname === "/customer-profile" || pathname === "/order-history" || pathname === "/booking-query" || pathname === "/customer-dashboard");
   const isEventsActive = mounted && pathname === "/events";
 
   return (
@@ -187,7 +188,7 @@ export default function Header() {
                       }`}
                     >
                       <Icon
-                        name={sub.label === "View Profile" ? "UserCircleIcon" : sub.label === "Voucher Dashboard" ? "TicketIcon" : "ClipboardDocumentListIcon"}
+                        name={sub.label === "View Profile" ? "UserCircleIcon" : sub.label === "Voucher Dashboard" ? "TicketIcon" : sub.label === "Booking Query" ? "CalendarDaysIcon" : "ClipboardDocumentListIcon"}
                         size={15}
                       />
                       {sub.label}
@@ -306,7 +307,7 @@ export default function Header() {
                       }`}
                     >
                       <Icon
-                        name={sub.label === "View Profile" ? "UserCircleIcon" : sub.label === "Voucher Dashboard" ? "TicketIcon" : "ClipboardDocumentListIcon"}
+                        name={sub.label === "View Profile" ? "UserCircleIcon" : sub.label === "Voucher Dashboard" ? "TicketIcon" : sub.label === "Booking Query" ? "CalendarDaysIcon" : "ClipboardDocumentListIcon"}
                         size={14}
                       />
                       {sub.label}
