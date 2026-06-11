@@ -609,7 +609,6 @@ export default function EventManagementRegistrations({ isSuperAdmin = false }: E
                           <Field label="Full Name" value={`${reg.title ? reg.title + ' ' : ''}${reg.first_name} ${reg.surname}`} />
                           <Field label="Email" value={reg.email} />
                           <Field label="Cellphone" value={reg.cellphone} />
-                          <Field label="Allergies / Illness" value={reg.allergies_illness} />
                           <Field label="Payment Method" value={reg.payment_method} />
                           <Field label="Amount Paid" value={formatCurrency(reg.amount)} highlight />
 
@@ -708,7 +707,6 @@ export default function EventManagementRegistrations({ isSuperAdmin = false }: E
                               <Field label="Full Name" value={`${reg.title ? reg.title + ' ' : ''}${reg.first_name} ${reg.surname}`} />
                               <Field label="Email" value={reg.email} />
                               <Field label="Cellphone" value={reg.cellphone} />
-                              <Field label="Allergies / Illness" value={reg.allergies_illness} />
                             </div>
                           </div>
 
@@ -841,7 +839,6 @@ export default function EventManagementRegistrations({ isSuperAdmin = false }: E
                           <Field label="Medical Aid Number" value={reg.medical_aid_number} />
                           <Field label="Doctor First Name" value={reg.medical_doctor_first_name} />
                           <Field label="Doctor Surname" value={reg.medical_doctor_surname} />
-                          <Field label="Allergies / Illness" value={reg.allergies_illness} />
                           {filledParticipants.map((child, idx) => {
                             const childName = getParticipantName(child) || `Participant ${idx + 1}`;
                             const childAllergies = child.allergies || child.dietaryRestrictions;
