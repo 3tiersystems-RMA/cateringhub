@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { buildPaymentPayload, getPayFastBaseUrl, PAYFAST_MODE, validateBuyerEmailForPayFast,  } from "@/lib/payfast";
+import { buildPaymentPayload, getPayFastBaseUrl, PAYFAST_MODE, validateBuyerEmailForPayFast } from "@/lib/payfast";
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { order, buyer } = body;
+    const { order, buyer, returnUrl, cancelUrl, notifyUrl } = body;
 
     // Basic validation
     if (!order?.paymentId || !order?.itemName) {
@@ -30,7 +30,8 @@ export async function POST(req: NextRequest) {
     const payload = buildPaymentPayload(
       { ...order, amount },
       buyer,
-      baseUrl
+      baseUrl,
+      { returnUrl, cancelUrl, notifyUrl }
     );
 
     return NextResponse.json({

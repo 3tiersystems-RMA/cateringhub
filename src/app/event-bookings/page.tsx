@@ -641,8 +641,18 @@ export default function EventBookingsPage() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        order: { paymentId: regCode, itemName: 'Event Booking Registration', itemDescription: `${page1.firstName} ${page1.surname} - ${page1.selectedEvents.join(', ')}`, amount },
-        buyer: { firstName: page1.firstName, lastName: page1.surname, email: page1.email, cellNumber: page1.cellphone },
+        order: {
+          paymentId: regCode,
+          itemName: 'Event Booking Registration',
+          itemDescription: `${page1.firstName} ${page1.surname} - ${page1.selectedEvents.join(', ')}`,
+          amount,
+        },
+        buyer: {
+          firstName: page1.firstName.trim(),
+          lastName: page1.surname.trim(),
+          email: page1.email.trim(),
+          cell: page1.cellphone.trim(),
+        },
         returnUrl: `${window.location.origin}/event-bookings/payment-return?id=${regId}&status=success`,
         cancelUrl: `${window.location.origin}/event-bookings/payment-return?id=${regId}&status=cancel`,
         notifyUrl: `${window.location.origin}/api/event-bookings/payfast-itn?id=${regId}`,
@@ -655,8 +665,11 @@ export default function EventBookingsPage() {
     form.method = 'POST';
     form.action = data.gatewayUrl;
     Object.entries(data.params).forEach(([key, value]) => {
+      if (value === undefined || value === null || String(value).trim() === '') return;
       const input = document.createElement('input');
-      input.type = 'hidden'; input.name = key; input.value = String(value);
+      input.type = 'hidden';
+      input.name = key;
+      input.value = String(value);
       form.appendChild(input);
     });
     document.body.appendChild(form);

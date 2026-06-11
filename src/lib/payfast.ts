@@ -297,7 +297,12 @@ export function buildPaymentPayload(
     email: string;
     cell?: string;
   },
-  baseUrl: string
+  baseUrl: string,
+  urlOverrides?: {
+    returnUrl?: string;
+    cancelUrl?: string;
+    notifyUrl?: string;
+  }
 ): { params: PayFastParams; gatewayUrl: string } {
   if (!pfConfig.merchantId || !pfConfig.merchantKey) {
     throw new Error(
@@ -311,9 +316,9 @@ export function buildPaymentPayload(
   const raw: Record<string, string> = {
     merchant_id: pfConfig.merchantId,
     merchant_key: pfConfig.merchantKey,
-    return_url: `${siteBase}/checkout/success?from=payfast`,
-    cancel_url: `${siteBase}/checkout/cancel?from=payfast`,
-    notify_url: `${itnBase}/api/payfast/itn`,
+    return_url: urlOverrides?.returnUrl || `${siteBase}/checkout/success?from=payfast`,
+    cancel_url: urlOverrides?.cancelUrl || `${siteBase}/checkout/cancel?from=payfast`,
+    notify_url: urlOverrides?.notifyUrl || `${itnBase}/api/payfast/itn`,
     name_first: buyer.firstName.trim(),
     name_last: buyer.lastName.trim(),
     email_address: buyer.email.trim(),
