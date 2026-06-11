@@ -361,7 +361,7 @@ export default function StaffWorkspacePage() {
                           }`}
                         >
                           <span className="text-sm">⚙️</span>
-                          <span>Settings</span>
+                          <span>Class Settings</span>
                         </button>
                       )}
                       {/* ── Class Customers (sub-menu) ── */}
