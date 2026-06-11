@@ -678,17 +678,43 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
                           )}
                           {reg.proof_of_payment_url && (
                             <div className="col-span-2 sm:col-span-3">
-                              <a
-                                href={reg.proof_of_payment_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-2 text-xs text-[#C4622D] font-medium hover:underline"
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  try {
+                                    // Extract the storage path from the stored URL
+                                    // URL format: .../storage/v1/object/public/cooking-class-proofs/<path>
+                                    // or: .../storage/v1/object/sign/cooking-class-proofs/<path>
+                                    const url = reg.proof_of_payment_url!;
+                                    const bucketName = 'cooking-class-proofs';
+                                    const marker = `/${bucketName}/`;
+                                    const markerIdx = url.indexOf(marker);
+                                    if (markerIdx === -1) {
+                                      // Fallback: open URL directly (e.g. Google Drive URL)
+                                      window.open(url, '_blank', 'noopener,noreferrer');
+                                      return;
+                                    }
+                                    const storagePath = url.slice(markerIdx + marker.length).split('?')[0];
+                                    const supabase = createClient();
+                                    const { data, error } = await supabase.storage
+                                      .from(bucketName)
+                                      .createSignedUrl(storagePath, 60 * 60); // 1 hour
+                                    if (error || !data?.signedUrl) {
+                                      alert('Could not generate a view link. Please try again.');
+                                      return;
+                                    }
+                                    window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+                                  } catch {
+                                    alert('Could not open proof of payment. Please try again.');
+                                  }
+                                }}
+                                className="inline-flex items-center gap-2 text-xs text-[#C4622D] font-medium hover:underline cursor-pointer"
                               >
                                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                   <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                                 </svg>
                                 View Proof of Payment
-                              </a>
+                              </button>
                             </div>
                           )}
                         </div>
