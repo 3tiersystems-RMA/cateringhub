@@ -85,7 +85,7 @@ function HeroSectionInner() {
             const publicUrl = urlData?.publicUrl ?? null;
             return {
               ...card,
-              imageUrl: publicUrl ? cacheBustImageUrl(publicUrl, card.updated_at) : null,
+              imageUrl: publicUrl ? cacheBustImageUrl(publicUrl, card.updated_at) : null
             };
           }
           return { ...card, imageUrl: null };
