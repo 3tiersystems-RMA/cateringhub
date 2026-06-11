@@ -6,6 +6,7 @@ import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
+import { filterFilledChildren } from '@/lib/cooking-class-participants';
 
 interface RegistrationRow {
   id: string;
@@ -128,7 +129,7 @@ export default function CookingClassAnalytics() {
     .filter(r => r.payment_status !== 'paid' && r.payment_status !== 'failed')
     .reduce((s, r) => s + (r.amount || 0), 0);
   const totalParticipants = registrations.reduce((s, r) => {
-    const kids = Array.isArray(r.children) ? r.children.length : 0;
+    const kids = Array.isArray(r.children) ? filterFilledChildren(r.children).length : 0;
     return s + 1 + kids;
   }, 0);
   const avgParticipantsPerReg = totalRegs > 0 ? (totalParticipants / totalRegs).toFixed(1) : '0';
@@ -237,8 +238,14 @@ export default function CookingClassAnalytics() {
     .slice(0, 6)
     .map(d => {
       const capacity = d.seating || 0;
-      // Count booked seats from booking_counts for this event date
-      const booked = bookings.filter(b => b.event_date_id === d.id).length;
+      // Count total participants (registrant + children) for each booking linked to this event date
+      const sessionBookings = bookings.filter(b => b.event_date_id === d.id);
+      const booked = sessionBookings.reduce((sum, b) => {
+        const reg = registrations.find(r => r.id === b.registration_id);
+        if (!reg) return sum + 1;
+        const kids = Array.isArray(reg.children) ? filterFilledChildren(reg.children).length : 0;
+        return sum + 1 + kids;
+      }, 0);
       return {
         label: formatDate(d.event_date!),
         eventName: eventsMap[d.event_id] || 'Event',

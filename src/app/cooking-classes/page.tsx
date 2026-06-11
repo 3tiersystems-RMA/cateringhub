@@ -338,12 +338,33 @@ export default function CookingClassesPage() {
     try {
       const { data } = await supabase
         .from('cooking_class_booking_counts')
-        .select('event_date_id')
+        .select('event_date_id, registration_id')
         .in('event_date_id', dateIds);
       if (data) {
+        // For each booking row, fetch the registration to count total participants
+        const regIds = [...new Set(data.map((row: { registration_id: string }) => row.registration_id))];
+        let regParticipantMap: Record<string, number> = {};
+        if (regIds.length > 0) {
+          const { data: regs } = await supabase
+            .from('cooking_class_registrations')
+            .select('id, children')
+            .in('id', regIds);
+          (regs || []).forEach((reg: { id: string; children: unknown[] | null }) => {
+            const kids = Array.isArray(reg.children)
+              ? reg.children.filter((c: unknown) => {
+                  if (!c || typeof c !== 'object') return false;
+                  const child = c as Record<string, unknown>;
+                  const name = (child.fullName || child.full_name || child.name || '') as string;
+                  return name.trim().length > 0;
+                }).length
+              : 0;
+            regParticipantMap[reg.id] = 1 + kids;
+          });
+        }
         const counts: Record<string, number> = {};
-        data.forEach((row: { event_date_id: string }) => {
-          counts[row.event_date_id] = (counts[row.event_date_id] || 0) + 1;
+        data.forEach((row: { event_date_id: string; registration_id: string }) => {
+          const participants = regParticipantMap[row.registration_id] || 1;
+          counts[row.event_date_id] = (counts[row.event_date_id] || 0) + participants;
         });
         setBookingCounts(
           Object.entries(counts).map(([event_date_id, count]) => ({ event_date_id, count }))
@@ -436,18 +457,18 @@ export default function CookingClassesPage() {
     // ID-based lookup first (one-to-one with cooking_class_event_dates.id)
     if (page1.selectedDateIds.length > 0) {
       for (const id of page1.selectedDateIds) {
-        const row = eventDates.find(r => r.id === id);
+        let row = eventDates.find(r => r.id === id);
         if (row && row.class_fee != null && row.class_fee > 0) return row.class_fee;
       }
     }
     // Fallback: any date for the selected event (scoped to active event selection)
     const filtered = getFilteredDates();
-    for (const row of filtered) {
+    for (let row of filtered) {
       if (row.class_fee != null && row.class_fee > 0) return row.class_fee;
     }
     // Legacy label-based lookup (kept for rows selected before selectedDateIds existed)
     if (page1.selectedDates.length > 0) {
-      for (const row of filtered) {
+      for (let row of filtered) {
         if (page1.selectedDates.includes(formatEventDate(row)) && row.class_fee != null && row.class_fee > 0) {
           return row.class_fee;
         }
@@ -1047,7 +1068,7 @@ export default function CookingClassesPage() {
     }
     if (matchedRows.length === 0) return null;
     let minAvailable: number | null = null;
-    for (const row of matchedRows) {
+    for (let row of matchedRows) {
       const seating = row.seating || 0;
       if (seating > 0) {
         const booked = getBookingCount(row.id);
