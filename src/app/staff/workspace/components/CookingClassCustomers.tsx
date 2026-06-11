@@ -54,6 +54,7 @@ interface Registration {
   pictures_taken: string | null;
   indemnity_consent: boolean | null;
   proof_of_payment_url: string | null;
+  indemnity_file_url: string | null;
   notes: string | null;
   registration_code?: string | null;
   // joined
@@ -677,7 +678,7 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
                             </div>
                           )}
                           {reg.proof_of_payment_url && (
-                            <div className="col-span-2 sm:col-span-3">
+                            <div className="col-span-2 sm:col-span-3 flex flex-wrap items-center gap-4">
                               <button
                                 type="button"
                                 onClick={async () => {
@@ -715,6 +716,43 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
                                 </svg>
                                 View Proof of Payment
                               </button>
+
+                              {reg.indemnity_consent && reg.indemnity_file_url && (
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    try {
+                                      const url = reg.indemnity_file_url!;
+                                      const bucketName = 'cooking-class-proofs';
+                                      const marker = `/${bucketName}/`;
+                                      const markerIdx = url.indexOf(marker);
+                                      if (markerIdx === -1) {
+                                        // Fallback: open URL directly (e.g. Google Drive URL)
+                                        window.open(url, '_blank', 'noopener,noreferrer');
+                                        return;
+                                      }
+                                      const storagePath = url.slice(markerIdx + marker.length).split('?')[0];
+                                      const supabase = createClient();
+                                      const { data, error } = await supabase.storage
+                                        .from(bucketName)
+                                        .createSignedUrl(storagePath, 60 * 60); // 1 hour
+                                      if (error || !data?.signedUrl) {
+                                        alert('Could not generate a view link. Please try again.');
+                                        return;
+                                      }
+                                      window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+                                    } catch {
+                                      alert('Could not open signed indemnity form. Please try again.');
+                                    }
+                                  }}
+                                  className="inline-flex items-center gap-2 text-xs text-[#C4622D] font-medium hover:underline cursor-pointer"
+                                >
+                                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                  </svg>
+                                  View Signed Indemnity Form
+                                </button>
+                              )}
                             </div>
                           )}
                         </div>
