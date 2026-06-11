@@ -630,54 +630,6 @@ export default function EventManagementSettings({ isSuperAdmin = false, readOnly
         {statusSaveMsg && <p className="text-xs text-green-600 mt-2">{statusSaveMsg}</p>}
       </div>
 
-      {/* General Settings */}
-      <div className="bg-white border border-[#EDE7DA] rounded-2xl p-5">
-        <h3 className="text-base font-semibold text-[#1A1612] mb-4">General Settings</h3>
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-[#1A1612] mb-1">Flyer Image URL</label>
-            <input
-              type="text"
-              value={flyerUrl}
-              onChange={e => setFlyerUrl(e.target.value)}
-              disabled={readOnly}
-              placeholder="https://..."
-              className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] disabled:bg-[#F5F0E8]"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-[#1A1612] mb-1">Default Event Fee (R)</label>
-            <input
-              type="number"
-              value={eventFee}
-              onChange={e => setEventFee(e.target.value)}
-              disabled={readOnly}
-              placeholder="0.00"
-              min="0"
-              step="0.01"
-              className="w-full max-w-xs border border-[#DDD5C8] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] disabled:bg-[#F5F0E8]"
-            />
-            <p className="text-xs text-[#8C8278] mt-1.5">
-              Fallback when a session has no Event Fee. Per-session fees always take priority at checkout and on the Events page.
-              Saving updates every session fee below to match this value.
-            </p>
-          </div>
-        </div>
-        {!readOnly && (
-          <div className="mt-4 flex items-center gap-3">
-            <button
-              onClick={saveSettings}
-              disabled={saving}
-              className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
-            >
-              {saving ? 'Saving…' : 'Save Settings'}
-            </button>
-            {saveSuccess && <p className="text-xs text-green-600">{saveSuccess}</p>}
-            {saveError && <p className="text-xs text-red-500">{saveError}</p>}
-          </div>
-        )}
-      </div>
-
       {/* Events */}
       <div className="bg-white border border-[#EDE7DA] rounded-2xl p-5">
         <h3 className="text-base font-semibold text-[#1A1612] mb-4">Events</h3>
