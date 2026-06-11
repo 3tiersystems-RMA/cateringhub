@@ -95,6 +95,9 @@ export default function EventManagementSettings({ isSuperAdmin = false, readOnly
   const [editingEventName, setEditingEventName] = useState('');
   const [savingEventName, setSavingEventName] = useState(false);
 
+  // Event Fee validation popup state
+  const [feeValidationPopup, setFeeValidationPopup] = useState<{ visible: boolean; eventId: string | null }>({ visible: false, eventId: null });
+
   useEffect(() => {
     loadSettings();
     loadEvents();
@@ -308,7 +311,19 @@ export default function EventManagementSettings({ isSuperAdmin = false, readOnly
     });
   }
 
+  function validateEventFees(eventId: string): boolean {
+    const rows = eventDateRows[eventId] || [];
+    return rows.every(r => {
+      const fee = Number(r.event_fee);
+      return !isNaN(fee) && fee > 0;
+    });
+  }
+
   async function saveEventDates(eventId: string) {
+    if (!validateEventFees(eventId)) {
+      setFeeValidationPopup({ visible: true, eventId });
+      return;
+    }
     setSavingEventDates(prev => ({ ...prev, [eventId]: true }));
     setEventDatesMsg(prev => ({ ...prev, [eventId]: '' }));
     try {
@@ -709,8 +724,12 @@ export default function EventManagementSettings({ isSuperAdmin = false, readOnly
 
                     <button
                       onClick={() => saveEventDates(ev.id)}
-                      disabled={savingEventDates[ev.id]}
-                      className="mt-4 bg-[#C4622D] text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
+                      disabled={savingEventDates[ev.id] || !validateEventFees(ev.id)}
+                      className={`mt-4 px-5 py-2 rounded-xl text-sm font-semibold transition-colors ${
+                        !validateEventFees(ev.id)
+                          ? 'bg-[#C4622D] text-white opacity-40 cursor-not-allowed'
+                          : 'bg-[#C4622D] text-white hover:bg-[#A04E22] disabled:opacity-50'
+                      }`}
                     >
                       {savingEventDates[ev.id] ? 'Saving…' : 'Save the Event Details'}
                     </button>
@@ -735,6 +754,31 @@ export default function EventManagementSettings({ isSuperAdmin = false, readOnly
           <span>🔗</span> Open Event Bookings Form
         </a>
       </div>
+
+      {/* Event Fee Validation Popup */}
+      {feeValidationPopup.visible && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full mx-4">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                <svg className="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                </svg>
+              </div>
+              <h3 className="text-base font-semibold text-[#2C2420]">Event Fee Required</h3>
+            </div>
+            <p className="text-sm text-[#5C5347] mb-5">
+              All sessions must have an <strong>Event Fee</strong> greater than zero before saving. Please enter a valid fee for every session.
+            </p>
+            <button
+              onClick={() => setFeeValidationPopup({ visible: false, eventId: null })}
+              className="w-full bg-[#C4622D] text-white py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors"
+            >
+              OK, I'll fix it
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
