@@ -26,6 +26,14 @@ interface AwaitingRegistration {
   notes: string | null;
   registration_code: string | null;
   session_dates?: SessionDate[];
+  children?: Array<{
+    fullName?: string;
+    full_name?: string;
+    name?: string;
+    age?: string | number;
+    gender?: string;
+    ticket_number?: string;
+  }>;
 }
 
 interface CorrespondenceSettings {
@@ -64,7 +72,7 @@ export default function CookingClassConfirmation({ userRole }: CookingClassConfi
     const [regsResult, settingsResult] = await Promise.all([
       supabase
         .from('cooking_class_registrations')
-        .select('id, title, first_name, surname, email, cellphone, payment_status, amount, created_at, notes, registration_code')
+        .select('id, title, first_name, surname, email, cellphone, payment_status, amount, created_at, notes, registration_code, children')
         .eq('payment_status', 'awaiting_confirmation')
         .order('created_at', { ascending: false }),
       supabase
@@ -463,7 +471,8 @@ export default function CookingClassConfirmation({ userRole }: CookingClassConfi
       ) : (
         <div className="space-y-3">
           {filteredRegistrations.map(reg => (
-            <div key={reg.id} className="bg-white rounded-2xl border border-[#EDE7DA] p-4 flex items-center justify-between gap-4 flex-wrap">
+            <div key={reg.id} className="bg-white rounded-2xl border border-[#EDE7DA] p-4 flex flex-col gap-3">
+              <div className="flex items-center justify-between gap-4 flex-wrap">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap mb-1">
                   <p className="font-semibold text-[#1A1612] text-sm">{reg.title ? `${reg.title} ` : ''}{reg.first_name} {reg.surname}</p>
@@ -498,6 +507,42 @@ export default function CookingClassConfirmation({ userRole }: CookingClassConfi
                   </button>
                 )}
               </div>
+              </div>
+
+              {/* Participants Registered */}
+              {Array.isArray(reg.children) && reg.children.filter(c => (c.fullName || c.full_name || c.name || '').trim()).length > 0 && (() => {
+                const filled = reg.children!.filter(c => (c.fullName || c.full_name || c.name || '').trim());
+                return (
+                  <div className="border-t border-[#EDE7DA] pt-3">
+                    <p className="text-xs font-bold text-[#8C8278] uppercase tracking-wider mb-2">Participants Registered</p>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="bg-[#f9f6f2]">
+                            <th className="px-3 py-2 text-left text-[#8C8278] font-semibold rounded-tl-lg">Ticket #</th>
+                            <th className="px-3 py-2 text-left text-[#8C8278] font-semibold">Full Name</th>
+                            <th className="px-3 py-2 text-left text-[#8C8278] font-semibold">Gender</th>
+                            <th className="px-3 py-2 text-left text-[#8C8278] font-semibold rounded-tr-lg">Age</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filled.map((p, idx) => {
+                            const name = (p.fullName || p.full_name || p.name || '').trim();
+                            return (
+                              <tr key={idx} className="border-t border-[#f0ebe4]">
+                                <td className="px-3 py-2 font-mono text-[#C4622D]">{p.ticket_number || '—'}</td>
+                                <td className="px-3 py-2 text-[#1A1612] font-medium">{name || '—'}</td>
+                                <td className="px-3 py-2 text-[#5C5347]">{p.gender || '—'}</td>
+                                <td className="px-3 py-2 text-[#5C5347]">{p.age != null && p.age !== '' ? String(p.age) : '—'}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           ))}
         </div>
