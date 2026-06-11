@@ -617,15 +617,14 @@ export default function EventBookingsPage() {
       setCurrentPage(6);
       return;
     }
-    const res = await fetch('/api/payfast/initiate', {
+    const res = await fetch('/api/event-bookings/payfast-initiate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        registrationCode: regCode,
         order: {
-          paymentId: regCode,
-          itemName: 'Event Booking Registration',
-          itemDescription: `${page1.firstName} ${page1.surname} - ${page1.selectedEvents.join(', ')}`,
           amount,
+          itemDescription: `${page1.firstName} ${page1.surname} - ${page1.selectedEvents.join(', ')}`,
         },
         buyer: {
           firstName: page1.firstName.trim(),
@@ -633,9 +632,6 @@ export default function EventBookingsPage() {
           email: page1.email.trim(),
           cell: page1.cellphone.trim(),
         },
-        returnUrl: `${window.location.origin}/event-bookings/payment-return?id=${regId}&status=success`,
-        cancelUrl: `${window.location.origin}/event-bookings/payment-return?id=${regId}&status=cancel`,
-        notifyUrl: `${window.location.origin}/api/event-bookings/payfast-itn?id=${regId}`,
       }),
     });
     const data = await res.json();
@@ -644,7 +640,7 @@ export default function EventBookingsPage() {
     const form = document.createElement('form');
     form.method = 'POST';
     form.action = data.gatewayUrl;
-    Object.entries(data.params).forEach(([key, value]) => {
+    Object.entries(data.params as Record<string, string>).forEach(([key, value]) => {
       if (value === undefined || value === null || String(value).trim() === '') return;
       const input = document.createElement('input');
       input.type = 'hidden';
