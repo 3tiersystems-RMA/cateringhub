@@ -142,8 +142,8 @@ export default function BookingQueryPage() {
         const results: BookingResult[] = json.bookings || [];
         setBookings(results);
         setSearched(true);
-        // Auto-expand the first result when searching by reference
-        if (searchType === "reference" && results.length > 0) {
+        // Auto-expand the first result for all search types
+        if (results.length > 0) {
           setExpandedId(results[0].id);
         }
       }
