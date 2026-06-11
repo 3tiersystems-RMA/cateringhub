@@ -228,14 +228,23 @@ export default function EventManagementAnalytics() {
     .slice(0, 6)
     .map(d => {
       const capacity = d.seating || 0;
-      const booked = bookings.filter(b => b.event_date_id === d.id).length;
+      // Count total participants (registrant + children) for this event date
+      const sessionBookings = bookings.filter(b => b.event_date_id === d.id);
+      const totalSessionParticipants = sessionBookings.reduce((sum, b) => {
+        const reg = registrations.find(r => r.id === b.registration_id);
+        if (!reg) return sum + 1;
+        const filledChildren = Array.isArray(reg.children)
+          ? reg.children.filter(c => !!(c.fullName || c.full_name || c.name)).length
+          : 0;
+        return sum + 1 + filledChildren;
+      }, 0);
       return {
         label: formatDate(d.event_date!),
         eventName: eventsMap[d.event_id] || 'Event',
         capacity,
-        booked,
-        available: Math.max(0, capacity - booked),
-        fillPct: capacity ? Math.round((booked / capacity) * 100) : 0,
+        booked: totalSessionParticipants,
+        available: Math.max(0, capacity - totalSessionParticipants),
+        fillPct: capacity ? Math.round((totalSessionParticipants / capacity) * 100) : 0,
       };
     });
 
