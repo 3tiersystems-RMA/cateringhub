@@ -108,24 +108,22 @@ export default function EventManagement({ canCreate = true, canDelete = true }: 
     async function loadBookableEvents() {
       setLoadingBookable(true);
       try {
-        const [{ data: mgmtEvents }, { data: settings }] = await Promise.all([
-          supabase
-            .from('event_management_events')
-            .select('id, name')
-            .eq('is_active', true)
-            .order('sort_order', { ascending: true }),
-          supabase.from('event_management_settings').select('event_fee').limit(1).single(),
-        ]);
+        const mgmtEvents = await supabase
+          .from('event_management_events')
+          .select('id, name')
+          .eq('is_active', true)
+          .order('sort_order', { ascending: true });
+        const settings = await supabase.from('event_management_settings').select('event_fee').limit(1).single();
 
         if (cancelled) return;
         setDefaultEventFee(settings?.event_fee != null ? Number(settings.event_fee) : 0);
 
-        if (!mgmtEvents?.length) {
+        if (!mgmtEvents?.data?.length) {
           setBookableEvents([]);
           return;
         }
 
-        const eventIds = mgmtEvents.map(e => e.id);
+        const eventIds = mgmtEvents.data.map(e => e.id);
         const { data: sessions } = await supabase
           .from('event_management_event_dates')
           .select('id, event_id, event_date, start_time, end_time, location, event_fee')
@@ -144,7 +142,7 @@ export default function EventManagement({ canCreate = true, canDelete = true }: 
         });
 
         setBookableEvents(
-          mgmtEvents
+          mgmtEvents.data
             .map(ev => ({
               id: ev.id,
               name: ev.name,
@@ -1135,8 +1133,7 @@ export default function EventManagement({ canCreate = true, canDelete = true }: 
                     {form.is_registered && (
                       <div className={`rounded-xl px-4 py-3 text-xs border ${
                         bookableFormComplete && form.is_published
-                          ? 'bg-green-50 border-green-200 text-green-800'
-                          : 'bg-[#F5F0E8] border-[#EDE7DA] text-[#5C5347]'
+                          ? 'bg-green-50 border-green-200 text-green-800' :'bg-[#F5F0E8] border-[#EDE7DA] text-[#5C5347]'
                       }`}>
                         <p className="font-semibold mb-2">Public Events page preview</p>
                         <ul className="space-y-1">
@@ -1150,8 +1147,7 @@ export default function EventManagement({ canCreate = true, canDelete = true }: 
                             : form.is_published && !bookableFormComplete
                               ? 'Published, but Enroll Now will not show until linked and a fee is set.'
                               : !form.is_published && bookableFormComplete
-                                ? 'Almost ready — turn Published on to show this on /events.'
-                                : 'Complete the steps above, then publish.'}
+                                ? 'Almost ready — turn Published on to show this on /events.' :'Complete the steps above, then publish.'}
                         </p>
                       </div>
                     )}

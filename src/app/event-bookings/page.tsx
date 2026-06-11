@@ -464,7 +464,7 @@ export default function EventBookingsPage() {
         if (!child.gender) errors[`child_${idx}_gender`] = 'Gender is required';
         if (!child.dietaryRestrictions) errors[`child_${idx}_dietary`] = 'Dietary info is required';
         if (!isAdultEvent && child.dob) {
-          const age = calculateAge(child.dob);
+          let age = calculateAge(child.dob);
           if (age === null) errors[`child_${idx}_dob`] = 'Date of birth cannot be in the future';
           else if (age < 5) errors[`child_${idx}_age`] = 'Minimum participant age is 5';
           else if (age > 16) errors[`child_${idx}_age`] = 'Maximum participant age is 16';
