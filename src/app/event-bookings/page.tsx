@@ -405,8 +405,6 @@ export default function EventBookingsPage() {
         if (!child.indemnityConsent) errors[`child_${idx}_indemnity`] = 'Please consent to the Indemnity Form clauses';
       }
     });
-    if (!page4.hasIndemnityForm) errors.hasIndemnityForm = 'Please indicate if you have a Signed Indemnity Form';
-    if (page4.hasIndemnityForm === 'Yes' && !page4.indemnityFile) errors.indemnityFile = 'Please upload your signed Indemnity Form';
     setPage4Errors(errors);
     return Object.keys(errors).length === 0;
   }
@@ -514,15 +512,6 @@ export default function EventBookingsPage() {
     reader.readAsDataURL(file);
   }
 
-  function handleIndemnityUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setPage4(prev => ({ ...prev, indemnityFile: file }));
-    const reader = new FileReader();
-    reader.onload = (ev) => { setPage4(prev => ({ ...prev, indemnityFilePreview: ev.target?.result as string })); };
-    reader.readAsDataURL(file);
-  }
-
   async function recordBookingCounts(regId: string, selectedDateIds: string[]) {
     try {
       if (selectedDateIds.length === 0) return;
@@ -537,15 +526,6 @@ export default function EventBookingsPage() {
     setSubmitting(true);
     setSubmitError('');
     try {
-      let indemnityFileUrl: string | null = null;
-      if (page4.indemnityFile) {
-        const indemnityForm = new FormData();
-        indemnityForm.append('file', page4.indemnityFile);
-        indemnityForm.append('fileName', `Indemnity_${page1.firstName}_${page1.surname}_${Date.now()}.${page4.indemnityFile.name.split('.').pop()}`);
-        const driveRes = await fetch('/api/cooking-classes/upload-to-drive', { method: 'POST', body: indemnityForm });
-        if (driveRes.ok) { const driveData = await driveRes.json(); indemnityFileUrl = driveData.viewUrl || null; }
-      }
-
       let proofDriveUrl: string | null = null;
       let proofSupabaseUrl: string | null = null;
       if (page5.paymentMethod === 'eft' && page5.proofFile) {
@@ -605,7 +585,6 @@ export default function EventBookingsPage() {
           attend_school_holiday: page4.attendSchoolHoliday,
           pictures_taken: page4.children.filter(c => c.fullName.trim()).map(c => c.picturesTaken).join(', '),
           indemnity_consent: page4.children.filter(c => c.fullName.trim()).every(c => c.indemnityConsent),
-          indemnity_file_url: indemnityFileUrl,
           payment_method: page5.paymentMethod,
           payment_status: page5.paymentMethod === 'eft' ? 'awaiting_confirmation' : 'pending',
           proof_of_payment_url: proofSupabaseUrl,
@@ -1130,46 +1109,6 @@ export default function EventBookingsPage() {
                       )}
                     </div>
                   )}
-
-                  {/* Indemnity Form */}
-                  <div className="mt-6 bg-white border border-[#EDE7DA] rounded-2xl shadow-sm overflow-hidden">
-                    <div className="bg-[#4A4540] text-white px-5 py-4">
-                      <h3 className="text-sm font-semibold">Do you have a Signed Indemnity Form?</h3>
-                    </div>
-                    <div className="p-5">
-                      <div className="flex gap-6 mb-4">
-                        {['Yes', 'No'].map(opt => (
-                          <label key={opt} className="flex items-center gap-2 cursor-pointer">
-                            <input type="radio" name="hasIndemnityForm" value={opt} checked={page4.hasIndemnityForm === opt} onChange={() => setPage4(p => ({ ...p, hasIndemnityForm: opt, indemnityFile: opt === 'No' ? null : p.indemnityFile, indemnityFilePreview: opt === 'No' ? '' : p.indemnityFilePreview }))} className="w-5 h-5 border-2 border-[#DDD5C8] text-[#C4622D] focus:ring-[#C4622D]" />
-                            <span className="text-sm text-[#1A1612]">{opt}</span>
-                          </label>
-                        ))}
-                      </div>
-                      {page4Errors.hasIndemnityForm && <p className="text-xs text-red-500 mb-3">{page4Errors.hasIndemnityForm}</p>}
-                      {page4.hasIndemnityForm === 'Yes' && (
-                        <>
-                          <div className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer ${page4Errors.indemnityFile ? 'border-red-400 bg-red-50' : 'border-[#DDD5C8] bg-[#F8F5FF] hover:border-[#C4622D]/50'}`} onClick={() => document.getElementById('indemnity-file-input-eb')?.click()}>
-                            {page4.indemnityFilePreview ? (
-                              <div>
-                                {page4.indemnityFile?.type?.startsWith('image/') ? <img src={page4.indemnityFilePreview} alt="Signed indemnity form preview" className="max-h-32 mx-auto rounded-lg mb-3 object-contain" /> : <div className="text-4xl mb-3">📄</div>}
-                                <p className="text-sm text-[#5C5347] font-medium">{page4.indemnityFile?.name}</p>
-                                <button type="button" onClick={e => { e.stopPropagation(); setPage4(p => ({ ...p, indemnityFile: null, indemnityFilePreview: '' })); }} className="text-xs text-red-500 hover:underline mt-1">Remove</button>
-                              </div>
-                            ) : (
-                              <div>
-                                <svg className="w-12 h-12 text-[#9CA3AF] mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" /></svg>
-                                <p className="text-base font-bold text-[#1A1612] mb-1">Browse Files</p>
-                                <p className="text-sm text-[#8C8278]">Drag and drop files here</p>
-                              </div>
-                            )}
-                            <input id="indemnity-file-input-eb" type="file" accept="image/*,.pdf" onChange={handleIndemnityUpload} className="hidden" />
-                          </div>
-                          <p className="text-xs text-[#5C5347] mt-2">Upload your SIGNED Indemnity Form</p>
-                          {page4Errors.indemnityFile && <p className="text-xs text-red-500 mt-1">{page4Errors.indemnityFile}</p>}
-                        </>
-                      )}
-                    </div>
-                  </div>
                 </div>
               )}
 
