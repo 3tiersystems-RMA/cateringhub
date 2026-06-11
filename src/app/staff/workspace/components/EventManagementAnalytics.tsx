@@ -241,7 +241,7 @@ export default function EventManagementAnalytics() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-[#1A1612]">Event Management Analytics</h2>
+          <h2 className="text-xl font-bold text-[#1A1612]">Event Bookings Analytics</h2>
           <p className="text-sm text-[#8C8278] mt-0.5">Registration, revenue, and capacity insights</p>
         </div>
         <button
