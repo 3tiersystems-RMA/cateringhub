@@ -427,40 +427,54 @@ export default function EventManagementAnalytics() {
         <div className="bg-white border border-[#EDE7DA] rounded-2xl p-5">
           <h3 className="text-sm font-bold text-[#1A1612] mb-1">Upcoming Session Capacity</h3>
           <p className="text-xs text-[#8C8278] mb-4">Seat availability for the next {upcomingSessions.length} sessions</p>
-          <div className="space-y-3">
-            {upcomingSessions.map((s, i) => (
-              <div key={i} className="flex items-center gap-4">
-                <div className="w-44 flex-shrink-0">
-                  <p className="text-xs font-semibold text-[#1A1612] leading-tight">{s.eventName}</p>
-                  <p className="text-xs text-[#8C8278]">{s.label}</p>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs text-[#8C8278]">{s.booked} booked</span>
-                    <span className="text-xs font-medium text-[#1A1612]">{s.fillPct}% full</span>
+          <div className="space-y-5">
+            {(() => {
+              // Group sessions by event name
+              const grouped: Record<string, typeof upcomingSessions> = {};
+              upcomingSessions.forEach(s => {
+                if (!grouped[s.eventName]) grouped[s.eventName] = [];
+                grouped[s.eventName].push(s);
+              });
+              return Object.entries(grouped).map(([eventName, sessions]) => (
+                <div key={eventName}>
+                  <p className="text-xs font-bold text-[#C4622D] uppercase tracking-wide mb-2 pb-1 border-b border-[#EDE7DA]">{eventName}</p>
+                  <div className="space-y-3">
+                    {sessions.map((s, i) => (
+                      <div key={i} className="flex items-center gap-4">
+                        <div className="w-44 flex-shrink-0">
+                          <p className="text-xs text-[#8C8278]">{s.label}</p>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs text-[#8C8278]">{s.booked} booked</span>
+                            <span className="text-xs font-medium text-[#1A1612]">{s.fillPct}% full</span>
+                          </div>
+                          <div className="h-2 bg-[#e9e0cf] rounded-full overflow-hidden">
+                            <div
+                              className="h-full rounded-full transition-all"
+                              style={{
+                                width: `${Math.min(s.fillPct, 100)}%`,
+                                backgroundColor: s.fillPct >= 90 ? '#DC2626' : s.fillPct >= 70 ? '#D97706' : BRAND,
+                              }}
+                            />
+                          </div>
+                        </div>
+                        <div className="w-20 text-right flex-shrink-0">
+                          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
+                            s.available === 0
+                              ? 'bg-red-100 text-red-700 border-red-200'
+                              : s.available <= 3
+                              ? 'bg-amber-100 text-amber-700 border-amber-200' :'bg-green-100 text-green-700 border-green-200'
+                          }`}>
+                            {s.available === 0 ? 'Full' : `${s.available} left`}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  <div className="h-2 bg-[#e9e0cf] rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all"
-                      style={{
-                        width: `${Math.min(s.fillPct, 100)}%`,
-                        backgroundColor: s.fillPct >= 90 ? '#DC2626' : s.fillPct >= 70 ? '#D97706' : BRAND,
-                      }}
-                    />
-                  </div>
                 </div>
-                <div className="w-20 text-right flex-shrink-0">
-                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
-                    s.available === 0
-                      ? 'bg-red-100 text-red-700 border-red-200'
-                      : s.available <= 3
-                      ? 'bg-amber-100 text-amber-700 border-amber-200' :'bg-green-100 text-green-700 border-green-200'
-                  }`}>
-                    {s.available === 0 ? 'Full' : `${s.available} left`}
-                  </span>
-                </div>
-              </div>
-            ))}
+              ));
+            })()}
           </div>
         </div>
       )}
