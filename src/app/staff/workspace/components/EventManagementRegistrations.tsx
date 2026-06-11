@@ -393,8 +393,8 @@ export default function EventManagementRegistrations({ isSuperAdmin = false }: E
           <p className="text-2xl font-bold text-[#1A1612]">{registrations.length}</p>
         </div>
         <div className="bg-white border border-[#EDE7DA] rounded-xl p-4">
-          <p className="text-xs text-[#8C8278] mb-1">Showing</p>
-          <p className="text-2xl font-bold text-[#1A1612]">{filtered.length}</p>
+          <p className="text-xs text-[#8C8278] mb-1">Participants</p>
+          <p className="text-2xl font-bold text-[#1A1612]">{registrations.reduce((sum, r) => sum + filterFilledParticipants(r.children).length, 0)}</p>
         </div>
         <div className="bg-white border border-[#EDE7DA] rounded-xl p-4">
           <p className="text-xs text-[#8C8278] mb-1">Total Paid (filtered)</p>
