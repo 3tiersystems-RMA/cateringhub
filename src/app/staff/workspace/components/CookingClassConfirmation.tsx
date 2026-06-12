@@ -26,7 +26,7 @@ interface AwaitingRegistration {
   notes: string | null;
   registration_code: string | null;
   session_dates?: SessionDate[];
-  children?: Array<{
+  participants?: Array<{
     fullName?: string;
     full_name?: string;
     name?: string;
@@ -74,7 +74,7 @@ export default function CookingClassConfirmation({ userRole }: CookingClassConfi
     const [regsResult, settingsResult] = await Promise.all([
       supabase
         .from('cooking_class_registrations')
-        .select('id, title, first_name, surname, email, cellphone, payment_status, amount, created_at, notes, registration_code, children')
+        .select('id, title, first_name, surname, email, cellphone, payment_status, amount, created_at, notes, registration_code, participants')
         .eq('payment_status', 'awaiting_confirmation')
         .order('created_at', { ascending: false }),
       supabase
@@ -197,7 +197,7 @@ export default function CookingClassConfirmation({ userRole }: CookingClassConfi
           createdAt: previewReg.created_at,
           notes: previewReg.notes,
           sessionDates: previewReg.session_dates || [],
-          children: previewReg.children || [],
+          participants: previewReg.participants || [],
           formHeaderTitle: correspondenceSettings?.form_header_title || 'Cardamom Kitchen',
           logoUrl: correspondenceSettings?.logo_url || null,
           adminEmails,
@@ -349,8 +349,8 @@ export default function CookingClassConfirmation({ userRole }: CookingClassConfi
 
             {/* Participants Registered */}
             {(() => {
-              const filled = Array.isArray(reg.children)
-                ? reg.children.filter(c => (c.fullName || c.full_name || c.name || '').trim())
+              const filled = Array.isArray(reg.participants)
+                ? reg.participants.filter(c => (c.fullName || c.full_name || c.name || '').trim())
                 : [];
               if (filled.length === 0) return null;
               return (
@@ -616,8 +616,8 @@ export default function CookingClassConfirmation({ userRole }: CookingClassConfi
               </div>
 
               {/* Participants Registered */}
-              {Array.isArray(reg.children) && reg.children.filter(c => (c.fullName || c.full_name || c.name || '').trim()).length > 0 && (() => {
-                const filled = reg.children!.filter(c => (c.fullName || c.full_name || c.name || '').trim());
+              {Array.isArray(reg.participants) && reg.participants.filter(c => (c.fullName || c.full_name || c.name || '').trim()).length > 0 && (() => {
+                const filled = reg.participants!.filter(c => (c.fullName || c.full_name || c.name || '').trim());
                 return (
                   <div className="border-t border-[#EDE7DA] pt-3">
                     <p className="text-xs font-bold text-[#8C8278] uppercase tracking-wider mb-2">Participants Registered</p>

@@ -33,7 +33,7 @@ interface AwaitingRegistration {
   created_at: string;
   notes: string | null;
   registration_code: string | null;
-  children: ParticipantRow[] | null;
+  participants: ParticipantRow[] | null;
   session_dates?: SessionDate[];
 }
 
@@ -75,7 +75,7 @@ export default function EventBookingConfirmation({ userRole }: EventBookingConfi
     const [regsResult, settingsResult] = await Promise.all([
       supabase
         .from('event_management_registrations')
-        .select('id, title, first_name, surname, email, cellphone, payment_status, amount, created_at, notes, registration_code, children')
+        .select('id, title, first_name, surname, email, cellphone, payment_status, amount, created_at, notes, registration_code, participants')
         .eq('payment_status', 'awaiting_confirmation')
         .order('created_at', { ascending: false }),
       supabase
@@ -176,7 +176,7 @@ export default function EventBookingConfirmation({ userRole }: EventBookingConfi
           createdAt: previewReg.created_at,
           notes: previewReg.notes,
           sessionDates: previewReg.session_dates || [],
-          children: previewReg.children || [],
+          participants: previewReg.participants || [],
           formHeaderTitle: correspondenceSettings?.form_header_title || 'Cardamom Kitchen',
           logoUrl: correspondenceSettings?.logo_url || null,
           adminEmails,
@@ -255,9 +255,9 @@ export default function EventBookingConfirmation({ userRole }: EventBookingConfi
     return p.fullName || p.full_name || p.name || '';
   }
 
-  function filterFilledParticipants(children: ParticipantRow[] | null): ParticipantRow[] {
-    if (!Array.isArray(children)) return [];
-    return children.filter(c => !!(c.fullName || c.full_name || c.name));
+  function filterFilledParticipants(participants: ParticipantRow[] | null): ParticipantRow[] {
+    if (!Array.isArray(participants)) return [];
+    return participants.filter(c => !!(c.fullName || c.full_name || c.name));
   }
 
   function EmailPreviewBody({ reg }: { reg: AwaitingRegistration }) {
@@ -316,7 +316,7 @@ export default function EventBookingConfirmation({ userRole }: EventBookingConfi
 
           {/* Registered Participants */}
           {(() => {
-            const filledParticipants = filterFilledParticipants(reg.children);
+            const filledParticipants = filterFilledParticipants(reg.participants);
             const allParticipants: Array<{ ticketNumber: string | null; fullName: string }> = [
               { ticketNumber: reg.registration_code || reg.id.slice(0, 8).toUpperCase(), fullName },
               ...filledParticipants.map(p => ({

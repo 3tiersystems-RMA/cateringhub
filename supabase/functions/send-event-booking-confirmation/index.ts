@@ -28,7 +28,7 @@ serve(async (req) => {
       createdAt,
       notes,
       sessionDates,
-      children,
+      participants,
       formHeaderTitle,
       logoUrl,
       adminEmails,
@@ -118,8 +118,8 @@ serve(async (req) => {
         : `<tr><td colspan="4" style="padding: 10px 12px; color: #8C8278; font-size: 13px;">Event details to be confirmed.</td></tr>`;
 
     // Build participants rows
-    const participantsArray = Array.isArray(children)
-      ? children.filter((c: { fullName?: string; full_name?: string; name?: string }) =>
+    const participantsArray = Array.isArray(participants)
+      ? participants.filter((c: { fullName?: string; full_name?: string; name?: string }) =>
           (c.fullName || c.full_name || c.name || "").trim()
         )
       : [];
