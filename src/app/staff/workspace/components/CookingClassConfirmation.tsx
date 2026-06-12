@@ -74,7 +74,7 @@ export default function CookingClassConfirmation({ userRole }: CookingClassConfi
     const [regsResult, settingsResult] = await Promise.all([
       supabase
         .from('cooking_class_registrations')
-        .select('id, title, first_name, surname, email, cellphone, payment_status, amount, created_at, notes, registration_code, participants')
+        .select('id, title, first_name, surname, email, cellphone, payment_status, amount, created_at, notes, registration_code, children')
         .eq('payment_status', 'awaiting_confirmation')
         .order('created_at', { ascending: false }),
       supabase
@@ -141,7 +141,10 @@ export default function CookingClassConfirmation({ userRole }: CookingClassConfi
           }
         });
 
-        setRegistrations(regs.map(r => ({ ...r, session_dates: regSessionMap[r.id] || [] })));
+        setRegistrations(regs.map(r => {
+          const { children, ...rest } = r as AwaitingRegistration & { children?: AwaitingRegistration['participants'] };
+          return { ...rest, participants: children, session_dates: regSessionMap[r.id] || [] };
+        }));
       } else {
         setRegistrations([]);
       }
