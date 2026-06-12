@@ -233,6 +233,13 @@ export default function CookingClassesPage() {
   const [showLimitedSeatsWarning, setShowLimitedSeatsWarning] = useState(false);
   const [limitedSeatsWarningShown, setLimitedSeatsWarningShown] = useState(false);
 
+  // ── Credit state ─────────────────────────────────────────────────────────────
+  const [availableCredits, setAvailableCredits] = useState<Array<{
+    id: string; remaining_balance: number; total_issued: number; original_booking_ref: string;
+  }>>([]);
+  const [selectedCreditId, setSelectedCreditId] = useState<string | null>(null);
+  const [creditCheckLoading, setCreditCheckLoading] = useState(false);
+
   // ── Derived: is this an Adult event? ────────────────────────────────────────
   const isAdultEvent = page1.selectedEvents.some(name =>
     name.toLowerCase().includes('adult')
@@ -622,7 +629,17 @@ export default function CookingClassesPage() {
 
   function validatePage5(): boolean {
     const errors: Record<string, string> = {};
-    if (page5.paymentMethod === 'eft' && !page5.proofFile) {
+    const totalAmount = getAmountDue();
+    const selectedCredit = selectedCreditId
+      ? availableCredits.find(c => c.id === selectedCreditId)
+      : null;
+    const creditApply = selectedCredit
+      ? Math.min(Number(selectedCredit.remaining_balance), totalAmount)
+      : 0;
+    const amountAfterCredit = Math.max(0, totalAmount - creditApply);
+
+    // Only require proof if there's still an amount due via EFT
+    if (amountAfterCredit > 0 && page5.paymentMethod === 'eft' && !page5.proofFile) {
       errors.proof = 'Please upload proof of payment for EFT';
     }
     setPage5Errors(errors);
@@ -664,8 +681,32 @@ export default function CookingClassesPage() {
 
   function handlePage4Next() {
     if (validatePage4()) {
+      // Check for credits when moving to payment page
+      checkCreditsForEmail(page1.email);
       setCurrentPage(5);
       window.scrollTo(0, 0);
+    }
+  }
+
+  async function checkCreditsForEmail(email: string) {
+    if (!email) return;
+    setCreditCheckLoading(true);
+    try {
+      const res = await fetch(`/api/credits/check?email=${encodeURIComponent(email)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setAvailableCredits(data.credits || []);
+        // Auto-select first credit if available
+        if (data.credits && data.credits.length > 0) {
+          setSelectedCreditId(data.credits[0].id);
+        } else {
+          setSelectedCreditId(null);
+        }
+      }
+    } catch {
+      // Non-blocking
+    } finally {
+      setCreditCheckLoading(false);
     }
   }
 
@@ -792,6 +833,16 @@ export default function CookingClassesPage() {
     setSubmitError('');
 
     try {
+      // ── Check if credit covers the full booking amount ─────────────────────
+      const totalAmount = getAmountDue();
+      const selectedCredit = selectedCreditId
+        ? availableCredits.find(c => c.id === selectedCreditId)
+        : null;
+      const creditApply = selectedCredit
+        ? Math.min(Number(selectedCredit.remaining_balance), totalAmount)
+        : 0;
+      const amountAfterCredit = Math.max(0, totalAmount - creditApply);
+
       // ── Upload indemnity file to Google Drive ──────────────────────────────
       let indemnityFileUrl: string | null = null;
       if (page4.indemnityFile) {
@@ -811,11 +862,10 @@ export default function CookingClassesPage() {
         }
       }
 
-      // ── Upload proof of payment to Google Drive (EFT only) ────────────────
+      // ── Upload proof of payment to Google Drive (EFT only, when credit doesn't cover full amount) ──
       let proofDriveUrl: string | null = null;
       let proofSupabaseUrl: string | null = null;
-      if (page5.paymentMethod === 'eft' && page5.proofFile) {
-        // Primary: upload to Supabase storage (reliable, no OAuth dependency)
+      if (amountAfterCredit > 0 && page5.paymentMethod === 'eft' && page5.proofFile) {
         try {
           const fileExt = page5.proofFile.name.split('.').pop();
           const storagePath = `proofs/${page1.firstName}_${page1.surname}_${Date.now()}.${fileExt}`;
@@ -828,11 +878,8 @@ export default function CookingClassesPage() {
               .getPublicUrl(storageData.path);
             proofSupabaseUrl = publicUrlData?.publicUrl || null;
           }
-        } catch {
-          // Non-blocking — continue even if Supabase storage fails
-        }
+        } catch { /* Non-blocking */ }
 
-        // Secondary: attempt Google Drive upload (non-blocking)
         try {
           const proofForm = new FormData();
           proofForm.append('file', page5.proofFile);
@@ -848,13 +895,11 @@ export default function CookingClassesPage() {
             const driveData = await driveRes.json();
             proofDriveUrl = driveData.viewUrl || null;
           }
-        } catch {
-          // Non-blocking — Drive upload failure does not block registration
-        }
+        } catch { /* Non-blocking */ }
       }
 
       // (6) Use calculated amount due
-      const amountDue = getAmountDue();
+      const amountDue = totalAmount;
 
       // Generate a unique registration code for this class booking
       const regCodeSuffix = Math.random().toString(36).substring(2, 6).toUpperCase() + Math.random().toString(36).substring(2, 6).toUpperCase();
@@ -884,6 +929,16 @@ export default function CookingClassesPage() {
         matchedDateIds = getFilteredDates()
           .filter(row => page1.selectedDates.includes(formatEventDate(row)))
           .map(row => row.id);
+      }
+
+      // Determine payment status based on credit coverage
+      let paymentStatus: string;
+      if (amountAfterCredit <= 0) {
+        paymentStatus = 'paid'; // Credit covers full amount
+      } else if (page5.paymentMethod === 'eft') {
+        paymentStatus = 'awaiting_confirmation';
+      } else {
+        paymentStatus = 'pending';
       }
 
       const registerRes = await fetch('/api/cooking-classes/register', {
@@ -925,8 +980,8 @@ export default function CookingClassesPage() {
             pictures_taken: page4.children.filter(c => c.fullName.trim()).map(c => c.picturesTaken).join(', '),
             indemnity_consent: page4.children.filter(c => c.fullName.trim()).every(c => c.indemnityConsent),
             indemnity_file_url: indemnityFileUrl,
-            payment_method: page5.paymentMethod,
-            payment_status: page5.paymentMethod === 'eft' ? 'awaiting_confirmation' : 'pending',
+            payment_method: amountAfterCredit <= 0 ? 'credit' : page5.paymentMethod,
+            payment_status: paymentStatus,
             proof_of_payment_url: proofSupabaseUrl,
             proof_of_payment_path: null,
             proof_of_payment_drive_url: proofDriveUrl,
@@ -940,13 +995,32 @@ export default function CookingClassesPage() {
       if (!registerRes.ok) throw new Error(registerData.error || 'Failed to save registration');
       setRegistrationId(registerData.id);
 
+      // ── Apply credit if selected ───────────────────────────────────────────
+      if (selectedCredit && creditApply > 0) {
+        try {
+          await fetch('/api/credits/check', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              creditId: selectedCredit.id,
+              bookingRef: registrationCode,
+              bookingType: 'class',
+              amountToApply: creditApply,
+            }),
+          });
+        } catch { /* Non-blocking */ }
+      }
+
+      // ── If credit covers full amount, skip payment ─────────────────────────
+      if (amountAfterCredit <= 0) {
+        setCurrentPage(6);
+        return;
+      }
+
       if (page5.paymentMethod === 'eft') {
-        // ── TEMPORARILY DISABLED — Google Sheets sync deactivated until further notice ──
-        // await syncToSheet(reg.id);
-        // ── END DISABLE BLOCK ─────────────────────────────────────────────
         setCurrentPage(6);
       } else {
-        await initiatePayFast(registerData.id, registrationCode);
+        await initiatePayFast(registerData.id, registrationCode, amountAfterCredit);
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'An error occurred. Please try again.';
@@ -971,16 +1045,13 @@ export default function CookingClassesPage() {
     // ── END DISABLE BLOCK ─────────────────────────────────────────────────
   }
 
-  async function initiatePayFast(regId: string, regCode: string) {
-    const amount = getAmountDue();
+  async function initiatePayFast(regId: string, regCode: string, overrideAmount?: number) {
+    const amount = overrideAmount !== undefined ? overrideAmount : getAmountDue();
     if (amount <= 0) {
       await supabase
         .from('cooking_class_registrations')
         .update({ payment_status: 'paid' })
         .eq('id', regId);
-      // ── TEMPORARILY DISABLED — Google Sheets sync deactivated until further notice ──
-      // await syncToSheet(regId);
-      // ── END DISABLE BLOCK ─────────────────────────────────────────────────
       setCurrentPage(6);
       return;
     }
@@ -991,7 +1062,7 @@ export default function CookingClassesPage() {
       body: JSON.stringify({
         registrationCode: regCode,
         order: {
-          amount,
+          amount: amount,
           itemDescription: `${page1.firstName} ${page1.surname} - ${page1.selectedEvents.join(', ')}`,
         },
         buyer: {
@@ -2185,7 +2256,81 @@ export default function CookingClassesPage() {
 
             <h3 className="text-sm font-semibold text-[#1A1612] mb-3">Select Payment Method</h3>
 
-            <div className="space-y-3 mb-6">
+            {/* ── Booking Credit Section ── */}
+            {creditCheckLoading && (
+              <div className="flex items-center gap-2 text-sm text-[#8C8278] mb-4">
+                <div className="w-4 h-4 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
+                Checking for available credits…
+              </div>
+            )}
+            {!creditCheckLoading && availableCredits.length > 0 && (() => {
+              const totalAmount = getAmountDue();
+              const selectedCredit = selectedCreditId ? availableCredits.find(c => c.id === selectedCreditId) : null;
+              const creditApply = selectedCredit ? Math.min(Number(selectedCredit.remaining_balance), totalAmount) : 0;
+              const amountAfterCredit = Math.max(0, totalAmount - creditApply);
+              return (
+                <div className="mb-6 bg-green-50 border border-green-200 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-green-600 text-lg">💳</span>
+                    <p className="text-sm font-semibold text-green-800">Booking Credit Available</p>
+                  </div>
+                  {availableCredits.map(credit => (
+                    <label key={credit.id} className="flex items-start gap-3 cursor-pointer mb-2">
+                      <input
+                        type="radio"
+                        name="creditSelect"
+                        checked={selectedCreditId === credit.id}
+                        onChange={() => setSelectedCreditId(credit.id)}
+                        className="mt-0.5 text-green-600"
+                      />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-green-800">
+                          R{Number(credit.remaining_balance).toFixed(2)} credit
+                          <span className="text-xs text-green-600 ml-2">(Ref: {credit.original_booking_ref})</span>
+                        </p>
+                        <p className="text-xs text-green-600">
+                          {Number(credit.remaining_balance) >= totalAmount
+                            ? '✅ Covers full booking — Pay Now will be bypassed'
+                            : `Covers R${Math.min(Number(credit.remaining_balance), totalAmount).toFixed(2)} — R${amountAfterCredit.toFixed(2)} balance due`}
+                        </p>
+                      </div>
+                    </label>
+                  ))}
+                  <label className="flex items-start gap-3 cursor-pointer mt-2">
+                    <input
+                      type="radio"
+                      name="creditSelect"
+                      checked={selectedCreditId === null}
+                      onChange={() => setSelectedCreditId(null)}
+                      className="mt-0.5"
+                    />
+                    <p className="text-sm text-[#5C5347]">Do not apply credit</p>
+                  </label>
+                  {selectedCredit && amountAfterCredit <= 0 && (
+                    <div className="mt-3 bg-green-100 border border-green-300 rounded-lg p-3">
+                      <p className="text-sm font-semibold text-green-800">✅ Credit covers full amount — no payment required</p>
+                      <p className="text-xs text-green-600 mt-0.5">Your booking will be confirmed immediately.</p>
+                    </div>
+                  )}
+                  {selectedCredit && amountAfterCredit > 0 && (
+                    <div className="mt-3 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                      <p className="text-sm font-semibold text-amber-800">Balance due after credit: R{amountAfterCredit.toFixed(2)}</p>
+                      <p className="text-xs text-amber-600 mt-0.5">Please select a payment method for the remaining balance below.</p>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* Hide payment method selection when credit covers full amount */}
+            {(() => {
+              const totalAmount = getAmountDue();
+              const selectedCredit = selectedCreditId ? availableCredits.find(c => c.id === selectedCreditId) : null;
+              const creditApply = selectedCredit ? Math.min(Number(selectedCredit.remaining_balance), totalAmount) : 0;
+              const amountAfterCredit = Math.max(0, totalAmount - creditApply);
+              if (amountAfterCredit <= 0 && selectedCredit) return null;
+              return (
+                <div className="space-y-3 mb-6">
               {/* PayFast */}
               {paymentSettings.payfast_enabled ? (
                 <label className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-colors ${page5.paymentMethod === 'payfast' ? 'border-[#C4622D] bg-[#FDF6EE]' : 'border-[#DDD5C8] hover:border-[#C4622D]/50'}`}>
@@ -2244,9 +2389,17 @@ export default function CookingClassesPage() {
                 </div>
               )}
             </div>
+              );
+            })()}
 
             {/* EFT proof upload */}
-            {page5.paymentMethod === 'eft' && (
+            {(() => {
+              const totalAmount = getAmountDue();
+              const selectedCredit = selectedCreditId ? availableCredits.find(c => c.id === selectedCreditId) : null;
+              const creditApply = selectedCredit ? Math.min(Number(selectedCredit.remaining_balance), totalAmount) : 0;
+              const amountAfterCredit = Math.max(0, totalAmount - creditApply);
+              if (amountAfterCredit <= 0 && selectedCredit) return null;
+              return page5.paymentMethod === 'eft' ? (
               <div className="mb-6">
                 <label className="block text-sm font-semibold text-[#1A1612] mb-2">
                   Upload Proof of Payment <span className="text-red-500">*</span>
@@ -2284,7 +2437,8 @@ export default function CookingClassesPage() {
                 </div>
                 {page5Errors.proof && <p className="text-xs text-red-500 mt-1">{page5Errors.proof}</p>}
               </div>
-            )}
+            ) : null;
+            })()}
 
             {submitError && (
               <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-4">
@@ -2304,7 +2458,14 @@ export default function CookingClassesPage() {
                 disabled={submitting || paymentLaunched}
                 className="flex-1 bg-[#C4622D] text-white py-3 rounded-xl font-semibold text-sm hover:bg-[#A04E22] transition-colors disabled:opacity-50"
               >
-                {submitting ? 'Processing...' : page5.paymentMethod === 'payfast' ? 'Pay Now →' : 'Submit Registration →'}
+                {submitting ? 'Processing...' : (() => {
+                  const totalAmount = getAmountDue();
+                  const selectedCredit = selectedCreditId ? availableCredits.find(c => c.id === selectedCreditId) : null;
+                  const creditApply = selectedCredit ? Math.min(Number(selectedCredit.remaining_balance), totalAmount) : 0;
+                  const amountAfterCredit = Math.max(0, totalAmount - creditApply);
+                  if (amountAfterCredit <= 0 && selectedCredit) return 'Confirm Booking →';
+                  return page5.paymentMethod === 'payfast' ? 'Pay Now →' : 'Submit Registration →';
+                })()}
               </button>
             </div>
           </div>

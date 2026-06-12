@@ -54,6 +54,7 @@ import EventManagementRegistrations from '@/app/staff/workspace/components/Event
 import EventManagementAnalytics from '@/app/staff/workspace/components/EventManagementAnalytics';
 import EventBookingConfirmation from '@/app/staff/workspace/components/EventBookingConfirmation';
 import CookingClassConfirmation from '@/app/staff/workspace/components/CookingClassConfirmation';
+import BookingsCredit from '@/app/staff/workspace/components/BookingsCredit';
 
 
 
@@ -146,6 +147,7 @@ export default function StaffWorkspacePage() {
   const [mediaMenuOpen, setMediaMenuOpen] = useState(false);
   const [cookingClassesOpen, setCookingClassesOpen] = useState(false);
   const [eventManagementOpen, setEventManagementOpen] = useState(false);
+  const [customerRelationsOpen, setCustomerRelationsOpen] = useState(false);
 
   // Inactivity timer
   const [showInactivityWarning, setShowInactivityWarning] = useState(false);
@@ -573,9 +575,9 @@ export default function StaffWorkspacePage() {
               )}
 
               {/* ── Customer Relations (collapsible) ── */}
-              {canAnyTab('media', 'cooking_class_customers', 'payment_confirmation', 'products', 'collection_notification') && (
+              {canAnyTab('media', 'cooking_class_customers', 'payment_confirmation', 'products', 'collection_notification', 'bookings_credit') && (
                 <>
-                  <button onClick={() => setMediaMenuOpen(prev => !prev)} className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${['media', 'cooking_class_customers', 'payment_confirmation', 'products', 'collection_notification'].includes(activeTab) ? 'text-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'}`}>
+                  <button onClick={() => setMediaMenuOpen(prev => !prev)} className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${['media', 'cooking_class_customers', 'payment_confirmation', 'products', 'collection_notification', 'bookings_credit'].includes(activeTab) ? 'text-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'}`}>
                     <span className="text-base">🗂️</span><span className="flex-1">Customer Relations</span><span className="text-xs">{mediaMenuOpen ? '▲' : '▼'}</span>
                   </button>
                   {mediaMenuOpen && (
@@ -604,7 +606,13 @@ export default function StaffWorkspacePage() {
                           <span className="text-base">🔔</span><span>Collection Notification</span>
                         </button>
                       )}
-                      {/* 5. Document Management */}
+                      {/* 5. Bookings Credit */}
+                      {canTab('bookings_credit') && (
+                        <button onClick={() => { handleTabChange('bookings_credit'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'bookings_credit' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
+                          <span className="text-base">💳</span><span>Bookings Credit</span>
+                        </button>
+                      )}
+                      {/* 6. Document Management */}
                       {canTab('media') && (
                         <button onClick={() => { handleTabChange('media'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'media' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
                           <span className="text-base">📄</span><span>Document Management</span>
@@ -759,6 +767,11 @@ export default function StaffWorkspacePage() {
 
             {activeTab === 'event_booking_confirmation' && (
               <EventBookingConfirmation userRole={userProfile?.role || ''} />
+            )}
+
+            {/* ── BOOKINGS CREDIT TAB ── */}
+            {activeTab === 'bookings_credit' && (
+              <BookingsCredit />
             )}
           </main>
         </div>

@@ -79,9 +79,10 @@ const PAYMENT_STATUS_COLORS: Record<string, string> = {
   failed: 'bg-red-100 text-red-700 border-red-200',
   awaiting_confirmation: 'bg-blue-100 text-blue-700 border-blue-200',
   awaiting_payment: 'bg-blue-100 text-blue-700 border-blue-200',
+  'no-show': 'bg-gray-100 text-gray-600 border-gray-300',
 };
 
-const FALLBACK_STATUSES = ['pending', 'paid', 'failed', 'awaiting_payment', 'awaiting_confirmation'];
+const FALLBACK_STATUSES = ['pending', 'paid', 'failed', 'awaiting_payment', 'awaiting_confirmation', 'no-show'];
 
 function formatDate(dateStr: string | null | undefined) {
   if (!dateStr) return '—';
@@ -358,6 +359,29 @@ export default function EventManagementRegistrations({ isSuperAdmin = false }: E
         .update({ payment_status: editPaymentStatus, updated_at: new Date().toISOString() })
         .eq('id', regId);
       if (updateErr) throw updateErr;
+
+      // If status changed to no-show, auto-issue a credit
+      if (editPaymentStatus === 'no-show') {
+        const reg = registrations.find(r => r.id === regId);
+        if (reg && reg.amount && Number(reg.amount) > 0) {
+          const bookingRef = reg.registration_code || reg.id.slice(0, 8).toUpperCase();
+          try {
+            await fetch('/api/credits/issue', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                customerEmail: reg.email,
+                customerName: `${reg.first_name} ${reg.surname}`,
+                bookingRef,
+                bookingType: 'event',
+                amount: Number(reg.amount),
+              }),
+            });
+          } catch {
+            // Non-blocking — status update already succeeded
+          }
+        }
+      }
 
       setRegistrations(prev =>
         prev.map(r => r.id === regId ? { ...r, payment_status: editPaymentStatus } : r)

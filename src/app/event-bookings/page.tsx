@@ -178,6 +178,13 @@ export default function EventBookingsPage() {
 
   const [showEmailConfirm, setShowEmailConfirm] = useState(false);
 
+  // ── Credit state ─────────────────────────────────────────────────────────────
+  const [availableCredits, setAvailableCredits] = useState<Array<{
+    id: string; remaining_balance: number; total_issued: number; original_booking_ref: string;
+  }>>([]);
+  const [selectedCreditId, setSelectedCreditId] = useState<string | null>(null);
+  const [creditCheckLoading, setCreditCheckLoading] = useState(false);
+
   const [page1, setPage1] = useState<FormPage1>({ title: '', firstName: '', surname: '', email: '', emailConfirm: '', cellphone: '', selectedEvents: [], selectedDates: [], selectedDateIds: [] });
   const [page3, setPage3] = useState<FormPage3>({ contact1: { ...EMPTY_CONTACT }, contact2: { ...EMPTY_CONTACT }, medicalDoctorFirstName: '', medicalDoctorSurname: '', medicalAidName: '', medicalAidNumber: '' });
   const [page4, setPage4] = useState<FormPage4>({ children: [{ ...EMPTY_PARTICIPANT }], attendSchoolHoliday: '', hasIndemnityForm: '', indemnityFile: null, indemnityFilePreview: '' });
@@ -479,7 +486,11 @@ export default function EventBookingsPage() {
 
   function validatePage5(): boolean {
     const errors: Record<string, string> = {};
-    if (page5.paymentMethod === 'eft' && !page5.proofFile) errors.proof = 'Please upload proof of payment for EFT';
+    const totalAmount = getAmountDue();
+    const selectedCredit = selectedCreditId ? availableCredits.find(c => c.id === selectedCreditId) : null;
+    const creditApply = selectedCredit ? Math.min(Number(selectedCredit.remaining_balance), totalAmount) : 0;
+    const amountAfterCredit = Math.max(0, totalAmount - creditApply);
+    if (amountAfterCredit > 0 && page5.paymentMethod === 'eft' && !page5.proofFile) errors.proof = 'Please upload proof of payment for EFT';
     setPage5Errors(errors);
     return Object.keys(errors).length === 0;
   }
@@ -498,7 +509,29 @@ export default function EventBookingsPage() {
   }
 
   function handlePage4Next() {
-    if (validatePage4()) { setCurrentPage(5); window.scrollTo(0, 0); }
+    if (validatePage4()) {
+      checkCreditsForEmail(page1.email);
+      setCurrentPage(5);
+      window.scrollTo(0, 0);
+    }
+  }
+
+  async function checkCreditsForEmail(email: string) {
+    if (!email) return;
+    setCreditCheckLoading(true);
+    try {
+      const res = await fetch(`/api/credits/check?email=${encodeURIComponent(email)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setAvailableCredits(data.credits || []);
+        if (data.credits && data.credits.length > 0) {
+          setSelectedCreditId(data.credits[0].id);
+        } else {
+          setSelectedCreditId(null);
+        }
+      }
+    } catch { /* Non-blocking */ }
+    finally { setCreditCheckLoading(false); }
   }
 
   function selectEvent(eventName: string) {
@@ -593,9 +626,14 @@ export default function EventBookingsPage() {
     setSubmitting(true);
     setSubmitError('');
     try {
+      const totalAmount = getAmountDue();
+      const selectedCredit = selectedCreditId ? availableCredits.find(c => c.id === selectedCreditId) : null;
+      const creditApply = selectedCredit ? Math.min(Number(selectedCredit.remaining_balance), totalAmount) : 0;
+      const amountAfterCredit = Math.max(0, totalAmount - creditApply);
+
       let proofDriveUrl: string | null = null;
       let proofSupabaseUrl: string | null = null;
-      if (page5.paymentMethod === 'eft' && page5.proofFile) {
+      if (amountAfterCredit > 0 && page5.paymentMethod === 'eft' && page5.proofFile) {
         try {
           const fileExt = page5.proofFile.name.split('.').pop();
           const storagePath = `proofs/${page1.firstName}_${page1.surname}_${Date.now()}.${fileExt}`;
@@ -614,12 +652,11 @@ export default function EventBookingsPage() {
         } catch { /* non-blocking */ }
       }
 
-      const amountDue = getAmountDue();
+      const amountDue = totalAmount;
 
       const regCodeSuffix = Math.random().toString(36).substring(2, 6).toUpperCase() + Math.random().toString(36).substring(2, 6).toUpperCase();
       const newRegistrationCode = `EB-${regCodeSuffix.substring(0, 8)}`;
 
-      // Generate a unique ticket number for each participant
       const filledParticipants = page4.children.filter(c => c.fullName.trim().length > 0);
       const participantsWithTickets = filledParticipants.map((c, idx) => {
         const ticketSuffix = Math.random().toString(36).substring(2, 6).toUpperCase() + Math.random().toString(36).substring(2, 6).toUpperCase();
@@ -631,6 +668,15 @@ export default function EventBookingsPage() {
           ticket_number: ticketNumber,
         };
       });
+
+      let paymentStatus: string;
+      if (amountAfterCredit <= 0) {
+        paymentStatus = 'paid';
+      } else if (page5.paymentMethod === 'eft') {
+        paymentStatus = 'awaiting_confirmation';
+      } else {
+        paymentStatus = 'pending';
+      }
 
       const registerRes = await fetch('/api/event-bookings/register', {
         method: 'POST',
@@ -654,8 +700,8 @@ export default function EventBookingsPage() {
             attend_school_holiday: page4.attendSchoolHoliday,
             pictures_taken: page4.children.filter(c => c.fullName.trim()).map(c => c.picturesTaken).join(', '),
             indemnity_consent: page4.children.filter(c => c.fullName.trim()).every(c => c.indemnityConsent),
-            payment_method: page5.paymentMethod,
-            payment_status: page5.paymentMethod === 'eft' ? 'awaiting_confirmation' : 'pending',
+            payment_method: amountAfterCredit <= 0 ? 'credit' : page5.paymentMethod,
+            payment_status: paymentStatus,
             proof_of_payment_url: proofSupabaseUrl,
             proof_of_payment_drive_url: proofDriveUrl,
             amount: amountDue,
@@ -668,10 +714,31 @@ export default function EventBookingsPage() {
       if (!registerRes.ok) throw new Error(registerData.error || 'Failed to save registration');
       setRegistrationId(registerData.id);
 
+      // Apply credit if selected
+      if (selectedCredit && creditApply > 0) {
+        try {
+          await fetch('/api/credits/check', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              creditId: selectedCredit.id,
+              bookingRef: newRegistrationCode,
+              bookingType: 'event',
+              amountToApply: creditApply,
+            }),
+          });
+        } catch { /* Non-blocking */ }
+      }
+
+      if (amountAfterCredit <= 0) {
+        setCurrentPage(6);
+        return;
+      }
+
       if (page5.paymentMethod === 'eft') {
         setCurrentPage(6);
       } else {
-        await initiatePayFast(registerData.id, newRegistrationCode);
+        await initiatePayFast(registerData.id, newRegistrationCode, amountAfterCredit);
       }
     } catch (err: unknown) {
       setSubmitError(err instanceof Error ? err.message : 'An error occurred. Please try again.');
@@ -680,8 +747,8 @@ export default function EventBookingsPage() {
     }
   }
 
-  async function initiatePayFast(regId: string, regCode: string) {
-    const amount = getAmountDue();
+  async function initiatePayFast(regId: string, regCode: string, overrideAmount?: number) {
+    const amount = overrideAmount !== undefined ? overrideAmount : getAmountDue();
     if (amount <= 0) {
       await supabase.from('event_management_registrations').update({ payment_status: 'paid' }).eq('id', regId);
       setCurrentPage(6);
@@ -693,7 +760,7 @@ export default function EventBookingsPage() {
       body: JSON.stringify({
         registrationCode: regCode,
         order: {
-          amount,
+          amount: amount,
           itemDescription: `${page1.firstName} ${page1.surname} - ${page1.selectedEvents.join(', ')}`,
         },
         buyer: {
@@ -1249,6 +1316,59 @@ export default function EventBookingsPage() {
               </div>
 
               <h3 className="text-sm font-semibold text-[#1A1612] mb-3">Select Payment Method</h3>
+              {/* ── Booking Credit Section ── */}
+              {creditCheckLoading && (
+                <div className="flex items-center gap-2 text-sm text-[#8C8278] mb-4">
+                  <div className="w-4 h-4 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
+                  Checking for available credits…
+                </div>
+              )}
+              {!creditCheckLoading && availableCredits.length > 0 && (() => {
+                const totalAmount = getAmountDue();
+                const selectedCredit = selectedCreditId ? availableCredits.find(c => c.id === selectedCreditId) : null;
+                const creditApply = selectedCredit ? Math.min(Number(selectedCredit.remaining_balance), totalAmount) : 0;
+                const amountAfterCredit = Math.max(0, totalAmount - creditApply);
+                return (
+                  <div className="mb-6 bg-green-50 border border-green-200 rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="text-green-600 text-lg">💳</span>
+                      <p className="text-sm font-semibold text-green-800">Booking Credit Available</p>
+                    </div>
+                    {availableCredits.map(credit => (
+                      <label key={credit.id} className="flex items-start gap-3 cursor-pointer mb-2">
+                        <input type="radio" name="creditSelect" checked={selectedCreditId === credit.id} onChange={() => setSelectedCreditId(credit.id)} className="mt-0.5 text-green-600" />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-green-800">
+                            R{Number(credit.remaining_balance).toFixed(2)} credit
+                            <span className="text-xs text-green-600 ml-2">(Ref: {credit.original_booking_ref})</span>
+                          </p>
+                          <p className="text-xs text-green-600">
+                            {Number(credit.remaining_balance) >= totalAmount
+                              ? '✅ Covers full booking — Pay Now will be bypassed'
+                              : `Covers R${Math.min(Number(credit.remaining_balance), totalAmount).toFixed(2)} — R${amountAfterCredit.toFixed(2)} balance due`}
+                          </p>
+                        </div>
+                      </label>
+                    ))}
+                    <label className="flex items-start gap-3 cursor-pointer mt-2">
+                      <input type="radio" name="creditSelect" checked={selectedCreditId === null} onChange={() => setSelectedCreditId(null)} className="mt-0.5" />
+                      <p className="text-sm text-[#5C5347]">Do not apply credit</p>
+                    </label>
+                    {selectedCredit && amountAfterCredit <= 0 && (
+                      <div className="mt-3 bg-green-100 border border-green-300 rounded-lg p-3">
+                        <p className="text-sm font-semibold text-green-800">✅ Credit covers full amount — no payment required</p>
+                        <p className="text-xs text-green-600 mt-0.5">Your booking will be confirmed immediately.</p>
+                      </div>
+                    )}
+                    {selectedCredit && amountAfterCredit > 0 && (
+                      <div className="mt-3 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                        <p className="text-sm font-semibold text-amber-800">Balance due after credit: R{amountAfterCredit.toFixed(2)}</p>
+                        <p className="text-xs text-amber-600 mt-0.5">Please select a payment method for the remaining balance below.</p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
               <div className="space-y-3 mb-6">
                 {paymentSettings.payfast_enabled ? (
                   <label className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-colors ${page5.paymentMethod === 'payfast' ? 'border-[#C4622D] bg-[#FDF6EE]' : 'border-[#DDD5C8] hover:border-[#C4622D]/50'}`}>
@@ -1298,7 +1418,14 @@ export default function EventBookingsPage() {
               <div className="flex gap-3">
                 <button onClick={() => { setCurrentPage(4); window.scrollTo(0, 0); }} className="flex-1 border border-[#DDD5C8] text-[#5C5347] py-3 rounded-xl font-semibold text-sm hover:bg-[#FAF5EE] transition-colors">← Back</button>
                 <button onClick={handleSubmit} disabled={submitting || paymentLaunched} className="flex-1 bg-[#C4622D] text-white py-3 rounded-xl font-semibold text-sm hover:bg-[#A04E22] transition-colors disabled:opacity-50">
-                  {submitting ? 'Processing...' : page5.paymentMethod === 'payfast' ? 'Pay Now →' : 'Submit Registration →'}
+                  {submitting ? 'Processing...' : (() => {
+                    const totalAmount = getAmountDue();
+                    const selectedCredit = selectedCreditId ? availableCredits.find(c => c.id === selectedCreditId) : null;
+                    const creditApply = selectedCredit ? Math.min(Number(selectedCredit.remaining_balance), totalAmount) : 0;
+                    const amountAfterCredit = Math.max(0, totalAmount - creditApply);
+                    if (amountAfterCredit <= 0 && selectedCredit) return 'Confirm Booking →';
+                    return page5.paymentMethod === 'payfast' ? 'Pay Now →' : 'Submit Registration →';
+                  })()}
                 </button>
               </div>
             </div>
