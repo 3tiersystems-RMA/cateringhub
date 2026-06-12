@@ -1948,7 +1948,7 @@ export default function CookingClassesPage() {
                               )}
                             </div>
                             {/* Row 2: Age + Gender + Dietary + Grade (adult: Gender + Dietary only) */}
-                            <div className={`grid gap-3 ${isAdultEvent ? 'grid-cols-2' : 'grid-cols-4'}`}>
+                            <div className={`grid gap-3 ${isAdultEvent ? 'grid-cols-[1fr_2fr]' : 'grid-cols-4'}`}>
                               {!isAdultEvent && (
                                 <div>
                                   <label className="block text-xs font-medium text-[#5C5347] mb-1">Age</label>
