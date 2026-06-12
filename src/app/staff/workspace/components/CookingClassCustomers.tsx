@@ -80,7 +80,7 @@ const PAYMENT_STATUS_COLORS: Record<string, string> = {
   failed: 'bg-red-100 text-red-700 border-red-200',
   awaiting_confirmation: 'bg-blue-100 text-blue-700 border-blue-200',
   awaiting_payment: 'bg-blue-100 text-blue-700 border-blue-200',
-  'no-show': 'bg-gray-100 text-gray-600 border-gray-300',
+  'no-show': 'bg-black text-white border-black',
 };
 
 // Fallback statuses in case DB has no distinct values yet
