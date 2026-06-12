@@ -203,7 +203,7 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
       // ── 2. Fetch Event Management Registrations ───────────────────────────
       const { data: eventRegs, error: eventErr } = await supabase
         .from('event_management_registrations')
-        .select('id, title, first_name, surname, email, cellphone, payment_status, amount, created_at, selected_events, adult_class_dates')
+        .select('id, title, first_name, surname, email, cellphone, payment_status, amount, created_at')
         .order('created_at', { ascending: false });
 
       if (eventErr) throw eventErr;
@@ -217,15 +217,7 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
           .select('registration_id, event_date_id')
           .in('registration_id', eventRegIds);
 
-        // Collect all event date IDs: from booking_counts AND from selected_events/adult_class_dates
-        const bookingDateIds = (bookings || []).map((b: { event_date_id: string }) => b.event_date_id);
-        const directDateIds: string[] = [];
-        (eventRegs || []).forEach((r: { selected_events?: string[]; adult_class_dates?: string[] }) => {
-          (r.selected_events || []).forEach((id: string) => { if (id) directDateIds.push(id); });
-          (r.adult_class_dates || []).forEach((id: string) => { if (id) directDateIds.push(id); });
-        });
-        const eventDateIds = [...new Set([...bookingDateIds, ...directDateIds])];
-
+        const eventDateIds = [...new Set((bookings || []).map((b: { event_date_id: string }) => b.event_date_id))];
         let eventDatesMap: Record<string, { event_date: string | null; event_name: string | null; location: string | null }> = {};
 
         if (eventDateIds.length > 0) {
@@ -261,15 +253,11 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
         eventUnified = (eventRegs || []).map((r: {
           id: string; title: string; first_name: string; surname: string; email: string;
           cellphone: string; payment_status: string; amount: number | null; created_at: string;
-          selected_events?: string[]; adult_class_dates?: string[];
         }) => {
-          // Use booking_counts IDs first, fall back to selected_events / adult_class_dates
-          const bookingDateIds = regBookingsMap[r.id] || [];
-          const directIds = [...(r.selected_events || []), ...(r.adult_class_dates || [])];
-          const allIds = bookingDateIds.length > 0 ? bookingDateIds : directIds;
-          const eventNames = [...new Set(allIds.map(id => eventDatesMap[id]?.event_name).filter(Boolean))] as string[];
-          const eventDates = [...new Set(allIds.map(id => eventDatesMap[id]?.event_date).filter(Boolean))] as string[];
-          const venue = allIds.map(id => eventDatesMap[id]?.location).find(Boolean) || null;
+          const dateIds = regBookingsMap[r.id] || [];
+          const eventNames = [...new Set(dateIds.map(id => eventDatesMap[id]?.event_name).filter(Boolean))] as string[];
+          const eventDates = [...new Set(dateIds.map(id => eventDatesMap[id]?.event_date).filter(Boolean))] as string[];
+          const venue = dateIds.map(id => eventDatesMap[id]?.location).find(Boolean) || null;
           return {
             id: r.id,
             source: 'event' as const,
