@@ -34,6 +34,7 @@ serve(async (req) => {
       createdAt,
       formHeaderTitle,
       logoUrl,
+      adminEmails,
     } = await req.json();
 
     const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
@@ -187,30 +188,68 @@ serve(async (req) => {
 </body>
 </html>`;
 
-    const payload = {
+    // ── 1. Send customer email ──────────────────────────────────────────────
+    const customerPayload = {
       from: RESEND_FROM_EMAIL,
       to: [customerEmail],
-      cc: ["info@cardamomkitchen.co.za"],
       subject: `Payment Confirmed${orderId ? ` — Ref: ${orderId}` : ""} | ${brandName}`,
       html: emailHtml,
     };
 
-    const res = await fetch("https://api.resend.com/emails", {
+    const customerRes = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${RESEND_API_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(customerPayload),
     });
 
-    const data = await res.json();
+    const customerData = await customerRes.json();
 
-    if (!res.ok) {
-      throw new Error(data.message || "Failed to send email via Resend");
+    if (!customerRes.ok) {
+      throw new Error(customerData.message || "Failed to send customer email via Resend");
     }
 
-    return new Response(JSON.stringify({ success: true, emailId: data.id }), {
+    // ── 2. Send admin copy (if adminEmails provided) ────────────────────────
+    const adminEmailList: string[] = Array.isArray(adminEmails)
+      ? adminEmails.filter((e: unknown) => typeof e === "string" && e.trim().length > 0)
+      : [];
+
+    if (adminEmailList.length > 0) {
+      const adminHtml = emailHtml.replace(
+        "✅ Customer Payment Confirmation",
+        `[Admin Copy] Payment Confirmed — ${hasValue(customerName) ? customerName : "Customer"}`
+      );
+
+      const adminPayload = {
+        from: RESEND_FROM_EMAIL,
+        to: adminEmailList,
+        subject: `[Admin Copy] Payment Confirmed — ${hasValue(customerName) ? customerName : "Customer"}${orderId ? ` | Ref: ${orderId}` : ""} | ${brandName}`,
+        html: adminHtml,
+      };
+
+      try {
+        const adminRes = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${RESEND_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(adminPayload),
+        });
+
+        if (!adminRes.ok) {
+          const adminData = await adminRes.json();
+          console.error("Admin copy failed:", adminData.message || "Unknown error");
+        }
+      } catch (adminErr) {
+        console.error("Admin copy error:", adminErr);
+        // Do not throw — customer email already sent successfully
+      }
+    }
+
+    return new Response(JSON.stringify({ success: true, emailId: customerData.id }), {
       headers: {
         "Content-Type": "application/json",
         "Access-Control-Allow-Origin": "*",

@@ -33,6 +33,8 @@ interface AwaitingOrder {
 interface CorrespondenceSettings {
   form_header_title: string | null;
   logo_url: string | null;
+  info_email: string | null;
+  admin_email: string | null;
 }
 
 interface CollectionNotificationProps {
@@ -75,7 +77,7 @@ export default function CollectionNotification({ userRole }: CollectionNotificat
         .order('created_at', { ascending: false }),
       supabase
         .from('correspondence_settings')
-        .select('form_header_title, logo_url')
+        .select('form_header_title, logo_url, info_email, admin_email')
         .limit(1)
         .maybeSingle(),
     ]);
@@ -112,6 +114,13 @@ export default function CollectionNotification({ userRole }: CollectionNotificat
       const { data: { session } } = await supabase.auth.getSession();
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
+      // Build deduplicated admin emails list from Correspondence Settings
+      const adminEmailsRaw = [
+        correspondenceSettings?.info_email,
+        correspondenceSettings?.admin_email,
+      ].filter((e): e is string => typeof e === 'string' && e.trim().length > 0);
+      const adminEmails = [...new Set(adminEmailsRaw)];
+
       const res = await fetch(`${supabaseUrl}/functions/v1/send-payment-confirmation`, {
         method: 'POST',
         headers: {
@@ -134,6 +143,7 @@ export default function CollectionNotification({ userRole }: CollectionNotificat
           createdAt: previewOrder.created_at,
           formHeaderTitle: correspondenceSettings?.form_header_title || 'Cardamom Kitchen',
           logoUrl: correspondenceSettings?.logo_url || null,
+          adminEmails,
         }),
       });
 
@@ -153,7 +163,8 @@ export default function CollectionNotification({ userRole }: CollectionNotificat
         throw new Error('Email sent but failed to update order status: ' + updateError.message);
       }
 
-      setSendResult({ success: true, message: 'Confirmation email sent successfully. Order marked as Paid.' });
+      const adminCopyNote = adminEmails.length > 0 ? ` Admin copy sent to ${adminEmails.join(', ')}.` : '';
+      setSendResult({ success: true, message: `Confirmation email sent successfully. Order marked as Paid.${adminCopyNote}` });
       showToast('success', `Confirmation sent to ${previewOrder.customer_email}`);
 
       // Remove from list and close modal after short delay
