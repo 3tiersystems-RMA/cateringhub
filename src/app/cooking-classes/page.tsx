@@ -2261,12 +2261,12 @@ export default function CookingClassesPage() {
                     // Single session
                     <p className="text-sm text-[#5C5347]">
                       {breakdown[0].participants} participant{breakdown[0].participants !== 1 ? 's' : ''} × <span className="font-semibold">R{breakdown[0].fee.toFixed(2)}</span> per participant ={' '}
-                      <span className="font-bold text-[#C4622D] text-base">R{total.toFixed(2)}</span> due
+                      <span className="font-bold text-[#C4622D] text-base">R{total.toFixed(2)}</span> due*
                     </p>
                   ) : fee > 0 && count > 0 ? (
                     <p className="text-sm text-[#5C5347]">
                       {count} participant{count !== 1 ? 's' : ''} × <span className="font-semibold">R{fee.toFixed(2)}</span> per participant ={' '}
-                      <span className="font-bold text-[#C4622D] text-base">R{total.toFixed(2)}</span> due
+                      <span className="font-bold text-[#C4622D] text-base">R{total.toFixed(2)}</span> due*
                     </p>
                   ) : (
                     <p className="text-sm text-[#5C5347]">
@@ -2291,6 +2291,8 @@ export default function CookingClassesPage() {
             </div>
 
             <h3 className="text-sm font-semibold text-[#1A1612] mb-3">Select Payment Method</h3>
+
+            <p className="text-xs text-[#8C8278] mb-4">* Before available credit is applied</p>
 
             {/* ── Booking Credit Section ── */}
             {creditCheckLoading && (
