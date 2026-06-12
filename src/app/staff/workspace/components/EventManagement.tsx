@@ -936,7 +936,7 @@ export default function EventManagement({ canCreate = true, canDelete = true }: 
                                   <div>
                                     <dt className="text-xs text-[#8C8278]">Cost</dt>
                                     <dd className="font-semibold text-[#C4622D]">
-                                      {form.cost ? `R${Number(form.cost).toFixed(2)}` : '—'} per person
+                                      {form.cost ? `R ${Number(form.cost).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '—'} per person
                                     </dd>
                                   </div>
                                   <div>
@@ -1138,7 +1138,7 @@ export default function EventManagement({ canCreate = true, canDelete = true }: 
                         <p className="font-semibold mb-2">Public Events page preview</p>
                         <ul className="space-y-1">
                           <li>{isLinkedToSettings ? '✓' : '○'} Linked to Event Bookings → Settings</li>
-                          <li>{hasValidCost ? '✓' : '○'} Price set {hasValidCost ? `(R${Number(form.cost).toFixed(2)})` : '— select a bookable event with a fee'}</li>
+                          <li>{hasValidCost ? '✓' : '○'} Price set {hasValidCost ? `(R ${Number(form.cost).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })})` : '— select a bookable event with a fee'}</li>
                           <li>{form.is_published ? '✓' : '○'} Published (visible on /events)</li>
                         </ul>
                         <p className="mt-2 font-medium">

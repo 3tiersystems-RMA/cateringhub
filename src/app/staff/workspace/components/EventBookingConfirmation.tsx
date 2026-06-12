@@ -220,7 +220,7 @@ export default function EventBookingConfirmation({ userRole }: EventBookingConfi
     }
   };
 
-  const formatCurrency = (val: number | null) => val != null ? `R ${Number(val).toFixed(2)}` : '—';
+  const formatCurrency = (val: number | null) => val != null ? `R ${Number(val).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '—';
 
   const formatDate = (dateStr: string | null | undefined) => {
     if (!dateStr) return '—';

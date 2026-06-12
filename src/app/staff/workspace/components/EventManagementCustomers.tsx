@@ -91,7 +91,7 @@ function formatDate(dateStr: string | null | undefined) {
 
 function formatCurrency(val: number | null | undefined) {
   if (val == null) return '—';
-  return `R${Number(val).toFixed(2)}`;
+  return `R ${Number(val).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
 function calcAge(dob: string | null | undefined): string {
