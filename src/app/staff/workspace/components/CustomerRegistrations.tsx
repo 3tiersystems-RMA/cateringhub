@@ -429,7 +429,7 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
                     <th className="px-4 py-3 text-left text-xs font-semibold text-[#5C5347] uppercase tracking-wider">EVENT / CLASS</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-[#5C5347] uppercase tracking-wider">VENUE</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-[#5C5347] uppercase tracking-wider">DATE(S)</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-[#5C5347] uppercase tracking-wider">PAYMENT</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-[#5C5347] uppercase tracking-wider">STATUS</th>
                     <th className="px-4 py-3 text-right text-xs font-semibold text-[#5C5347] uppercase tracking-wider">AMOUNT</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-[#5C5347] uppercase tracking-wider">REGISTERED</th>
                   </tr>
