@@ -1990,6 +1990,7 @@ export default function CookingClassesPage() {
                                   <p className="text-xs text-red-500 mt-0.5">{page4Errors[`child_${idx}_gender`]}</p>
                                 )}
                               </div>
+                              {!isAdultEvent && (
                               <div>
                                 <label className="block text-xs font-medium text-[#5C5347] mb-1">Grade</label>
                                 <input
@@ -1999,6 +2000,7 @@ export default function CookingClassesPage() {
                                   className="w-full border border-[#DDD5C8] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
                                 />
                               </div>
+                              )}
                             </div>
                             {/* Row 3: Dietary Restrictions */}
                             <div>
