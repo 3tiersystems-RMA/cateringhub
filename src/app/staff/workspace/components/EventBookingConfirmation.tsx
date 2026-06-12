@@ -75,7 +75,7 @@ export default function EventBookingConfirmation({ userRole }: EventBookingConfi
     const [regsResult, settingsResult] = await Promise.all([
       supabase
         .from('event_management_registrations')
-        .select('id, title, first_name, surname, email, cellphone, payment_status, amount, created_at, notes, registration_code, participants')
+        .select('id, title, first_name, surname, email, cellphone, payment_status, amount, created_at, notes, registration_code, children')
         .eq('payment_status', 'awaiting_confirmation')
         .order('created_at', { ascending: false }),
       supabase
@@ -120,7 +120,10 @@ export default function EventBookingConfirmation({ userRole }: EventBookingConfi
             }
           }
         }
-        setRegistrations(regs.map(r => ({ ...r, session_dates: sessionMap[r.id] || [] })));
+        setRegistrations(regs.map(r => {
+          const { children, ...rest } = r as unknown as Record<string, unknown>;
+          return { ...rest, participants: children as ParticipantRow[] | null, session_dates: sessionMap[r.id] || [] } as AwaitingRegistration;
+        }));
       } else {
         setRegistrations([]);
       }
