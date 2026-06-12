@@ -1,6 +1,9 @@
 // old file:-  /home/ubuntu/app/cateringhub/src/lib/payfast.ts
 
 import crypto from "crypto";
+import { formatPayFastCellNumber } from "./payfast-validation";
+
+export { formatPayFastCellNumber, validateSAMobileForPayFast } from "./payfast-validation";
 
 /**
  * PayFast Custom Integration (once-off payments).
@@ -173,6 +176,14 @@ export interface PayFastParams {
 }
 
 export function getPayFastBaseUrl(req?: { proto: string; host: string }): string {
+  if (req?.host) {
+    const hostname = req.host.split(":")[0];
+    if (hostname === "localhost" || hostname === "127.0.0.1") {
+      const scheme = req.proto || "http";
+      return `${scheme}://${req.host}`.replace(/\/$/, "");
+    }
+  }
+
   const fromEnv = trimEnv(process.env.NEXT_PUBLIC_SITE_URL).replace(/\/$/, "");
   if (fromEnv) return fromEnv;
   if (req?.host) return `${req.proto}://${req.host}`;
@@ -228,9 +239,23 @@ export function validateBuyerEmailForPayFast(buyerEmail: string): string | null 
   return null;
 }
 
-/** PHP-compatible urlencode (spaces as +). */
+/**
+ * PHP-compatible urlencode (matches PHP's urlencode(), which is what PayFast uses
+ * to build/verify signatures). encodeURIComponent leaves `! ' ( ) * ~` unescaped,
+ * but PHP urlencode escapes them — so without this, any item_name/item_description/
+ * name containing those characters (very common in event & class names, e.g.
+ * "Kids' Baking (Evening)") produces a signature PayFast can't reproduce, failing
+ * with "Generated signature does not match submitted signature".
+ */
 export function phpUrlencode(value: string): string {
-  return encodeURIComponent(String(value).trim()).replace(/%20/g, "+");
+  return encodeURIComponent(String(value).trim())
+    .replace(/%20/g, "+")
+    .replace(/!/g, "%21")
+    .replace(/'/g, "%27")
+    .replace(/\(/g, "%28")
+    .replace(/\)/g, "%29")
+    .replace(/\*/g, "%2A")
+    .replace(/~/g, "%7E");
 }
 
 function isNonEmpty(value: string | undefined): boolean {
@@ -303,7 +328,7 @@ export function buildPaymentPayload(
     cancelUrl?: string;
     notifyUrl?: string;
   }
-): { params: PayFastParams; gatewayUrl: string } {
+): { params: PayFastParams; fields: { name: string; value: string }[]; gatewayUrl: string } {
   if (!pfConfig.merchantId || !pfConfig.merchantKey) {
     throw new Error(
       `Missing PayFast ${PAYFAST_MODE} credentials. Set PAYFAST_${PAYFAST_MODE === "live" ? "LIVE" : "SANDBOX"}_MERCHANT_ID and PAYFAST_${PAYFAST_MODE === "live" ? "LIVE" : "SANDBOX"}_MERCHANT_KEY in .env`
@@ -328,7 +353,10 @@ export function buildPaymentPayload(
   };
 
   if (isNonEmpty(buyer.cell)) {
-    raw.cell_number = buyer.cell!.trim();
+    const formattedCell = formatPayFastCellNumber(buyer.cell!);
+    if (formattedCell) {
+      raw.cell_number = formattedCell;
+    }
   }
   if (isNonEmpty(order.itemDescription)) {
     raw.item_description = order.itemDescription!.trim().slice(0, 255);
@@ -355,8 +383,25 @@ export function buildPaymentPayload(
 
   return {
     params,
+    fields: payfastParamsToFields(ordered),
     gatewayUrl: PAYFAST_GATEWAY_URL,
   };
+}
+
+/** Ordered field list for HTML form POST — must match signature field order with signature last. */
+export function payfastParamsToFields(
+  params: Record<string, string>
+): { name: string; value: string }[] {
+  const fields: { name: string; value: string }[] = [];
+  for (const key of PAYMENT_SIGNATURE_FIELDS) {
+    if (isNonEmpty(params[key])) {
+      fields.push({ name: key, value: String(params[key]).trim() });
+    }
+  }
+  if (isNonEmpty(params.signature)) {
+    fields.push({ name: "signature", value: String(params.signature).trim() });
+  }
+  return fields;
 }
 
 /**

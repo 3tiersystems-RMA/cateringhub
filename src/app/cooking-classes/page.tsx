@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { usePaymentSettings } from '@/hooks/usePaymentSettings';
+import { validateSAMobileForPayFast } from '@/lib/payfast-validation';
+import { submitPayFastForm } from '@/lib/payfast-form';
 
 
 interface FormPage1 {
@@ -531,11 +533,8 @@ export default function CookingClassesPage() {
     } else if (page1.email !== page1.emailConfirm) {
       errors.emailConfirm = 'Email addresses do not match';
     }
-    if (!page1.cellphone.trim()) {
-      errors.cellphone = 'Cellphone number is required';
-    } else if (!/^[0-9+\s\-()]{7,15}$/.test(page1.cellphone.trim())) {
-      errors.cellphone = 'Please enter a valid cellphone/mobile number';
-    }
+    const cellphoneError = validateSAMobileForPayFast(page1.cellphone);
+    if (cellphoneError) errors.cellphone = cellphoneError;
     if (page1.selectedEvents.length === 0) {
       errors.selectedEvents = 'Please select at least one event';
     }
@@ -787,26 +786,6 @@ export default function CookingClassesPage() {
     reader.readAsDataURL(file);
   }
 
-  async function recordBookingCounts(regId: string, selectedDateIds: string[], selectedDateLabels?: string[]) {
-    try {
-      let matchedDateIds = selectedDateIds.length > 0 ? selectedDateIds : [];
-      // Legacy fallback: label match scoped to selected event when IDs unavailable
-      if (matchedDateIds.length === 0 && selectedDateLabels && selectedDateLabels.length > 0) {
-        matchedDateIds = getFilteredDates()
-          .filter(row => selectedDateLabels.includes(formatEventDate(row)))
-          .map(row => row.id);
-      }
-      if (matchedDateIds.length === 0) return;
-      const inserts = matchedDateIds.map(event_date_id => ({
-        event_date_id,
-        registration_id: regId,
-      }));
-      await supabase.from('cooking_class_booking_counts').insert(inserts);
-    } catch {
-      // Non-blocking
-    }
-  }
-
   async function handleSubmit() {
     if (!validatePage5()) return;
     setSubmitting(true);
@@ -900,63 +879,66 @@ export default function CookingClassesPage() {
           };
         });
 
-      const { data: reg, error: regErr } = await supabase
-        .from('cooking_class_registrations')
-        .insert({
-          title: page1.title,
-          first_name: page1.firstName,
-          surname: page1.surname,
-          email: page1.email,
-          cellphone: page1.cellphone,
-          selected_events: page1.selectedEvents,
-          adult_class_dates: page1.selectedDates,
-          // Page 2 — Relationship & Important Information
-          relationship: page2.relationship,
-          first_time_portal: page2.firstTimePortal,
-          allergies_illness: page2.allergiesIllness,
-          rsa_id_passport: page2.rsaIdPassport,
-          // Page 3 — Emergency Contacts
-          emergency_contact1: {
-            title: page3.contact1.title,
-            firstName: page3.contact1.firstName,
-            surname: page3.contact1.surname,
-            cellNo: page3.contact1.cellNo,
-            relationshipToChild: page3.contact1.relationshipToChild,
-          },
-          emergency_contact2: {
-            title: page3.contact2.title,
-            firstName: page3.contact2.firstName,
-            surname: page3.contact2.surname,
-            cellNo: page3.contact2.cellNo,
-            relationshipToChild: page3.contact2.relationshipToChild,
-          },
-          // Page 3 — Medical Details
-          medical_doctor_first_name: page3.medicalDoctorFirstName,
-          medical_doctor_surname: page3.medicalDoctorSurname,
-          medical_aid_name: page3.medicalAidName,
-          medical_aid_number: page3.medicalAidNumber,
-          // Page 4 — Children & School Holiday
-          children: childrenWithTickets,
-          attend_school_holiday: page4.attendSchoolHoliday,
-          pictures_taken: page4.children.filter(c => c.fullName.trim()).map(c => c.picturesTaken).join(', '),
-          indemnity_consent: page4.children.filter(c => c.fullName.trim()).every(c => c.indemnityConsent),
-          indemnity_file_url: indemnityFileUrl,
-          // Page 5 — Payment
-          payment_method: page5.paymentMethod,
-          payment_status: page5.paymentMethod === 'eft' ? 'awaiting_confirmation' : 'pending',
-          proof_of_payment_url: proofSupabaseUrl,
-          proof_of_payment_path: null,
-          proof_of_payment_drive_url: proofDriveUrl,
-          amount: amountDue,
-          registration_code: registrationCode,
-        })
-        .select('id')
-        .single();
+      let matchedDateIds = page1.selectedDateIds.length > 0 ? page1.selectedDateIds : [];
+      if (matchedDateIds.length === 0 && page1.selectedDates.length > 0) {
+        matchedDateIds = getFilteredDates()
+          .filter(row => page1.selectedDates.includes(formatEventDate(row)))
+          .map(row => row.id);
+      }
 
-      if (regErr || !reg) throw new Error(regErr?.message || 'Failed to save registration');
-      setRegistrationId(reg.id);
-
-      await recordBookingCounts(reg.id, page1.selectedDateIds, page1.selectedDates);
+      const registerRes = await fetch('/api/cooking-classes/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          registration: {
+            title: page1.title,
+            first_name: page1.firstName,
+            surname: page1.surname,
+            email: page1.email,
+            cellphone: page1.cellphone,
+            selected_events: page1.selectedEvents,
+            adult_class_dates: page1.selectedDates,
+            relationship: page2.relationship,
+            first_time_portal: page2.firstTimePortal,
+            allergies_illness: page2.allergiesIllness,
+            rsa_id_passport: page2.rsaIdPassport,
+            emergency_contact1: {
+              title: page3.contact1.title,
+              firstName: page3.contact1.firstName,
+              surname: page3.contact1.surname,
+              cellNo: page3.contact1.cellNo,
+              relationshipToChild: page3.contact1.relationshipToChild,
+            },
+            emergency_contact2: {
+              title: page3.contact2.title,
+              firstName: page3.contact2.firstName,
+              surname: page3.contact2.surname,
+              cellNo: page3.contact2.cellNo,
+              relationshipToChild: page3.contact2.relationshipToChild,
+            },
+            medical_doctor_first_name: page3.medicalDoctorFirstName,
+            medical_doctor_surname: page3.medicalDoctorSurname,
+            medical_aid_name: page3.medicalAidName,
+            medical_aid_number: page3.medicalAidNumber,
+            children: childrenWithTickets,
+            attend_school_holiday: page4.attendSchoolHoliday,
+            pictures_taken: page4.children.filter(c => c.fullName.trim()).map(c => c.picturesTaken).join(', '),
+            indemnity_consent: page4.children.filter(c => c.fullName.trim()).every(c => c.indemnityConsent),
+            indemnity_file_url: indemnityFileUrl,
+            payment_method: page5.paymentMethod,
+            payment_status: page5.paymentMethod === 'eft' ? 'awaiting_confirmation' : 'pending',
+            proof_of_payment_url: proofSupabaseUrl,
+            proof_of_payment_path: null,
+            proof_of_payment_drive_url: proofDriveUrl,
+            amount: amountDue,
+            registration_code: registrationCode,
+          },
+          selectedDateIds: matchedDateIds,
+        }),
+      });
+      const registerData = await registerRes.json();
+      if (!registerRes.ok) throw new Error(registerData.error || 'Failed to save registration');
+      setRegistrationId(registerData.id);
 
       if (page5.paymentMethod === 'eft') {
         // ── TEMPORARILY DISABLED — Google Sheets sync deactivated until further notice ──
@@ -964,7 +946,7 @@ export default function CookingClassesPage() {
         // ── END DISABLE BLOCK ─────────────────────────────────────────────
         setCurrentPage(6);
       } else {
-        await initiatePayFast(reg.id, registrationCode);
+        await initiatePayFast(registerData.id, registrationCode);
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'An error occurred. Please try again.';
@@ -1003,15 +985,14 @@ export default function CookingClassesPage() {
       return;
     }
 
-    const res = await fetch('/api/payfast/initiate', {
+    const res = await fetch('/api/cooking-classes/payfast-initiate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        registrationCode: regCode,
         order: {
-          paymentId: regCode,
-          itemName: 'Cooking & Baking Class Registration',
-          itemDescription: `${page1.firstName} ${page1.surname} - ${page1.selectedEvents.join(', ')}`,
           amount,
+          itemDescription: `${page1.firstName} ${page1.surname} - ${page1.selectedEvents.join(', ')}`,
         },
         buyer: {
           firstName: page1.firstName.trim(),
@@ -1019,9 +1000,6 @@ export default function CookingClassesPage() {
           email: page1.email.trim(),
           cell: page1.cellphone.trim(),
         },
-        returnUrl: `${window.location.origin}/cooking-classes/payment-return?id=${regId}&status=success`,
-        cancelUrl: `${window.location.origin}/cooking-classes/payment-return?id=${regId}&status=cancel`,
-        notifyUrl: `${window.location.origin}/api/cooking-classes/payfast-itn?id=${regId}`,
       }),
     });
 
@@ -1033,20 +1011,8 @@ export default function CookingClassesPage() {
       .update({ payfast_payment_id: data.params.m_payment_id })
       .eq('id', regId);
 
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = data.gatewayUrl;
-    Object.entries(data.params).forEach(([key, value]) => {
-      if (value === undefined || value === null || String(value).trim() === '') return;
-      const input = document.createElement('input');
-      input.type = 'hidden';
-      input.name = key;
-      input.value = String(value);
-      form.appendChild(input);
-    });
-    document.body.appendChild(form);
     setPaymentLaunched(true);
-    form.submit();
+    submitPayFastForm(data.gatewayUrl, data.fields);
   }
 
   const flyerUrl = getFlyerUrl();
@@ -1288,12 +1254,12 @@ export default function CookingClassesPage() {
                   type="tel"
                   value={page1.cellphone}
                   onChange={e => setPage1(p => ({ ...p, cellphone: e.target.value }))}
-                  placeholder="(000) 000-0000"
+                  placeholder="0821234567"
                   className={`w-full max-w-xs border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] ${page1Errors.cellphone ? 'border-red-400' : 'border-[#DDD5C8]'}`}
                 />
                 {page1Errors.cellphone
                   ? <p className="text-xs text-red-500 mt-1">{page1Errors.cellphone}</p>
-                  : <p className="text-xs text-[#8C8278] mt-1">Please enter a valid Cellphone/Mobile number</p>
+                  : <p className="text-xs text-[#8C8278] mt-1">Format: 0821234567 (required for PayFast)</p>
                 }
               </div>
             </div>

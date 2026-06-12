@@ -6,9 +6,6 @@ export async function POST(req: NextRequest) {
   const responseOk = new NextResponse('OK', { status: 200 });
 
   try {
-    const url = new URL(req.url);
-    const registrationId = url.searchParams.get('id');
-
     const formData = await req.formData();
     const pfData: Record<string, string> = {};
     formData.forEach((value, key) => { pfData[key] = String(value); });
@@ -35,20 +32,26 @@ export async function POST(req: NextRequest) {
     const valid = await validateWithPayFast({ ...pfData });
     if (!valid) return responseOk;
 
+    const registrationCode = pfData.m_payment_id;
+    if (!registrationCode) {
+      console.error('[CC PayFast ITN] Missing m_payment_id');
+      return responseOk;
+    }
+
     const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
       { auth: { persistSession: false } }
     );
 
-    if (pfData.payment_status === 'COMPLETE' && registrationId) {
+    if (pfData.payment_status === 'COMPLETE') {
       await supabaseAdmin
         .from('cooking_class_registrations')
         .update({
           payment_status: 'paid',
           payfast_payment_id: pfData.pf_payment_id || pfData.m_payment_id,
         })
-        .eq('id', registrationId);
+        .eq('registration_code', registrationCode);
 
       // Trigger sheet sync
       // ── TEMPORARILY DISABLED — Google Sheets sync deactivated until further notice ──
@@ -63,11 +66,11 @@ export async function POST(req: NextRequest) {
       //   console.error('[CC PayFast ITN] Sheet sync failed:', syncErr);
       // }
       // ── END DISABLE BLOCK ─────────────────────────────────────────────────
-    } else if (pfData.payment_status === 'FAILED' && registrationId) {
+    } else if (pfData.payment_status === 'FAILED') {
       await supabaseAdmin
         .from('cooking_class_registrations')
         .update({ payment_status: 'failed' })
-        .eq('id', registrationId);
+        .eq('registration_code', registrationCode);
     }
   } catch (err) {
     console.error('[CC PayFast ITN] Exception:', err instanceof Error ? err.message : err);

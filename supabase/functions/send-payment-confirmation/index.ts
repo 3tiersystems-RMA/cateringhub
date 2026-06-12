@@ -190,6 +190,7 @@ serve(async (req) => {
     const payload = {
       from: RESEND_FROM_EMAIL,
       to: [customerEmail],
+      cc: ["info@cardamomkitchen.co.za"],
       subject: `Payment Confirmed${orderId ? ` — Ref: ${orderId}` : ""} | ${brandName}`,
       html: emailHtml,
     };

@@ -14,7 +14,6 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { order, buyer, registrationCode } = body;
 
-    // Basic validation
     if (!order?.amount || !registrationCode) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
@@ -37,17 +36,17 @@ export async function POST(req: NextRequest) {
     const siteBase = baseUrl.replace(/\/$/, '');
     const itnBase = getPayFastItnBaseUrl(siteBase);
 
-    // Use clean URLs — no & in return/cancel, no query params in notify_url.
-    // The ITN handler identifies the registration via pfData.m_payment_id (= registrationCode).
-    const returnUrl = `${siteBase}/event-bookings/payment-return?status=success`;
-    const cancelUrl = `${siteBase}/event-bookings/payment-return?status=cancel`;
-    const notifyUrl = `${itnBase}/api/event-bookings/payfast-itn`;
+    // Clean URLs — no & in return/cancel, no query params in notify_url.
+    // ITN identifies the registration via pfData.m_payment_id (= registrationCode).
+    const returnUrl = `${siteBase}/cooking-classes/payment-return?status=success`;
+    const cancelUrl = `${siteBase}/cooking-classes/payment-return?status=cancel`;
+    const notifyUrl = `${itnBase}/api/cooking-classes/payfast-itn`;
 
     const payload = buildPaymentPayload(
       {
         paymentId: registrationCode,
         amount,
-        itemName: 'Event Booking Registration',
+        itemName: 'Cooking & Baking Class Registration',
         itemDescription: order.itemDescription || undefined,
       },
       {
@@ -60,11 +59,11 @@ export async function POST(req: NextRequest) {
       { returnUrl, cancelUrl, notifyUrl }
     );
 
-    console.log('[EB PayFast initiate] env:', PAYFAST_MODE);
-    console.log('[EB PayFast initiate] m_payment_id:', registrationCode);
-    console.log('[EB PayFast initiate] amount:', formatPayFastAmount(amount));
-    console.log('[EB PayFast initiate] notify_url:', notifyUrl);
-    console.log('[EB PayFast initiate] gateway:', PAYFAST_GATEWAY_URL);
+    console.log('[CC PayFast initiate] env:', PAYFAST_MODE);
+    console.log('[CC PayFast initiate] m_payment_id:', registrationCode);
+    console.log('[CC PayFast initiate] amount:', formatPayFastAmount(amount));
+    console.log('[CC PayFast initiate] notify_url:', notifyUrl);
+    console.log('[CC PayFast initiate] gateway:', PAYFAST_GATEWAY_URL);
 
     return NextResponse.json({
       success: true,
@@ -75,7 +74,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unexpected error';
-    console.error('[EB PayFast initiate]', message);
+    console.error('[CC PayFast initiate]', message);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

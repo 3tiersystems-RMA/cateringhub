@@ -6,6 +6,7 @@ import { useCart } from "./CartContext";
 import type { VoucherData, DiscountVoucherData } from "./CartContext";
 
 import { createClient } from "@/lib/supabase/client";
+import { submitPayFastForm } from "@/lib/payfast-form";
 import CartStepCart from "./CartStepCart";
 import CartStepDetails from "./CartStepDetails";
 import CartStepPayment from "./CartStepPayment";
@@ -358,21 +359,7 @@ export default function CartSidebar() {
       // Step 4: Build and auto-submit form to PayFast gateway
       clearCart();
 
-      const form_el = document.createElement("form");
-      form_el.method = "POST";
-      form_el.action = initiateResult.gatewayUrl;
-
-      Object.entries(initiateResult.params as Record<string, string>).forEach(([key, value]) => {
-        if (value === undefined || value === null || String(value).trim() === "") return;
-        const input = document.createElement("input");
-        input.type = "hidden";
-        input.name = key;
-        input.value = String(value);
-        form_el.appendChild(input);
-      });
-
-      document.body.appendChild(form_el);
-      form_el.submit();
+      submitPayFastForm(initiateResult.gatewayUrl, initiateResult.fields);
     } catch (err) {
       setPayError(err instanceof Error ? err.message : "Failed to initiate PayFast payment.");
       setProcessing(false);

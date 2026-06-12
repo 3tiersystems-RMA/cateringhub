@@ -39,6 +39,7 @@ export async function POST(req: NextRequest) {
       env:        PAYFAST_MODE,
       gatewayUrl: payload.gatewayUrl,
       params:     payload.params,
+      fields:     payload.fields,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unexpected error";

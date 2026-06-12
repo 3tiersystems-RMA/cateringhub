@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { usePaymentSettings } from '@/hooks/usePaymentSettings';
+import { validateSAMobileForPayFast } from '@/lib/payfast-validation';
+import { submitPayFastForm } from '@/lib/payfast-form';
 import { resolveCheckoutFee } from '@/lib/event-management-sync';
 
 interface FormPage1 {
@@ -429,8 +431,8 @@ export default function EventBookingsPage() {
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(page1.email)) { errors.email = 'Please enter a valid email address'; }
     if (!page1.emailConfirm.trim()) { errors.emailConfirm = 'Please confirm your email'; }
     else if (page1.email !== page1.emailConfirm) { errors.emailConfirm = 'Email addresses do not match'; }
-    if (!page1.cellphone.trim()) { errors.cellphone = 'Cellphone number is required'; }
-    else if (!/^[0-9+\s\-()]{7,15}$/.test(page1.cellphone.trim())) { errors.cellphone = 'Please enter a valid cellphone/mobile number'; }
+    const cellphoneError = validateSAMobileForPayFast(page1.cellphone);
+    if (cellphoneError) errors.cellphone = cellphoneError;
     if (page1.selectedEvents.length === 0) errors.selectedEvents = 'Please select at least one event';
     const filteredDates = getFilteredDates();
     if (filteredDates.length > 0 && page1.selectedDates.length === 0) errors.selectedDates = 'Please select at least one date';
@@ -705,20 +707,8 @@ export default function EventBookingsPage() {
     const data = await res.json();
     if (!res.ok || !data.success) throw new Error(data.error || 'Failed to initiate payment');
     await supabase.from('event_management_registrations').update({ payfast_payment_id: data.params.m_payment_id }).eq('id', regId);
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = data.gatewayUrl;
-    Object.entries(data.params as Record<string, string>).forEach(([key, value]) => {
-      if (value === undefined || value === null || String(value).trim() === '') return;
-      const input = document.createElement('input');
-      input.type = 'hidden';
-      input.name = key;
-      input.value = String(value);
-      form.appendChild(input);
-    });
-    document.body.appendChild(form);
     setPaymentLaunched(true);
-    form.submit();
+    submitPayFastForm(data.gatewayUrl, data.fields);
   }
 
   const flyerUrl = settings?.flyer_image_url || null;
@@ -851,8 +841,8 @@ export default function EventBookingsPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-[#1A1612] mb-2">Cellphone <span className="text-red-500">*</span></label>
-                  <input type="tel" value={page1.cellphone} onChange={e => setPage1(p => ({ ...p, cellphone: e.target.value }))} placeholder="(000) 000-0000" className={`w-full max-w-xs border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] ${page1Errors.cellphone ? 'border-red-400' : 'border-[#DDD5C8]'}`} />
-                  {page1Errors.cellphone ? <p className="text-xs text-red-500 mt-1">{page1Errors.cellphone}</p> : <p className="text-xs text-[#8C8278] mt-1">Please enter a valid Cellphone/Mobile number</p>}
+                  <input type="tel" value={page1.cellphone} onChange={e => setPage1(p => ({ ...p, cellphone: e.target.value }))} placeholder="0821234567" className={`w-full max-w-xs border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] ${page1Errors.cellphone ? 'border-red-400' : 'border-[#DDD5C8]'}`} />
+                  {page1Errors.cellphone ? <p className="text-xs text-red-500 mt-1">{page1Errors.cellphone}</p> : <p className="text-xs text-[#8C8278] mt-1">Format: 0821234567 (required for PayFast)</p>}
                 </div>
               </div>
 

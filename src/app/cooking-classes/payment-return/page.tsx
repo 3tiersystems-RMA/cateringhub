@@ -3,46 +3,12 @@
 export const dynamic = 'force-dynamic';
 
 import { Suspense } from 'react';
-import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 
 function PaymentReturnContent() {
   const searchParams = useSearchParams();
-  const id = searchParams?.get('id');
   const status = searchParams?.get('status');
-  const supabase = createClient();
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!id) { setLoading(false); return; }
-    loadAndSync();
-  }, [id]);
-
-  async function loadAndSync() {
-    const { data } = await supabase?.from('cooking_class_registrations')?.select('payment_status, synced_to_sheet')?.eq('id', id)?.single();
-
-    if (status === 'success' && data?.payment_status === 'paid' && !data?.synced_to_sheet) {
-      // ── TEMPORARILY DISABLED — Google Sheets sync deactivated until further notice ──
-      // await fetch('/api/cooking-classes/sync-sheet', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ registrationId: id }),
-      // });
-      // ── END DISABLE BLOCK ─────────────────────────────────────────────
-    }
-    setLoading(false);
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#FAF5EE] flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
   const isSuccess = status === 'success';
 
   return (
