@@ -150,6 +150,7 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
       const { data: regs, error: regsErr } = await supabase
         .from('cooking_class_registrations')
         .select('*')
+        .eq('type', 'class')
         .order('created_at', { ascending: false });
 
       if (regsErr) throw regsErr;
