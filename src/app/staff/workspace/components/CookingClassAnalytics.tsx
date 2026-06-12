@@ -43,7 +43,7 @@ const BRAND = '#C4622D';
 const PALETTE = ['#C4622D', '#E8956D', '#8B4513', '#F5C5A3', '#5C5347', '#A0856C', '#DDD5C8', '#1A1612'];
 
 function formatCurrency(val: number) {
-  return `R${val.toLocaleString('en-ZA', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  return `R ${val.toLocaleString('en-ZA', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
 function formatDate(d: string) {
@@ -308,7 +308,7 @@ export default function CookingClassAnalytics() {
             <CartesianGrid strokeDasharray="3 3" stroke="#EDE7DA" />
             <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#8C8278' }} />
             <YAxis yAxisId="left" tick={{ fontSize: 11, fill: '#8C8278' }} />
-            <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: '#8C8278' }} tickFormatter={v => `R${(v / 1000).toFixed(0)}k`} />
+            <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: '#8C8278' }} tickFormatter={v => `R ${(v / 1000).toFixed(0)}k`} />
             <Tooltip
               contentStyle={{ borderRadius: 12, border: '1px solid #EDE7DA', fontSize: 12 }}
               formatter={(value: number, name: string) => [
@@ -336,7 +336,7 @@ export default function CookingClassAnalytics() {
               <BarChart data={fallbackRevenueData} margin={{ top: 4, right: 8, left: 0, bottom: 40 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#EDE7DA" />
                 <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#8C8278' }} angle={-30} textAnchor="end" interval={0} />
-                <YAxis tick={{ fontSize: 11, fill: '#8C8278' }} tickFormatter={v => `R${(v / 1000).toFixed(0)}k`} />
+                <YAxis tick={{ fontSize: 11, fill: '#8C8278' }} tickFormatter={v => `R ${(v / 1000).toFixed(0)}k`} />
                 <Tooltip
                   contentStyle={{ borderRadius: 12, border: '1px solid #EDE7DA', fontSize: 12 }}
                   formatter={(v: number) => [formatCurrency(v), 'Revenue']}
