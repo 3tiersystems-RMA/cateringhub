@@ -371,7 +371,7 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
         </div>
         <div className="bg-white rounded-2xl border border-[#E8DDD0] p-5">
           <p className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-2">Total Revenue</p>
-          <p className="text-2xl font-bold text-[#C4622D]">R {totalRevenue.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+          <p className="text-2xl font-bold text-[#C4622D]">R {totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
           <p className="text-xs text-[#8C8278] mt-1">from paid registrations</p>
         </div>
         <div className="bg-white rounded-2xl border border-[#E8DDD0] p-5">
