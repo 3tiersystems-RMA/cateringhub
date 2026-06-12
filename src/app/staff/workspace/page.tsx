@@ -473,7 +473,7 @@ export default function StaffWorkspacePage() {
                           }`}
                         >
                           <span className="text-sm">📋</span>
-                          <span>Event Registrations</span>
+                          <span>Old view - Reg</span>
                         </button>
                       )}
                       {canTab('event_booking_confirmation') && (
