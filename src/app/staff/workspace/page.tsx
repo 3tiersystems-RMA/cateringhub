@@ -55,6 +55,7 @@ import EventManagementAnalytics from '@/app/staff/workspace/components/EventMana
 import EventBookingConfirmation from '@/app/staff/workspace/components/EventBookingConfirmation';
 import CookingClassConfirmation from '@/app/staff/workspace/components/CookingClassConfirmation';
 import BookingsCredit from '@/app/staff/workspace/components/BookingsCredit';
+import CustomerRegistrations from '@/app/staff/workspace/components/CustomerRegistrations';
 
 
 
@@ -575,9 +576,9 @@ export default function StaffWorkspacePage() {
               )}
 
               {/* ── Customer Relations (collapsible) ── */}
-              {canAnyTab('media', 'cooking_class_customers', 'payment_confirmation', 'products', 'collection_notification', 'bookings_credit') && (
+              {canAnyTab('media', 'cooking_class_customers', 'payment_confirmation', 'products', 'collection_notification', 'bookings_credit', 'customer_registrations') && (
                 <>
-                  <button onClick={() => setMediaMenuOpen(prev => !prev)} className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${['media', 'cooking_class_customers', 'payment_confirmation', 'products', 'collection_notification', 'bookings_credit'].includes(activeTab) ? 'text-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'}`}>
+                  <button onClick={() => setMediaMenuOpen(prev => !prev)} className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${['media', 'cooking_class_customers', 'payment_confirmation', 'products', 'collection_notification', 'bookings_credit', 'customer_registrations'].includes(activeTab) ? 'text-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'}`}>
                     <span className="text-base">🗂️</span><span className="flex-1">Customer Relations</span><span className="text-xs">{mediaMenuOpen ? '▲' : '▼'}</span>
                   </button>
                   {mediaMenuOpen && (
@@ -594,25 +595,31 @@ export default function StaffWorkspacePage() {
                           <span className="text-base">🛒</span><span>Products &amp; Pricing</span>
                         </button>
                       )}
-                      {/* 3. Payment Confirmation */}
+                      {/* 3. Customer Registrations */}
+                      {canTab('customer_registrations') && (
+                        <button onClick={() => { handleTabChange('customer_registrations'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'customer_registrations' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
+                          <span className="text-base">📋</span><span>Customer Registrations</span>
+                        </button>
+                      )}
+                      {/* 4. Payment Confirmation */}
                       {canTab('payment_confirmation') && (
                         <button onClick={() => { handleTabChange('payment_confirmation'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'payment_confirmation' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
                           <span className="text-base">✅</span><span>Payment Confirmation</span>
                         </button>
                       )}
-                      {/* 4. Collection Notification */}
+                      {/* 5. Collection Notification */}
                       {canTab('collection_notification') && (
                         <button onClick={() => { handleTabChange('collection_notification'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'collection_notification' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
                           <span className="text-base">🔔</span><span>Collection Notification</span>
                         </button>
                       )}
-                      {/* 5. Bookings Credit */}
+                      {/* 6. Bookings Credit */}
                       {canTab('bookings_credit') && (
                         <button onClick={() => { handleTabChange('bookings_credit'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'bookings_credit' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
                           <span className="text-base">💳</span><span>Bookings Credit</span>
                         </button>
                       )}
-                      {/* 6. Document Management */}
+                      {/* 7. Document Management */}
                       {canTab('media') && (
                         <button onClick={() => { handleTabChange('media'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'media' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
                           <span className="text-base">📄</span><span>Document Management</span>
@@ -772,6 +779,11 @@ export default function StaffWorkspacePage() {
             {/* ── BOOKINGS CREDIT TAB ── */}
             {activeTab === 'bookings_credit' && (
               <BookingsCredit />
+            )}
+
+            {/* ── CUSTOMER REGISTRATIONS TAB ── */}
+            {activeTab === 'customer_registrations' && (
+              <CustomerRegistrations isSuperAdmin={userProfile?.role === 'super_admin'} />
             )}
           </main>
         </div>

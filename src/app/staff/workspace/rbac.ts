@@ -1,4 +1,4 @@
-export type WorkspaceTab = 'products' | 'media' | 'media_events' | 'media_products' | 'orders' | 'staff' | 'homepage_cards' | 'categories' | 'weekly_menu' | 'vouchers' | 'discount_vouchers' | 'testimonials' | 'reporting' | 'analytics' | 'social_media' | 'gallery' | 'section_visibility' | 'customer_order_history' | 'correspondence_settings' | 'abandoned_carts' | 'package_visibility' | 'cooking_classes' | 'cooking_class_customers' | 'cooking_class_analytics' | 'cooking_class_confirmation' | 'event_registrations' | 'organisation_details' | 'payment_confirmation' | 'collection_notification' | 'global_settings' | 'event_management' | 'event_management_customers' | 'event_management_registrations' | 'event_management_analytics' | 'event_booking_confirmation' | 'bookings_credit';
+export type WorkspaceTab = 'products' | 'media' | 'media_events' | 'media_products' | 'orders' | 'staff' | 'homepage_cards' | 'categories' | 'weekly_menu' | 'vouchers' | 'discount_vouchers' | 'testimonials' | 'reporting' | 'analytics' | 'social_media' | 'gallery' | 'section_visibility' | 'customer_order_history' | 'correspondence_settings' | 'abandoned_carts' | 'package_visibility' | 'cooking_classes' | 'cooking_class_customers' | 'cooking_class_analytics' | 'cooking_class_confirmation' | 'event_registrations' | 'organisation_details' | 'payment_confirmation' | 'collection_notification' | 'global_settings' | 'event_management' | 'event_management_customers' | 'event_management_registrations' | 'event_management_analytics' | 'event_booking_confirmation' | 'bookings_credit' | 'customer_registrations';
 
 export type StaffRole = 'admin' | 'staff' | 'super_admin';
 
@@ -31,6 +31,7 @@ export const TAB_ACCESS: Record<WorkspaceTab, StaffRole[]> = {
   event_management_analytics: ['super_admin', 'admin', 'staff'], // staff: view only
   event_booking_confirmation: ['super_admin', 'admin'],
   bookings_credit: ['super_admin', 'admin'],
+  customer_registrations: ['super_admin', 'admin', 'staff'], // staff: view only
   // Business & content — admin and above
   categories: ['super_admin', 'admin'],
   discount_vouchers: ['super_admin', 'admin'],
@@ -74,6 +75,7 @@ export const STAFF_TAB_ACTIONS: Partial<Record<WorkspaceTab, PermAction[]>> = {
   event_management_customers: ['view'],
   event_management_registrations: ['view'],
   event_management_analytics: ['view'],
+  customer_registrations: ['view'],
 };
 
 export function roleCanAccessTab(role: string | undefined | null, tab: WorkspaceTab): boolean {
