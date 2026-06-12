@@ -1541,20 +1541,6 @@ export default function CookingClassesPage() {
 
               {importantInfoOpen && (
                 <div className="pt-6">
-                  {/* Allergies / illness */}
-                  <div className="mb-6">
-                    <label className="block text-sm font-medium text-[#1A1612] mb-2">
-                      Details of any allergies or known illness
-                    </label>
-                    <input
-                      type="text"
-                      value={page2.allergiesIllness}
-                      onChange={e => setPage2(p => ({ ...p, allergiesIllness: e.target.value }))}
-                      className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D]"
-                    />
-                    <p className="text-xs text-[#8C8278] mt-1.5">List any information about the attendee that might impact their well-being</p>
-                  </div>
-
                   {/* RSA ID / Passport No */}
                   <div className="mb-2">
                     <label className="block text-sm font-medium text-[#1A1612] mb-2">
