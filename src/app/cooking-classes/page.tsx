@@ -1487,6 +1487,7 @@ export default function CookingClassesPage() {
               <label className="block text-sm font-medium text-[#1A1612] mb-3">
                 First Time using this online Registration Portal ? <span className="text-red-500">*</span>
               </label>
+              <p className="text-xs text-[#8C8278] mb-3">If Yes, continue to Page 3</p>
               <div className="grid grid-cols-2 gap-x-8">
                 {['Yes', 'No'].map(opt => (
                   <label key={opt} className="flex items-center gap-3 cursor-pointer">
