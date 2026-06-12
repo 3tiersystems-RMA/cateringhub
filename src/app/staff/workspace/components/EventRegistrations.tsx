@@ -252,74 +252,69 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
     setLoading(true);
     setError('');
     try {
-      // 1. Fetch all event management registrations
+      // 1. Fetch all cooking class registrations
       const { data: regs, error: regsErr } = await supabase
-        .from('event_management_registrations')
+        .from('cooking_class_registrations')
         .select('*')
         .order('created_at', { ascending: false });
 
       if (regsErr) throw regsErr;
       if (!regs || regs.length === 0) { setRegistrations([]); return; }
 
-      // 2. Fetch booking counts (links registrations → event_dates)
-      const regIds = regs.map((r: RegistrationRow) => r.id);
-      const { data: bookings } = await supabase
-        .from('event_management_booking_counts')
-        .select('registration_id, event_date_id')
-        .in('registration_id', regIds);
+      // 2. Collect all event date IDs from selected_events and adult_class_dates
+      const allDateIds: string[] = [];
+      regs.forEach((r: RegistrationRow & { selected_events?: string[]; adult_class_dates?: string[] }) => {
+        (r.selected_events || []).forEach((id: string) => { if (id) allDateIds.push(id); });
+        (r.adult_class_dates || []).forEach((id: string) => { if (id) allDateIds.push(id); });
+      });
+      const uniqueDateIds = [...new Set(allDateIds)];
 
-      // 3. Fetch event dates with event names
-      const eventDateIds = [...new Set((bookings || []).map((b: { event_date_id: string }) => b.event_date_id))];
+      // 3. Fetch cooking class event dates with event names
       let eventDatesMap: Record<string, SessionDate> = {};
 
-      if (eventDateIds.length > 0) {
+      if (uniqueDateIds.length > 0) {
         const { data: dates } = await supabase
-          .from('event_management_event_dates')
-          .select('id, event_date, start_time, end_time, location, event_fee, event_id')
-          .in('id', eventDateIds);
+          .from('cooking_class_event_dates')
+          .select('id, event_date, start_time, end_time, location, class_fee, event_id')
+          .in('id', uniqueDateIds);
 
         if (dates && dates.length > 0) {
           const eventIds = [...new Set(dates.map((d: { event_id: string }) => d.event_id).filter(Boolean))];
           let eventsMap: Record<string, string> = {};
           if (eventIds.length > 0) {
             const { data: events } = await supabase
-              .from('event_management_events')
+              .from('cooking_class_events')
               .select('id, name')
               .in('id', eventIds);
             (events || []).forEach((e: { id: string; name: string }) => { eventsMap[e.id] = e.name; });
           }
-          dates.forEach((d: { id: string; event_date: string | null; start_time: string | null; end_time: string | null; location: string | null; event_fee: number | null; event_id: string }) => {
+          dates.forEach((d: { id: string; event_date: string | null; start_time: string | null; end_time: string | null; location: string | null; class_fee: number | null; event_id: string }) => {
             eventDatesMap[d.id] = {
               id: d.id,
               event_date: d.event_date,
               start_time: d.start_time,
               end_time: d.end_time,
               location: d.location,
-              class_fee: d.event_fee,
+              class_fee: d.class_fee,
               event_name: eventsMap[d.event_id] || null,
             };
           });
         }
       }
 
-      // 4. Build registration → session_dates map
-      const regSessionMap: Record<string, SessionDate[]> = {};
-      (bookings || []).forEach((b: { registration_id: string; event_date_id: string }) => {
-        if (!regSessionMap[b.registration_id]) regSessionMap[b.registration_id] = [];
-        if (eventDatesMap[b.event_date_id]) {
-          regSessionMap[b.registration_id].push(eventDatesMap[b.event_date_id]);
-        }
+      // 4. Build registration → session_dates map from selected_events + adult_class_dates
+      const enriched: RegistrationRow[] = regs.map((r: RegistrationRow & { selected_events?: string[]; adult_class_dates?: string[] }) => {
+        const allIds = [...(r.selected_events || []), ...(r.adult_class_dates || [])];
+        const uniqueIds = [...new Set(allIds)];
+        const session_dates = uniqueIds
+          .map(id => eventDatesMap[id])
+          .filter(Boolean) as SessionDate[];
+        return { ...r, session_dates };
       });
-
-      // 5. Merge
-      const enriched: RegistrationRow[] = regs.map((r: RegistrationRow) => ({
-        ...r,
-        session_dates: regSessionMap[r.id] || [],
-      }));
 
       setRegistrations(enriched);
 
-      // 6. Build filter options
+      // 5. Build filter options
       const allEvents = new Set<string>();
       const allVenues = new Set<string>();
       enriched.forEach(r => {
@@ -366,13 +361,13 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
     setDeleteError('');
     try {
       const { error: bookingErr } = await supabase
-        .from('event_management_booking_counts')
+        .from('cooking_class_booking_counts')
         .delete()
         .eq('registration_id', deleteTarget.id);
       if (bookingErr) throw bookingErr;
 
       const { error: regErr } = await supabase
-        .from('event_management_registrations')
+        .from('cooking_class_registrations')
         .delete()
         .eq('id', deleteTarget.id);
       if (regErr) throw regErr;
