@@ -2259,9 +2259,9 @@ export default function CookingClassesPage() {
                     </div>
                   ) : breakdown.length === 1 ? (
                     // Single session
-                    <p className="text-sm text-[#5C5347]">
+                    <p className="text-sm text-[#5C5347] italic">
                       {breakdown[0].participants} participant{breakdown[0].participants !== 1 ? 's' : ''} × <span className="font-semibold">R{breakdown[0].fee.toFixed(2)}</span> per participant ={' '}
-                      <span className="font-bold text-[#C4622D] text-base">R{total.toFixed(2)}</span> due
+                      <span className="font-bold text-[#C4622D] text-base">R{breakdown[0].total.toFixed(2)}</span> due
                     </p>
                   ) : fee > 0 && count > 0 ? (
                     <p className="text-sm text-[#5C5347]">
