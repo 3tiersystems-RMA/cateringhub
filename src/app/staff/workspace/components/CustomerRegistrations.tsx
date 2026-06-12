@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { filterFilledChildren } from '@/lib/cooking-class-participants';
 
 interface UnifiedRegistration {
   id: string;
@@ -18,6 +19,7 @@ interface UnifiedRegistration {
   event_names: string[];
   venue: string | null;
   event_dates: string[];
+  children: unknown[];
 }
 
 const PAYMENT_STATUS_COLORS: Record<string, string> = {
@@ -135,7 +137,7 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
       // ── 1. Fetch Cooking Class Registrations ──────────────────────────────
       const { data: classRegs, error: classErr } = await supabase
         .from('cooking_class_registrations')
-        .select('id, title, first_name, surname, email, cellphone, payment_status, amount, created_at, selected_events, adult_class_dates')
+        .select('id, title, first_name, surname, email, cellphone, payment_status, amount, created_at, selected_events, adult_class_dates, children')
         .order('created_at', { ascending: false });
 
       if (classErr) throw classErr;
@@ -197,13 +199,14 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
           event_names: eventNames,
           venue,
           event_dates: eventDates,
+          children: Array.isArray(r.children) ? r.children : [],
         };
       });
 
       // ── 2. Fetch Event Management Registrations ───────────────────────────
       const { data: eventRegs, error: eventErr } = await supabase
         .from('event_management_registrations')
-        .select('id, title, first_name, surname, email, cellphone, payment_status, amount, created_at')
+        .select('id, title, first_name, surname, email, cellphone, payment_status, amount, created_at, children')
         .order('created_at', { ascending: false });
 
       if (eventErr) throw eventErr;
@@ -272,6 +275,7 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
             event_names: eventNames,
             venue,
             event_dates: eventDates,
+            children: Array.isArray(r.children) ? r.children : [],
           };
         });
       }
@@ -297,6 +301,7 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
   const totalRevenue = registrations.reduce((sum, r) => sum + (r.payment_status === 'paid' ? (r.amount || 0) : 0), 0);
   const classCount = registrations.filter(r => r.source === 'class').length;
   const eventCount = registrations.filter(r => r.source === 'event').length;
+  const totalParticipants = registrations.reduce((sum, r) => sum + filterFilledChildren(r.children).length, 0);
 
   // ── Filtering ──────────────────────────────────────────────────────────────
   const filtered = registrations.filter(r => {
@@ -335,11 +340,16 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
       </div>
 
       {/* ── Stats Cards ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="bg-white rounded-2xl border border-[#E8DDD0] p-5">
           <p className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-2">Total Registrations</p>
           <p className="text-3xl font-bold text-[#1A1612]">{totalRegistrations}</p>
           <p className="text-xs text-[#8C8278] mt-1">{classCount} classes · {eventCount} events</p>
+        </div>
+        <div className="bg-white rounded-2xl border border-[#E8DDD0] p-5">
+          <p className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-2">Participants</p>
+          <p className="text-3xl font-bold text-[#C4622D]">{totalParticipants}</p>
+          <p className="text-xs text-[#8C8278] mt-1">across all registrations</p>
         </div>
         <div className="bg-white rounded-2xl border border-[#E8DDD0] p-5">
           <p className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-2">Paid</p>
