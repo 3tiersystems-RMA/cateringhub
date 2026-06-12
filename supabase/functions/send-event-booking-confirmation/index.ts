@@ -322,7 +322,7 @@ serve(async (req) => {
       : [];
 
     if (adminEmailList.length > 0) {
-      const adminSubject = `[Admin Copy] Event Booking Confirmed — ${hasValue(fullName) ? fullName : customerEmail} | Ref: ${bookingRef}`;
+      const adminSubject = `Event Booking Confirmed — ${hasValue(fullName) ? fullName : customerEmail} | Ref: ${bookingRef}`;
       const adminPayload = {
         from: RESEND_FROM_EMAIL,
         to: adminEmailList,

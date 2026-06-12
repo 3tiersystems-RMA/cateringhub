@@ -389,7 +389,7 @@ serve(async (req) => {
       : [];
 
     if (adminEmailList.length > 0) {
-      const adminSubject = `[Admin Copy] Cooking Class Booking Confirmed — ${hasValue(fullName) ? fullName : customerEmail} | Ref: ${bookingRef}`;
+      const adminSubject = `Cooking Class Booking Confirmed — ${hasValue(fullName) ? fullName : customerEmail} | Ref: ${bookingRef}`;
       const adminPayload = {
         from: RESEND_FROM_EMAIL,
         to: adminEmailList,
