@@ -332,7 +332,7 @@ export default function CookingClassConfirmation({ userRole }: CookingClassConfi
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap mb-1">
                   <p className="font-semibold text-[#1A1612] text-sm">{reg.title ? `${reg.title} ` : ''}{reg.first_name} {reg.surname}</p>
-                  <span className="text-xs bg-green-100 text-green-700 border border-green-200 px-2 py-0.5 rounded-full font-medium">Paid</span>
+                  <span className="text-xs bg-amber-100 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full font-medium">Awaiting Confirmation</span>
                 </div>
                 <p className="text-xs text-[#8C8278] font-mono truncate">{reg.registration_code || reg.id}</p>
                 <div className="flex items-center gap-3 mt-1 flex-wrap">
@@ -566,12 +566,12 @@ export default function CookingClassConfirmation({ userRole }: CookingClassConfi
             <svg className="w-6 h-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
           </div>
           <p className="text-[#1A1612] font-semibold">
-            {searchQuery ? 'No registrations match your search' : 'No paid class bookings found'}
+            {searchQuery ? 'No registrations match your search' : 'No awaiting confirmation bookings found'}
           </p>
           <p className="text-[#8C8278] text-sm mt-1 max-w-md mx-auto">
             {searchQuery
               ? 'Try a different search term.'
-              : 'Cooking class bookings with "paid" status will appear here.'}
+              : 'Cooking class bookings with "awaiting confirmation" status will appear here.'}
           </p>
         </div>
       ) : (
@@ -582,7 +582,7 @@ export default function CookingClassConfirmation({ userRole }: CookingClassConfi
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap mb-1">
                   <p className="font-semibold text-[#1A1612] text-sm">{reg.title ? `${reg.title} ` : ''}{reg.first_name} {reg.surname}</p>
-                  <span className="text-xs bg-green-100 text-green-700 border border-green-200 px-2 py-0.5 rounded-full font-medium">Paid</span>
+                  <span className="text-xs bg-amber-100 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full font-medium">Awaiting Confirmation</span>
                 </div>
                 <p className="text-xs text-[#8C8278] font-mono truncate">{reg.registration_code || reg.id}</p>
                 <div className="flex items-center gap-3 mt-1 flex-wrap">
