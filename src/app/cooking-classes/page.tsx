@@ -1554,7 +1554,7 @@ export default function CookingClassesPage() {
                       placeholder="Your RSA Id no or other form of Identification"
                       className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] ${page2Errors.rsaIdPassport ? 'border-red-400' : 'border-[#DDD5C8]'}`}
                     />
-                    <p className="text-xs text-[#8C8278] mt-1.5">South African resident must enter their 13-DIGIT ID NUMBER</p>
+                    <p className="text-xs text-[#8C8278] mt-1.5">South African resident must enter their 13-DIGIT ID NUMBER or Passport number</p>
                     {page2Errors.rsaIdPassport && <p className="text-xs text-red-500 mt-1">{page2Errors.rsaIdPassport}</p>}
                   </div>
                 </div>
