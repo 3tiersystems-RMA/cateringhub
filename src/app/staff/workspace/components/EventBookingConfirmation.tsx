@@ -76,7 +76,7 @@ export default function EventBookingConfirmation({ userRole }: EventBookingConfi
       supabase
         .from('event_management_registrations')
         .select('id, title, first_name, surname, email, cellphone, payment_status, amount, created_at, notes, registration_code, children')
-        .eq('payment_status', 'awaiting_confirmation')
+        .in('payment_status', ['pending', 'awaiting_confirmation'])
         .order('created_at', { ascending: false }),
       supabase
         .from('correspondence_settings')
