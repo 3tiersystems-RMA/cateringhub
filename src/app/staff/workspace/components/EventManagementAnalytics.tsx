@@ -133,7 +133,7 @@ export default function EventManagementAnalytics() {
     const filledChildren = Array.isArray(r.children)
       ? r.children.filter(c => !!(c.fullName || c.full_name || c.name)).length
       : 0;
-    return sum + 1 + filledChildren; // 1 for the registrant themselves
+    return sum + filledChildren;
   }, 0);
 
   // ── Payment status breakdown (pie) ──────────────────────────────────────────
@@ -232,7 +232,7 @@ export default function EventManagementAnalytics() {
       const sessionBookings = bookings.filter(b => b.event_date_id === d.id);
       const totalSessionParticipants = sessionBookings.reduce((sum, b) => {
         const reg = registrations.find(r => r.id === b.registration_id);
-        if (!reg) return sum + 1;
+        if (!reg) return sum;
         const filledChildren = Array.isArray(reg.children)
           ? reg.children.filter(c => !!(c.fullName || c.full_name || c.name)).length
           : 0;
