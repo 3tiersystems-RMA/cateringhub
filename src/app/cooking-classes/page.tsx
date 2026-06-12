@@ -558,8 +558,6 @@ export default function CookingClassesPage() {
     const errors: Record<string, string> = {};
     if (!page2.relationship) errors.relationship = 'Please select your relationship';
     if (!page2.firstTimePortal) errors.firstTimePortal = 'Please answer this question';
-    // RSA ID / Passport is optional if First Time = No
-    if (page2.firstTimePortal !== 'No' && !page2.rsaIdPassport.trim()) errors.rsaIdPassport = 'RSA ID / Passport No is required';
     setPage2Errors(errors);
     return Object.keys(errors).length === 0;
   }
