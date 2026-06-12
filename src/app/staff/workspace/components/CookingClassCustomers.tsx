@@ -537,17 +537,20 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
+                          if (reg.payment_status === 'paid' && !isSuperAdmin) return;
                           if (isEditing) {
                             cancelEdit();
                           } else {
                             openEdit(reg, e);
                           }
                         }}
+                        disabled={reg.payment_status === 'paid' && !isSuperAdmin}
                         className={`flex-shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors ${
-                          isEditing
+                          reg.payment_status === 'paid' && !isSuperAdmin ?'bg-gray-100 border border-gray-200 text-gray-400 cursor-not-allowed opacity-50'
+                            : isEditing
                             ? 'bg-gray-100 border border-gray-300 text-gray-600 hover:bg-gray-200' :'bg-[#FDF6EE] border border-[#C4622D]/30 text-[#C4622D] hover:bg-[#C4622D]/10 hover:border-[#C4622D]/50'
                         }`}
-                        title={isEditing ? 'Cancel editing' : 'Edit payment status'}
+                        title={reg.payment_status === 'paid' && !isSuperAdmin ? 'Cannot edit a paid registration' : isEditing ? 'Cancel editing' : 'Edit payment status'}
                       >
                         {isEditing ? (
                           <>
