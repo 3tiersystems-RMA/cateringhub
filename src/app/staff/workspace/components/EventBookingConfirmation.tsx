@@ -511,7 +511,7 @@ export default function EventBookingConfirmation({ userRole }: EventBookingConfi
           <p className="text-[#8C8278] text-sm mt-1 max-w-md mx-auto">
             {searchQuery
               ? 'Try a different search term.'
-              : 'Event bookings with "paid" status will appear here.'}
+              : 'Event bookings with "awaiting confirmation" status will appear here.'}
           </p>
         </div>
       ) : (
