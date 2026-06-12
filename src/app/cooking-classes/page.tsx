@@ -2013,7 +2013,8 @@ export default function CookingClassesPage() {
                               )}
                             </div>
 
-                            {/* Row 4: Skill Level in Cooking */}
+                            {/* Row 4: Skill Level in Cooking (adult events only) */}
+                            {isAdultEvent && (
                             <div>
                               <label className="block text-xs font-medium text-[#5C5347] mb-1">
                                 Skill Level in Cooking {hasName && <span className="text-red-500">*</span>}
@@ -2032,6 +2033,7 @@ export default function CookingClassesPage() {
                                 <p className="text-xs text-red-500 mt-0.5">{page4Errors[`child_${idx}_skillLevel`]}</p>
                               )}
                             </div>
+                            )}
 
                             {/* Consent & Indemnity — per child (hidden for adult events) */}
                             {!isAdultEvent && (
