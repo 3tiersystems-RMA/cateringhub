@@ -468,8 +468,8 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
                           )}
                         </td>
                         <td className="px-4 py-3">
-                          <p className="text-sm text-[#5C5347] max-w-[140px] truncate" title={r.venue || ''}>
-                            {r.venue ? `${r.venue.substring(0, 30)}${r.venue.length > 30 ? '…' : ''}` : '—'}
+                          <p className="text-sm text-[#5C5347] whitespace-normal break-words min-w-[120px]">
+                            {r.venue || '—'}
                           </p>
                         </td>
                         <td className="px-4 py-3">
