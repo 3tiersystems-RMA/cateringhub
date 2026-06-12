@@ -13,6 +13,14 @@ interface SessionDate {
   event_fee: number | null;
 }
 
+interface ParticipantRow {
+  fullName?: string;
+  full_name?: string;
+  name?: string;
+  ticket_number?: string;
+  [key: string]: unknown;
+}
+
 interface AwaitingRegistration {
   id: string;
   title: string;
@@ -25,6 +33,7 @@ interface AwaitingRegistration {
   created_at: string;
   notes: string | null;
   registration_code: string | null;
+  children: ParticipantRow[] | null;
   session_dates?: SessionDate[];
 }
 
@@ -66,7 +75,7 @@ export default function EventBookingConfirmation({ userRole }: EventBookingConfi
     const [regsResult, settingsResult] = await Promise.all([
       supabase
         .from('event_management_registrations')
-        .select('id, title, first_name, surname, email, cellphone, payment_status, amount, created_at, notes, registration_code')
+        .select('id, title, first_name, surname, email, cellphone, payment_status, amount, created_at, notes, registration_code, children')
         .eq('payment_status', 'paid')
         .order('created_at', { ascending: false }),
       supabase
@@ -228,6 +237,15 @@ export default function EventBookingConfirmation({ userRole }: EventBookingConfi
     );
   });
 
+  function getParticipantName(p: ParticipantRow): string {
+    return p.fullName || p.full_name || p.name || '';
+  }
+
+  function filterFilledParticipants(children: ParticipantRow[] | null): ParticipantRow[] {
+    if (!Array.isArray(children)) return [];
+    return children.filter(c => !!(c.fullName || c.full_name || c.name));
+  }
+
   function EmailPreviewBody({ reg }: { reg: AwaitingRegistration }) {
     const fullName = `${reg.title ? reg.title + ' ' : ''}${reg.first_name} ${reg.surname}`;
     const orgName = correspondenceSettings?.form_header_title || 'Cardamom Kitchen';
@@ -281,6 +299,37 @@ export default function EventBookingConfirmation({ userRole }: EventBookingConfi
               </div>
             </div>
           </div>
+
+          {/* Registered Participants */}
+          {(() => {
+            const filledParticipants = filterFilledParticipants(reg.children);
+            const allParticipants: Array<{ ticketNumber: string | null; fullName: string }> = [
+              { ticketNumber: reg.registration_code || reg.id.slice(0, 8).toUpperCase(), fullName },
+              ...filledParticipants.map(p => ({
+                ticketNumber: p.ticket_number || null,
+                fullName: getParticipantName(p),
+              })),
+            ];
+            return (
+              <div className="rounded-xl overflow-hidden border border-[#EDE7DA]">
+                <div className="bg-[#EDE7DA] px-4 py-2.5">
+                  <p className="text-xs font-bold text-[#8C8278] uppercase tracking-wider">REGISTERED PARTICIPANTS</p>
+                </div>
+                <div className="divide-y divide-[#f0ebe4]">
+                  {allParticipants.map((p, i) => (
+                    <div key={i} className="flex items-center justify-between px-4 py-2.5">
+                      <span className="text-sm text-[#1A1612] font-medium">{p.fullName}</span>
+                      {p.ticketNumber && (
+                        <span className="text-xs font-mono font-semibold bg-[#FDF6EE] border border-[#C4622D]/30 text-[#C4622D] px-2 py-0.5 rounded-full">
+                          {p.ticketNumber}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Session / Event Details */}
           {reg.session_dates && reg.session_dates.length > 0 ? (
