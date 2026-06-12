@@ -28,6 +28,7 @@ serve(async (req) => {
       createdAt,
       notes,
       sessionDates,
+      children,
       formHeaderTitle,
       logoUrl,
       adminEmails,
@@ -115,6 +116,65 @@ serve(async (req) => {
             )
             .join("")
         : `<tr><td colspan="4" style="padding: 10px 12px; color: #8C8278; font-size: 13px;">Event details to be confirmed.</td></tr>`;
+
+    // Build participants rows
+    const participantsArray = Array.isArray(children)
+      ? children.filter((c: { fullName?: string; full_name?: string; name?: string }) =>
+          (c.fullName || c.full_name || c.name || "").trim()
+        )
+      : [];
+
+    const participantsHtml =
+      participantsArray.length > 0
+        ? `
+        <tr>
+          <td style="padding: 0 32px 20px 32px;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="border: 1px solid #E8E0D4; border-radius: 10px; overflow: hidden;">
+              <tr>
+                <td style="background-color: #EDE7DA; padding: 10px 16px; border-bottom: 1px solid #E8E0D4;">
+                  <p style="margin: 0; font-size: 11px; font-weight: 700; color: #8C8278; text-transform: uppercase; letter-spacing: 1px;">PARTICIPANTS REGISTERED</p>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 0;">
+                  <table width="100%" cellpadding="0" cellspacing="0">
+                    <thead>
+                      <tr style="background-color: #f9f6f2;">
+                        <th style="padding: 8px 12px; text-align: left; font-size: 11px; color: #8C8278; font-weight: 600; border-bottom: 1px solid #f0ebe4;">Ticket #</th>
+                        <th style="padding: 8px 12px; text-align: left; font-size: 11px; color: #8C8278; font-weight: 600; border-bottom: 1px solid #f0ebe4;">Full Name</th>
+                        <th style="padding: 8px 12px; text-align: left; font-size: 11px; color: #8C8278; font-weight: 600; border-bottom: 1px solid #f0ebe4;">Gender</th>
+                        <th style="padding: 8px 12px; text-align: left; font-size: 11px; color: #8C8278; font-weight: 600; border-bottom: 1px solid #f0ebe4;">Age</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+${participantsArray
+  .map(
+    (p: {
+      fullName?: string;
+      full_name?: string;
+      name?: string;
+      ticket_number?: string;
+      gender?: string;
+      age?: string | number;
+    }) => {
+      const pName = (p.fullName || p.full_name || p.name || "").trim();
+      return `<tr>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #f0ebe4; font-family: monospace; color: #C4622D; font-size: 12px;">${p.ticket_number || "—"}</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #f0ebe4; color: #1A1612; font-size: 13px; font-weight: 600;">${pName || "—"}</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #f0ebe4; color: #5C5347; font-size: 13px;">${p.gender || "—"}</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #f0ebe4; color: #5C5347; font-size: 13px;">${p.age != null && p.age !== "" ? String(p.age) : "—"}</td>
+      </tr>`;
+    }
+  )
+  .join("")}
+                    </tbody>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>`
+        : "";
 
     const notesHtml = hasValue(notes)
       ? `<tr>
@@ -266,6 +326,9 @@ serve(async (req) => {
               </table>
             </td>
           </tr>
+
+          <!-- Participants (if any) -->
+          ${participantsHtml}
 
           <!-- Notes (if any) -->
           ${notesHtml}

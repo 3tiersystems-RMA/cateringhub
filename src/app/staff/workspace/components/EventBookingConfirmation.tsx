@@ -176,6 +176,7 @@ export default function EventBookingConfirmation({ userRole }: EventBookingConfi
           createdAt: previewReg.created_at,
           notes: previewReg.notes,
           sessionDates: previewReg.session_dates || [],
+          children: previewReg.children || [],
           formHeaderTitle: correspondenceSettings?.form_header_title || 'Cardamom Kitchen',
           logoUrl: correspondenceSettings?.logo_url || null,
           adminEmails,
