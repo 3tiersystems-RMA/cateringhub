@@ -51,6 +51,7 @@ interface ChildRow {
   gender: string;
   grade: string;
   dietaryRestrictions: string;
+  skillLevel: string;
   picturesTaken: string;
   indemnityConsent: boolean;
 }
@@ -113,8 +114,9 @@ const TITLE_OPTIONS = ['Dr', 'Ms', 'Mr', 'Mrs'];
 const RELATIONSHIP_OPTIONS = ['Father', 'Mother', 'Grandparent', 'Guardian', 'Au pair'];
 const RELATIONSHIP_TO_CHILD_OPTIONS = ['Father', 'Mother', 'Grandparent', 'Guardian', 'Au pair', 'Sibling', 'Friend'];
 const DIETARY_OPTIONS = ['None', 'Vegetarian', 'Vegan', 'Gluten-free', 'Lactose Intolerant', 'Peanut Allergy'];
+const SKILL_LEVEL_OPTIONS = ['Novice', 'Beginner', 'Intermediate', 'Advanced'];
 
-const EMPTY_CHILD: ChildRow = { fullName: '', dob: '', age: '', gender: '', grade: '', dietaryRestrictions: '', picturesTaken: '', indemnityConsent: false };
+const EMPTY_CHILD: ChildRow = { fullName: '', dob: '', age: '', gender: '', grade: '', dietaryRestrictions: '', skillLevel: '', picturesTaken: '', indemnityConsent: false };
 const EMPTY_CONTACT: ContactPerson = { title: '', firstName: '', surname: '', cellNo: '', relationshipToChild: '' };
 
 function formatEventDate(row: EventDateRow): string {
@@ -600,13 +602,15 @@ export default function CookingClassesPage() {
     page4.children.forEach((child, idx) => {
       if (child.fullName.trim()) {
         if (isAdultEvent) {
-          // Adult event: only Gender and Dietary are mandatory; DOB optional, no age validation, no picturesTaken/indemnityConsent
+          // Adult event: only Gender, Dietary, and Skill Level are mandatory; DOB optional, no age validation, no picturesTaken/indemnityConsent
           if (!child.gender) errors[`child_${idx}_gender`] = 'Gender is required';
           if (!child.dietaryRestrictions) errors[`child_${idx}_dietary`] = 'Dietary info is required';
+          if (!child.skillLevel) errors[`child_${idx}_skillLevel`] = 'Skill level is required';
         } else {
           if (!child.dob) errors[`child_${idx}_dob`] = 'DOB is required';
           if (!child.gender) errors[`child_${idx}_gender`] = 'Gender is required';
           if (!child.dietaryRestrictions) errors[`child_${idx}_dietary`] = 'Dietary info is required';
+          if (!child.skillLevel) errors[`child_${idx}_skillLevel`] = 'Skill level is required';
           // (5) Age validation
           if (child.dob) {
             let age = calculateAge(child.dob);
@@ -755,11 +759,12 @@ export default function CookingClassesPage() {
     const last = page4.children[page4.children.length - 1];
     if (!last) return true;
     if (isAdultEvent) {
-      // Adult event: only Full Name, Gender, and Dietary are required to unlock next participant
+      // Adult event: only Full Name, Gender, Dietary, and Skill Level are required to unlock next participant
       return (
         last.fullName.trim() !== '' &&
         last.gender !== '' &&
-        last.dietaryRestrictions !== ''
+        last.dietaryRestrictions !== '' &&
+        last.skillLevel !== ''
       );
     }
     return (
@@ -767,6 +772,7 @@ export default function CookingClassesPage() {
       last.dob !== '' &&
       last.gender !== '' &&
       last.dietaryRestrictions !== '' &&
+      last.skillLevel !== '' &&
       last.picturesTaken !== '' &&
       last.indemnityConsent === true
     );
@@ -917,6 +923,7 @@ export default function CookingClassesPage() {
             gender: c.gender,
             grade: c.grade,
             dietaryRestrictions: c.dietaryRestrictions,
+            skillLevel: c.skillLevel,
             picturesTaken: c.picturesTaken,
             indemnityConsent: c.indemnityConsent,
             ticket_number: ticketNumber,
@@ -2006,6 +2013,26 @@ export default function CookingClassesPage() {
                               )}
                             </div>
 
+                            {/* Row 4: Skill Level in Cooking */}
+                            <div>
+                              <label className="block text-xs font-medium text-[#5C5347] mb-1">
+                                Skill Level in Cooking {hasName && <span className="text-red-500">*</span>}
+                              </label>
+                              <select
+                                value={child.skillLevel}
+                                onChange={e => updateChild(idx, 'skillLevel', e.target.value)}
+                                className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white ${page4Errors[`child_${idx}_skillLevel`] ? 'border-red-400' : 'border-[#DDD5C8]'}`}
+                              >
+                                <option value="">Select...</option>
+                                {SKILL_LEVEL_OPTIONS.map(opt => (
+                                  <option key={opt} value={opt}>{opt}</option>
+                                ))}
+                              </select>
+                              {page4Errors[`child_${idx}_skillLevel`] && (
+                                <p className="text-xs text-red-500 mt-0.5">{page4Errors[`child_${idx}_skillLevel`]}</p>
+                              )}
+                            </div>
+
                             {/* Consent & Indemnity — per child (hidden for adult events) */}
                             {!isAdultEvent && (
                               <div className="mt-2 pt-3 border-t border-[#EDE7DA]">
@@ -2090,8 +2117,8 @@ export default function CookingClassesPage() {
                     {!isLastChildComplete() && (
                       <p className="text-xs text-amber-600 mt-2 text-center">
                         {isAdultEvent
-                          ? 'Please complete all mandatory fields for the current participant (Full Name, Gender, Dietary Restrictions) before adding another participant.'
-                          : 'Please complete all mandatory fields for the current participant (Full Name, DOB, Gender, Dietary Restrictions, Photo Consent, and Indemnity Consent) before adding another participant.'}
+                          ? 'Please complete all mandatory fields for the current participant (Full Name, Gender, Dietary Restrictions, Skill Level) before adding another participant.'
+                          : 'Please complete all mandatory fields for the current participant (Full Name, DOB, Gender, Dietary Restrictions, Skill Level, Photo Consent, and Indemnity Consent) before adding another participant.'}
                       </p>
                     )}
                   </div>
