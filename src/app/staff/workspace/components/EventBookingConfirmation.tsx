@@ -472,7 +472,7 @@ export default function EventBookingConfirmation({ userRole }: EventBookingConfi
       <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-xl font-bold text-[#1A1612]">Event Booking Confirmation</h2>
-          <p className="text-sm text-[#8C8278] mt-0.5">Event bookings awaiting confirmation — send confirmation email to registrant</p>
+          <p className="text-sm text-[#8C8278] mt-0.5">Event bookings with pending or awaiting confirmation status — send confirmation email to registrant</p>
         </div>
         <button
           onClick={loadData}
