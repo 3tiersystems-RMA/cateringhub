@@ -356,7 +356,10 @@ export default function EventBookingConfirmation({ userRole }: EventBookingConfi
                     <th className="px-4 py-2 text-left text-xs text-[#8C8278] font-semibold">Event</th>
                     <th className="px-4 py-2 text-left text-xs text-[#8C8278] font-semibold">Date</th>
                     <th className="px-4 py-2 text-left text-xs text-[#8C8278] font-semibold">Time</th>
-                    <th className="px-4 py-2 text-right text-xs text-[#8C8278] font-semibold">Fee</th>
+                    <th className="px-4 py-2 text-right text-xs text-[#8C8278] font-semibold">
+                      Fee
+                      <span className="block font-normal text-[#B0A89E] text-[10px]">e.g. R 3250.00</span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
