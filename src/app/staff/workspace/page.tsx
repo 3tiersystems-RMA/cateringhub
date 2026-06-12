@@ -478,17 +478,6 @@ export default function StaffWorkspacePage() {
                           <span>Event Registrations</span>
                         </button>
                       )}
-                      {canTab('event_management_registrations') && (
-                        <button
-                          onClick={() => { handleTabChange('event_management_registrations'); }}
-                          className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${
-                            activeTab === 'event_management_registrations' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
-                          }`}
-                        >
-                          <span className="text-sm">📋</span>
-                          <span>Old view - Reg</span>
-                        </button>
-                      )}
                       {canTab('event_booking_confirmation') && (
                         <button
                           onClick={() => { handleTabChange('event_booking_confirmation'); }}
