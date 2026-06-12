@@ -354,7 +354,7 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
       </div>
 
       {/* ── Stats Cards ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="bg-white rounded-2xl border border-[#E8DDD0] p-5">
           <p className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-2">Total Registrations</p>
           <p className="text-3xl font-bold text-[#1A1612]">{totalRegistrations}</p>
@@ -368,6 +368,11 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
         <div className="bg-white rounded-2xl border border-[#E8DDD0] p-5">
           <p className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-2">Paid</p>
           <p className="text-3xl font-bold text-green-600">{totalPaid}</p>
+        </div>
+        <div className="bg-white rounded-2xl border border-[#E8DDD0] p-5">
+          <p className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-2">Total Revenue</p>
+          <p className="text-2xl font-bold text-[#C4622D]">R {totalRevenue.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+          <p className="text-xs text-[#8C8278] mt-1">from paid registrations</p>
         </div>
         <div className="bg-white rounded-2xl border border-[#E8DDD0] p-5">
           <p className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-2">Filtered Results</p>
