@@ -43,7 +43,7 @@ const BRAND = '#C4622D';
 const PALETTE = ['#C4622D', '#E8956D', '#8B4513', '#F5C5A3', '#5C5347', '#A0856C', '#DDD5C8', '#1A1612'];
 
 function formatCurrency(val: number) {
-  return `R ${val.toLocaleString('en-ZA', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  return `R ${val.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
 function formatDate(d: string) {
