@@ -89,21 +89,34 @@ export default function EventBookingConfirmation({ userRole }: EventBookingConfi
       setError('Failed to load registrations: ' + regsResult.error.message);
       setRegistrations([]);
     } else {
-      // Fetch session dates for each registration
+      // Fetch session dates for each registration via event_management_booking_counts
       const regs = (regsResult.data as AwaitingRegistration[]) || [];
       if (regs.length > 0) {
         const ids = regs.map(r => r.id);
         const { data: sessionData } = await supabase
-          .from('event_management_registration_sessions')
-          .select('registration_id, event_date_id, event_management_event_dates(id, event_date, start_time, end_time, location, event_name, event_fee)')
+          .from('event_management_booking_counts')
+          .select('registration_id, event_date_id, event_management_event_dates(id, event_date, start_time, end_time, location, event_fee, event_management_events(name))')
           .in('registration_id', ids);
 
         const sessionMap: Record<string, SessionDate[]> = {};
         if (sessionData) {
-          for (const row of sessionData as Array<{ registration_id: string; event_management_event_dates: SessionDate | null }>) {
+          for (const row of sessionData as Array<{
+            registration_id: string;
+            event_date_id: string;
+            event_management_event_dates: (Omit<SessionDate, 'event_name'> & { event_management_events: { name: string } | null }) | null;
+          }>) {
             if (!sessionMap[row.registration_id]) sessionMap[row.registration_id] = [];
             if (row.event_management_event_dates) {
-              sessionMap[row.registration_id].push(row.event_management_event_dates);
+              const d = row.event_management_event_dates;
+              sessionMap[row.registration_id].push({
+                id: d.id,
+                event_date: d.event_date,
+                start_time: d.start_time,
+                end_time: d.end_time,
+                location: d.location,
+                event_fee: d.event_fee,
+                event_name: d.event_management_events?.name || null,
+              });
             }
           }
         }
