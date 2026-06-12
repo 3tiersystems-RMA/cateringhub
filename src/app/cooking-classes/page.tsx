@@ -610,7 +610,6 @@ export default function CookingClassesPage() {
           if (!child.dob) errors[`child_${idx}_dob`] = 'DOB is required';
           if (!child.gender) errors[`child_${idx}_gender`] = 'Gender is required';
           if (!child.dietaryRestrictions) errors[`child_${idx}_dietary`] = 'Dietary info is required';
-          if (!child.skillLevel) errors[`child_${idx}_skillLevel`] = 'Skill level is required';
           // (5) Age validation
           if (child.dob) {
             let age = calculateAge(child.dob);
