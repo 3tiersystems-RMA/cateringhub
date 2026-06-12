@@ -373,38 +373,18 @@ export default function EventBookingConfirmation({ userRole }: EventBookingConfi
               </table>
             </div>
           ) : (
-            /* Fallback when no session data — show example event details */
+            /* Fallback when no session data */
             <div className="rounded-xl overflow-hidden border border-[#EDE7DA]">
               <div className="bg-[#EDE7DA] px-4 py-2.5">
                 <p className="text-xs font-bold text-[#8C8278] uppercase tracking-wider">EVENT SESSION DETAILS</p>
               </div>
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-[#f9f6f2]">
-                    <th className="px-4 py-2 text-left text-xs text-[#8C8278] font-semibold">Event</th>
-                    <th className="px-4 py-2 text-left text-xs text-[#8C8278] font-semibold">Date</th>
-                    <th className="px-4 py-2 text-left text-xs text-[#8C8278] font-semibold">Time</th>
-                    <th className="px-4 py-2 text-right text-xs text-[#8C8278] font-semibold">Fee</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr className="border-t border-[#f0ebe4]">
-                    <td className="px-4 py-2.5 text-[#1A1612]">
-                      Cardamom Kitchen Summer Gala
-                      <p className="text-xs text-[#8C8278] mt-0.5">Cardamom Kitchen, Cape Town</p>
-                    </td>
-                    <td className="px-4 py-2.5 text-[#5C5347]">15 Jul 2026</td>
-                    <td className="px-4 py-2.5 text-[#5C5347] text-xs">06:00 PM – 10:00 PM</td>
-                    <td className="px-4 py-2.5 text-right font-mono text-[#1A1612]">R 350.00</td>
-                  </tr>
-                </tbody>
-                <tfoot>
-                  <tr className="border-t-2 border-[#EDE7DA]">
-                    <td colSpan={3} className="px-4 py-3 font-bold text-[#1A1612]">Total Amount Paid</td>
-                    <td className="px-4 py-3 text-right font-bold font-mono text-[#C4622D]">{formatCurrency(reg.amount)}</td>
-                  </tr>
-                </tfoot>
-              </table>
+              <div className="px-4 py-5 text-center">
+                <p className="text-sm text-[#8C8278]">No session details linked to this registration.</p>
+                <div className="flex justify-between text-sm border-t border-[#EDE7DA] mt-4 pt-3">
+                  <span className="font-bold text-[#1A1612]">Total Amount Paid</span>
+                  <span className="font-bold font-mono text-[#C4622D]">{formatCurrency(reg.amount)}</span>
+                </div>
+              </div>
             </div>
           )}
 
