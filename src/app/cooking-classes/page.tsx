@@ -1947,8 +1947,8 @@ export default function CookingClassesPage() {
                                 </div>
                               )}
                             </div>
-                            {/* Row 2: Age + Gender + Grade (adult: Gender + Grade only, no Age) */}
-                            <div className={`grid gap-3 ${isAdultEvent ? 'grid-cols-2' : 'grid-cols-3'}`}>
+                            {/* Row 2: Age + Gender + Dietary + Grade (adult: Gender + Dietary only) */}
+                            <div className={`grid gap-3 ${isAdultEvent ? 'grid-cols-2' : 'grid-cols-4'}`}>
                               {!isAdultEvent && (
                                 <div>
                                   <label className="block text-xs font-medium text-[#5C5347] mb-1">Age</label>
@@ -1981,6 +1981,24 @@ export default function CookingClassesPage() {
                                   <p className="text-xs text-red-500 mt-0.5">{page4Errors[`child_${idx}_gender`]}</p>
                                 )}
                               </div>
+                              <div>
+                                <label className="block text-xs font-medium text-[#5C5347] mb-1">
+                                  Dietary Restrictions {hasName && <span className="text-red-500">*</span>}
+                                </label>
+                                <select
+                                  value={child.dietaryRestrictions}
+                                  onChange={e => updateChild(idx, 'dietaryRestrictions', e.target.value)}
+                                  className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white ${page4Errors[`child_${idx}_dietary`] ? 'border-red-400' : 'border-[#DDD5C8]'}`}
+                                >
+                                  <option value="">Select...</option>
+                                  {DIETARY_OPTIONS.map(opt => (
+                                    <option key={opt} value={opt}>{opt}</option>
+                                  ))}
+                                </select>
+                                {page4Errors[`child_${idx}_dietary`] && (
+                                  <p className="text-xs text-red-500 mt-0.5">{page4Errors[`child_${idx}_dietary`]}</p>
+                                )}
+                              </div>
                               {!isAdultEvent && (
                               <div>
                                 <label className="block text-xs font-medium text-[#5C5347] mb-1">Grade</label>
@@ -1993,27 +2011,7 @@ export default function CookingClassesPage() {
                               </div>
                               )}
                             </div>
-                            {/* Row 3: Dietary Restrictions */}
-                            <div>
-                              <label className="block text-xs font-medium text-[#5C5347] mb-1">
-                                Dietary Restrictions {hasName && <span className="text-red-500">*</span>}
-                              </label>
-                              <select
-                                value={child.dietaryRestrictions}
-                                onChange={e => updateChild(idx, 'dietaryRestrictions', e.target.value)}
-                                className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white ${page4Errors[`child_${idx}_dietary`] ? 'border-red-400' : 'border-[#DDD5C8]'}`}
-                              >
-                                <option value="">Select...</option>
-                                {DIETARY_OPTIONS.map(opt => (
-                                  <option key={opt} value={opt}>{opt}</option>
-                                ))}
-                              </select>
-                              {page4Errors[`child_${idx}_dietary`] && (
-                                <p className="text-xs text-red-500 mt-0.5">{page4Errors[`child_${idx}_dietary`]}</p>
-                              )}
-                            </div>
-
-                            {/* Row 4: Skill Level in Cooking (adult events only) */}
+                            {/* Row 3: Skill Level in Cooking (adult events only) */}
                             {isAdultEvent && (
                             <div>
                               <label className="block text-xs font-medium text-[#5C5347] mb-1">
