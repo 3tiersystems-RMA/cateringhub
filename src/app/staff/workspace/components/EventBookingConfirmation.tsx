@@ -383,7 +383,7 @@ export default function EventBookingConfirmation({ userRole }: EventBookingConfi
                 <tfoot>
                   <tr className="border-t-2 border-[#EDE7DA]">
                     <td colSpan={3} className="px-4 py-3 font-bold text-[#1A1612]">Total Amount Paid</td>
-                    <td className="px-4 py-3 text-right font-bold font-mono text-[#C4622D]">{formatCurrency(reg.amount)}</td>
+                    <td className="px-4 py-2.5 text-right font-mono text-[#1A1612] whitespace-nowrap">{formatCurrency(reg.amount)}</td>
                   </tr>
                 </tfoot>
               </table>
