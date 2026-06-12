@@ -37,6 +37,10 @@ serve(async (req) => {
     const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
     if (!RESEND_API_KEY) throw new Error("RESEND_API_KEY is not set");
 
+    if (!customerEmail || typeof customerEmail !== "string" || !customerEmail.trim()) {
+      throw new Error("customerEmail is required and must be a valid email address");
+    }
+
     const RESEND_FROM_EMAIL =
       Deno.env.get("RESEND_FROM_EMAIL") || "onboarding@resend.dev";
 
