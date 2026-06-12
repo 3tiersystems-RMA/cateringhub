@@ -51,6 +51,7 @@ import GlobalSettings from '@/app/staff/workspace/components/GlobalSettings';
 import EventManagementSettings from '@/app/staff/workspace/components/EventManagementSettings';
 import EventManagementCustomers from '@/app/staff/workspace/components/EventManagementCustomers';
 import EventManagementRegistrations from '@/app/staff/workspace/components/EventManagementRegistrations';
+import EventBookingRegistrations from '@/app/staff/workspace/components/EventBookingRegistrations';
 import EventManagementAnalytics from '@/app/staff/workspace/components/EventManagementAnalytics';
 import EventBookingConfirmation from '@/app/staff/workspace/components/EventBookingConfirmation';
 import CookingClassConfirmation from '@/app/staff/workspace/components/CookingClassConfirmation';
@@ -423,12 +424,12 @@ export default function StaffWorkspacePage() {
               )}
 
               {/* ── Event Management ── */}
-              {canAnyTab('event_management', 'event_management_customers', 'event_management_registrations', 'event_management_analytics', 'event_booking_confirmation', 'media_events') && (
+              {canAnyTab('event_management', 'event_management_customers', 'event_management_registrations', 'event_management_analytics', 'event_booking_confirmation', 'media_events', 'event_booking_registrations') && (
                 <>
                   <button
                     onClick={() => setEventManagementOpen(prev => !prev)}
                     className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${
-                      ['event_management', 'event_management_customers', 'event_management_registrations', 'event_management_analytics', 'media_events'].includes(activeTab) ? 'text-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
+                      ['event_management', 'event_management_customers', 'event_management_registrations', 'event_management_analytics', 'media_events', 'event_booking_registrations'].includes(activeTab) ? 'text-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'
                     }`}
                   >
                     <span className="text-base">🎪</span>
@@ -772,6 +773,13 @@ export default function StaffWorkspacePage() {
 
             {activeTab === 'event_management_customers' && (
               <EventManagementCustomers isSuperAdmin={userProfile?.role === 'super_admin'} />
+            )}
+
+            {/* ── EVENT BOOKING REGISTRATIONS TAB ── */}
+            {activeTab === 'event_booking_registrations' && (
+              <div className="p-6">
+                <EventBookingRegistrations isSuperAdmin={userProfile?.role === 'super_admin'} />
+              </div>
             )}
 
             {activeTab === 'event_management_registrations' && (
