@@ -1505,6 +1505,26 @@ export default function CookingClassesPage() {
               {page2Errors.firstTimePortal && <p className="text-xs text-red-500 mt-2">{page2Errors.firstTimePortal}</p>}
             </div>
 
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => { setCurrentPage(1); window.scrollTo(0, 0); }}
+                className="flex-1 border border-[#DDD5C8] text-[#5C5347] py-3 rounded-xl font-semibold text-sm hover:bg-[#FAF5EE] transition-colors"
+              >
+                ← Back
+              </button>
+              <button
+                onClick={handlePage2Next}
+                className="flex-1 bg-[#C4622D] text-white py-3 rounded-xl font-semibold text-sm hover:bg-[#A04E22] transition-colors"
+              >
+                Continue →
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── PAGE 3 — Emergency Contact Details ───────────────────────────── */}
+        {currentPage === 3 && (
+          <div className="bg-white rounded-2xl border border-[#EDE7DA] p-6 shadow-sm">
             {/* Important Information collapsible */}
             <div className="mb-6">
               <button
@@ -1557,26 +1577,6 @@ export default function CookingClassesPage() {
               )}
             </div>
 
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={() => { setCurrentPage(1); window.scrollTo(0, 0); }}
-                className="flex-1 border border-[#DDD5C8] text-[#5C5347] py-3 rounded-xl font-semibold text-sm hover:bg-[#FAF5EE] transition-colors"
-              >
-                ← Back
-              </button>
-              <button
-                onClick={handlePage2Next}
-                className="flex-1 bg-[#C4622D] text-white py-3 rounded-xl font-semibold text-sm hover:bg-[#A04E22] transition-colors"
-              >
-                Continue →
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* ── PAGE 3 — Emergency Contact Details ───────────────────────────── */}
-        {currentPage === 3 && (
-          <div className="bg-white rounded-2xl border border-[#EDE7DA] p-6 shadow-sm">
             <button
               type="button"
               onClick={() => setEmergencyContactOpen(o => !o)}
