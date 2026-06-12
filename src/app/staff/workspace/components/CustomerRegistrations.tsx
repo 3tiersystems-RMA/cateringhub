@@ -419,7 +419,7 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
       <div className="bg-white rounded-2xl border border-[#E8DDD0] overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center py-16">
-            <div className="w-8 h-8 border-3 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
+            <div className="w-8 h-8 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
           </div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-16 text-[#8C8278]">
