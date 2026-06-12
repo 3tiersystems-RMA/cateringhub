@@ -376,7 +376,7 @@ export default function EventBookingConfirmation({ userRole }: EventBookingConfi
                         {s.start_time ? formatTime(s.start_time) : '—'}
                         {s.end_time ? ` – ${formatTime(s.end_time)}` : ''}
                       </td>
-                      <td className="px-4 py-2.5 text-right font-mono text-[#1A1612]">{formatCurrency(s.event_fee)}</td>
+                      <td className="px-4 py-2.5 text-right font-mono text-[#1A1612] whitespace-nowrap">{formatCurrency(s.event_fee)}</td>
                     </tr>
                   ))}
                 </tbody>
