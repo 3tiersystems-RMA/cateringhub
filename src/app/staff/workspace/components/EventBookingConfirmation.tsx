@@ -76,7 +76,7 @@ export default function EventBookingConfirmation({ userRole }: EventBookingConfi
       supabase
         .from('event_management_registrations')
         .select('id, title, first_name, surname, email, cellphone, payment_status, amount, created_at, notes, registration_code, children')
-        .eq('payment_status', 'paid')
+        .eq('payment_status', 'awaiting_confirmation')
         .order('created_at', { ascending: false }),
       supabase
         .from('correspondence_settings')
@@ -188,10 +188,10 @@ export default function EventBookingConfirmation({ userRole }: EventBookingConfi
         throw new Error(result.error || 'Failed to send confirmation email');
       }
 
-      // Update payment_status to 'awaiting_confirmation' to remove from confirmation queue
+      // Update payment_status to 'paid' to confirm the booking
       const { error: updateError } = await supabase
         .from('event_management_registrations')
-        .update({ payment_status: 'awaiting_confirmation' })
+        .update({ payment_status: 'paid' })
         .eq('id', previewReg.id);
 
       if (updateError) {
