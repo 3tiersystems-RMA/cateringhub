@@ -49,9 +49,22 @@ serve(async (req) => {
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#F5F0E8;padding:32px 16px;">
     <tr><td align="center">
       <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #DDD5C8;max-width:600px;">
-        <tr><td style="background:#C4622D;padding:28px 32px;">
-          <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;">${brandName}</h1>
-          <p style="margin:6px 0 0;color:#f5d5c5;font-size:14px;">Booking Credit Issued</p>
+        <tr><td style="background:#C4622D;padding:28px 32px;text-align:center;">
+          <table width="100%" cellpadding="0" cellspacing="0"><tr>
+            <td style="text-align:center;">
+              <table cellpadding="0" cellspacing="0" style="display:inline-table;margin:0 auto;">
+                <tr>
+                  <td style="vertical-align:middle;">
+                    <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;">${brandName}</h1>
+                  </td>
+                  <td style="vertical-align:middle;padding-left:12px;">
+                    <img src="https://cardamomkitchen.co.za/assets/images/Logo-Transparent-1772539392689.png" alt="Cardamom Kitchen Logo" width="48" height="48" style="display:block;border-radius:50%;object-fit:cover;" />
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:6px 0 0;color:#f5d5c5;font-size:14px;text-align:center;">Booking Credit Issued</p>
+            </td>
+          </tr></table>
         </td></tr>
         <tr><td style="padding:32px;">
           <p style="color:#1A1612;font-size:16px;margin:0 0 16px;">Dear ${customerName},</p>
