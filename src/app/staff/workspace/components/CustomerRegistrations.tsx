@@ -18,6 +18,7 @@ interface UnifiedRegistration {
   event_names: string[];
   venue: string | null;
   event_dates: string[];
+  participant_count: number;
 }
 
 const PAYMENT_STATUS_COLORS: Record<string, string> = {
@@ -135,7 +136,7 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
       // ── 1. Fetch Cooking Class Registrations ──────────────────────────────
       const { data: classRegs, error: classErr } = await supabase
         .from('cooking_class_registrations')
-        .select('id, title, first_name, surname, email, cellphone, payment_status, amount, created_at, selected_events, adult_class_dates')
+        .select('id, title, first_name, surname, email, cellphone, payment_status, amount, created_at, selected_events, adult_class_dates, children')
         .order('created_at', { ascending: false });
 
       if (classErr) throw classErr;
@@ -177,12 +178,19 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
       const classUnified: UnifiedRegistration[] = (classRegs || []).map((r: {
         id: string; title: string; first_name: string; surname: string; email: string;
         cellphone: string; payment_status: string; amount: number | null; created_at: string;
-        selected_events?: string[]; adult_class_dates?: string[];
+        selected_events?: string[]; adult_class_dates?: string[]; children?: unknown[];
       }) => {
         const allIds = [...(r.selected_events || []), ...(r.adult_class_dates || [])];
         const eventNames = [...new Set(allIds.map(id => classEventDatesMap[id]?.event_name).filter(Boolean))] as string[];
         const eventDates = [...new Set(allIds.map(id => classEventDatesMap[id]?.event_date).filter(Boolean))] as string[];
         const venue = allIds.map(id => classEventDatesMap[id]?.location).find(Boolean) || null;
+        const filledChildren = Array.isArray(r.children)
+          ? r.children.filter((c: unknown) => {
+              if (!c || typeof c !== 'object') return false;
+              const p = c as Record<string, unknown>;
+              return p.fullName || p.full_name || p.name;
+            })
+          : [];
         return {
           id: r.id,
           source: 'class' as const,
@@ -197,13 +205,14 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
           event_names: eventNames,
           venue,
           event_dates: eventDates,
+          participant_count: filledChildren.length,
         };
       });
 
       // ── 2. Fetch Event Management Registrations ───────────────────────────
       const { data: eventRegs, error: eventErr } = await supabase
         .from('event_management_registrations')
-        .select('id, title, first_name, surname, email, cellphone, payment_status, amount, created_at')
+        .select('id, title, first_name, surname, email, cellphone, payment_status, amount, created_at, children')
         .order('created_at', { ascending: false });
 
       if (eventErr) throw eventErr;
@@ -253,11 +262,19 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
         eventUnified = (eventRegs || []).map((r: {
           id: string; title: string; first_name: string; surname: string; email: string;
           cellphone: string; payment_status: string; amount: number | null; created_at: string;
+          children?: unknown[];
         }) => {
           const dateIds = regBookingsMap[r.id] || [];
           const eventNames = [...new Set(dateIds.map(id => eventDatesMap[id]?.event_name).filter(Boolean))] as string[];
           const eventDates = [...new Set(dateIds.map(id => eventDatesMap[id]?.event_date).filter(Boolean))] as string[];
           const venue = dateIds.map(id => eventDatesMap[id]?.location).find(Boolean) || null;
+          const filledParticipants = Array.isArray(r.children)
+            ? r.children.filter((c: unknown) => {
+                if (!c || typeof c !== 'object') return false;
+                const p = c as Record<string, unknown>;
+                return p.fullName || p.full_name || p.name;
+              })
+            : [];
           return {
             id: r.id,
             source: 'event' as const,
@@ -272,6 +289,7 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
             event_names: eventNames,
             venue,
             event_dates: eventDates,
+            participant_count: filledParticipants.length,
           };
         });
       }
@@ -297,6 +315,7 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
   const totalRevenue = registrations.reduce((sum, r) => sum + (r.payment_status === 'paid' ? (r.amount || 0) : 0), 0);
   const classCount = registrations.filter(r => r.source === 'class').length;
   const eventCount = registrations.filter(r => r.source === 'event').length;
+  const totalParticipants = registrations.reduce((sum, r) => sum + r.participant_count, 0);
 
   // ── Filtering ──────────────────────────────────────────────────────────────
   const filtered = registrations.filter(r => {
@@ -342,16 +361,17 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
           <p className="text-xs text-[#8C8278] mt-1">{classCount} classes · {eventCount} events</p>
         </div>
         <div className="bg-white rounded-2xl border border-[#E8DDD0] p-5">
+          <p className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-2">Participants</p>
+          <p className="text-3xl font-bold text-[#1A1612]">{totalParticipants}</p>
+          <p className="text-xs text-[#8C8278] mt-1">across classes &amp; events</p>
+        </div>
+        <div className="bg-white rounded-2xl border border-[#E8DDD0] p-5">
           <p className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-2">Paid</p>
           <p className="text-3xl font-bold text-green-600">{totalPaid}</p>
         </div>
         <div className="bg-white rounded-2xl border border-[#E8DDD0] p-5">
           <p className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-2">Filtered Results</p>
           <p className="text-3xl font-bold text-[#C4622D]">{filtered.length}</p>
-        </div>
-        <div className="bg-white rounded-2xl border border-[#E8DDD0] p-5">
-          <p className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-2">Revenue Collected</p>
-          <p className="text-3xl font-bold text-[#C4622D]">{formatCurrency(totalRevenue)}</p>
         </div>
       </div>
 
