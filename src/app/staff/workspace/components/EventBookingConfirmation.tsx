@@ -510,12 +510,12 @@ export default function EventBookingConfirmation({ userRole }: EventBookingConfi
             <svg className="w-6 h-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
           </div>
           <p className="text-[#1A1612] font-semibold">
-            {searchQuery ? 'No registrations match your search' : 'No event bookings awaiting confirmation'}
+            {searchQuery ? 'No registrations match your search' : 'No event bookings pending or awaiting confirmation'}
           </p>
           <p className="text-[#8C8278] text-sm mt-1 max-w-md mx-auto">
             {searchQuery
               ? 'Try a different search term.'
-              : 'Event bookings with "awaiting confirmation" status will appear here.'}
+              : 'Event bookings with "pending" or "awaiting confirmation" status will appear here.'}
           </p>
         </div>
       ) : (
