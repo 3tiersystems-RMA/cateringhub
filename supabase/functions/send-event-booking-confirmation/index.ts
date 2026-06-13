@@ -110,7 +110,7 @@ serve(async (req) => {
                   </td>
                   <td style="padding: 10px 12px; border-bottom: 1px solid #f0ebe4; color: #5C5347; font-size: 13px;">${formatDate(s.event_date)}</td>
                   <td style="padding: 10px 12px; border-bottom: 1px solid #f0ebe4; color: #5C5347; font-size: 12px;">${timeStr}</td>
-                  <td style="padding: 10px 12px; border-bottom: 1px solid #f0ebe4; color: #1A1612; font-size: 13px; text-align: right; font-family: monospace;">${formatCurrency(s.event_fee)}</td>
+                  <td style="padding: 10px 12px; border-bottom: 1px solid #f0ebe4; color: #1A1612; font-size: 13px; text-align: right; font-family: monospace; white-space: nowrap;">${formatCurrency(s.event_fee)}</td>
                 </tr>`;
               }
             )
@@ -294,7 +294,7 @@ ${participantsArray
                       <tfoot>
                         <tr>
                           <td colspan="3" style="padding: 10px 12px; font-size: 14px; font-weight: 700; color: #1A1612; border-top: 2px solid #E8E0D4;">Total Amount Paid</td>
-                          <td style="padding: 10px 12px; font-size: 14px; font-weight: 700; color: #C4622D; text-align: right; font-family: monospace; border-top: 2px solid #E8E0D4;">${formatCurrency(amount)}</td>
+                          <td style="padding: 10px 12px; font-size: 14px; font-weight: 700; color: #C4622D; text-align: right; font-family: monospace; white-space: nowrap; border-top: 2px solid #E8E0D4;">${formatCurrency(amount)}</td>
                         </tr>
                       </tfoot>
                     </table>
