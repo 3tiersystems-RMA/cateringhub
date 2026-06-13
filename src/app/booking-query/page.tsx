@@ -431,56 +431,60 @@ export default function BookingQueryPage() {
                                   </div>
                                 )}
 
-                                {/* Usage History */}
-                                {credit.transactions.length > 0 ? (
-                                  <>
-                                    <h4 className="text-xs font-semibold text-[#666] uppercase tracking-wider mb-3">
-                                      Usage History
-                                    </h4>
-                                    <div className="space-y-2 mb-2">
-                                      {credit.transactions.map((tx) => (
-                                        <div
-                                          key={tx.id}
-                                          className="bg-[#0F0F0F] rounded-xl px-4 py-3 flex flex-col md:flex-row md:items-center gap-2 md:gap-4"
-                                        >
-                                          <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                                              <span className="text-xs font-mono font-semibold text-[#C4622D]">
-                                                {tx.booking_ref}
-                                              </span>
-                                              <span className="text-xs px-2 py-0.5 rounded-full bg-[#1E1E1E] text-[#A09890] border border-[#2A2A2A] capitalize">
-                                                {tx.booking_type === "class" ? "Cooking Class" : "Event"}
-                                              </span>
-                                            </div>
-                                            <p className="text-xs text-[#666]">
-                                              Applied on {formatDateTime(tx.applied_at)}
-                                            </p>
-                                            {tx.notes && (
-                                              <p className="text-xs text-[#555] mt-0.5">{tx.notes}</p>
-                                            )}
-                                          </div>
-                                          <div className="flex items-center gap-4 shrink-0">
-                                            <div className="text-right">
-                                              <p className="text-xs text-[#666]">Applied</p>
-                                              <p className="text-sm font-semibold text-red-400">
-                                                -{formatCurrency(tx.amount_applied)}
-                                              </p>
-                                            </div>
-                                            <div className="text-right">
-                                              <p className="text-xs text-[#666]">Balance After</p>
-                                              <p className="text-sm font-semibold text-[#A09890]">
-                                                {formatCurrency(tx.balance_after)}
-                                              </p>
-                                            </div>
-                                          </div>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </>
-                                ) : (
+                                {/* Status Outcome Line */}
+                                {credit.transactions.length === 0 ? (
                                   <div className="bg-[#0F0F0F] rounded-xl px-4 py-3 flex items-center gap-2">
                                     <AppIcon name="CheckCircleIcon" size={14} className="text-green-400 shrink-0" />
                                     <p className="text-xs text-[#A09890]">This credit has not been used yet — full balance available.</p>
+                                  </div>
+                                ) : (
+                                  <div className="space-y-2">
+                                    <div className="bg-[#0F0F0F] rounded-xl px-4 py-3 flex items-center gap-2">
+                                      <AppIcon name="CheckCircleIcon" size={14} className="text-green-400 shrink-0" />
+                                      <p className="text-xs text-[#A09890]">
+                                        This credit has been applied — {formatCurrency(credit.total_used)} used
+                                        {credit.remaining_balance > 0 ? `, R ${credit.remaining_balance.toFixed(2)} remaining.` : ", balance fully used."}
+                                      </p>
+                                    </div>
+                                    {credit.transactions.map((tx) => (
+                                      <div
+                                        key={tx.id}
+                                        className="bg-[#0F0F0F] rounded-xl px-4 py-3 flex flex-col md:flex-row md:items-center gap-2 md:gap-4"
+                                      >
+                                        <div className="flex-1 min-w-0">
+                                          <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                                            <AppIcon name="ArrowRightCircleIcon" size={13} className="text-amber-400 shrink-0" />
+                                            <span className="text-xs text-[#A09890]">Applied against</span>
+                                            <span className="text-xs font-mono font-semibold text-[#C4622D]">
+                                              {tx.booking_ref}
+                                            </span>
+                                            <span className="text-xs px-2 py-0.5 rounded-full bg-[#1E1E1E] text-[#A09890] border border-[#2A2A2A] capitalize">
+                                              {tx.booking_type === "class" ? "Cooking Class" : "Event"}
+                                            </span>
+                                          </div>
+                                          <p className="text-xs text-[#666] pl-5">
+                                            on {formatDateTime(tx.applied_at)}
+                                          </p>
+                                          {tx.notes && (
+                                            <p className="text-xs text-[#555] mt-0.5 pl-5">{tx.notes}</p>
+                                          )}
+                                        </div>
+                                        <div className="flex items-center gap-4 shrink-0">
+                                          <div className="text-right">
+                                            <p className="text-xs text-[#666]">Applied</p>
+                                            <p className="text-sm font-semibold text-red-400">
+                                              -{formatCurrency(tx.amount_applied)}
+                                            </p>
+                                          </div>
+                                          <div className="text-right">
+                                            <p className="text-xs text-[#666]">Balance After</p>
+                                            <p className="text-sm font-semibold text-[#A09890]">
+                                              {formatCurrency(tx.balance_after)}
+                                            </p>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    ))}
                                   </div>
                                 )}
                               </div>
@@ -538,49 +542,88 @@ export default function BookingQueryPage() {
 
                             {isExpanded && (
                               <div className="border-t border-[#1E1E1E] px-5 md:px-6 py-5">
+                                {/* Credit Summary */}
                                 <h4 className="text-xs font-semibold text-[#555] uppercase tracking-wider mb-3">
-                                  Usage History
+                                  Credit Summary
                                 </h4>
-                                {credit.transactions.length > 0 ? (
-                                  <div className="space-y-2">
-                                    {credit.transactions.map((tx) => (
-                                      <div
-                                        key={tx.id}
-                                        className="bg-[#0F0F0F] rounded-xl px-4 py-3 flex flex-col md:flex-row md:items-center gap-2 md:gap-4"
-                                      >
-                                        <div className="flex-1 min-w-0">
-                                          <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                                            <span className="text-xs font-mono font-semibold text-[#666]">
-                                              {tx.booking_ref}
-                                            </span>
-                                            <span className="text-xs px-2 py-0.5 rounded-full bg-[#1A1A1A] text-[#555] border border-[#222] capitalize">
-                                              {tx.booking_type === "class" ? "Cooking Class" : "Event"}
-                                            </span>
-                                          </div>
-                                          <p className="text-xs text-[#555]">
-                                            Applied on {formatDateTime(tx.applied_at)}
+                                <div className="bg-[#0F0F0F] rounded-xl p-4 mb-5 grid grid-cols-2 md:grid-cols-3 gap-4">
+                                  <div>
+                                    <p className="text-xs text-[#555] mb-1">Total Issued</p>
+                                    <p className="text-sm font-semibold text-[#A09890]">{formatCurrency(credit.total_issued)}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-[#555] mb-1">Total Used</p>
+                                    <p className="text-sm font-semibold text-[#A09890]">{formatCurrency(credit.total_used)}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-[#555] mb-1">Remaining</p>
+                                    <p className="text-sm font-semibold text-[#666]">{formatCurrency(credit.remaining_balance)}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-[#555] mb-1">Issued On</p>
+                                    <p className="text-sm text-[#666]">{formatDateTime(credit.issued_at)}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-[#555] mb-1">Original Booking</p>
+                                    <p className="text-sm font-mono text-[#666]">{credit.original_booking_ref}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-[#555] mb-1">Booking Type</p>
+                                    <p className="text-sm text-[#666] capitalize">
+                                      {credit.booking_type === "class" ? "Cooking Class" : "Event"}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                {/* Status Outcome + Usage Details */}
+                                <div className="space-y-2">
+                                  <div className="bg-[#0F0F0F] rounded-xl px-4 py-3 flex items-center gap-2">
+                                    <AppIcon name="CheckCircleIcon" size={14} className="text-green-400 shrink-0" />
+                                    <p className="text-xs text-[#A09890]">
+                                      This credit has been fully applied — {formatCurrency(credit.total_used)} used
+                                      {credit.remaining_balance > 0 ? `, R ${credit.remaining_balance.toFixed(2)} remaining.` : ", balance fully used."}
+                                    </p>
+                                  </div>
+                                  {credit.transactions.map((tx) => (
+                                    <div
+                                      key={tx.id}
+                                      className="bg-[#0F0F0F] rounded-xl px-4 py-3 flex flex-col md:flex-row md:items-center gap-2 md:gap-4"
+                                    >
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                                          <AppIcon name="ArrowRightCircleIcon" size={13} className="text-amber-400 shrink-0" />
+                                          <span className="text-xs text-[#A09890]">Applied against</span>
+                                          <span className="text-xs font-mono font-semibold text-[#C4622D]">
+                                            {tx.booking_ref}
+                                          </span>
+                                          <span className="text-xs px-2 py-0.5 rounded-full bg-[#1E1E1E] text-[#A09890] border border-[#2A2A2A] capitalize">
+                                            {tx.booking_type === "class" ? "Cooking Class" : "Event"}
+                                          </span>
+                                        </div>
+                                        <p className="text-xs text-[#555] pl-5">
+                                          on {formatDateTime(tx.applied_at)}
+                                        </p>
+                                        {tx.notes && (
+                                          <p className="text-xs text-[#555] mt-0.5 pl-5">{tx.notes}</p>
+                                        )}
+                                      </div>
+                                      <div className="flex items-center gap-4 shrink-0">
+                                        <div className="text-right">
+                                          <p className="text-xs text-[#555]">Applied</p>
+                                          <p className="text-sm font-semibold text-[#666]">
+                                            -{formatCurrency(tx.amount_applied)}
                                           </p>
                                         </div>
-                                        <div className="flex items-center gap-4 shrink-0">
-                                          <div className="text-right">
-                                            <p className="text-xs text-[#555]">Applied</p>
-                                            <p className="text-sm font-semibold text-[#666]">
-                                              -{formatCurrency(tx.amount_applied)}
-                                            </p>
-                                          </div>
-                                          <div className="text-right">
-                                            <p className="text-xs text-[#555]">Balance After</p>
-                                            <p className="text-sm font-semibold text-[#555]">
-                                              {formatCurrency(tx.balance_after)}
-                                            </p>
-                                          </div>
+                                        <div className="text-right">
+                                          <p className="text-xs text-[#555]">Balance After</p>
+                                          <p className="text-sm font-semibold text-[#555]">
+                                            {formatCurrency(tx.balance_after)}
+                                          </p>
                                         </div>
                                       </div>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <p className="text-xs text-[#555]">No transaction records found.</p>
-                                )}
+                                    </div>
+                                  ))}
+                                </div>
                               </div>
                             )}
                           </div>
