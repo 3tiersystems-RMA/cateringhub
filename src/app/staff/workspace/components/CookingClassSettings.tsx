@@ -1161,7 +1161,7 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
 
           {/* ── Events Management ── */}
           <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5">
-            <h3 className="text-base font-semibold text-[#1A1612] mb-1">Events</h3>
+            <h3 className="text-base font-semibold text-[#1A1612] mb-1">Classes</h3>
             <p className="text-xs text-[#8C8278] mb-4">Add the events that will appear on the registration form (e.g. Kids Event, Adults Event, Leadership Workshop).</p>
 
             {events.length > 0 && (
