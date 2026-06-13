@@ -270,7 +270,9 @@ export async function GET(req: NextRequest) {
     ...ccRegs.map((r) => {
       const creditApplied = r.registration_code ? (creditAppliedMap[r.registration_code] || 0) : 0;
       const rawAmount = r.amount != null ? Number(r.amount) : null;
-      const effectiveAmount = rawAmount != null ? Math.max(0, rawAmount - creditApplied) : null;
+      // NOTE: rawAmount already reflects the post-credit amount stored in the DB.
+      // credit_applied is shown as informational context only — do NOT subtract again.
+      const effectiveAmount = rawAmount;
       return {
         ...r,
         type: "cooking_class" as const,
@@ -282,7 +284,9 @@ export async function GET(req: NextRequest) {
     ...emRegs.map((r) => {
       const creditApplied = r.registration_code ? (creditAppliedMap[r.registration_code] || 0) : 0;
       const rawAmount = r.amount != null ? Number(r.amount) : null;
-      const effectiveAmount = rawAmount != null ? Math.max(0, rawAmount - creditApplied) : null;
+      // NOTE: rawAmount already reflects the post-credit amount stored in the DB.
+      // credit_applied is shown as informational context only — do NOT subtract again.
+      const effectiveAmount = rawAmount;
       return {
         ...r,
         type: "event" as const,
