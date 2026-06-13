@@ -43,7 +43,7 @@ serve(async (req) => {
     const hasValue = (v: unknown): v is string =>
       typeof v === "string" && v.trim().length > 0;
 
-    const brandName = hasValue(formHeaderTitle) ? formHeaderTitle : "Cardamom Kitchen";
+    const brandName = "Cardamom Kitchen";
     const bookingRef = registrationCode || (registrationId ? String(registrationId).slice(0, 8).toUpperCase() : "—");
 
     const formatCurrency = (val: unknown): string => {
@@ -361,7 +361,7 @@ ${participantsArray
     const customerPayload = {
       from: RESEND_FROM_EMAIL,
       to: [customerEmail],
-      subject: `Event Booking Confirmed — Ref: ${bookingRef} | ${brandName}`,
+      subject: `Event Booking Confirmed — Ref: ${bookingRef} | Cardamom Kitchen`,
       html: emailHtml,
     };
 
@@ -385,7 +385,7 @@ ${participantsArray
       : [];
 
     if (adminEmailList.length > 0) {
-      const adminSubject = `Event Booking Confirmed — ${hasValue(fullName) ? fullName : customerEmail} | Ref: ${bookingRef}`;
+      const adminSubject = `Event Booking Confirmed — ${hasValue(fullName) ? fullName : customerEmail} | Ref: ${bookingRef} | Cardamom Kitchen`;
       const adminPayload = {
         from: RESEND_FROM_EMAIL,
         to: adminEmailList,
