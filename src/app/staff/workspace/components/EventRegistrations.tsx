@@ -616,7 +616,7 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
     </head><body>
     <div class="header"><div class="header-left"><h1>Participant Bookings</h1><p>Event: ${eventLabel}</p></div><div style="text-align:right;font-size:11px;color:#8c7b6b">Generated: ${generatedAt}</div></div>
     <div class="meta"><div class="meta-item"><div class="label">Total Participants</div><div class="value">${rows.length}</div></div><div class="meta-item"><div class="label">Event Filter</div><div class="value" style="font-size:12px;color:#5c5347">${eventLabel}</div></div></div>
-    <table><thead><tr><th>#</th><th>Event</th><th>Date &amp; Time</th><th>Full Name</th><th>Date of Birth</th><th>Age</th><th>Gender</th><th>Allergies</th></tr></thead><tbody>${tableRows}</tbody></table>
+    <table><thead><tr><th>#</th><th>Class</th><th>Date &amp; Time</th><th>Full Name</th><th>Date of Birth</th><th>Age</th><th>Gender</th><th>Allergies</th></tr></thead><tbody>${tableRows}</tbody></table>
     <div class="footer">Cardamom Kitchen — Event Bookings · Participant Bookings Report</div>
     <script>window.onload=function(){window.print();}<\/script></body></html>`;
     const w = window.open('', '_blank', 'width=1100,height=700');
@@ -658,7 +658,7 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
   };
 
   const filterTabConfig: { key: FilterTab; label: string; icon: string }[] = [
-    { key: 'event', label: 'By Event', icon: '\uD83C\uDF9F' },
+    { key: 'event', label: 'By Class', icon: '\uD83C\uDF9F' },
     { key: 'registrant', label: 'By Registrant', icon: '👤' },
     { key: 'venue', label: 'By Venue Location', icon: '📍' },
     { key: 'sessions_booked', label: 'Registrant Bookings', icon: '📅' },
@@ -813,13 +813,13 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
           ) : (
             <>
               <div className="px-5 py-3 bg-[#FAF5EE] border-b border-[#E8DDD0] flex items-center gap-3 flex-wrap">
-                <label className="text-sm font-medium text-[#5C5347] whitespace-nowrap">Filter by Event:</label>
+                <label className="text-sm font-medium text-[#5C5347] whitespace-nowrap">Filter by Class:</label>
                 <select
                   value={participantEventFilter}
                   onChange={e => { setParticipantEventFilter(e.target.value); setParticipantSortKey(null); setParticipantSortDir('asc'); }}
                   className="flex-1 max-w-xs px-3 py-1.5 text-sm border border-[#E8DDD0] rounded-lg bg-white text-[#2C2420] focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30"
                 >
-                  <option value="all">All Events</option>
+                  <option value="all">All Classes</option>
                   {eventOptions.map(ev => <option key={ev} value={ev}>{ev}</option>)}
                 </select>
                 {participantEventFilter !== 'all' && (
@@ -963,7 +963,7 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
                       <thead>
                         <tr className="bg-[#F5EFE8] text-[#5C5347] text-xs uppercase tracking-wide">
                           <th className="px-4 py-3 text-left font-semibold">#</th>
-                          <th className="px-4 py-3 text-left font-semibold">Event</th>
+                          <th className="px-4 py-3 text-left font-semibold">Class</th>
                           <th className="px-4 py-3 text-left font-semibold cursor-pointer select-none hover:text-[#C4622D]" onClick={() => handleLocationParticipantSort('datetime')}>
                             Date &amp; Time <SortIcon col="datetime" sortKey={locationParticipantSortKey} sortDir={locationParticipantSortDir} />
                           </th>
@@ -1034,13 +1034,13 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
             <div className="px-5 py-3 bg-[#FAF5EE] border-b border-[#E8DDD0]">
               {filterTab === 'event' && (
                 <div className="flex items-center gap-3">
-                  <label className="text-sm font-medium text-[#5C5347] whitespace-nowrap">Filter by Event:</label>
+                  <label className="text-sm font-medium text-[#5C5347] whitespace-nowrap">Filter by Class:</label>
                   <select
                     value={selectedEvent}
                     onChange={e => setSelectedEvent(e.target.value)}
                     className="flex-1 max-w-xs px-3 py-1.5 text-sm border border-[#E8DDD0] rounded-lg bg-white text-[#2C2420] focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30"
                   >
-                    <option value="all">All Events</option>
+                    <option value="all">All Classes</option>
                     {eventOptions.map(ev => <option key={ev} value={ev}>{ev}</option>)}
                   </select>
                   {selectedEvent !== 'all' && (
@@ -1097,7 +1097,7 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
                     <tr className="bg-[#F5EFE8] text-[#5C5347] text-xs uppercase tracking-wide">
                       <th className="px-4 py-3 text-left font-semibold">Registrant</th>
                       <th className="px-4 py-3 text-left font-semibold">Contact</th>
-                      <th className="px-4 py-3 text-left font-semibold">Event</th>
+                      <th className="px-4 py-3 text-left font-semibold">Class</th>
                       <th className="px-4 py-3 text-left font-semibold">Venue</th>
                       <th className="px-4 py-3 text-left font-semibold">Date(s)</th>
                       <th className="px-4 py-3 text-left font-semibold">Payment</th>
@@ -1342,7 +1342,7 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
                                         <table className="w-full text-xs">
                                           <thead>
                                             <tr className="bg-[#F5EFE8] text-[#5C5347]">
-                                              <th className="px-3 py-2 text-left font-semibold">Event</th>
+                                              <th className="px-3 py-2 text-left font-semibold">Class</th>
                                               <th className="px-3 py-2 text-left font-semibold">Date</th>
                                               <th className="px-3 py-2 text-left font-semibold">Time</th>
                                               <th className="px-3 py-2 text-left font-semibold">Venue</th>
