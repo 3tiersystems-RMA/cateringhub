@@ -36,6 +36,7 @@ interface ClassEvent {
   name: string;
   sort_order: number;
   is_active: boolean;
+  instructor?: string | null;
 }
 
 interface SessionStatus {
@@ -55,6 +56,7 @@ interface EventDateRow {
   seating: number;
   status_id: string;
   class_fee: string;
+  child_fee: string;
 }
 
 interface CookingClassSettingsProps {
@@ -82,6 +84,7 @@ const EMPTY_DATE_ROW = (eventId = '', sortOrder = 0): Omit<EventDateRow, 'id'> =
   seating: 0,
   status_id: '',
   class_fee: '',
+  child_fee: '',
 });
 
 export default function CookingClassSettings({ isSuperAdmin = false, readOnly = false, isAdminOrAbove = false }: CookingClassSettingsProps) {
@@ -107,6 +110,10 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
   const [eventMsg, setEventMsg] = useState('');
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
   const [editingEventName, setEditingEventName] = useState('');
+  // Instructor (optional provision) — per-event drafts + save state
+  const [instructorDrafts, setInstructorDrafts] = useState<Record<string, string>>({});
+  const [savingInstructor, setSavingInstructor] = useState<Record<string, boolean>>({});
+  const [instructorMsg, setInstructorMsg] = useState<Record<string, string>>({});
 
   // Session statuses management
   const [sessionStatuses, setSessionStatuses] = useState<SessionStatus[]>([]);
@@ -227,6 +234,7 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
         seating: r.seating || 0,
         status_id: r.status_id || '',
         class_fee: r.class_fee != null ? String(r.class_fee) : '',
+        child_fee: r.child_fee != null ? String(r.child_fee) : '',
       }));
       setGeneralDateRows(filledGeneral);
 
@@ -246,6 +254,7 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
           seating: r.seating || 0,
           status_id: r.status_id || '',
           class_fee: r.class_fee != null ? String(r.class_fee) : '',
+          child_fee: r.child_fee != null ? String(r.child_fee) : '',
         });
       });
       setEventDateRows(perEventMap);
@@ -500,6 +509,43 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
     });
   }
 
+  // Insert session rows; if the optional `child_fee` column hasn't been migrated
+  // yet, gracefully retry without it so saving never breaks.
+  async function insertDateRows(rows: Record<string, unknown>[]) {
+    const { error } = await supabase.from('cooking_class_event_dates').insert(rows);
+    if (error && /child_fee/i.test(error.message || '')) {
+      const stripped = rows.map(({ child_fee, ...rest }) => rest);
+      const retry = await supabase.from('cooking_class_event_dates').insert(stripped);
+      if (retry.error) throw retry.error;
+      return;
+    }
+    if (error) throw error;
+  }
+
+  async function handleSaveInstructor(eventId: string) {
+    if (readOnly) return;
+    const value = (instructorDrafts[eventId] ?? '').trim();
+    setSavingInstructor(prev => ({ ...prev, [eventId]: true }));
+    setInstructorMsg(prev => ({ ...prev, [eventId]: '' }));
+    try {
+      const { error } = await supabase
+        .from('cooking_class_events')
+        .update({ instructor: value || null })
+        .eq('id', eventId);
+      if (error) throw error;
+      setInstructorMsg(prev => ({ ...prev, [eventId]: 'Instructor saved!' }));
+      await loadEvents();
+    } catch (err: any) {
+      const raw = err?.message || '';
+      const msg = /instructor|column/i.test(raw)
+        ? 'Run the new migration to enable the Instructor field.'
+        : (raw || 'Failed to save instructor');
+      setInstructorMsg(prev => ({ ...prev, [eventId]: msg }));
+    } finally {
+      setSavingInstructor(prev => ({ ...prev, [eventId]: false }));
+    }
+  }
+
   async function handleSaveGeneralDates() {
     if (readOnly) return;
     setSavingGeneralDates(true);
@@ -520,11 +566,11 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
           seating: r.seating || 0,
           status_id: r.status_id || null,
           class_fee: r.class_fee !== '' ? parseFloat(r.class_fee) : null,
+          child_fee: r.child_fee !== '' ? parseFloat(r.child_fee) : null,
         }));
 
       if (rowsToInsert.length > 0) {
-        const { error } = await supabase.from('cooking_class_event_dates').insert(rowsToInsert);
-        if (error) throw error;
+        await insertDateRows(rowsToInsert);
       }
 
       setGeneralDatesMsg('Event dates saved!');
@@ -557,11 +603,11 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
           seating: r.seating || 0,
           status_id: r.status_id || null,
           class_fee: r.class_fee !== '' ? parseFloat(r.class_fee) : null,
+          child_fee: r.child_fee !== '' ? parseFloat(r.child_fee) : null,
         }));
 
       if (rowsToInsert.length > 0) {
-        const { error } = await supabase.from('cooking_class_event_dates').insert(rowsToInsert);
-        if (error) throw error;
+        await insertDateRows(rowsToInsert);
       }
 
       setEventDatesMsg(prev => ({ ...prev, [eventId]: 'Session dates saved!' }));
@@ -714,7 +760,7 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
               </select>
             </div>
             <div>
-              <label className="block text-xs text-[#8C8278] mb-1">Class Fee (ZAR)</label>
+              <label className="block text-xs text-[#8C8278] mb-1">Class / Adult Fee (ZAR)</label>
               <div className="flex items-center gap-1">
                 <span className="text-xs font-semibold text-[#5C5347]">R</span>
                 <input
@@ -727,6 +773,24 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
                   className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
                 />
               </div>
+            </div>
+          </div>
+          {/* Child fee — only applies to MIXED classes (name contains "Mixed"). */}
+          <div className="mt-2">
+            <label className="block text-xs text-[#8C8278] mb-1">
+              Child Fee (ZAR) <span className="text-[#B0A89C]">— Mixed classes only; blank = same as Adult fee</span>
+            </label>
+            <div className="flex items-center gap-1 max-w-[160px]">
+              <span className="text-xs font-semibold text-[#5C5347]">R</span>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={row.child_fee || ''}
+                onChange={e => onChange('child_fee', e.target.value)}
+                placeholder="0.00"
+                className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+              />
             </div>
           </div>
         </div>
@@ -1117,6 +1181,33 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
                 {/* Event block body — collapsible */}
                 {!isBlockCollapsed && (
                   <div className="px-5 pb-5">
+                    {/* Instructor / Chef — optional provision, shown on the public class card */}
+                    <div className="mb-4">
+                      <label className="block text-xs font-semibold text-[#5C5347] mb-1">
+                        Instructor / Chef <span className="text-[#B0A89C] font-normal">— optional, shown on the class card</span>
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={instructorDrafts[ev.id] ?? ev.instructor ?? ''}
+                          onChange={e => setInstructorDrafts(prev => ({ ...prev, [ev.id]: e.target.value }))}
+                          placeholder="e.g. Chef Nisreen"
+                          disabled={readOnly}
+                          className="flex-1 border border-[#DDD5C8] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white disabled:bg-gray-50"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleSaveInstructor(ev.id)}
+                          disabled={readOnly || !!savingInstructor[ev.id]}
+                          className="bg-[#C4622D] text-white px-3 py-2 rounded-lg text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
+                        >
+                          {savingInstructor[ev.id] ? 'Saving...' : 'Save'}
+                        </button>
+                      </div>
+                      {instructorMsg[ev.id] && (
+                        <p className={`text-xs mt-1 ${/Failed|migration/i.test(instructorMsg[ev.id]) ? 'text-red-500' : 'text-green-600'}`}>{instructorMsg[ev.id]}</p>
+                      )}
+                    </div>
                     <div className="space-y-3">
                       {(eventDateRows[ev.id] || [{ ...EMPTY_DATE_ROW(ev.id, 0) }]).map((row, i) =>
                         renderSessionCard(row, i, (field, value) => updateEventDateRow(ev.id, i, field, value), i > 0 ? () => removeEventSession(ev.id, i) : undefined)

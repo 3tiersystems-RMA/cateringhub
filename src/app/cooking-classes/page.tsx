@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { usePaymentSettings } from '@/hooks/usePaymentSettings';
@@ -84,6 +84,7 @@ interface ClassEvent {
   name: string;
   sort_order: number;
   is_active: boolean;
+  instructor?: string | null;
 }
 
 interface SessionStatus {
@@ -102,6 +103,7 @@ interface EventDateRow {
   seating: number | null;
   status_id: string | null;
   class_fee: number | null;
+  child_fee: number | null;
 }
 
 interface BookingCount {
@@ -174,6 +176,8 @@ export default function CookingClassesPage() {
   const [eventDates, setEventDates] = useState<EventDateRow[]>([]);
   const [sessionStatuses, setSessionStatuses] = useState<SessionStatus[]>([]);
   const [bookingCounts, setBookingCounts] = useState<BookingCount[]>([]);
+  // Guards the one-shot deep-link preselect (from the /events "Register Now" link).
+  const preselectApplied = useRef(false);
 
   // Collapsible states
   const [importantInfoOpen, setImportantInfoOpen] = useState(false);
@@ -248,12 +252,58 @@ export default function CookingClassesPage() {
   name.toLowerCase().includes('adult')
   );
 
+  // ── Derived: is this a MIXED class? (guardian/adult attends WITH children) ───
+  // Detected by name convention "...(Mixed)" — keeps consistency with the
+  // existing "Adult"/"Kids" name-based detection. A mixed class uses the kids
+  // flow (children captured with indemnity) PLUS the guardian is charged an
+  // adult fee. So costing = adult/guardian fee (once) + child fee × children.
+  const isMixedEvent = page1.selectedEvents.some((name) =>
+  name.toLowerCase().includes('mixed')
+  );
+
+  // Instructor name of the selected class (provision — shown if captured).
+  const selectedInstructor = (() => {
+    const ev = classEvents.find((e) => page1.selectedEvents.includes(e.name));
+    return ev?.instructor && ev.instructor.trim() ? ev.instructor.trim() : null;
+  })();
+
   useEffect(() => {
     loadSettings();
     loadClassEvents();
     loadEventDates();
     loadSessionStatuses();
   }, []);
+
+  // Deep-link preselect: /cooking-classes?eventId=<classEventId>&sessionId=<dateId>
+  // Mirrors the Events booking form so "Register Now" on the /events page lands here
+  // with the class (and a valid date, when supplied) already selected.
+  useEffect(() => {
+    if (preselectApplied.current || typeof window === 'undefined') return;
+    if (classEvents.length === 0 || eventDates.length === 0) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const eventId = params.get('eventId');
+    const sessionId = params.get('sessionId');
+    const eventNameParam = params.get('event');
+    if (!eventId && !eventNameParam) return;
+
+    let ce = eventId ? classEvents.find((e) => e.id === eventId) : undefined;
+    if (!ce && eventNameParam) ce = classEvents.find((e) => e.name === eventNameParam);
+    if (!ce) return;
+
+    const datesForEvent = eventDates.filter((row) => row.event_id === ce!.id);
+    let targetRow = sessionId ? datesForEvent.find((row) => row.id === sessionId) : undefined;
+    if (targetRow && !isDateSelectable(targetRow)) targetRow = undefined;
+
+    preselectApplied.current = true;
+
+    setPage1((prev) => ({
+      ...prev,
+      selectedEvents: [ce!.name],
+      selectedDates: targetRow ? [formatEventDate(targetRow)] : [],
+      selectedDateIds: targetRow ? [targetRow.id] : [],
+    }));
+  }, [classEvents, eventDates, sessionStatuses, bookingCounts]);
 
   // Auto-show popup when selected event has no dates
   useEffect(() => {
@@ -334,7 +384,8 @@ export default function CookingClassesPage() {
         filter((r: any) => r.event_date).
         map((r: any) => ({
           ...r,
-          class_fee: r.class_fee != null ? Number(r.class_fee) : null
+          class_fee: r.class_fee != null ? Number(r.class_fee) : null,
+          child_fee: r.child_fee != null ? Number(r.child_fee) : null
         })) as EventDateRow[];
         setEventDates(filtered);
         if (filtered.length > 0) {
@@ -464,6 +515,12 @@ export default function CookingClassesPage() {
     return settings?.class_fee || 0;
   }
 
+  /** MIXED classes only: per-child fee. Falls back to the adult/class fee when unset. */
+  function resolveChildFee(row?: EventDateRow): number {
+    if (row && row.child_fee != null && row.child_fee > 0) return row.child_fee;
+    return resolveClassFee(row);
+  }
+
   // (6) Get the class_fee from the selected session row (UUID), then selected event dates
   function getEventClassFee(): number {
     // ID-based lookup first (one-to-one with cooking_class_event_dates.id)
@@ -490,8 +547,12 @@ export default function CookingClassesPage() {
     return settings?.class_fee || 0;
   }
 
-  // Get per-session breakdown: one entry per selected date
-  function getSessionBreakdown(): {dateLabel: string;fee: number;participants: number;amount: number;}[] {
+  // Get per-session breakdown: one entry per selected date.
+  // For MIXED classes the amount = adult/guardian fee (once) + child fee × children.
+  function getSessionBreakdown(): {
+    dateLabel: string; fee: number; participants: number; amount: number;
+    isMixed: boolean; adultFee: number; childFee: number;
+  }[] {
     const count = getParticipantCount();
     if (page1.selectedDates.length === 0) return [];
     const filtered = getFilteredDates();
@@ -504,8 +565,14 @@ export default function CookingClassesPage() {
         // Legacy: label match scoped to selected event (avoids wrong row from another event)
         row = filtered.find((r) => formatEventDate(r) === dateLabel);
       }
-      const fee = resolveClassFee(row);
-      return { dateLabel, fee, participants: count, amount: fee * count };
+      const adultFee = resolveClassFee(row);
+      if (isMixedEvent) {
+        const childFee = resolveChildFee(row);
+        // Guardian/adult attends once; each child pays the child fee.
+        const amount = adultFee + childFee * count;
+        return { dateLabel, fee: adultFee, participants: count, amount, isMixed: true, adultFee, childFee };
+      }
+      return { dateLabel, fee: adultFee, participants: count, amount: adultFee * count, isMixed: false, adultFee, childFee: adultFee };
     });
   }
 
@@ -523,6 +590,7 @@ export default function CookingClassesPage() {
     }
     const fee = getEventClassFee();
     const count = getParticipantCount();
+    if (isMixedEvent && count > 0) return fee + fee * count; // guardian + children fallback
     return fee > 0 && count > 0 ? fee * count : 0;
   }
 
@@ -771,7 +839,6 @@ export default function CookingClassesPage() {
       last.dob !== '' &&
       last.gender !== '' &&
       last.dietaryRestrictions !== '' &&
-      last.skillLevel !== '' &&
       last.picturesTaken !== '' &&
       last.indemnityConsent === true);
 
@@ -2117,7 +2184,7 @@ export default function CookingClassesPage() {
               <p className="text-xs text-amber-600 mt-2 text-center">
                         {isAdultEvent ?
                 'Please complete all mandatory fields for the current participant (Full Name, Gender, Dietary Restrictions, Skill Level) before adding another participant.' :
-                'Please complete all mandatory fields for the current participant (Full Name, DOB, Gender, Dietary Restrictions, Skill Level, Photo Consent, and Indemnity Consent) before adding another participant.'}
+                'Please complete all mandatory fields for the current participant (Full Name, DOB, Gender, Dietary Restrictions, Photo Consent, and Indemnity Consent) before adding another participant.'}
                       </p>
               }
                   </div>
@@ -2241,7 +2308,9 @@ export default function CookingClassesPage() {
                             <div className="flex-1 min-w-0">
                               <span className="text-[#5C5347] font-medium block truncate">{session.dateLabel}</span>
                               <span className="text-xs text-[#8C8278]">
-                                {session.participants} participant{session.participants !== 1 ? 's' : ''} × R{session.fee.toFixed(2)}
+                                {session.isMixed
+                                  ? `Adult R${session.adultFee.toFixed(2)} + ${session.participants} child${session.participants !== 1 ? 'ren' : ''} × R${session.childFee.toFixed(2)}`
+                                  : `${session.participants} participant${session.participants !== 1 ? 's' : ''} × R${session.fee.toFixed(2)}`}
                               </span>
                             </div>
                             <span className="font-semibold text-[#1A1612] whitespace-nowrap">R{session.amount.toFixed(2)}</span>
@@ -2258,6 +2327,11 @@ export default function CookingClassesPage() {
                     </div> :
               breakdown.length === 1 ?
               // Single session
+              breakdown[0].isMixed ?
+              <p className="text-sm text-[#5C5347]">
+                      Adult/guardian <span className="font-semibold">R{breakdown[0].adultFee.toFixed(2)}</span> + {breakdown[0].participants} child{breakdown[0].participants !== 1 ? 'ren' : ''} × <span className="font-semibold">R{breakdown[0].childFee.toFixed(2)}</span> ={' '}
+                      <span className="font-bold text-[#C4622D] text-base">R{total.toFixed(2)}</span> due*
+                    </p> :
               <p className="text-sm text-[#5C5347]">
                       {breakdown[0].participants} participant{breakdown[0].participants !== 1 ? 's' : ''} × <span className="font-semibold">R{breakdown[0].fee.toFixed(2)}</span> per participant ={' '}
                       <span className="font-bold text-[#C4622D] text-base">R{total.toFixed(2)}</span> due*
@@ -2284,8 +2358,14 @@ export default function CookingClassesPage() {
               {page1.selectedEvents.length > 0 &&
             <p className="text-[#5C5347] mt-1">Events: {page1.selectedEvents.join(', ')}</p>
             }
+              {selectedInstructor &&
+            <p className="text-[#5C5347]">Instructor: {selectedInstructor}</p>
+            }
               {page1.selectedDates.length > 0 &&
             <p className="text-[#5C5347]">Dates: {page1.selectedDates.join(', ')}</p>
+            }
+              {isMixedEvent &&
+            <p className="text-[#8C6A3F] mt-1 text-xs">Mixed class — the guardian/adult attends together with the children listed. The adult is charged the class fee; each child is charged the child fee.</p>
             }
             </div>
 
