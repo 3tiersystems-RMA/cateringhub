@@ -37,6 +37,8 @@ interface ClassEvent {
   sort_order: number;
   is_active: boolean;
   instructor?: string | null;
+  image_url?: string | null;
+  image_path?: string | null;
 }
 
 interface SessionStatus {
@@ -57,6 +59,7 @@ interface EventDateRow {
   status_id: string;
   class_fee: string;
   child_fee: string;
+  session_name: string;
 }
 
 interface CookingClassSettingsProps {
@@ -85,6 +88,7 @@ const EMPTY_DATE_ROW = (eventId = '', sortOrder = 0): Omit<EventDateRow, 'id'> =
   status_id: '',
   class_fee: '',
   child_fee: '',
+  session_name: '',
 });
 
 export default function CookingClassSettings({ isSuperAdmin = false, readOnly = false, isAdminOrAbove = false }: CookingClassSettingsProps) {
@@ -148,6 +152,10 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
   // (2) Delete confirmation popup state
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // Per-event image upload state
+  const [uploadingEventImage, setUploadingEventImage] = useState<Record<string, boolean>>({});
+  const [eventImageMsg, setEventImageMsg] = useState<Record<string, string>>({});
 
   useEffect(() => {
     loadSettings();
@@ -235,6 +243,7 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
         status_id: r.status_id || '',
         class_fee: r.class_fee != null ? String(r.class_fee) : '',
         child_fee: r.child_fee != null ? String(r.child_fee) : '',
+        session_name: r.session_name || '',
       }));
       setGeneralDateRows(filledGeneral);
 
@@ -255,6 +264,7 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
           status_id: r.status_id || '',
           class_fee: r.class_fee != null ? String(r.class_fee) : '',
           child_fee: r.child_fee != null ? String(r.child_fee) : '',
+          session_name: r.session_name || '',
         });
       });
       setEventDateRows(perEventMap);
@@ -538,8 +548,7 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
     } catch (err: any) {
       const raw = err?.message || '';
       const msg = /instructor|column/i.test(raw)
-        ? 'Run the new migration to enable the Instructor field.'
-        : (raw || 'Failed to save instructor');
+        ? 'Run the new migration to enable the Instructor field.' : (raw ||'Failed to save instructor');
       setInstructorMsg(prev => ({ ...prev, [eventId]: msg }));
     } finally {
       setSavingInstructor(prev => ({ ...prev, [eventId]: false }));
@@ -567,6 +576,7 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
           status_id: r.status_id || null,
           class_fee: r.class_fee !== '' ? parseFloat(r.class_fee) : null,
           child_fee: r.child_fee !== '' ? parseFloat(r.child_fee) : null,
+          session_name: r.session_name || null,
         }));
 
       if (rowsToInsert.length > 0) {
@@ -604,6 +614,7 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
           status_id: r.status_id || null,
           class_fee: r.class_fee !== '' ? parseFloat(r.class_fee) : null,
           child_fee: r.child_fee !== '' ? parseFloat(r.child_fee) : null,
+          session_name: r.session_name || null,
         }));
 
       if (rowsToInsert.length > 0) {
@@ -616,6 +627,57 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
       setEventDatesMsg(prev => ({ ...prev, [eventId]: err?.message || 'Failed to save session dates' }));
     } finally {
       setSavingEventDates(prev => ({ ...prev, [eventId]: false }));
+    }
+  }
+
+  async function handleEventImageUpload(eventId: string, file: File) {
+    if (readOnly) return;
+    setUploadingEventImage(prev => ({ ...prev, [eventId]: true }));
+    setEventImageMsg(prev => ({ ...prev, [eventId]: '' }));
+    try {
+      const ext = file.name.split('.').pop();
+      const path = `class-event-${eventId}-${Date.now()}.${ext}`;
+      const { error: uploadErr } = await supabase.storage
+        .from('cooking-class-flyers')
+        .upload(path, file, { upsert: true });
+      if (uploadErr) throw uploadErr;
+      const { data: urlData } = supabase.storage.from('cooking-class-flyers').getPublicUrl(path);
+      const imageUrl = urlData?.publicUrl || '';
+      const { error: updateErr } = await supabase
+        .from('cooking_class_events')
+        .update({ image_url: imageUrl, image_path: path })
+        .eq('id', eventId);
+      if (updateErr) throw updateErr;
+      setEventImageMsg(prev => ({ ...prev, [eventId]: 'Image uploaded!' }));
+      await loadEvents();
+    } catch (err: any) {
+      setEventImageMsg(prev => ({ ...prev, [eventId]: err?.message || 'Upload failed' }));
+    } finally {
+      setUploadingEventImage(prev => ({ ...prev, [eventId]: false }));
+      setTimeout(() => setEventImageMsg(prev => ({ ...prev, [eventId]: '' })), 3000);
+    }
+  }
+
+  async function handleRemoveEventImage(eventId: string, imagePath: string | null | undefined) {
+    if (readOnly) return;
+    setUploadingEventImage(prev => ({ ...prev, [eventId]: true }));
+    setEventImageMsg(prev => ({ ...prev, [eventId]: '' }));
+    try {
+      if (imagePath) {
+        await supabase.storage.from('cooking-class-flyers').remove([imagePath]);
+      }
+      const { error } = await supabase
+        .from('cooking_class_events')
+        .update({ image_url: null, image_path: null })
+        .eq('id', eventId);
+      if (error) throw error;
+      setEventImageMsg(prev => ({ ...prev, [eventId]: 'Image removed' }));
+      await loadEvents();
+    } catch (err: any) {
+      setEventImageMsg(prev => ({ ...prev, [eventId]: err?.message || 'Remove failed' }));
+    } finally {
+      setUploadingEventImage(prev => ({ ...prev, [eventId]: false }));
+      setTimeout(() => setEventImageMsg(prev => ({ ...prev, [eventId]: '' })), 3000);
     }
   }
 
@@ -693,6 +755,17 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
 
         {/* Session body — always visible */}
         <div className="px-3 pb-3 pt-2">
+          {/* Session Name */}
+          <div className="mb-2">
+            <label className="block text-xs text-[#8C8278] mb-1">Session Name <span className="text-[#B0A89C] font-normal">— optional label for this session</span></label>
+            <input
+              type="text"
+              value={row.session_name || ''}
+              onChange={e => onChange('session_name', e.target.value)}
+              placeholder="e.g. Morning Session, Weekend Workshop..."
+              className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+            />
+          </div>
           <div className="grid grid-cols-2 gap-2 mb-2">
             <div>
               <label className="block text-xs text-[#8C8278] mb-1">Date</label>
@@ -1181,6 +1254,45 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
                 {/* Event block body — collapsible */}
                 {!isBlockCollapsed && (
                   <div className="px-5 pb-5">
+                    {/* Event Image */}
+                    <div className="mb-5 pb-5 border-b border-[#EDE7DA]">
+                      <h4 className="text-sm font-semibold text-[#1A1612] mb-3">Event Image</h4>
+                      {ev.image_url && (
+                        <div className="mb-3 rounded-xl overflow-hidden border border-[#EDE7DA] max-w-xs">
+                          <img src={ev.image_url} alt={`${ev.name} class image`} className="w-full max-h-40 object-contain" />
+                        </div>
+                      )}
+                      {!readOnly && (
+                        <div className="flex items-center gap-3 flex-wrap">
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <span className="bg-[#e9e0cf] border border-[#DDD5C8] text-[#5C5347] px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-[#EDE7DA] transition-colors">
+                              {uploadingEventImage[ev.id] ? 'Uploading…' : ev.image_url ? 'Replace Image' : 'Upload Image'}
+                            </span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              disabled={uploadingEventImage[ev.id]}
+                              onChange={e => { const f = e.target.files?.[0]; if (f) handleEventImageUpload(ev.id, f); e.target.value = ''; }}
+                              className="hidden"
+                            />
+                          </label>
+                          {ev.image_url && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveEventImage(ev.id, ev.image_path)}
+                              disabled={uploadingEventImage[ev.id]}
+                              className="text-xs text-red-500 hover:text-red-700 border border-red-200 hover:border-red-400 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+                            >
+                              Remove Image
+                            </button>
+                          )}
+                        </div>
+                      )}
+                      {eventImageMsg[ev.id] && (
+                        <p className={`text-xs mt-2 ${eventImageMsg[ev.id].includes('failed') || eventImageMsg[ev.id].includes('Failed') ? 'text-red-500' : 'text-green-600'}`}>{eventImageMsg[ev.id]}</p>
+                      )}
+                    </div>
+
                     {/* Instructor / Chef — optional provision, shown on the public class card */}
                     <div className="mb-4">
                       <label className="block text-xs font-semibold text-[#5C5347] mb-1">

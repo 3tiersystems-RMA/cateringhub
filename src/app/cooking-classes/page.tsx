@@ -15,6 +15,7 @@ interface FormPage1 {
   email: string;
   emailConfirm: string;
   cellphone: string;
+  whatsappNumber: string;
   selectedEvents: string[];
   selectedDates: string[];
   selectedDateIds: string[];
@@ -193,6 +194,7 @@ export default function CookingClassesPage() {
     email: '',
     emailConfirm: '',
     cellphone: '',
+    whatsappNumber: '',
     selectedEvents: [],
     selectedDates: [],
     selectedDateIds: []
@@ -613,6 +615,10 @@ export default function CookingClassesPage() {
     }
     const cellphoneError = validateSAMobileForPayFast(page1.cellphone);
     if (cellphoneError) errors.cellphone = cellphoneError;
+    // WhatsApp: optional but if provided must be a plausible international/local number
+    if (page1.whatsappNumber.trim() && !/^\+?[0-9\s\-()]{7,20}$/.test(page1.whatsappNumber.trim())) {
+      errors.whatsappNumber = 'Please enter a valid WhatsApp number (e.g. +27 82 123 4567)';
+    }
     if (page1.selectedEvents.length === 0) {
       errors.selectedEvents = 'Please select at least one event';
     }
@@ -1023,6 +1029,7 @@ export default function CookingClassesPage() {
             surname: page1.surname,
             email: page1.email,
             cellphone: page1.cellphone,
+            whatsapp_number: page1.whatsappNumber.trim() || null,
             selected_events: page1.selectedEvents,
             adult_class_dates: page1.selectedDates,
             relationship: page2.relationship,
@@ -1426,6 +1433,25 @@ export default function CookingClassesPage() {
               <p className="text-xs text-red-500 mt-1">{page1Errors.cellphone}</p> :
               <p className="text-xs text-[#8C8278] mt-1">Format: 0821234567 (required for PayFast)</p>
               }
+              </div>
+
+              {/* WhatsApp Number */}
+              <div className="mt-5">
+                <label className="block text-sm font-semibold text-[#1A1612] mb-2">
+                  WhatsApp Number <span className="text-[#8C8278] font-normal text-xs">(optional)</span>
+                </label>
+                <input
+                  type="tel"
+                  value={page1.whatsappNumber}
+                  onChange={(e) => setPage1((p) => ({ ...p, whatsappNumber: e.target.value }))}
+                  placeholder="+27 82 123 4567"
+                  className={`w-full max-w-xs border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] ${page1Errors.whatsappNumber ? 'border-red-400' : 'border-[#DDD5C8]'}`}
+                />
+                {page1Errors.whatsappNumber ? (
+                  <p className="text-xs text-red-500 mt-1">{page1Errors.whatsappNumber}</p>
+                ) : (
+                  <p className="text-xs text-[#8C8278] mt-1">Include country code for international numbers (e.g. +27 82 123 4567)</p>
+                )}
               </div>
             </div>
 

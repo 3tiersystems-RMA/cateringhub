@@ -19,6 +19,8 @@ interface MgmtEvent {
   name: string;
   sort_order: number;
   is_active: boolean;
+  image_url?: string | null;
+  image_path?: string | null;
 }
 
 interface SessionStatus {
@@ -38,6 +40,7 @@ interface EventDateRow {
   seating: number;
   status_id: string;
   event_fee: string;
+  session_name: string;
 }
 
 interface EventManagementSettingsProps {
@@ -58,6 +61,7 @@ const EMPTY_DATE_ROW = (eventId = '', sortOrder = 0): Omit<EventDateRow, 'id'> =
   seating: 0,
   status_id: '',
   event_fee: '',
+  session_name: '',
 });
 
 export default function EventManagementSettings({ isSuperAdmin = false, readOnly = false, isAdminOrAbove = false }: EventManagementSettingsProps) {
@@ -98,6 +102,10 @@ export default function EventManagementSettings({ isSuperAdmin = false, readOnly
 
   // Event Fee validation popup state
   const [feeValidationPopup, setFeeValidationPopup] = useState<{ visible: boolean; eventId: string | null }>({ visible: false, eventId: null });
+
+  // Per-event image upload state
+  const [uploadingEventImage, setUploadingEventImage] = useState<Record<string, boolean>>({});
+  const [eventImageMsg, setEventImageMsg] = useState<Record<string, string>>({});
 
   useEffect(() => {
     loadSettings();
@@ -157,6 +165,7 @@ export default function EventManagementSettings({ isSuperAdmin = false, readOnly
           seating: r.seating || 0,
           status_id: r.status_id || '',
           event_fee: r.event_fee != null ? String(r.event_fee) : '',
+          session_name: r.session_name || '',
         });
       });
       setEventDateRows(perEventMap);
@@ -385,7 +394,6 @@ export default function EventManagementSettings({ isSuperAdmin = false, readOnly
     try {
       const rows = eventDateRows[eventId] || [];
 
-      // Build the list of rows to save — only rows that have an event_date filled in
       const rowsToSave = rows
         .filter(r => r.event_date && r.event_date.trim() !== '')
         .map((r, i) => ({
@@ -399,10 +407,9 @@ export default function EventManagementSettings({ isSuperAdmin = false, readOnly
           seating: Number(r.seating) || 0,
           status_id: r.status_id || null,
           event_fee: r.event_fee !== '' ? Number(r.event_fee) : null,
+          session_name: r.session_name || null,
         }));
 
-      // Preserve session IDs where possible so linked marketing cards stay in sync.
-      // (Previously: delete all rows for this event and re-insert — that broke marketing links.)
       const keptIds = rowsToSave.filter(r => r.id).map(r => r.id as string);
       const { data: existingRows } = await supabase
         .from('event_management_event_dates')
@@ -433,6 +440,7 @@ export default function EventManagementSettings({ isSuperAdmin = false, readOnly
           seating: Number(r.seating) || 0,
           status_id: r.status_id || null,
           event_fee: r.event_fee,
+          session_name: r.session_name || null,
         };
 
         if (r.id) {
@@ -458,6 +466,57 @@ export default function EventManagementSettings({ isSuperAdmin = false, readOnly
     } finally {
       setSavingEventDates(prev => ({ ...prev, [eventId]: false }));
       setTimeout(() => setEventDatesMsg(prev => ({ ...prev, [eventId]: '' })), 3000);
+    }
+  }
+
+  async function handleEventImageUpload(eventId: string, file: File) {
+    if (readOnly) return;
+    setUploadingEventImage(prev => ({ ...prev, [eventId]: true }));
+    setEventImageMsg(prev => ({ ...prev, [eventId]: '' }));
+    try {
+      const ext = file.name.split('.').pop();
+      const path = `event-${eventId}-${Date.now()}.${ext}`;
+      const { error: uploadErr } = await supabase.storage
+        .from('cooking-class-flyers')
+        .upload(path, file, { upsert: true });
+      if (uploadErr) throw uploadErr;
+      const { data: urlData } = supabase.storage.from('cooking-class-flyers').getPublicUrl(path);
+      const imageUrl = urlData?.publicUrl || '';
+      const { error: updateErr } = await supabase
+        .from('event_management_events')
+        .update({ image_url: imageUrl, image_path: path })
+        .eq('id', eventId);
+      if (updateErr) throw updateErr;
+      setEventImageMsg(prev => ({ ...prev, [eventId]: 'Image uploaded!' }));
+      await loadEvents();
+    } catch (err: any) {
+      setEventImageMsg(prev => ({ ...prev, [eventId]: err?.message || 'Upload failed' }));
+    } finally {
+      setUploadingEventImage(prev => ({ ...prev, [eventId]: false }));
+      setTimeout(() => setEventImageMsg(prev => ({ ...prev, [eventId]: '' })), 3000);
+    }
+  }
+
+  async function handleRemoveEventImage(eventId: string, imagePath: string | null | undefined) {
+    if (readOnly) return;
+    setUploadingEventImage(prev => ({ ...prev, [eventId]: true }));
+    setEventImageMsg(prev => ({ ...prev, [eventId]: '' }));
+    try {
+      if (imagePath) {
+        await supabase.storage.from('cooking-class-flyers').remove([imagePath]);
+      }
+      const { error } = await supabase
+        .from('event_management_events')
+        .update({ image_url: null, image_path: null })
+        .eq('id', eventId);
+      if (error) throw error;
+      setEventImageMsg(prev => ({ ...prev, [eventId]: 'Image removed' }));
+      await loadEvents();
+    } catch (err: any) {
+      setEventImageMsg(prev => ({ ...prev, [eventId]: err?.message || 'Remove failed' }));
+    } finally {
+      setUploadingEventImage(prev => ({ ...prev, [eventId]: false }));
+      setTimeout(() => setEventImageMsg(prev => ({ ...prev, [eventId]: '' })), 3000);
     }
   }
 
@@ -489,6 +548,18 @@ export default function EventManagementSettings({ isSuperAdmin = false, readOnly
         </div>
         {/* Session body */}
         <div className="px-3 pb-3 pt-2">
+          {/* Session Name */}
+          <div className="mb-2">
+            <label className="block text-xs text-[#8C8278] mb-1">Session Name <span className="text-[#B0A89C] font-normal">— optional label for this session</span></label>
+            <input
+              type="text"
+              value={row.session_name || ''}
+              onChange={e => onChange('session_name', e.target.value)}
+              disabled={readOnly}
+              placeholder="e.g. Morning Session, Weekend Workshop..."
+              className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white disabled:bg-[#F5F0E8]"
+            />
+          </div>
           <div className="grid grid-cols-2 gap-2 mb-2">
             <div>
               <label className="block text-xs text-[#8C8278] mb-1">Date</label>
@@ -744,6 +815,45 @@ export default function EventManagementSettings({ isSuperAdmin = false, readOnly
             </button>
             {!isCollapsed && (
               <div className="p-5">
+                {/* Event Image */}
+                <div className="mb-5 pb-5 border-b border-[#EDE7DA]">
+                  <h4 className="text-sm font-semibold text-[#1A1612] mb-3">Event Image</h4>
+                  {ev.image_url && (
+                    <div className="mb-3 rounded-xl overflow-hidden border border-[#EDE7DA] max-w-xs">
+                      <img src={ev.image_url} alt={`${ev.name} event image`} className="w-full max-h-40 object-contain" />
+                    </div>
+                  )}
+                  {!readOnly && (
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <span className="bg-[#e9e0cf] border border-[#DDD5C8] text-[#5C5347] px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-[#EDE7DA] transition-colors">
+                          {uploadingEventImage[ev.id] ? 'Uploading…' : ev.image_url ? 'Replace Image' : 'Upload Image'}
+                        </span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          disabled={uploadingEventImage[ev.id]}
+                          onChange={e => { const f = e.target.files?.[0]; if (f) handleEventImageUpload(ev.id, f); e.target.value = ''; }}
+                          className="hidden"
+                        />
+                      </label>
+                      {ev.image_url && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveEventImage(ev.id, ev.image_path)}
+                          disabled={uploadingEventImage[ev.id]}
+                          className="text-xs text-red-500 hover:text-red-700 border border-red-200 hover:border-red-400 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+                        >
+                          Remove Image
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  {eventImageMsg[ev.id] && (
+                    <p className={`text-xs mt-2 ${eventImageMsg[ev.id].includes('failed') || eventImageMsg[ev.id].includes('Failed') ? 'text-red-500' : 'text-green-600'}`}>{eventImageMsg[ev.id]}</p>
+                  )}
+                </div>
+
                 <div className="space-y-3 mb-3">
                   {(rows.length > 0 ? rows : [{ ...EMPTY_DATE_ROW(ev.id, 0) }]).map((row, idx) =>
                     renderSessionCard(
@@ -756,7 +866,6 @@ export default function EventManagementSettings({ isSuperAdmin = false, readOnly
                 </div>
                 {!readOnly && (
                   <>
-                    {/* + Add another session — dashed button */}
                     <button
                       type="button"
                       onClick={() => addDateRow(ev.id)}
