@@ -1465,7 +1465,7 @@ export default function CookingClassesPage() {
             <p className="text-xs text-[#8C8278] italic">No events available at this time.</p> :
 
             <div className="space-y-2.5">
-                  {classEvents.map((ev) =>
+                  {classEvents.filter((ev) => !ev.name.toLowerCase().includes('adult')).map((ev) =>
               <label key={ev.id} className="flex items-center gap-3 cursor-pointer">
                       <input
                   type="radio"
