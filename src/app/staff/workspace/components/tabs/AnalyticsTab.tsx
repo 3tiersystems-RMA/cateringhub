@@ -29,6 +29,42 @@ export default function AnalyticsTab() {
   const [fulfillmentMetrics, setFulfillmentMetrics] = useState<FulfillmentMetric[]>([]);
   const [summaryMetrics, setSummaryMetrics] = useState<SummaryMetric[]>([]);
 
+  function getPeriodLabel(period: AnalyticsPeriod): string {
+    const now = new Date();
+    if (period === '7d') {
+      // Week number (ISO) and week-ending date (Sunday or today)
+      const day = now.getDay(); // 0=Sun, 1=Mon, ...
+      const diffToSunday = day === 0 ? 0 : 7 - day;
+      const weekEnd = new Date(now);
+      weekEnd.setDate(now.getDate() + diffToSunday);
+      // ISO week number
+      const jan4 = new Date(now.getFullYear(), 0, 4);
+      const startOfWeek1 = new Date(jan4);
+      startOfWeek1.setDate(jan4.getDate() - ((jan4.getDay() + 6) % 7));
+      const weekNum = Math.ceil(((now.getTime() - startOfWeek1.getTime()) / 86400000 + 1) / 7);
+      const dd = String(weekEnd.getDate()).padStart(2, '0');
+      const mm = String(weekEnd.getMonth() + 1).padStart(2, '0');
+      const yyyy = weekEnd.getFullYear();
+      return `Week ${weekNum}, ending ${dd}/${mm}/${yyyy}`;
+    }
+    if (period === '30d') {
+      const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+      const monthNum = now.getMonth() + 1;
+      const monthName = monthNames[now.getMonth()];
+      const year = now.getFullYear();
+      return `Month ${monthNum} – ${monthName} ${year}`;
+    }
+    if (period === '90d') {
+      const quarter = Math.ceil((now.getMonth() + 1) / 3);
+      const year = now.getFullYear();
+      return `Q${quarter} ${year}`;
+    }
+    if (period === '12m') {
+      return `${now.getFullYear()}`;
+    }
+    return '';
+  }
+
   const loadAnalytics = useCallback(async (p: AnalyticsPeriod) => {
     setAnalyticsLoading(true);
     setAnalyticsError('');
@@ -128,7 +164,14 @@ export default function AnalyticsTab() {
     <div className="p-6">
       <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h2 className="text-xl font-bold text-[#1A1612]">Analytics</h2>
+          <h2 className="text-xl font-bold text-[#1A1612]">
+            Analytics
+            {getPeriodLabel(analyticsPeriod) && (
+              <span className="ml-2 text-base font-medium text-[#C4622D]">
+                for ({getPeriodLabel(analyticsPeriod)})
+              </span>
+            )}
+          </h2>
           <p className="text-sm text-[#8C8278] mt-0.5">Order trends and performance metrics for the selected period</p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
