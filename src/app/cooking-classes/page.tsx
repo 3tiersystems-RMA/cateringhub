@@ -1322,7 +1322,8 @@ export default function CookingClassesPage() {
 
             {/* Guardian / Responsible Person Card */}
             <div className="mb-6 border border-[#DDD5C8] rounded-2xl p-5 bg-white shadow-sm">
-              <h2 className="text-lg font-semibold text-black mb-5">Guardian / Responsible Person</h2>
+              <h2 className="text-lg font-semibold text-black mb-1">Registrant Details</h2>
+              <p className="text-sm text-[#8C8278] mb-5">For children, this is the Guardian / Responsible Person</p>
 
               {/* Full Name */}
               <div className="mb-5">
