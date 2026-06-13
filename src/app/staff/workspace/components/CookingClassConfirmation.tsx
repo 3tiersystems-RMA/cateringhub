@@ -201,7 +201,7 @@ export default function CookingClassConfirmation({ userRole }: CookingClassConfi
           notes: previewReg.notes,
           sessionDates: previewReg.session_dates || [],
           participants: previewReg.participants || [],
-          formHeaderTitle: correspondenceSettings?.form_header_title || 'Cardamom Kitchen',
+          formHeaderTitle: 'Cardamom Kitchen',
           logoUrl: correspondenceSettings?.logo_url || null,
           adminEmails,
         }),
@@ -277,7 +277,7 @@ export default function CookingClassConfirmation({ userRole }: CookingClassConfi
 
   function EmailPreviewBody({ reg }: { reg: AwaitingRegistration }) {
     const fullName = `${reg.title ? reg.title + ' ' : ''}${reg.first_name} ${reg.surname}`;
-    const orgName = correspondenceSettings?.form_header_title || 'Cardamom Kitchen';
+    const orgName = 'Cardamom Kitchen';
 
     return (
       <div className="rounded-xl overflow-hidden border border-[#EDE7DA]">
