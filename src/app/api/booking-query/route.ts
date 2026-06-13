@@ -245,21 +245,55 @@ export async function GET(req: NextRequest) {
     ),
   ]);
 
+  // Collect all registration codes to look up credit transactions applied against them
+  const allRegs = [...ccRegs, ...emRegs];
+  const allRegCodes = allRegs
+    .map((r) => r.registration_code)
+    .filter((code): code is string => !!code);
+
+  // Build a map: registration_code -> total credit amount applied
+  const creditAppliedMap: Record<string, number> = {};
+  if (allRegCodes.length > 0) {
+    const { data: txRows } = await supabase
+      .from("customer_credit_transactions")
+      .select("booking_ref, amount_applied")
+      .in("booking_ref", allRegCodes);
+
+    if (txRows && txRows.length > 0) {
+      for (const tx of txRows as { booking_ref: string; amount_applied: number }[]) {
+        creditAppliedMap[tx.booking_ref] = (creditAppliedMap[tx.booking_ref] || 0) + Number(tx.amount_applied);
+      }
+    }
+  }
+
   const bookings = [
-    ...ccRegs.map((r) => ({
-      ...r,
-      type: "cooking_class" as const,
-      session_dates: ccDates.get(r.id) || [],
-    })),
-    ...emRegs.map((r) => ({
-      ...r,
-      type: "event" as const,
-      session_dates: emDates.get(r.id) || [],
-    })),
+    ...ccRegs.map((r) => {
+      const creditApplied = r.registration_code ? (creditAppliedMap[r.registration_code] || 0) : 0;
+      const rawAmount = r.amount != null ? Number(r.amount) : null;
+      const effectiveAmount = rawAmount != null ? Math.max(0, rawAmount - creditApplied) : null;
+      return {
+        ...r,
+        type: "cooking_class" as const,
+        session_dates: ccDates.get(r.id) || [],
+        credit_applied: creditApplied > 0 ? creditApplied : null,
+        effective_amount: effectiveAmount,
+      };
+    }),
+    ...emRegs.map((r) => {
+      const creditApplied = r.registration_code ? (creditAppliedMap[r.registration_code] || 0) : 0;
+      const rawAmount = r.amount != null ? Number(r.amount) : null;
+      const effectiveAmount = rawAmount != null ? Math.max(0, rawAmount - creditApplied) : null;
+      return {
+        ...r,
+        type: "event" as const,
+        session_dates: emDates.get(r.id) || [],
+        credit_applied: creditApplied > 0 ? creditApplied : null,
+        effective_amount: effectiveAmount,
+      };
+    }),
   ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
   // Collect unique emails from results to fetch credits
-  const allRegs = [...ccRegs, ...emRegs];
   let credits: CustomerCredit[] = [];
 
   if (allRegs.length > 0) {

@@ -33,6 +33,8 @@ interface BookingResult {
   payment_status: PaymentStatus;
   payment_method: string;
   amount: number | null;
+  effective_amount: number | null;
+  credit_applied: number | null;
   created_at: string;
   selected_events: string[];
   session_dates: SessionDate[];
@@ -700,9 +702,17 @@ export default function BookingQueryPage() {
                             {/* Right: Amount + Expand */}
                             <div className="flex items-center gap-3">
                               {booking.amount != null && (
-                                <span className="text-lg font-bold text-white">
-                                  {formatCurrency(booking.amount)}
-                                </span>
+                                <div className="flex flex-col items-end gap-0.5">
+                                  <span className="text-lg font-bold text-white">
+                                    {formatCurrency(booking.effective_amount ?? booking.amount)}
+                                  </span>
+                                  {booking.credit_applied != null && booking.credit_applied > 0 && (
+                                    <span className="text-xs text-green-400 flex items-center gap-1">
+                                      <AppIcon name="CheckCircleIcon" size={11} />
+                                      Credit -{formatCurrency(booking.credit_applied)}
+                                    </span>
+                                  )}
+                                </div>
                               )}
                               <button
                                 onClick={() => setExpandedId(isExpanded ? null : booking.id)}
