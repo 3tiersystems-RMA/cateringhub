@@ -20,7 +20,7 @@ interface CorrespondenceSettingsData {
 }
 
 const defaultSettings: Omit<CorrespondenceSettingsData, 'id'> = {
-  form_header_title: 'Cardamom Catering',
+  form_header_title: 'Cardamom Kitchen',
   logo_url: null,
   terms_and_conditions: null,
   sales_representative: null,
@@ -67,7 +67,7 @@ export default function CorrespondenceSettings({ readOnly = false }: { readOnly?
     } else if (data) {
       setSettingsId(data.id);
       setForm({
-        form_header_title: data.form_header_title || 'Cardamom Catering',
+        form_header_title: data.form_header_title || 'Cardamom Kitchen',
         logo_url: data.logo_url || null,
         terms_and_conditions: data.terms_and_conditions || null,
         sales_representative: data.sales_representative || null,
@@ -147,7 +147,7 @@ export default function CorrespondenceSettings({ readOnly = false }: { readOnly?
     setSaveSuccess(false);
 
     const payload = {
-      form_header_title: form.form_header_title || 'Cardamom Catering',
+      form_header_title: form.form_header_title || 'Cardamom Kitchen',
       logo_url: form.logo_url || null,
       terms_and_conditions: form.terms_and_conditions || null,
       sales_representative: form.sales_representative || null,
