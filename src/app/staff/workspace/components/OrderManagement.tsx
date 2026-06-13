@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal';
 
 interface OrderItem {
   id: string;
@@ -71,6 +72,7 @@ interface OrderManagementProps {
 export default function OrderManagement({ userRole = '' }: OrderManagementProps) {
   const supabase = createClient();
   const canConfirmPayment = userRole === 'admin' || userRole === 'super_admin';
+  const isSuperAdmin = userRole === 'super_admin';
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -81,6 +83,8 @@ export default function OrderManagement({ userRole = '' }: OrderManagementProps)
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ orderId: string; customerName: string } | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const loadOrders = useCallback(async () => {
     setLoading(true);
@@ -146,6 +150,25 @@ export default function OrderManagement({ userRole = '' }: OrderManagementProps)
     setUpdatingId(null);
   };
 
+  const handleDeleteOrder = async () => {
+    if (!deleteConfirm) return;
+    setDeletingId(deleteConfirm.orderId);
+    setDeleteConfirm(null);
+    const { error: deleteError } = await supabase
+      .from('orders')
+      .delete()
+      .eq('id', deleteConfirm.orderId);
+
+    if (deleteError) {
+      showToast('error', 'Failed to delete order: ' + deleteError.message);
+    } else {
+      setOrders(prev => prev.filter(o => o.id !== deleteConfirm.orderId));
+      if (expandedOrderId === deleteConfirm.orderId) setExpandedOrderId(null);
+      showToast('success', 'Order deleted successfully');
+    }
+    setDeletingId(null);
+  };
+
   const formatCurrency = (val: number) => `R ${Number(val).toFixed(2)}`;
 
   const formatDate = (dateStr: string) => {
@@ -186,6 +209,16 @@ export default function OrderManagement({ userRole = '' }: OrderManagementProps)
 
   return (
     <div className="p-6">
+      {/* Delete Confirm Modal */}
+      <DeleteConfirmModal
+        isOpen={!!deleteConfirm}
+        productName={deleteConfirm?.customerName ?? ''}
+        title="Delete Order"
+        message={deleteConfirm ? `Are you sure you want to permanently delete the order for ${deleteConfirm.customerName}? This action cannot be undone.` : ''}
+        onConfirm={handleDeleteOrder}
+        onCancel={() => setDeleteConfirm(null)}
+      />
+
       {/* Toast */}
       {toastMessage && (
         <div className={`fixed top-6 right-6 z-[100] px-5 py-3 rounded-xl shadow-lg text-sm font-semibold flex items-center gap-2 transition-all ${toastMessage.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}>
@@ -325,22 +358,36 @@ export default function OrderManagement({ userRole = '' }: OrderManagementProps)
                       <p className="text-xs text-[#8C8278]">{itemsArray.length} item{itemsArray.length !== 1 ? 's' : ''}</p>
                     </div>
                   </div>
-                  <button
-                    onClick={() => setExpandedOrderId(isExpanded ? null : order.id)}
-                    className="flex-shrink-0 border border-[#DDD5C8] text-[#5C5347] px-3 py-2 rounded-xl text-xs font-semibold hover:bg-[#F5F0E8] transition-colors flex items-center gap-1.5"
-                  >
-                    {isExpanded ? (
-                      <>
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" /></svg>
-                        Collapse
-                      </>
-                    ) : (
-                      <>
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
-                        View Details
-                      </>
+                  <div className="flex flex-col gap-2 flex-shrink-0">
+                    <button
+                      onClick={() => setExpandedOrderId(isExpanded ? null : order.id)}
+                      className="border border-[#DDD5C8] text-[#5C5347] px-3 py-2 rounded-xl text-xs font-semibold hover:bg-[#F5F0E8] transition-colors flex items-center gap-1.5"
+                    >
+                      {isExpanded ? (
+                        <>
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" /></svg>
+                          Collapse
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                          View Details
+                        </>
+                      )}
+                    </button>
+                    {isSuperAdmin && (
+                      <button
+                        onClick={() => setDeleteConfirm({ orderId: order.id, customerName: order.customer_name })}
+                        disabled={deletingId === order.id}
+                        className="border border-red-200 bg-red-50 text-red-600 px-3 py-2 rounded-xl text-xs font-semibold hover:bg-red-100 transition-colors flex items-center gap-1.5 disabled:opacity-50"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        Delete
+                      </button>
                     )}
-                  </button>
+                  </div>
                 </div>
 
                 {/* Expanded Details */}
