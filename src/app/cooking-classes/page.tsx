@@ -2217,8 +2217,8 @@ export default function CookingClassesPage() {
                   </div>
             }
 
-                {/* SIGNED Indemnity Form upload */}
-                <div className="mt-6 bg-white border border-[#EDE7DA] rounded-2xl shadow-sm overflow-hidden">
+                {/* SIGNED Indemnity Form upload — hidden for Adult events */}
+                {!isAdultEvent && <div className="mt-6 bg-white border border-[#EDE7DA] rounded-2xl shadow-sm overflow-hidden">
                   <div className="bg-[#4A4540] text-white px-5 py-4">
                     <h3 className="text-sm font-semibold">Do you have a Signed Indemnity Form?</h3>
                   </div>
@@ -2284,7 +2284,7 @@ export default function CookingClassesPage() {
                       </>
                 }
                   </div>
-                </div>
+                </div>}
               </div>
           }
 
