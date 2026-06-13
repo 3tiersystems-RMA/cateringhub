@@ -49,14 +49,12 @@ interface EventManagementSettingsProps {
   isAdminOrAbove?: boolean;
 }
 
-const DEFAULT_LOCATION = '12 Cardamom Street, Cape Town, 7441';
-
-const EMPTY_DATE_ROW = (eventId = '', sortOrder = 0): Omit<EventDateRow, 'id'> => ({
+const EMPTY_DATE_ROW = (eventId = '', sortOrder = 0, defaultLoc = ''): Omit<EventDateRow, 'id'> => ({
   event_id: eventId,
   event_date: '',
   start_time: '',
   end_time: '',
-  location: DEFAULT_LOCATION,
+  location: defaultLoc,
   sort_order: sortOrder,
   seating: 0,
   status_id: '',
@@ -107,16 +105,36 @@ export default function EventManagementSettings({ isSuperAdmin = false, readOnly
   const [uploadingEventImage, setUploadingEventImage] = useState<Record<string, boolean>>({});
   const [eventImageMsg, setEventImageMsg] = useState<Record<string, string>>({});
 
+  // Default location from Organisation Details (default warehouse street address)
+  const [defaultLocation, setDefaultLocation] = useState('');
+
   useEffect(() => {
     loadSettings();
     loadEvents();
     loadSessionStatuses();
     loadAllDateRows();
+    loadDefaultLocation();
   }, []);
 
   useEffect(() => {
     if (events.length > 0) initEventDateRows();
   }, [events]);
+
+  async function loadDefaultLocation() {
+    try {
+      const { data } = await supabase
+        .from('org_warehouses')
+        .select('address')
+        .eq('is_default', true)
+        .limit(1)
+        .single();
+      if (data?.address) {
+        setDefaultLocation(data.address);
+      }
+    } catch {
+      // no default warehouse set
+    }
+  }
 
   async function loadSettings() {
     setLoading(true);
@@ -160,7 +178,7 @@ export default function EventManagementSettings({ isSuperAdmin = false, readOnly
           event_date: r.event_date || '',
           start_time: r.start_time || '',
           end_time: r.end_time || '',
-          location: r.location || DEFAULT_LOCATION,
+          location: r.location || defaultLocation,
           sort_order: r.sort_order || 0,
           seating: r.seating || 0,
           status_id: r.status_id || '',
@@ -176,7 +194,7 @@ export default function EventManagementSettings({ isSuperAdmin = false, readOnly
     setEventDateRows(prev => {
       const updated = { ...prev };
       events.forEach(ev => {
-        if (!updated[ev.id]) updated[ev.id] = [{ ...EMPTY_DATE_ROW(ev.id, 0), event_fee: eventFee || '' }];
+        if (!updated[ev.id]) updated[ev.id] = [{ ...EMPTY_DATE_ROW(ev.id, 0, defaultLocation), event_fee: eventFee || '' }];
       });
       return updated;
     });
@@ -363,7 +381,7 @@ export default function EventManagementSettings({ isSuperAdmin = false, readOnly
       const rows = prev[eventId] || [];
       return {
         ...prev,
-        [eventId]: [...rows, { ...EMPTY_DATE_ROW(eventId, rows.length), event_fee: eventFee || '' }],
+        [eventId]: [...rows, { ...EMPTY_DATE_ROW(eventId, rows.length, defaultLocation), event_fee: eventFee || '' }],
       };
     });
   }
@@ -372,7 +390,7 @@ export default function EventManagementSettings({ isSuperAdmin = false, readOnly
     setEventDateRows(prev => {
       const rows = [...(prev[eventId] || [])];
       rows.splice(idx, 1);
-      return { ...prev, [eventId]: rows.length > 0 ? rows : [{ ...EMPTY_DATE_ROW(eventId, 0) }] };
+      return { ...prev, [eventId]: rows.length > 0 ? rows : [{ ...EMPTY_DATE_ROW(eventId, 0, defaultLocation) }] };
     });
   }
 
@@ -402,7 +420,7 @@ export default function EventManagementSettings({ isSuperAdmin = false, readOnly
           event_date: r.event_date,
           start_time: r.start_time || null,
           end_time: r.end_time || null,
-          location: r.location || DEFAULT_LOCATION,
+          location: r.location || defaultLocation,
           sort_order: i,
           seating: Number(r.seating) || 0,
           status_id: r.status_id || null,
@@ -435,7 +453,7 @@ export default function EventManagementSettings({ isSuperAdmin = false, readOnly
           event_date: r.event_date,
           start_time: r.start_time || null,
           end_time: r.end_time || null,
-          location: r.location || DEFAULT_LOCATION,
+          location: r.location || defaultLocation,
           sort_order: i,
           seating: Number(r.seating) || 0,
           status_id: r.status_id || null,
@@ -598,10 +616,10 @@ export default function EventManagementSettings({ isSuperAdmin = false, readOnly
             <label className="block text-xs text-[#8C8278] mb-1">Location</label>
             <input
               type="text"
-              value={row.location || DEFAULT_LOCATION}
+              value={row.location}
               onChange={e => onChange('location', e.target.value)}
               disabled={readOnly}
-              placeholder={DEFAULT_LOCATION}
+              placeholder={defaultLocation || 'e.g. 14 Sergeant Street, Rondebosch East'}
               className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white disabled:bg-[#F5F0E8]"
             />
           </div>
@@ -855,7 +873,7 @@ export default function EventManagementSettings({ isSuperAdmin = false, readOnly
                 </div>
 
                 <div className="space-y-3 mb-3">
-                  {(rows.length > 0 ? rows : [{ ...EMPTY_DATE_ROW(ev.id, 0) }]).map((row, idx) =>
+                  {(rows.length > 0 ? rows : [{ ...EMPTY_DATE_ROW(ev.id, 0, defaultLocation) }]).map((row, idx) =>
                     renderSessionCard(
                       row,
                       idx,

@@ -68,8 +68,6 @@ interface CookingClassSettingsProps {
   isAdminOrAbove?: boolean;
 }
 
-const DEFAULT_LOCATION = '12 Cardamom Street, Cape Town, 7441';
-
 const PAYMENT_STATUS_COLORS: Record<string, string> = {
   pending: 'bg-amber-100 text-amber-700',
   paid: 'bg-green-100 text-green-700',
@@ -77,12 +75,12 @@ const PAYMENT_STATUS_COLORS: Record<string, string> = {
   awaiting_confirmation: 'bg-blue-100 text-blue-700',
 };
 
-const EMPTY_DATE_ROW = (eventId = '', sortOrder = 0): Omit<EventDateRow, 'id'> => ({
+const EMPTY_DATE_ROW = (eventId = '', sortOrder = 0, defaultLoc = ''): Omit<EventDateRow, 'id'> => ({
   event_id: eventId,
   event_date: '',
   start_time: '',
   end_time: '',
-  location: DEFAULT_LOCATION,
+  location: defaultLoc,
   sort_order: sortOrder,
   seating: 0,
   status_id: '',
@@ -128,8 +126,7 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
   // (6) General Session Details block (no event_id) — dynamic sessions
   const [generalDateRows, setGeneralDateRows] = useState<EventDateRow[]>(
     [{ ...EMPTY_DATE_ROW('', 0) }]
-  );
-  const [savingGeneralDates, setSavingGeneralDates] = useState(false);
+  );  const [savingGeneralDates, setSavingGeneralDates] = useState(false);
   const [generalDatesMsg, setGeneralDatesMsg] = useState('');
 
   // (6) Per-event Session Details block — dynamic sessions per event, keyed by event_id
@@ -157,11 +154,15 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
   const [uploadingEventImage, setUploadingEventImage] = useState<Record<string, boolean>>({});
   const [eventImageMsg, setEventImageMsg] = useState<Record<string, string>>({});
 
+  // Default location from Organisation Details (default warehouse street address)
+  const [defaultLocation, setDefaultLocation] = useState('');
+
   useEffect(() => {
     loadSettings();
     loadEvents();
     loadSessionStatuses();
     loadAllDateRows();
+    loadDefaultLocation();
   }, []);
 
   useEffect(() => {
@@ -174,6 +175,22 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
       initEventDateRows();
     }
   }, [events]);
+
+  async function loadDefaultLocation() {
+    try {
+      const { data } = await supabase
+        .from('org_warehouses')
+        .select('address')
+        .eq('is_default', true)
+        .limit(1)
+        .single();
+      if (data?.address) {
+        setDefaultLocation(data.address);
+      }
+    } catch {
+      // no default warehouse set
+    }
+  }
 
   async function loadSettings() {
     setLoading(true);
@@ -237,7 +254,7 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
         event_date: r.event_date || '',
         start_time: r.start_time || '',
         end_time: r.end_time || '',
-        location: r.location || DEFAULT_LOCATION,
+        location: r.location || defaultLocation,
         sort_order: r.sort_order || 0,
         seating: r.seating || 0,
         status_id: r.status_id || '',
@@ -258,7 +275,7 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
           event_date: r.event_date || '',
           start_time: r.start_time || '',
           end_time: r.end_time || '',
-          location: r.location || DEFAULT_LOCATION,
+          location: r.location || defaultLocation,
           sort_order: r.sort_order || 0,
           seating: r.seating || 0,
           status_id: r.status_id || '',
@@ -278,7 +295,7 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
       const updated = { ...prev };
       events.forEach(ev => {
         if (!updated[ev.id] || updated[ev.id].length === 0) {
-          updated[ev.id] = [{ ...EMPTY_DATE_ROW(ev.id, 0) }];
+          updated[ev.id] = [{ ...EMPTY_DATE_ROW(ev.id, 0, defaultLocation) }];
         }
       });
       return updated;
@@ -286,7 +303,7 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
   }
 
   function addGeneralSession() {
-    setGeneralDateRows(prev => [...prev, { ...EMPTY_DATE_ROW('', prev.length) }]);
+    setGeneralDateRows(prev => [...prev, { ...EMPTY_DATE_ROW('', prev.length, defaultLocation) }]);
   }
 
   function removeGeneralSession(index: number) {
@@ -296,14 +313,14 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
   function addEventSession(eventId: string) {
     setEventDateRows(prev => {
       const rows = prev[eventId] || [];
-      return { ...prev, [eventId]: [...rows, { ...EMPTY_DATE_ROW(eventId, rows.length) }] };
+      return { ...prev, [eventId]: [...rows, { ...EMPTY_DATE_ROW(eventId, rows.length, defaultLocation) }] };
     });
   }
 
   function removeEventSession(eventId: string, index: number) {
     setEventDateRows(prev => {
       const rows = (prev[eventId] || []).filter((_, i) => i !== index);
-      return { ...prev, [eventId]: rows.length > 0 ? rows : [{ ...EMPTY_DATE_ROW(eventId, 0) }] };
+      return { ...prev, [eventId]: rows.length > 0 ? rows : [{ ...EMPTY_DATE_ROW(eventId, 0, defaultLocation) }] };
     });
   }
 
@@ -591,7 +608,7 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
           event_date: r.event_date || null,
           start_time: r.start_time || null,
           end_time: r.end_time || null,
-          location: r.location || DEFAULT_LOCATION,
+          location: r.location || defaultLocation,
           sort_order: i,
           seating: r.seating || 0,
           status_id: r.status_id || null,
@@ -629,7 +646,7 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
           event_date: r.event_date || null,
           start_time: r.start_time || null,
           end_time: r.end_time || null,
-          location: r.location || DEFAULT_LOCATION,
+          location: r.location || defaultLocation,
           sort_order: i,
           seating: r.seating || 0,
           status_id: r.status_id || null,
@@ -822,9 +839,9 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
             <label className="block text-xs text-[#8C8278] mb-1">Location</label>
             <input
               type="text"
-              value={row.location || DEFAULT_LOCATION}
+              value={row.location}
               onChange={e => onChange('location', e.target.value)}
-              placeholder={DEFAULT_LOCATION}
+              placeholder={defaultLocation || 'e.g. 14 Sergeant Street, Rondebosch East'}
               className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
             />
           </div>
