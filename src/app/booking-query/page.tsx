@@ -296,7 +296,7 @@ export default function BookingQueryPage() {
                   disabled={loading}
                   className="bg-[#C4622D] hover:bg-[#A04E22] disabled:opacity-50 text-white px-6 py-3 rounded-xl text-sm font-semibold transition-colors whitespace-nowrap"
                 >
-                  {loading ? "Searching…" : "Find Booking Credits"}
+                  {loading ? "Searching…" : "My Bookings"}
                 </button>
               </form>
 
