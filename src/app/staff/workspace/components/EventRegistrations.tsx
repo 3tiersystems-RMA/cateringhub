@@ -855,7 +855,7 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
                       <thead>
                         <tr className="bg-[#F5EFE8] text-[#5C5347] text-xs uppercase tracking-wide">
                           <th className="px-4 py-3 text-left font-semibold">#</th>
-                          <th className="px-4 py-3 text-left font-semibold">Event</th>
+                          <th className="px-4 py-3 text-left font-semibold">Class</th>
                           <th className="px-4 py-3 text-left font-semibold cursor-pointer select-none hover:text-[#C4622D]" onClick={() => handleParticipantSort('datetime')}>
                             Date &amp; Time <SortIcon col="datetime" sortKey={participantSortKey} sortDir={participantSortDir} />
                           </th>
