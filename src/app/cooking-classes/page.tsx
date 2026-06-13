@@ -303,7 +303,7 @@ export default function CookingClassesPage() {
       ...prev,
       selectedEvents: [ce!.name],
       selectedDates: targetRow ? [formatEventDate(targetRow)] : [],
-      selectedDateIds: targetRow ? [targetRow.id] : [],
+      selectedDateIds: targetRow ? [targetRow.id] : []
     }));
   }, [classEvents, eventDates, sessionStatuses, bookingCounts]);
 
@@ -345,9 +345,9 @@ export default function CookingClassesPage() {
       }
     } catch {
 
+
       // settings not found, use defaults
-    } finally {setLoadingSettings(false);
-    }
+    } finally {setLoadingSettings(false);}
   }
 
   async function loadClassEvents() {
@@ -360,9 +360,9 @@ export default function CookingClassesPage() {
       if (data) setClassEvents(data);
     } catch {
 
+
       // ignore
     }}
-
   async function loadSessionStatuses() {
     try {
       const { data } = await supabase.
@@ -372,9 +372,9 @@ export default function CookingClassesPage() {
       if (data) setSessionStatuses(data);
     } catch {
 
+
       // ignore
     }}
-
   async function loadEventDates() {
     try {
       const { data } = await supabase.
@@ -396,9 +396,9 @@ export default function CookingClassesPage() {
       }
     } catch {
 
+
       // ignore
     }}
-
   async function loadBookingCounts(dateIds: string[]) {
     try {
       const { data } = await supabase.
@@ -437,9 +437,9 @@ export default function CookingClassesPage() {
       }
     } catch {
 
+
       // ignore
     }}
-
   function getStatusLabel(statusId: string | null): string | null {
     if (!statusId) return null;
     const st = sessionStatuses.find((s) => s.id === statusId);
@@ -552,8 +552,8 @@ export default function CookingClassesPage() {
   // Get per-session breakdown: one entry per selected date.
   // For MIXED classes the amount = adult/guardian fee (once) + child fee × children.
   function getSessionBreakdown(): {
-    dateLabel: string; fee: number; participants: number; amount: number;
-    isMixed: boolean; adultFee: number; childFee: number;
+    dateLabel: string;fee: number;participants: number;amount: number;
+    isMixed: boolean;adultFee: number;childFee: number;
   }[] {
     const count = getParticipantCount();
     if (page1.selectedDates.length === 0) return [];
@@ -781,9 +781,9 @@ export default function CookingClassesPage() {
       }
     } catch {
 
+
       // Non-blocking
-    } finally {setCreditCheckLoading(false);
-    }
+    } finally {setCreditCheckLoading(false);}
   }
 
   // (1) Only one event can be selected at a time — radio behaviour
@@ -1122,6 +1122,18 @@ export default function CookingClassesPage() {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
     // ── TEMPORARILY DISABLED — Google Sheets sync deactivated until further notice ──
     // All attributes and logic preserved below for re-activation.
     // try {
@@ -1134,24 +1146,12 @@ export default function CookingClassesPage() {
     //   // Non-blocking
     // }
     // ── END DISABLE BLOCK ─────────────────────────────────────────────────
-  }async function initiatePayFast(regId: string, regCode: string, overrideAmount?: number) {const amount = overrideAmount !== undefined ? overrideAmount : getAmountDue();if (amount <= 0) {await supabase.from('cooking_class_registrations').update({ payment_status: 'paid' }).eq('id', regId);setCurrentPage(6);return;}
-    const res = await fetch('/api/cooking-classes/payfast-initiate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        registrationCode: regCode,
-        order: {
-          amount: amount,
-          itemDescription: `${page1.firstName} ${page1.surname} - ${page1.selectedEvents.join(', ')}`
-        },
-        buyer: {
-          firstName: page1.firstName.trim(),
-          lastName: page1.surname.trim(),
-          email: page1.email.trim(),
-          cell: page1.cellphone.trim()
-        }
-      })
-    });
+  }async function initiatePayFast(regId: string, regCode: string, overrideAmount?: number) {const amount = overrideAmount !== undefined ? overrideAmount : getAmountDue();if (amount <= 0) {await supabase.from('cooking_class_registrations').update({ payment_status: 'paid' }).eq('id', regId);setCurrentPage(6);return;}const res = await fetch('/api/cooking-classes/payfast-initiate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ registrationCode: regCode, order: { amount: amount, itemDescription: `${page1.firstName} ${page1.surname} - ${page1.selectedEvents.join(', ')}` }, buyer: { firstName: page1.firstName.trim(), lastName: page1.surname.trim(),
+              email: page1.email.trim(),
+              cell: page1.cellphone.trim()
+            }
+          })
+      });
 
     const data = await res.json();
     if (!res.ok || !data.success) throw new Error(data.error || 'Failed to initiate payment');
@@ -1323,7 +1323,7 @@ export default function CookingClassesPage() {
             {/* Guardian / Responsible Person Card */}
             <div className="mb-6 border border-[#DDD5C8] rounded-2xl p-5 bg-white shadow-sm">
               <h2 className="text-lg font-semibold text-black mb-1">Registrant Details</h2>
-              <p className="text-sm text-[#8C8278] mb-5">For children, this is the Guardian / Responsible Person</p>
+              <p className="text-sm text-[#8C8278] mb-5 italic">For children, this is the Guardian / Responsible Person</p>
 
               {/* Full Name */}
               <div className="mb-5">
@@ -1442,17 +1442,17 @@ export default function CookingClassesPage() {
                   WhatsApp Number <span className="text-[#8C8278] font-normal text-xs">(optional)</span>
                 </label>
                 <input
-                  type="tel"
-                  value={page1.whatsappNumber}
-                  onChange={(e) => setPage1((p) => ({ ...p, whatsappNumber: e.target.value }))}
-                  placeholder="+27 82 123 4567"
-                  className={`w-full max-w-xs border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] ${page1Errors.whatsappNumber ? 'border-red-400' : 'border-[#DDD5C8]'}`}
-                />
-                {page1Errors.whatsappNumber ? (
-                  <p className="text-xs text-red-500 mt-1">{page1Errors.whatsappNumber}</p>
-                ) : (
-                  <p className="text-xs text-[#8C8278] mt-1">Include country code for international numbers (e.g. +27 82 123 4567)</p>
-                )}
+                type="tel"
+                value={page1.whatsappNumber}
+                onChange={(e) => setPage1((p) => ({ ...p, whatsappNumber: e.target.value }))}
+                placeholder="+27 82 123 4567"
+                className={`w-full max-w-xs border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D] ${page1Errors.whatsappNumber ? 'border-red-400' : 'border-[#DDD5C8]'}`} />
+
+                {page1Errors.whatsappNumber ?
+              <p className="text-xs text-red-500 mt-1">{page1Errors.whatsappNumber}</p> :
+
+              <p className="text-xs text-[#8C8278] mt-1">Include country code for international numbers (e.g. +27 82 123 4567)</p>
+              }
               </div>
             </div>
 
@@ -2335,9 +2335,9 @@ export default function CookingClassesPage() {
                             <div className="flex-1 min-w-0">
                               <span className="text-[#5C5347] font-medium block truncate">{session.dateLabel}</span>
                               <span className="text-xs text-[#8C8278]">
-                                {session.isMixed
-                                  ? `Adult R${session.adultFee.toFixed(2)} + ${session.participants} child${session.participants !== 1 ? 'ren' : ''} × R${session.childFee.toFixed(2)}`
-                                  : `${session.participants} participant${session.participants !== 1 ? 's' : ''} × R${session.fee.toFixed(2)}`}
+                                {session.isMixed ?
+                        `Adult R${session.adultFee.toFixed(2)} + ${session.participants} child${session.participants !== 1 ? 'ren' : ''} × R${session.childFee.toFixed(2)}` :
+                        `${session.participants} participant${session.participants !== 1 ? 's' : ''} × R${session.fee.toFixed(2)}`}
                               </span>
                             </div>
                             <span className="font-semibold text-[#1A1612] whitespace-nowrap">R{session.amount.toFixed(2)}</span>
