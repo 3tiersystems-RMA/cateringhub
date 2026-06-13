@@ -31,7 +31,6 @@ const ROLE_ALLOWED_ROUTES: Record<StaffRole, string[]> = {
     '/staff/guide',
     '/staff/reset-password',
   ],
-  // Admin: operations + business management + analytics + scanner (no system settings).
   admin: [
     '/staff/workspace',
     '/staff/orders',
@@ -40,7 +39,6 @@ const ROLE_ALLOWED_ROUTES: Record<StaffRole, string[]> = {
     '/staff/guide',
     '/staff/reset-password',
   ],
-  // Staff: daily operations only — orders, scanner, guide (no analytics page).
   staff: [
     '/staff/workspace',
     '/staff/orders',
@@ -52,6 +50,10 @@ const ROLE_ALLOWED_ROUTES: Record<StaffRole, string[]> = {
 
 function isStaffRoute(pathname: string): boolean {
   return pathname.startsWith('/staff') && pathname !== '/staff/login';
+}
+
+function isStaffRelatedRoute(pathname: string): boolean {
+  return pathname.startsWith('/staff') || pathname.startsWith('/dashboard');
 }
 
 function isRouteAllowedForRole(pathname: string, role: StaffRole): boolean {
@@ -67,6 +69,12 @@ function redirect(request: NextRequest, pathname: string): NextResponse {
 
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
+
+  // Only run auth logic for staff/dashboard routes — skip DB queries for all other routes
+  // to prevent edge function crashes on public pages
+  if (!isStaffRelatedRoute(pathname)) {
+    return NextResponse.next({ request });
+  }
 
   injectTokenFromHeader(request);
   let supabaseResponse = NextResponse.next({ request });
@@ -89,19 +97,29 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  let user = null;
+  try {
+    const { data } = await supabase.auth.getUser();
+    user = data.user;
+  } catch {
+    // If auth check fails, treat as unauthenticated
+    user = null;
+  }
 
   let userRole: StaffRole | null = null;
   if (user) {
-    const { data: profile } = await supabase
-      .from('user_profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-    if (profile?.role && ['admin', 'staff', 'super_admin'].includes(profile.role)) {
-      userRole = profile.role as StaffRole;
+    try {
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+      if (profile?.role && ['admin', 'staff', 'super_admin'].includes(profile.role)) {
+        userRole = profile.role as StaffRole;
+      }
+    } catch {
+      // If profile fetch fails, treat as no role
+      userRole = null;
     }
   }
 
