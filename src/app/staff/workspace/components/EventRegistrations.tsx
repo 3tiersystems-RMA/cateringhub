@@ -413,23 +413,41 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
     const eventMap: Record<string, Record<string, Record<string, { dateId: string; registrants: { name: string; email: string; paymentStatus: string }[] }>>> = {};
     registrations.forEach(r => {
       const name = `${r.title ? r.title + ' ' : ''}${r.first_name} ${r.surname}`.trim();
-      (r.session_dates || []).forEach(sd => {
-        const evName = sd.event_name || 'Unknown Event';
-        const dateKey = formatDate(sd.event_date);
-        const timeslot = sd.start_time && sd.end_time
-          ? `${sd.start_time} – ${sd.end_time}`
-          : sd.start_time || 'Time TBC';
+      const sessionDates = r.session_dates || [];
+      if (sessionDates.length === 0) {
+        // Include registrants with no session assigned
+        const evName = 'No Session Assigned';
+        const dateKey = '—';
+        const timeslot = '—';
         if (!eventMap[evName]) eventMap[evName] = {};
         if (!eventMap[evName][dateKey]) eventMap[evName][dateKey] = {};
         if (!eventMap[evName][dateKey][timeslot]) {
-          eventMap[evName][dateKey][timeslot] = { dateId: sd.id, registrants: [] };
+          eventMap[evName][dateKey][timeslot] = { dateId: '', registrants: [] };
         }
         eventMap[evName][dateKey][timeslot].registrants.push({
           name,
           email: r.email,
           paymentStatus: r.payment_status,
         });
-      });
+      } else {
+        sessionDates.forEach(sd => {
+          const evName = sd.event_name || 'Unknown Event';
+          const dateKey = formatDate(sd.event_date);
+          const timeslot = sd.start_time && sd.end_time
+            ? `${sd.start_time} – ${sd.end_time}`
+            : sd.start_time || 'Time TBC';
+          if (!eventMap[evName]) eventMap[evName] = {};
+          if (!eventMap[evName][dateKey]) eventMap[evName][dateKey] = {};
+          if (!eventMap[evName][dateKey][timeslot]) {
+            eventMap[evName][dateKey][timeslot] = { dateId: sd.id, registrants: [] };
+          }
+          eventMap[evName][dateKey][timeslot].registrants.push({
+            name,
+            email: r.email,
+            paymentStatus: r.payment_status,
+          });
+        });
+      }
     });
     return Object.entries(eventMap)
       .sort(([a], [b]) => a.localeCompare(b))
@@ -456,26 +474,45 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
     registrations.forEach(r => {
       const children = filterFilledChildren(r.children);
       if (children.length === 0) return;
-      (r.session_dates || []).forEach(sd => {
-        const evName = sd.event_name || 'Unknown Event';
-        const timeslot = sd.start_time && sd.end_time
-          ? `${sd.start_time} – ${sd.end_time}`
-          : sd.start_time || 'Time TBC';
+      const sessionDates = r.session_dates || [];
+      if (sessionDates.length === 0) {
+        // Include participants with no session assigned
         children.forEach(child => {
           const ageStr = child.age != null ? String(child.age) : calcAge(child.dob);
           rows.push({
-            eventName: evName,
-            eventDate: sd.event_date,
-            timeslot,
+            eventName: 'No Session Assigned',
+            eventDate: null,
+            timeslot: '—',
             fullName: (child.fullName || child.full_name || child.name || '').trim(),
             dob: child.dob || null,
             age: ageStr,
             gender: (child.gender || '').trim(),
             allergies: (child.dietaryRestrictions || child.allergies || '').trim(),
-            location: (sd.location || '').trim(),
+            location: '',
           });
         });
-      });
+      } else {
+        sessionDates.forEach(sd => {
+          const evName = sd.event_name || 'Unknown Event';
+          const timeslot = sd.start_time && sd.end_time
+            ? `${sd.start_time} – ${sd.end_time}`
+            : sd.start_time || 'Time TBC';
+          children.forEach(child => {
+            const ageStr = child.age != null ? String(child.age) : calcAge(child.dob);
+            rows.push({
+              eventName: evName,
+              eventDate: sd.event_date,
+              timeslot,
+              fullName: (child.fullName || child.full_name || child.name || '').trim(),
+              dob: child.dob || null,
+              age: ageStr,
+              gender: (child.gender || '').trim(),
+              allergies: (child.dietaryRestrictions || child.allergies || '').trim(),
+              location: (sd.location || '').trim(),
+            });
+          });
+        });
+      }
     });
     return rows;
   })();
