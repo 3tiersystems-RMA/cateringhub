@@ -63,6 +63,32 @@ interface EventRow {
   name: string;
 }
 
+export interface CreditTransaction {
+  id: string;
+  booking_ref: string;
+  booking_type: string;
+  amount_applied: number;
+  balance_before: number;
+  balance_after: number;
+  applied_at: string;
+  notes: string | null;
+}
+
+export interface CustomerCredit {
+  id: string;
+  customer_email: string;
+  customer_name: string;
+  original_booking_ref: string;
+  booking_type: string;
+  total_issued: number;
+  total_used: number;
+  remaining_balance: number;
+  credit_status: "active" | "used";
+  issued_at: string;
+  notes: string | null;
+  transactions: CreditTransaction[];
+}
+
 async function enrichWithSessionDates(
   regs: RawRegistration[],
   bookingTable: string,
@@ -122,6 +148,37 @@ async function enrichWithSessionDates(
   });
 
   return result;
+}
+
+async function fetchCreditsForEmails(emails: string[]): Promise<CustomerCredit[]> {
+  if (emails.length === 0) return [];
+
+  const { data: credits, error } = await supabase
+    .from("customer_credits")
+    .select("*")
+    .in("customer_email", emails)
+    .order("issued_at", { ascending: false });
+
+  if (error || !credits || credits.length === 0) return [];
+
+  const creditIds = credits.map((c: CustomerCredit) => c.id);
+
+  const { data: transactions } = await supabase
+    .from("customer_credit_transactions")
+    .select("*")
+    .in("credit_id", creditIds)
+    .order("applied_at", { ascending: true });
+
+  const txByCredit: Record<string, CreditTransaction[]> = {};
+  (transactions || []).forEach((tx: CreditTransaction & { credit_id: string }) => {
+    if (!txByCredit[tx.credit_id]) txByCredit[tx.credit_id] = [];
+    txByCredit[tx.credit_id].push(tx);
+  });
+
+  return credits.map((c: CustomerCredit) => ({
+    ...c,
+    transactions: txByCredit[c.id] || [],
+  }));
 }
 
 export async function GET(req: NextRequest) {
@@ -201,5 +258,17 @@ export async function GET(req: NextRequest) {
     })),
   ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-  return NextResponse.json({ bookings });
+  // Collect unique emails from results to fetch credits
+  const allRegs = [...ccRegs, ...emRegs];
+  let credits: CustomerCredit[] = [];
+
+  if (allRegs.length > 0) {
+    const uniqueEmails = [...new Set(allRegs.map((r) => r.email.toLowerCase().trim()))];
+    credits = await fetchCreditsForEmails(uniqueEmails);
+  } else if (type === "email") {
+    // Even if no bookings found, try to fetch credits by email directly
+    credits = await fetchCreditsForEmails([searchValue.toLowerCase().trim()]);
+  }
+
+  return NextResponse.json({ bookings, credits });
 }
