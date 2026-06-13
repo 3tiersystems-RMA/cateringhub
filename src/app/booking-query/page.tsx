@@ -238,7 +238,7 @@ export default function BookingQueryPage() {
               Booking Query
             </h1>
             <p className="text-[#A09890] mt-2 text-sm">
-              Lookup any Credit(s) you might have using your reference number, email address, or cellphone number.
+              Lookup any registered bookings using your reference number, email address, or cellphone number.
             </p>
           </div>
         </div>
