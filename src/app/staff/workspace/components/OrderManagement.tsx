@@ -38,11 +38,11 @@ type FulfillmentStatus = 'new' | 'confirmed' | 'preparing' | 'ready' | 'delivere
 type PaymentStatus = 'pending' | 'paid' | 'failed' | 'awaiting_payment' | 'refunded' | 'discounted' | 'unpaid' | 'awaiting_confirmation';
 
 const FULFILLMENT_STATUSES: { value: FulfillmentStatus; label: string; color: string }[] = [
-  { value: 'new', label: 'New', color: 'bg-blue-50 text-blue-700 border-blue-200' },
+  { value: 'new', label: 'New', color: 'bg-[#C4622D] text-white border-[#C4622D]' },
   { value: 'confirmed', label: 'Confirmed', color: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
   { value: 'preparing', label: 'Preparing', color: 'bg-amber-50 text-amber-700 border-amber-200' },
   { value: 'ready', label: 'Ready', color: 'bg-purple-50 text-purple-700 border-purple-200' },
-  { value: 'delivered', label: 'Delivered', color: 'bg-green-50 text-green-700 border-green-200' },
+  { value: 'delivered', label: 'Delivered', color: 'bg-black text-white border-black' },
   { value: 'cancelled', label: 'Cancelled', color: 'bg-red-50 text-red-700 border-red-200' },
 ];
 
@@ -250,9 +250,9 @@ export default function OrderManagement({ userRole = '' }: OrderManagementProps)
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
         {[
           { label: 'Total Orders', value: summaryCounts.total, color: 'bg-[#F5F0E8] text-[#1A1612]' },
-          { label: 'New', value: summaryCounts.new, color: 'bg-blue-50 text-blue-700' },
+          { label: 'New', value: summaryCounts.new, color: 'bg-[#C4622D] text-white' },
           { label: 'Preparing', value: summaryCounts.preparing, color: 'bg-amber-50 text-amber-700' },
-          { label: 'Delivered', value: summaryCounts.delivered, color: 'bg-green-50 text-green-700' },
+          { label: 'Delivered', value: summaryCounts.delivered, color: 'bg-black text-white' },
           { label: 'Cancelled', value: summaryCounts.cancelled, color: 'bg-red-50 text-red-700' },
         ].map(card => (
           <div key={card.label} className={`rounded-2xl border border-[#EDE7DA] p-4 text-center ${card.color}`}>

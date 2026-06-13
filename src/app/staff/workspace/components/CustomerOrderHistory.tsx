@@ -43,11 +43,11 @@ interface CustomerGroup {
 
 function getFulfillmentColor(status: string): string {
   const map: Record<string, string> = {
-    new: 'bg-blue-50 text-blue-700 border-blue-200',
+    new: 'bg-[#C4622D] text-white border-[#C4622D]',
     confirmed: 'bg-indigo-50 text-indigo-700 border-indigo-200',
     preparing: 'bg-amber-50 text-amber-700 border-amber-200',
     ready: 'bg-purple-50 text-purple-700 border-purple-200',
-    delivered: 'bg-green-50 text-green-700 border-green-200',
+    delivered: 'bg-black text-white border-black',
     cancelled: 'bg-red-50 text-red-700 border-red-200',
   };
   return map[status] ?? 'bg-gray-100 text-gray-600 border-gray-200';
