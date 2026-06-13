@@ -697,8 +697,11 @@ export default function CookingClassesPage() {
     });
 
     // School Holiday is now optional — no validation required
-    if (!page4.hasIndemnityForm) errors.hasIndemnityForm = 'Please indicate if you have a Signed Indemnity Form';
-    if (page4.hasIndemnityForm === 'Yes' && !page4.indemnityFile) errors.indemnityFile = 'Please upload your signed Indemnity Form';
+    // Indemnity form only required for non-adult (children's) events
+    if (!isAdultEvent) {
+      if (!page4.hasIndemnityForm) errors.hasIndemnityForm = 'Please indicate if you have a Signed Indemnity Form';
+      if (page4.hasIndemnityForm === 'Yes' && !page4.indemnityFile) errors.indemnityFile = 'Please upload your signed Indemnity Form';
+    }
     setPage4Errors(errors);
     return Object.keys(errors).length === 0;
   }
@@ -975,8 +978,8 @@ export default function CookingClassesPage() {
         } catch {/* Non-blocking */}
       }
 
-      // (6) Use calculated amount due
-      const amountDue = totalAmount;
+      // (6) Use amount after credit deduction as the recorded booking amount
+      const amountDue = amountAfterCredit;
 
       // Generate a unique registration code for this class booking
       const regCodeSuffix = Math.random().toString(36).substring(2, 6).toUpperCase() + Math.random().toString(36).substring(2, 6).toUpperCase();

@@ -657,7 +657,8 @@ export default function EventBookingsPage() {
         } catch { /* non-blocking */ }
       }
 
-      const amountDue = totalAmount;
+      // Use amount after credit deduction as the recorded booking amount
+      const amountDue = amountAfterCredit;
 
       const regCodeSuffix = Math.random().toString(36).substring(2, 6).toUpperCase() + Math.random().toString(36).substring(2, 6).toUpperCase();
       const newRegistrationCode = `EB-${regCodeSuffix.substring(0, 8)}`;
