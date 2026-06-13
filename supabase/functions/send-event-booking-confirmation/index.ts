@@ -304,6 +304,9 @@ ${participantsArray
             </td>
           </tr>
 
+          <!-- Participants (if any) -->
+          ${participantsHtml}
+
           <!-- What to Expect -->
           <tr>
             <td style="padding: 0 32px 20px 32px;">
@@ -326,9 +329,6 @@ ${participantsArray
               </table>
             </td>
           </tr>
-
-          <!-- Participants (if any) -->
-          ${participantsHtml}
 
           <!-- Notes (if any) -->
           ${notesHtml}
