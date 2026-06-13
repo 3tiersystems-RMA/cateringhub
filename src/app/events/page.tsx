@@ -62,17 +62,16 @@ function EventsContent() {
   // mirroring how Events are surfaced, but without a separate marketing table.
   const loadClassCards = async (): Promise<Event[]> => {
     try {
-      const [
-        { data: classEvents },
-        { data: dates },
-        { data: statuses },
-        { data: classSettings },
-      ] = await Promise.all([
+      const results = await Promise.all([
         supabase.from('cooking_class_events').select('*').eq('is_active', true).order('sort_order', { ascending: true }),
         supabase.from('cooking_class_event_dates').select('*'),
         supabase.from('cooking_class_session_statuses').select('id, label'),
         supabase.from('cooking_class_settings').select('*').limit(1).single(),
       ]);
+      const classEvents = results[0].data;
+      const dates = results[1].data;
+      const statuses = results[2].data;
+      const classSettings = results[3].data;
 
       if (!classEvents || classEvents.length === 0) return [];
 
@@ -89,7 +88,7 @@ function EventsContent() {
       const today = new Date().toISOString().slice(0, 10);
 
       const cards: Event[] = [];
-      for (const ce of classEvents as Array<{ id: string; name: string; instructor?: string | null }>) {
+      for (const ce of classEvents as Array<{ id: string; name: string; instructor?: string | null; image_url?: string | null; image_path?: string | null }>) {
         const sessions = (dates ?? [])
           .filter((d: { event_id: string | null; event_date: string | null; status_id: string | null }) =>
             d.event_id === ce.id && !!d.event_date && statusLabelById.get(d.status_id ?? '') !== 'cancelled'
@@ -112,6 +111,15 @@ function EventsContent() {
           : null;
         const instructor = ce.instructor && ce.instructor.trim() ? ce.instructor.trim() : null;
 
+        // Resolve image: per-event image takes priority over global flyer
+        const eventImageUrl =
+          ce.image_url ||
+          (ce.image_path
+            ? supabase.storage.from('cooking-class-flyers').getPublicUrl(ce.image_path).data?.publicUrl
+            : null) ||
+          flyerUrl ||
+          undefined;
+
         const descParts: string[] = [];
         if (instructor) descParts.push(`With ${instructor}.`);
         if (upcoming.length > 1) descParts.push(`${upcoming.length} sessions available — choose your dates when registering.`);
@@ -124,7 +132,7 @@ function EventsContent() {
           event_date_to: `${chosen.event_date}T${end}`,
           location: chosen.location,
           image_path: null,
-          image_url: flyerUrl ?? null,
+          image_url: eventImageUrl ?? null,
           is_published: true,
           is_registered: true,
           cost: fee > 0 ? fee : null,
@@ -132,7 +140,7 @@ function EventsContent() {
           event_menu: null,
           event_management_event_id: null,
           event_management_session_id: null,
-          imageUrl: flyerUrl,
+          imageUrl: eventImageUrl,
           offering_type: 'class',
           audience,
           child_cost: childFee,
@@ -148,7 +156,7 @@ function EventsContent() {
 
   const loadEvents = async () => {
     setLoading(true);
-    const [{ data, error }, classCards] = await Promise.all([
+    const [eventsResult, classCards] = await Promise.all([
       supabase
         .from('events')
         .select('*')
@@ -156,6 +164,8 @@ function EventsContent() {
         .order('event_date', { ascending: false }),
       loadClassCards(),
     ]);
+    const data = eventsResult.data;
+    const error = eventsResult.error;
 
     if (!error && data) {
       // Collect all image_path values that need signed URLs
