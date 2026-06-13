@@ -347,6 +347,27 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
     }
   }
 
+  async function handleRemoveFlyer() {
+    if (readOnly) return;
+    setFlyerUrl('');
+    setSaveSuccess('');
+    setSaveError('');
+    try {
+      if (settings?.id) {
+        const { error } = await supabase
+          .from('cooking_class_settings')
+          .update({ flyer_image_url: null, flyer_image_path: null, updated_at: new Date().toISOString() })
+          .eq('id', settings.id);
+        if (error) throw error;
+        setSettings(prev => prev ? { ...prev, flyer_image_url: null, flyer_image_path: null } : prev);
+        setSaveSuccess('Flyer image removed.');
+        setTimeout(() => setSaveSuccess(''), 3000);
+      }
+    } catch (err: any) {
+      setSaveError(err?.message || 'Failed to remove flyer');
+    }
+  }
+
   async function handleSaveSettings() {
     if (readOnly) return;
     setSaving(true);
@@ -991,15 +1012,32 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
 
           {/* (4) Class Flyer Image — moved to top */}
           <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5">
-            <h3 className="text-base font-semibold text-[#1A1612] mb-4">Class Flyer Image</h3>
+            <div className="flex items-center gap-2 mb-4">
+              <h3 className="text-base font-semibold text-[#1A1612]">Class Flyer Image</h3>
+              <span className="text-xs text-[#8C8278] bg-[#F5F0E8] border border-[#EDE7DA] px-2 py-0.5 rounded-full">Optional</span>
+            </div>
 
             {flyerUrl && (
-              <div className="mb-4 rounded-xl overflow-hidden border border-[#EDE7DA]">
-                <img
-                  src={flyerUrl}
-                  alt="Current cooking class flyer"
-                  className="w-full max-h-48 object-contain"
-                />
+              <div className="mb-4">
+                <div className="rounded-xl overflow-hidden border border-[#EDE7DA]">
+                  <img
+                    src={flyerUrl}
+                    alt="Current cooking class flyer"
+                    className="w-full max-h-48 object-contain"
+                  />
+                </div>
+                {!readOnly && (
+                  <button
+                    type="button"
+                    onClick={handleRemoveFlyer}
+                    className="mt-2 flex items-center gap-1.5 text-xs font-medium text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 px-3 py-1.5 rounded-lg transition-colors"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    Remove Image
+                  </button>
+                )}
               </div>
             )}
 
