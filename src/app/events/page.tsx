@@ -475,9 +475,6 @@ function EventsContent() {
                               {tag}
                             </span>
                           ))}
-                          <span className="bg-white/90 text-[#1A1612] text-[10px] font-bold px-2 py-1 rounded-full shadow uppercase tracking-wide">
-                            {ev.audience === 'adults' ? 'Adults' : ev.audience === 'mixed' ? 'Mixed · Adults + Kids' : 'Kids 5–16'}
-                          </span>
                         </>
                       ) : (
                         <span className="bg-[#C4622D] text-white text-xs font-bold px-3 py-1 rounded-full shadow">
