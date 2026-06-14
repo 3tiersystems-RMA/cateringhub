@@ -38,6 +38,8 @@ interface Event {
   menu_items?: string[] | null;
   /** Class-level menu note (from cooking_class_events.menu_note). */
   menu_note?: string | null;
+  /** Badge label for the class card (from cooking_class_events.badge). */
+  badge?: string | null;
 }
 
 function EventsContent() {
@@ -151,6 +153,7 @@ function EventsContent() {
           instructor,
           menu_items: ce.menu_items ?? null,
           menu_note: ce.menu_note ?? null,
+          badge: (ce as { badge?: string | null }).badge ?? null,
         });
       }
       return cards;
@@ -462,7 +465,7 @@ function EventsContent() {
                       {ev.offering_type === 'class' ? (
                         <>
                           <span className="bg-[#2563EB] text-white text-xs font-bold px-3 py-1 rounded-full shadow">
-                            Cooking Class
+                            {ev.badge || 'Cooking Class'}
                           </span>
                           <span className="bg-white/90 text-[#1A1612] text-[10px] font-bold px-2 py-1 rounded-full shadow uppercase tracking-wide">
                             {ev.audience === 'adults' ? 'Adults' : ev.audience === 'mixed' ? 'Mixed · Adults + Kids' : 'Kids 5–16'}
