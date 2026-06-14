@@ -81,8 +81,8 @@ export default function ProductCard({ product, onOpenModal, imagePriority = fals
             priority={imagePriority}
             loading={imagePriority ? "eager" : "lazy"}
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-            className="object-contain"
-            style={{ padding: "24px" }}
+            className="object-cover"
+            style={{ padding: "0px" }}
           />
         </div>
 
