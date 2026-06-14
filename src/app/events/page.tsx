@@ -34,6 +34,10 @@ interface Event {
   child_cost?: number | null;
   /** Optional instructor/chef name (provision). */
   instructor?: string | null;
+  /** Class-level menu items (from cooking_class_events.menu_items). */
+  menu_items?: string[] | null;
+  /** Class-level menu note (from cooking_class_events.menu_note). */
+  menu_note?: string | null;
 }
 
 function EventsContent() {
@@ -88,7 +92,7 @@ function EventsContent() {
       const today = new Date().toISOString().slice(0, 10);
 
       const cards: Event[] = [];
-      for (const ce of classEvents as Array<{ id: string; name: string; instructor?: string | null; image_url?: string | null; image_path?: string | null }>) {
+      for (const ce of classEvents as Array<{ id: string; name: string; instructor?: string | null; image_url?: string | null; image_path?: string | null; menu_items?: string[] | null; menu_note?: string | null }>) {
         const sessions = (dates ?? [])
           .filter((d: { event_id: string | null; event_date: string | null; status_id: string | null }) =>
             d.event_id === ce.id && !!d.event_date && statusLabelById.get(d.status_id ?? '') !== 'cancelled'
@@ -145,6 +149,8 @@ function EventsContent() {
           audience,
           child_cost: childFee,
           instructor,
+          menu_items: ce.menu_items ?? null,
+          menu_note: ce.menu_note ?? null,
         });
       }
       return cards;
@@ -525,8 +531,28 @@ function EventsContent() {
                       </div>
                     )}
 
-                    {/* Event Menu */}
-                    {ev.event_menu && (
+                    {/* Event Menu — class-level menu_items/menu_note (cooking classes) */}
+                    {ev.offering_type === 'class' && ev.menu_items && ev.menu_items.length > 0 && (
+                      <div className="bg-[#F5F0E8] rounded-xl p-4 mb-3">
+                        <p className="text-xs font-bold text-[#5C5347] uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                          <svg className="w-3.5 h-3.5 text-[#C4622D]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                          </svg>
+                          Event Menu
+                        </p>
+                        <div className="space-y-1 mb-2">
+                          {ev.menu_items.map((item, idx) => (
+                            <p key={idx} className="text-sm text-[#5C5347]">- {item}</p>
+                          ))}
+                        </div>
+                        {ev.menu_note && (
+                          <p className="text-sm text-[#5C5347] mt-2">*{ev.menu_note}</p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Event Menu — legacy event_menu text field (non-class events) */}
+                    {ev.offering_type !== 'class' && ev.event_menu && (
                       <div className="bg-[#F5F0E8] rounded-xl p-4 mb-3">
                         <p className="text-xs font-bold text-[#5C5347] uppercase tracking-wider mb-2 flex items-center gap-1.5">
                           <svg className="w-3.5 h-3.5 text-[#C4622D]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

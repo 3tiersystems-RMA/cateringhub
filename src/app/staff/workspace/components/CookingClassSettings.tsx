@@ -1624,6 +1624,19 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
                       )}
                     </div>
 
+                    {!readOnly && (
+                      <button
+                        type="button"
+                        onClick={() => addEventSession(ev.id)}
+                        className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-[#C4622D] border border-[#C4622D] bg-white px-4 py-1.5 rounded-xl hover:bg-[#FFF8F4] transition-colors"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                        </svg>
+                        Add another session
+                      </button>
+                    )}
+
                     {eventDatesMsg[ev.id] && (
                       <p className={`text-xs mt-3 ${eventDatesMsg[ev.id].includes('Failed') ? 'text-red-500' : 'text-green-600'}`}>{eventDatesMsg[ev.id]}</p>
                     )}
