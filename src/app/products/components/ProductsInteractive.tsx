@@ -673,6 +673,14 @@ function ProductsContent({ initialCatalog }: ProductsContentProps) {
                   </button>
                 );
               })}
+              {(search || activeCategory !== "All") && (
+                <button
+                  onClick={() => { setSearch(""); setActiveCategory("All"); }}
+                  className="text-xs text-[#C4622D] hover:underline font-medium"
+                >
+                  Clear filters
+                </button>
+              )}
             </>
           ) : (
             <div className="flex items-center gap-2 text-sm text-[#8C8278]">
@@ -687,14 +695,6 @@ function ProductsContent({ initialCatalog }: ProductsContentProps) {
           <p className="text-sm text-[#8C8278] font-mono">
             {loading ? 'Loading products...' : `${filtered.length} item${filtered.length !== 1 ? "s" : ""} to choose from`}
           </p>
-          {(search || activeCategory !== "All") && (
-            <button
-              onClick={() => { setSearch(""); setActiveCategory("All"); }}
-              className="text-xs text-[#C4622D] hover:underline font-medium"
-            >
-              Clear filters
-            </button>
-          )}
         </div>
 
         {/* Product Grid */}
