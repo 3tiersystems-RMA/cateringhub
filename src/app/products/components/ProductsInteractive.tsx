@@ -216,6 +216,144 @@ function ApplyVoucherBanner() {
   );
 }
 
+// ─── Section-grouped product layout ───────────────────────────────────────────
+const SECTION_CATEGORIES = ["Frozen Meals", "Wellness", "Fadwah Mugs"];
+
+const SECTION_SUBTITLES: Record<string, string> = {
+  "Fadwah Mugs": "A charitable collection supporting children with spina bifida",
+};
+
+interface ProductSectionsProps {
+  products: Product[];
+  onOpenModal: (product: Product) => void;
+  sectionRef: React.RefObject<HTMLDivElement>;
+}
+
+function ProductSections({ products, onOpenModal, sectionRef }: ProductSectionsProps) {
+  // Group products by category, preserving section order
+  const sections = SECTION_CATEGORIES.map((cat) => ({
+    category: cat,
+    items: products.filter((p) => p.category === cat),
+  })).filter((s) => s.items.length > 0);
+
+  // Products not in any named section
+  const otherProducts = products.filter(
+    (p) => !SECTION_CATEGORIES.includes(p.category)
+  );
+
+  // Combine: named sections first, then "other" as a catch-all
+  const allSections = [
+    ...sections,
+    ...(otherProducts.length > 0
+      ? [{ category: "Other", items: otherProducts }]
+      : []),
+  ];
+
+  if (allSections.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 gap-4">
+        <p className="text-[#8C8278] text-base font-medium">No items match your search.</p>
+      </div>
+    );
+  }
+
+  let globalIndex = 0;
+
+  return (
+    <div ref={sectionRef}>
+      {allSections.map((section, sIdx) => {
+        const subtitle = SECTION_SUBTITLES[section.category];
+        return (
+          <div key={section.category}>
+            {/* Horizontal rule separator (not before first section) */}
+            {sIdx > 0 && (
+              <hr
+                style={{
+                  border: "none",
+                  borderTop: "0.5px solid #E2DDD6",
+                  margin: "0 0 2.5rem 0",
+                }}
+              />
+            )}
+
+            {/* Section heading block */}
+            <div style={{ marginBottom: "1.25rem", marginTop: sIdx === 0 ? 0 : "2.5rem" }}>
+              <div className="flex items-baseline gap-3 flex-wrap">
+                <h2
+                  style={{
+                    fontFamily: "'Cormorant Garamond', serif",
+                    fontSize: "clamp(22px, 4vw, 28px)",
+                    fontWeight: 400,
+                    color: "#1E3D2F",
+                    margin: 0,
+                    lineHeight: 1.2,
+                  }}
+                >
+                  {section.category}
+                </h2>
+                <span
+                  style={{
+                    fontFamily: "DM Sans, sans-serif",
+                    fontSize: "14px",
+                    color: "#8A8A82",
+                    fontWeight: 400,
+                  }}
+                >
+                  {section.items.length} item{section.items.length !== 1 ? "s" : ""}
+                </span>
+              </div>
+              {subtitle && (
+                <p
+                  style={{
+                    fontFamily: "DM Sans, sans-serif",
+                    fontSize: "13px",
+                    fontStyle: "italic",
+                    color: "#8A8A82",
+                    marginTop: "4px",
+                    marginBottom: 0,
+                  }}
+                >
+                  {subtitle}
+                </p>
+              )}
+            </div>
+
+            {/* Product grid */}
+            <div
+              className="product-section-grid"
+              style={{ marginBottom: "2.5rem" }}
+            >
+              {section.items.map((product) => {
+                const idx = globalIndex++;
+                return (
+                  <div
+                    key={`${product.category}-${product.id}`}
+                    className="pc-reveal"
+                    style={{
+                      opacity: 0,
+                      transform: "translateY(24px)",
+                      transition: `opacity 0.6s cubic-bezier(0.16,1,0.3,1) ${idx * 0.05}s, transform 0.6s cubic-bezier(0.16,1,0.3,1) ${idx * 0.05}s`,
+                      display: "flex",
+                      flexDirection: "column",
+                    }}
+                  >
+                    <ProductCard
+                      product={product}
+                      onOpenModal={onOpenModal}
+                      imagePriority={idx < 3}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 function ProductCardSkeleton() {
   return (
     <div className="bg-[#FAF7F2] border border-[#DDD5C8] rounded-3xl overflow-hidden animate-pulse">
@@ -504,7 +642,8 @@ function ProductsContent({ initialCatalog }: ProductsContentProps) {
 
         {/* Category Tabs — hidden when voucher is active (products already filtered) */}
         {!appliedVoucher?.package_type || appliedVoucher.package_type === "none" ? (
-          <div className="flex flex-wrap gap-2 mb-10">
+          <div className="flex gap-2 mb-10 overflow-x-auto pb-1" style={{ flexWrap: "nowrap" }}>
+            <div className="flex gap-2 flex-nowrap min-w-max sm:flex-wrap sm:min-w-0">
             {displayCategories.map((cat) => {
               const count = getCategoryCount(cat);
               const isZero = cat !== "Weekly Menu" && cat !== "All" && count === 0;
@@ -536,6 +675,7 @@ function ProductsContent({ initialCatalog }: ProductsContentProps) {
               </button>
               );
             })}
+            </div>
           </div>
         ) : (
           <div className="mb-10 flex items-center gap-2 text-sm text-[#8C8278]">
@@ -561,7 +701,7 @@ function ProductsContent({ initialCatalog }: ProductsContentProps) {
 
         {/* Product Grid */}
         {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="product-section-grid">
             {Array.from({ length: 6 }).map((_, i) => (
               <ProductCardSkeleton key={i} />
             ))}
@@ -570,7 +710,6 @@ function ProductsContent({ initialCatalog }: ProductsContentProps) {
           <VoucherMealsList products={filtered.filter((p) => {
             const hasUnit = p.unit && p.unit.trim() !== '';
             const priceIsZeroOrBlank = !p.price || p.price === 0;
-            // Only show packages that are flagged as visible; if visibility not yet loaded, hide all
             const pkgType = p.packageType || 'none';
             const isVisible = visibilityLoaded && visiblePackages.has(pkgType);
             return hasUnit && priceIsZeroOrBlank && isVisible;
@@ -586,10 +725,18 @@ function ProductsContent({ initialCatalog }: ProductsContentProps) {
             packageType: p.packageType,
             imageFit: p.imageFit,
           }))} />
+        ) : activeCategory === "All" && !appliedVoucher?.package_type ? (
+          // Grouped section layout for "All" view
+          <ProductSections
+            products={filtered}
+            onOpenModal={handleOpenModal}
+            sectionRef={sectionRef}
+          />
         ) : (
+          // Single flat grid for filtered category view
           <div
             ref={sectionRef}
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5"
+            className="product-section-grid"
           >
             {filtered.length > 0 ? (
               filtered.map((product, i) => (
@@ -600,6 +747,8 @@ function ProductsContent({ initialCatalog }: ProductsContentProps) {
                     opacity: 0,
                     transform: "translateY(24px)",
                     transition: `opacity 0.6s cubic-bezier(0.16,1,0.3,1) ${i * 0.05}s, transform 0.6s cubic-bezier(0.16,1,0.3,1) ${i * 0.05}s`,
+                    display: "flex",
+                    flexDirection: "column",
                   }}
                 >
                   <ProductCard
