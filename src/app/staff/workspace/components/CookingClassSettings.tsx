@@ -39,6 +39,8 @@ interface ClassEvent {
   instructor?: string | null;
   image_url?: string | null;
   image_path?: string | null;
+  menu_items?: string[] | null;
+  menu_note?: string | null;
 }
 
 interface SessionStatus {
@@ -157,6 +159,16 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
   // Default location from Organisation Details (default warehouse street address)
   const [defaultLocation, setDefaultLocation] = useState('');
 
+  // Session edit mode — tracks which session (by eventId+index key) is in edit mode
+  const [editingSessionKey, setEditingSessionKey] = useState<string | null>(null);
+
+  // Notes (menu_items + menu_note) per event — draft state
+  const [menuItemDrafts, setMenuItemDrafts] = useState<Record<string, string[]>>({});
+  const [menuNoteDrafts, setMenuNoteDrafts] = useState<Record<string, string>>({});
+  const [menuItemInput, setMenuItemInput] = useState<Record<string, string>>({});
+  const [savingNotes, setSavingNotes] = useState<Record<string, boolean>>({});
+  const [notesMsg, setNotesMsg] = useState<Record<string, string>>({});
+
   useEffect(() => {
     loadSettings();
     loadEvents();
@@ -173,6 +185,7 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
   useEffect(() => {
     if (events.length > 0) {
       initEventDateRows();
+      initNotesDrafts();
     }
   }, [events]);
 
@@ -300,6 +313,64 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
       });
       return updated;
     });
+  }
+
+  function initNotesDrafts() {
+    setMenuItemDrafts(prev => {
+      const updated = { ...prev };
+      events.forEach(ev => {
+        if (!(ev.id in updated)) {
+          updated[ev.id] = ev.menu_items || [];
+        }
+      });
+      return updated;
+    });
+    setMenuNoteDrafts(prev => {
+      const updated = { ...prev };
+      events.forEach(ev => {
+        if (!(ev.id in updated)) {
+          updated[ev.id] = ev.menu_note || '';
+        }
+      });
+      return updated;
+    });
+  }
+
+  function addMenuItem(eventId: string) {
+    const val = (menuItemInput[eventId] || '').trim();
+    if (!val) return;
+    setMenuItemDrafts(prev => ({ ...prev, [eventId]: [...(prev[eventId] || []), val] }));
+    setMenuItemInput(prev => ({ ...prev, [eventId]: '' }));
+  }
+
+  function removeMenuItem(eventId: string, index: number) {
+    setMenuItemDrafts(prev => ({
+      ...prev,
+      [eventId]: (prev[eventId] || []).filter((_, i) => i !== index),
+    }));
+  }
+
+  async function handleSaveNotes(eventId: string) {
+    if (readOnly) return;
+    setSavingNotes(prev => ({ ...prev, [eventId]: true }));
+    setNotesMsg(prev => ({ ...prev, [eventId]: '' }));
+    try {
+      const { error } = await supabase
+        .from('cooking_class_events')
+        .update({
+          menu_items: menuItemDrafts[eventId] || [],
+          menu_note: menuNoteDrafts[eventId] || null,
+        })
+        .eq('id', eventId);
+      if (error) throw error;
+      setNotesMsg(prev => ({ ...prev, [eventId]: 'Notes saved!' }));
+      await loadEvents();
+    } catch (err: any) {
+      setNotesMsg(prev => ({ ...prev, [eventId]: err?.message || 'Failed to save notes' }));
+    } finally {
+      setSavingNotes(prev => ({ ...prev, [eventId]: false }));
+      setTimeout(() => setNotesMsg(prev => ({ ...prev, [eventId]: '' })), 3000);
+    }
   }
 
   function addGeneralSession() {
@@ -768,143 +839,204 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
     row: EventDateRow,
     index: number,
     onChange: (field: keyof Omit<EventDateRow, 'id'>, value: string | number) => void,
-    onRemove?: () => void
+    onRemove?: () => void,
+    sessionKey?: string
   ) {
     const isFirst = index === 0;
+    const key = sessionKey || `general-${index}`;
+    const isEditing = editingSessionKey === key;
+
+    // Build a readable summary for read-only view
+    const summaryParts: string[] = [];
+    if (row.event_date) summaryParts.push(new Date(row.event_date + 'T00:00:00').toLocaleDateString('en-ZA', { day: '2-digit', month: '2-digit', year: 'numeric' }));
+    if (row.start_time && row.end_time) summaryParts.push(`${row.start_time} – ${row.end_time}`);
+    else if (row.start_time) summaryParts.push(row.start_time);
+    const statusLabel = sessionStatuses.find(s => s.id === row.status_id)?.label || '';
 
     return (
       <div key={index} className="bg-[#FAF5EE] rounded-xl border border-[#EDE7DA] overflow-hidden">
         {/* Session header */}
         <div className="w-full flex items-center justify-between px-3 py-2.5 border-b border-[#EDE7DA]">
-          <p className="text-xs font-semibold text-[#5C5347]">Session {index + 1}</p>
-          {!isFirst && onRemove && (
-            <button
-              type="button"
-              onClick={onRemove}
-              className="text-red-400 hover:text-red-600 transition-colors p-1 rounded"
-              title="Remove session"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          )}
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <p className="text-xs font-semibold text-[#5C5347] flex-shrink-0">Session {index + 1}</p>
+            {!isEditing && summaryParts.length > 0 && (
+              <p className="text-xs text-[#8C8278] truncate">{summaryParts.join(' · ')}{statusLabel ? ` · ${statusLabel}` : ''}</p>
+            )}
+          </div>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            {/* Edit button */}
+            {!readOnly && (
+              <button
+                type="button"
+                onClick={() => setEditingSessionKey(isEditing ? null : key)}
+                className={`flex items-center gap-1 text-xs px-2 py-1 rounded-lg transition-colors ${
+                  isEditing
+                    ? 'bg-[#C4622D] text-white hover:bg-[#A04E22]'
+                    : 'text-[#C4622D] hover:text-[#A04E22] hover:bg-orange-50 border border-[#DDD5C8] hover:border-[#C4622D]'
+                }`}
+                title={isEditing ? 'Close editor' : 'Edit session'}
+              >
+                {isEditing ? (
+                  <>
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                    Done
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    Edit
+                  </>
+                )}
+              </button>
+            )}
+            {!isFirst && onRemove && (
+              <button
+                type="button"
+                onClick={onRemove}
+                className="text-red-400 hover:text-red-600 transition-colors p-1 rounded"
+                title="Remove session"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Session body — always visible */}
-        <div className="px-3 pb-3 pt-2">
-          {/* Session Name */}
-          <div className="mb-2">
-            <label className="block text-xs text-[#8C8278] mb-1">Session Name <span className="text-[#B0A89C] font-normal">— optional label for this session</span></label>
-            <input
-              type="text"
-              value={row.session_name || ''}
-              onChange={e => onChange('session_name', e.target.value)}
-              placeholder="e.g. Morning Session, Weekend Workshop..."
-              className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-2 mb-2">
-            <div>
-              <label className="block text-xs text-[#8C8278] mb-1">Date</label>
+        {/* Session body — shown when editing OR when it's a new empty row */}
+        {(isEditing || (!row.event_date && !row.start_time && !row.end_time)) && (
+          <div className="px-3 pb-3 pt-2">
+            {/* Session Name */}
+            <div className="mb-2">
+              <label className="block text-xs text-[#8C8278] mb-1">Session Name <span className="text-[#B0A89C] font-normal">— optional label for this session</span></label>
               <input
-                type="date"
-                value={row.event_date || ''}
-                onChange={e => onChange('event_date', e.target.value)}
+                type="text"
+                value={row.session_name || ''}
+                onChange={e => onChange('session_name', e.target.value)}
+                placeholder="e.g. Morning Session, Weekend Workshop..."
                 className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
               />
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-2 mb-2">
               <div>
-                <label className="block text-xs text-[#8C8278] mb-1">Start Time</label>
+                <label className="block text-xs text-[#8C8278] mb-1">Date</label>
                 <input
-                  type="time"
-                  value={row.start_time || ''}
-                  onChange={e => onChange('start_time', e.target.value)}
+                  type="date"
+                  value={row.event_date || ''}
+                  onChange={e => onChange('event_date', e.target.value)}
+                  className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs text-[#8C8278] mb-1">Start Time</label>
+                  <input
+                    type="time"
+                    value={row.start_time || ''}
+                    onChange={e => onChange('start_time', e.target.value)}
+                    className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-[#8C8278] mb-1">End Time</label>
+                  <input
+                    type="time"
+                    value={row.end_time || ''}
+                    onChange={e => onChange('end_time', e.target.value)}
+                    className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="mb-2">
+              <label className="block text-xs text-[#8C8278] mb-1">Location</label>
+              <input
+                type="text"
+                value={row.location}
+                onChange={e => onChange('location', e.target.value)}
+                placeholder={defaultLocation || 'e.g. 14 Sergeant Street, Rondebosch East'}
+                className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+              />
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="block text-xs text-[#8C8278] mb-1">Seating Capacity</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={row.seating || 0}
+                  onChange={e => onChange('seating', parseInt(e.target.value) || 0)}
+                  placeholder="0"
                   className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
                 />
               </div>
               <div>
-                <label className="block text-xs text-[#8C8278] mb-1">End Time</label>
-                <input
-                  type="time"
-                  value={row.end_time || ''}
-                  onChange={e => onChange('end_time', e.target.value)}
+                <label className="block text-xs text-[#8C8278] mb-1">Status</label>
+                <select
+                  value={row.status_id || ''}
+                  onChange={e => onChange('status_id', e.target.value)}
                   className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
-                />
+                >
+                  <option value="">— Status —</option>
+                  {sessionStatuses.map(st => (
+                    <option key={st.id} value={st.id}>{st.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-[#8C8278] mb-1">Class / Adult Fee (ZAR)</label>
+                <div className="flex items-center gap-1">
+                  <span className="text-xs font-semibold text-[#5C5347]">R</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={row.class_fee || ''}
+                    onChange={e => onChange('class_fee', e.target.value)}
+                    placeholder="0.00"
+                    className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+                  />
+                </div>
               </div>
             </div>
-          </div>
-          <div className="mb-2">
-            <label className="block text-xs text-[#8C8278] mb-1">Location</label>
-            <input
-              type="text"
-              value={row.location}
-              onChange={e => onChange('location', e.target.value)}
-              placeholder={defaultLocation || 'e.g. 14 Sergeant Street, Rondebosch East'}
-              className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
-            />
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            <div>
-              <label className="block text-xs text-[#8C8278] mb-1">Seating Capacity</label>
-              <input
-                type="number"
-                min="0"
-                value={row.seating || 0}
-                onChange={e => onChange('seating', parseInt(e.target.value) || 0)}
-                placeholder="0"
-                className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
-              />
-            </div>
-            <div>
-              <label className="block text-xs text-[#8C8278] mb-1">Status</label>
-              <select
-                value={row.status_id || ''}
-                onChange={e => onChange('status_id', e.target.value)}
-                className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
-              >
-                <option value="">— Status —</option>
-                {sessionStatuses.map(st => (
-                  <option key={st.id} value={st.id}>{st.label}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs text-[#8C8278] mb-1">Class / Adult Fee (ZAR)</label>
-              <div className="flex items-center gap-1">
+            {/* Child fee — only applies to MIXED classes (name contains "Mixed"). */}
+            <div className="mt-2">
+              <label className="block text-xs text-[#8C8278] mb-1">
+                Child Fee (ZAR) <span className="text-[#B0A89C]">— Mixed classes only; blank = same as Adult fee</span>
+              </label>
+              <div className="flex items-center gap-1 max-w-[160px]">
                 <span className="text-xs font-semibold text-[#5C5347]">R</span>
                 <input
                   type="number"
                   min="0"
                   step="0.01"
-                  value={row.class_fee || ''}
-                  onChange={e => onChange('class_fee', e.target.value)}
+                  value={row.child_fee || ''}
+                  onChange={e => onChange('child_fee', e.target.value)}
                   placeholder="0.00"
                   className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
                 />
               </div>
             </div>
           </div>
-          {/* Child fee — only applies to MIXED classes (name contains "Mixed"). */}
-          <div className="mt-2">
-            <label className="block text-xs text-[#8C8278] mb-1">
-              Child Fee (ZAR) <span className="text-[#B0A89C]">— Mixed classes only; blank = same as Adult fee</span>
-            </label>
-            <div className="flex items-center gap-1 max-w-[160px]">
-              <span className="text-xs font-semibold text-[#5C5347]">R</span>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={row.child_fee || ''}
-                onChange={e => onChange('child_fee', e.target.value)}
-                placeholder="0.00"
-                className="w-full border border-[#DDD5C8] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
-              />
+        )}
+
+        {/* Read-only summary when not editing and row has data */}
+        {!isEditing && (row.event_date || row.start_time || row.end_time) && (
+          <div className="px-3 py-2 text-xs text-[#5C5347] space-y-0.5">
+            {row.session_name && <p className="font-medium text-[#1A1612]">{row.session_name}</p>}
+            {row.location && <p className="text-[#8C8278]">{row.location}</p>}
+            <div className="flex items-center gap-3 flex-wrap">
+              {row.seating > 0 && <span>Seats: {row.seating}</span>}
+              {row.class_fee && <span>R{parseFloat(row.class_fee).toFixed(2)}</span>}
+              {row.child_fee && <span>Child: R{parseFloat(row.child_fee).toFixed(2)}</span>}
             </div>
           </div>
-        </div>
+        )}
       </div>
     );
   }
@@ -1377,21 +1509,120 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
                         <p className={`text-xs mt-1 ${/Failed|migration/i.test(instructorMsg[ev.id]) ? 'text-red-500' : 'text-green-600'}`}>{instructorMsg[ev.id]}</p>
                       )}
                     </div>
-                    <div className="space-y-3">
-                      {(eventDateRows[ev.id] || [{ ...EMPTY_DATE_ROW(ev.id, 0) }]).map((row, i) =>
-                        renderSessionCard(row, i, (field, value) => updateEventDateRow(ev.id, i, field, value), i > 0 ? () => removeEventSession(ev.id, i) : undefined)
+
+                    {/* ── Notes card: Menu items + Menu Note ── */}
+                    <div className="mb-5 bg-white rounded-xl border border-[#EDE7DA] p-4">
+                      <h4 className="text-sm font-semibold text-[#1A1612] mb-3">Notes</h4>
+
+                      {/* Menu items — tag-style input */}
+                      <div className="mb-3">
+                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Menu</label>
+                        {/* Existing tags */}
+                        {(menuItemDrafts[ev.id] || []).length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mb-2">
+                            {(menuItemDrafts[ev.id] || []).map((item, idx) => (
+                              <span
+                                key={idx}
+                                className="inline-flex items-center gap-1 bg-[#FAF5EE] border border-[#EDE7DA] text-[#5C5347] text-xs px-2.5 py-1 rounded-full"
+                              >
+                                {item}
+                                {!readOnly && (
+                                  <button
+                                    type="button"
+                                    onClick={() => removeMenuItem(ev.id, idx)}
+                                    className="text-[#8C8278] hover:text-red-500 transition-colors ml-0.5"
+                                  >
+                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                  </button>
+                                )}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        {/* Add new item input */}
+                        {!readOnly && (
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={menuItemInput[ev.id] || ''}
+                              onChange={e => setMenuItemInput(prev => ({ ...prev, [ev.id]: e.target.value }))}
+                              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addMenuItem(ev.id); } }}
+                              placeholder="e.g. Essential cooking skills — press Enter to add"
+                              className="flex-1 border border-[#DDD5C8] rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => addMenuItem(ev.id)}
+                              disabled={!(menuItemInput[ev.id] || '').trim()}
+                              className="bg-[#e9e0cf] border border-[#DDD5C8] text-[#5C5347] px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-[#EDE7DA] transition-colors disabled:opacity-40"
+                            >
+                              + Add
+                            </button>
+                          </div>
+                        )}
+                        {readOnly && (menuItemDrafts[ev.id] || []).length === 0 && (
+                          <p className="text-xs text-[#B0A89C] italic">No menu items added.</p>
+                        )}
+                      </div>
+
+                      {/* Menu Note — multi-line, displayed with * prefix */}
+                      <div className="mb-3">
+                        <label className="block text-xs font-semibold text-[#5C5347] mb-1">Menu Note</label>
+                        <p className="text-xs text-[#8C8278] mb-1.5">Displayed below the menu items with an asterisk (*) prefix.</p>
+                        {!readOnly ? (
+                          <textarea
+                            value={menuNoteDrafts[ev.id] || ''}
+                            onChange={e => setMenuNoteDrafts(prev => ({ ...prev, [ev.id]: e.target.value }))}
+                            placeholder="e.g. Includes snacks & beverages. Halaal certified."
+                            rows={2}
+                            className="w-full border border-[#DDD5C8] rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:border-[#C4622D] bg-white resize-none"
+                          />
+                        ) : (
+                          menuNoteDrafts[ev.id] ? (
+                            <p className="text-xs text-[#5C5347]">*{menuNoteDrafts[ev.id]}</p>
+                          ) : (
+                            <p className="text-xs text-[#B0A89C] italic">No menu note added.</p>
+                          )
+                        )}
+                        {/* Preview */}
+                        {!readOnly && menuNoteDrafts[ev.id] && (
+                          <p className="text-xs text-[#8C8278] mt-1">Preview: <span className="text-[#5C5347]">*{menuNoteDrafts[ev.id]}</span></p>
+                        )}
+                      </div>
+
+                      {/* Save Notes button */}
+                      {!readOnly && (
+                        <div className="flex items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() => handleSaveNotes(ev.id)}
+                            disabled={!!savingNotes[ev.id]}
+                            className="bg-[#C4622D] text-white px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
+                          >
+                            {savingNotes[ev.id] ? 'Saving...' : 'Save Notes'}
+                          </button>
+                          {notesMsg[ev.id] && (
+                            <span className={`text-xs font-medium ${notesMsg[ev.id].includes('Failed') || notesMsg[ev.id].includes('failed') ? 'text-red-500' : 'text-green-600'}`}>
+                              {notesMsg[ev.id].includes('Failed') || notesMsg[ev.id].includes('failed') ? notesMsg[ev.id] : '✓ ' + notesMsg[ev.id]}
+                            </span>
+                          )}
+                        </div>
                       )}
                     </div>
 
-                    {/* + Add another session button */}
-                    <button
-                      type="button"
-                      onClick={() => addEventSession(ev.id)}
-                      className="mt-3 w-full flex items-center justify-center gap-2 border border-dashed border-[#C4622D] text-[#C4622D] rounded-xl py-2.5 text-sm font-medium hover:bg-[#FFF8F4] transition-colors"
-                    >
-                      <span className="text-lg leading-none">+</span>
-                      Add another session
-                    </button>
+                    <div className="space-y-3">
+                      {(eventDateRows[ev.id] || [{ ...EMPTY_DATE_ROW(ev.id, 0) }]).map((row, i) =>
+                        renderSessionCard(
+                          row,
+                          i,
+                          (field, value) => updateEventDateRow(ev.id, i, field, value),
+                          i > 0 ? () => removeEventSession(ev.id, i) : undefined,
+                          `${ev.id}-${i}`
+                        )
+                      )}
+                    </div>
 
                     {eventDatesMsg[ev.id] && (
                       <p className={`text-xs mt-3 ${eventDatesMsg[ev.id].includes('Failed') ? 'text-red-500' : 'text-green-600'}`}>{eventDatesMsg[ev.id]}</p>
