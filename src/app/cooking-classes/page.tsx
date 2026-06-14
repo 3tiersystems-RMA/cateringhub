@@ -1490,7 +1490,7 @@ export default function CookingClassesPage() {
             {/* Select Attendance — only show dates for selected events */}
             <div className="mb-5">
               <label className="block text-sm font-semibold text-[#1A1612] mb-2">
-                Select Attendance <span className="text-red-500">*</span>
+                Select scheduled session(s) <span className="text-red-500">*</span>
               </label>
               {page1.selectedEvents.length === 0 ?
             <p className="text-xs text-[#8C8278] italic">Please select an event above to see available dates.</p> :
