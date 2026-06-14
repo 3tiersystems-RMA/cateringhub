@@ -266,50 +266,52 @@ export default function ProductsTab({ can }: ProductsTabProps) {
       )}
 
       <div className="p-6">
-        <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
+        <div className="mb-4 flex items-center justify-between flex-wrap gap-3">
           <div>
             <h2 className="text-xl font-bold text-[#1A1612]">Products &amp; Pricing</h2>
             <p className="text-sm text-[#8C8278] mt-0.5">{products.length} product{products.length !== 1 ? 's' : ''}</p>
           </div>
-          <div className="flex items-center gap-2 flex-nowrap">
-            <input
-              type="text"
-              placeholder="Search..."
-              value={productSearchQuery}
-              onChange={e => setProductSearchQuery(e.target.value)}
-              className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white w-32"
-            />
-            <select
-              value={staffProductCategory}
-              onChange={e => setStaffProductCategory(e.target.value)}
-              className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+          {can('create') && (
+            <button
+              onClick={openAddForm}
+              className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors"
             >
-              <option value="All">All Categories</option>
-              {categoryNames.filter(c => c !== 'Weekly Menu').map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-            <div className="flex items-center rounded-xl border border-[#DDD5C8] overflow-hidden bg-white">
-              {(['All', 'Available', 'Unavailable'] as const).map(tab => (
-                <button
-                  key={tab}
-                  onClick={() => setAvailabilityFilter(tab)}
-                  className={`px-2.5 py-2 text-xs font-medium transition-colors ${
-                    availabilityFilter === tab
-                      ? 'bg-[#C4622D] text-white'
-                      : 'text-[#5C4F3D] hover:bg-[#FAF5EE]'
-                  }`}
-                >
-                  {tab}
-                </button>
-              ))}
-            </div>
-            {can('create') && (
+              + Add Product
+            </button>
+          )}
+        </div>
+
+        {/* Filter bar — single row */}
+        <div className="mb-6 flex items-center gap-2 flex-nowrap overflow-x-auto pb-1">
+          <input
+            type="text"
+            placeholder="Search..."
+            value={productSearchQuery}
+            onChange={e => setProductSearchQuery(e.target.value)}
+            className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white w-28 flex-shrink-0"
+          />
+          <select
+            value={staffProductCategory}
+            onChange={e => setStaffProductCategory(e.target.value)}
+            className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white flex-shrink-0"
+          >
+            <option value="All">All Categories</option>
+            {categoryNames.filter(c => c !== 'Weekly Menu').map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <div className="flex items-center rounded-xl border border-[#DDD5C8] overflow-hidden bg-white flex-shrink-0">
+            {(['All', 'Available', 'Unavailable'] as const).map(tab => (
               <button
-                onClick={openAddForm}
-                className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors"
+                key={tab}
+                onClick={() => setAvailabilityFilter(tab)}
+                className={`px-2.5 py-2 text-xs font-medium transition-colors whitespace-nowrap ${
+                  availabilityFilter === tab
+                    ? 'bg-[#C4622D] text-white'
+                    : 'text-[#5C4F3D] hover:bg-[#FAF5EE]'
+                }`}
               >
-                + Add Product
+                {tab}
               </button>
-            )}
+            ))}
           </div>
         </div>
 
