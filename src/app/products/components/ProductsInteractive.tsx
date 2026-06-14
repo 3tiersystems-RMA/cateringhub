@@ -593,7 +593,7 @@ function ProductsContent({ initialCatalog }: ProductsContentProps) {
         <ApplyVoucherBanner />
 
         {/* Filters & Search */}
-        <div className="flex flex-col sm:flex-row gap-4 mb-8">
+        <div className="flex flex-wrap items-center gap-3 mb-8">
           {/* Sort */}
           <div className="relative">
             <select
@@ -638,51 +638,49 @@ function ProductsContent({ initialCatalog }: ProductsContentProps) {
               </button>
             )}
           </div>
-        </div>
 
-        {/* Category Tabs — hidden when voucher is active (products already filtered) */}
-        {!appliedVoucher?.package_type || appliedVoucher.package_type === "none" ? (
-          <div className="flex gap-2 mb-10 overflow-x-auto pb-1" style={{ flexWrap: "nowrap" }}>
-            <div className="flex gap-2 flex-nowrap min-w-max sm:flex-wrap sm:min-w-0">
-            {displayCategories.map((cat) => {
-              const count = getCategoryCount(cat);
-              const isZero = cat !== "Weekly Menu" && cat !== "All" && count === 0;
-              if (isZero) return null;
-              return (
-              <button
-                key={cat}
-                onClick={() => {
-                  if (cat === "Weekly Menu") {
-                    router.push("/weekly-menu");
-                  } else {
-                    setActiveCategory(cat);
-                  }
-                }}
-                className={`px-5 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-                  activeCategory === cat
-                    ? "bg-[#C4622D] text-white shadow-terra"
-                    : "bg-white border border-[#DDD5C8] text-[#5C5347] hover:border-[#C4622D]/40 hover:text-[#C4622D]"
-                }`}
-              >
-                {cat}
-                <span
-                  className={`ml-2 text-xs ${
-                    activeCategory === cat ? "text-white/70" : "text-[#B5ADA5]"
-                  }`}
-                >
-                  {cat !== "Weekly Menu" && `(${count})`}
-                </span>
-              </button>
-              );
-            })}
+          {/* Category Filter Buttons — hidden when voucher is active */}
+          {!appliedVoucher?.package_type || appliedVoucher.package_type === "none" ? (
+            <>
+              {displayCategories.map((cat) => {
+                const count = getCategoryCount(cat);
+                const isZero = cat !== "Weekly Menu" && cat !== "All" && count === 0;
+                if (isZero) return null;
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => {
+                      if (cat === "Weekly Menu") {
+                        router.push("/weekly-menu");
+                      } else {
+                        setActiveCategory(cat);
+                      }
+                    }}
+                    className={`px-5 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                      activeCategory === cat
+                        ? "bg-[#C4622D] text-white shadow-terra"
+                        : "bg-white border border-[#DDD5C8] text-[#5C5347] hover:border-[#C4622D]/40 hover:text-[#C4622D]"
+                    }`}
+                  >
+                    {cat}
+                    <span
+                      className={`ml-2 text-xs ${
+                        activeCategory === cat ? "text-white/70" : "text-[#B5ADA5]"
+                      }`}
+                    >
+                      {cat !== "Weekly Menu" && `(${count})`}
+                    </span>
+                  </button>
+                );
+              })}
+            </>
+          ) : (
+            <div className="flex items-center gap-2 text-sm text-[#8C8278]">
+              <Icon name="FunnelIcon" size={14} className="text-[#C4622D]" />
+              <span>Showing <strong className="text-[#1A1612]">{PACKAGE_LABEL[appliedVoucher.package_type]}</strong> products only — remove voucher to browse all items</span>
             </div>
-          </div>
-        ) : (
-          <div className="mb-10 flex items-center gap-2 text-sm text-[#8C8278]">
-            <Icon name="FunnelIcon" size={14} className="text-[#C4622D]" />
-            <span>Showing <strong className="text-[#1A1612]">{PACKAGE_LABEL[appliedVoucher.package_type]}</strong> products only — remove voucher to browse all items</span>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Results count */}
         <div className="flex items-center justify-between mb-6">
