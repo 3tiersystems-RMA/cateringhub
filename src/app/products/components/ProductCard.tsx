@@ -94,7 +94,7 @@ export default function ProductCard({ product, onOpenModal, imagePriority = fals
                 fontSize: "10px",
                 fontFamily: "DM Sans, sans-serif",
                 fontWeight: 500,
-                background: "#C4622D",
+                background: "#DC2626",
                 color: "#fff",
                 padding: "2px 8px",
                 borderRadius: "999px",
@@ -120,20 +120,20 @@ export default function ProductCard({ product, onOpenModal, imagePriority = fals
               {product.badge}
             </span>
           )}
-          {!isSoldOut && product.savingPercent && product.savingPercent > 0 ? (
+          {product.savingPercent && product.savingPercent > 0 ? (
             <span
               style={{
                 fontSize: "10px",
                 fontFamily: "DM Sans, sans-serif",
                 fontWeight: 500,
-                background: "#C4622D",
+                background: isSoldOut ? "#DC2626" : "#C4622D",
                 color: "#fff",
                 padding: "2px 8px",
                 borderRadius: "999px",
                 letterSpacing: "0.3px",
               }}
             >
-              -{product.savingPercent}%
+              Save {product.savingPercent}%
             </span>
           ) : null}
           {!isSoldOut && isPackageProduct && (
