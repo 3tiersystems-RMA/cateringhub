@@ -37,6 +37,8 @@ interface ClassEvent {
   sort_order: number;
   is_active: boolean;
   instructor?: string | null;
+  badge?: string | null;
+  tags?: string[] | null;
   image_url?: string | null;
   image_path?: string | null;
   menu_items?: string[] | null;
@@ -118,6 +120,16 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
   const [instructorDrafts, setInstructorDrafts] = useState<Record<string, string>>({});
   const [savingInstructor, setSavingInstructor] = useState<Record<string, boolean>>({});
   const [instructorMsg, setInstructorMsg] = useState<Record<string, string>>({});
+
+  // Badge — per-event drafts + save state
+  const [badgeDrafts, setBadgeDrafts] = useState<Record<string, string>>({});
+  const [savingBadge, setSavingBadge] = useState<Record<string, boolean>>({});
+  const [badgeMsg, setBadgeMsg] = useState<Record<string, string>>({});
+
+  // Tags — per-event drafts + save state
+  const [tagsDrafts, setTagsDrafts] = useState<Record<string, string>>({});
+  const [savingTags, setSavingTags] = useState<Record<string, boolean>>({});
+  const [tagsMsg, setTagsMsg] = useState<Record<string, string>>({});
 
   // Session statuses management
   const [sessionStatuses, setSessionStatuses] = useState<SessionStatus[]>([]);
@@ -664,6 +676,49 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
       setInstructorMsg(prev => ({ ...prev, [eventId]: msg }));
     } finally {
       setSavingInstructor(prev => ({ ...prev, [eventId]: false }));
+    }
+  }
+
+  async function handleSaveBadge(eventId: string) {
+    if (readOnly) return;
+    const value = (badgeDrafts[eventId] ?? '').trim();
+    setSavingBadge(prev => ({ ...prev, [eventId]: true }));
+    setBadgeMsg(prev => ({ ...prev, [eventId]: '' }));
+    try {
+      const { error } = await supabase
+        .from('cooking_class_events')
+        .update({ badge: value || null })
+        .eq('id', eventId);
+      if (error) throw error;
+      setBadgeMsg(prev => ({ ...prev, [eventId]: 'Badge saved!' }));
+      await loadEvents();
+    } catch (err: any) {
+      setBadgeMsg(prev => ({ ...prev, [eventId]: err?.message || 'Failed to save badge' }));
+    } finally {
+      setSavingBadge(prev => ({ ...prev, [eventId]: false }));
+      setTimeout(() => setBadgeMsg(prev => ({ ...prev, [eventId]: '' })), 3000);
+    }
+  }
+
+  async function handleSaveTags(eventId: string) {
+    if (readOnly) return;
+    const raw = (tagsDrafts[eventId] ?? '').trim();
+    const tagsArray = raw ? raw.split(',').map(t => t.trim()).filter(Boolean) : [];
+    setSavingTags(prev => ({ ...prev, [eventId]: true }));
+    setTagsMsg(prev => ({ ...prev, [eventId]: '' }));
+    try {
+      const { error } = await supabase
+        .from('cooking_class_events')
+        .update({ tags: tagsArray })
+        .eq('id', eventId);
+      if (error) throw error;
+      setTagsMsg(prev => ({ ...prev, [eventId]: 'Tags saved!' }));
+      await loadEvents();
+    } catch (err: any) {
+      setTagsMsg(prev => ({ ...prev, [eventId]: err?.message || 'Failed to save tags' }));
+    } finally {
+      setSavingTags(prev => ({ ...prev, [eventId]: false }));
+      setTimeout(() => setTagsMsg(prev => ({ ...prev, [eventId]: '' })), 3000);
     }
   }
 
@@ -1510,6 +1565,62 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
                       </div>
                       {instructorMsg[ev.id] && (
                         <p className={`text-xs mt-1 ${/Failed|migration/i.test(instructorMsg[ev.id]) ? 'text-red-500' : 'text-green-600'}`}>{instructorMsg[ev.id]}</p>
+                      )}
+                    </div>
+
+                    {/* Badge */}
+                    <div className="mb-4">
+                      <label className="block text-xs font-semibold text-[#5C5347] mb-1">
+                        Badge
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={badgeDrafts[ev.id] ?? ev.badge ?? 'Cooking Class'}
+                          onChange={e => setBadgeDrafts(prev => ({ ...prev, [ev.id]: e.target.value }))}
+                          placeholder="e.g. Cooking Class"
+                          disabled={readOnly}
+                          className="flex-1 border border-[#DDD5C8] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white disabled:bg-gray-50"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleSaveBadge(ev.id)}
+                          disabled={readOnly || !!savingBadge[ev.id]}
+                          className="bg-[#C4622D] text-white px-3 py-2 rounded-lg text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
+                        >
+                          {savingBadge[ev.id] ? 'Saving...' : 'Save'}
+                        </button>
+                      </div>
+                      {badgeMsg[ev.id] && (
+                        <p className={`text-xs mt-1 ${/Failed/i.test(badgeMsg[ev.id]) ? 'text-red-500' : 'text-green-600'}`}>{badgeMsg[ev.id]}</p>
+                      )}
+                    </div>
+
+                    {/* Tags (comma-separated) */}
+                    <div className="mb-4">
+                      <label className="block text-xs font-semibold text-[#5C5347] mb-1">
+                        Tags <span className="text-[#B0A89C] font-normal">(comma-separated)</span>
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={tagsDrafts[ev.id] ?? (ev.tags ?? []).join(', ')}
+                          onChange={e => setTagsDrafts(prev => ({ ...prev, [ev.id]: e.target.value }))}
+                          placeholder="e.g. Beginner, Family, Asian"
+                          disabled={readOnly}
+                          className="flex-1 border border-[#DDD5C8] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white disabled:bg-gray-50"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleSaveTags(ev.id)}
+                          disabled={readOnly || !!savingTags[ev.id]}
+                          className="bg-[#C4622D] text-white px-3 py-2 rounded-lg text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
+                        >
+                          {savingTags[ev.id] ? 'Saving...' : 'Save'}
+                        </button>
+                      </div>
+                      {tagsMsg[ev.id] && (
+                        <p className={`text-xs mt-1 ${/Failed/i.test(tagsMsg[ev.id]) ? 'text-red-500' : 'text-green-600'}`}>{tagsMsg[ev.id]}</p>
                       )}
                     </div>
 
