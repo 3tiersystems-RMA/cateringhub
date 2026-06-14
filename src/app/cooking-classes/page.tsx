@@ -1462,7 +1462,7 @@ export default function CookingClassesPage() {
             {/* (1) Select an Event — radio buttons, only one at a time */}
             <div className="mb-5">
               <label className="block text-sm font-semibold text-[#1A1612] mb-2">
-                Select an Event <span className="text-red-500">*</span>
+                Select the Class to attend <span className="text-red-500">*</span>
               </label>
               {classEvents.length === 0 ?
             <p className="text-xs text-[#8C8278] italic">No events available at this time.</p> :
