@@ -271,20 +271,28 @@ export default function ProductsTab({ can }: ProductsTabProps) {
             <h2 className="text-xl font-bold text-[#1A1612]">Products &amp; Pricing</h2>
             <p className="text-sm text-[#8C8278] mt-0.5">{products.length} product{products.length !== 1 ? 's' : ''}</p>
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 flex-nowrap">
             <input
               type="text"
-              placeholder="Search products..."
+              placeholder="Search..."
               value={productSearchQuery}
               onChange={e => setProductSearchQuery(e.target.value)}
-              className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+              className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white w-32"
             />
+            <select
+              value={staffProductCategory}
+              onChange={e => setStaffProductCategory(e.target.value)}
+              className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
+            >
+              <option value="All">All Categories</option>
+              {categoryNames.filter(c => c !== 'Weekly Menu').map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
             <div className="flex items-center rounded-xl border border-[#DDD5C8] overflow-hidden bg-white">
               {(['All', 'Available', 'Unavailable'] as const).map(tab => (
                 <button
                   key={tab}
                   onClick={() => setAvailabilityFilter(tab)}
-                  className={`px-3 py-2 text-sm font-medium transition-colors ${
+                  className={`px-2.5 py-2 text-xs font-medium transition-colors ${
                     availabilityFilter === tab
                       ? 'bg-[#C4622D] text-white'
                       : 'text-[#5C4F3D] hover:bg-[#FAF5EE]'
@@ -294,14 +302,6 @@ export default function ProductsTab({ can }: ProductsTabProps) {
                 </button>
               ))}
             </div>
-            <select
-              value={staffProductCategory}
-              onChange={e => setStaffProductCategory(e.target.value)}
-              className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
-            >
-              <option value="All">All Categories</option>
-              {categoryNames.filter(c => c !== 'Weekly Menu').map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
             {can('create') && (
               <button
                 onClick={openAddForm}
