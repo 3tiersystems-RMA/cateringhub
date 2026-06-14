@@ -594,32 +594,6 @@ function ProductsContent({ initialCatalog }: ProductsContentProps) {
 
         {/* Filters & Search */}
         <div className="flex flex-col sm:flex-row gap-4 mb-8">
-          {/* Search */}
-          <div className="relative flex-1 max-w-sm">
-            <Icon
-              name="MagnifyingGlassIcon"
-              size={16}
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-[#B5ADA5]"
-            />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search menu..."
-              className="w-full bg-white border border-[#DDD5C8] rounded-full pl-10 pr-10 py-2.5 text-sm text-[#1A1612] placeholder-[#B5ADA5] focus:outline-none focus:border-[#C4622D] transition-colors"
-            />
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#B5ADA5] hover:text-[#5C5347] transition-colors"
-                aria-label="Clear search"
-              >
-                <Icon name="XMarkIcon" size={16} />
-              </button>
-            )}
-          </div>
-
           {/* Sort */}
           <div className="relative">
             <select
@@ -637,6 +611,32 @@ function ProductsContent({ initialCatalog }: ProductsContentProps) {
               size={14}
               className="absolute right-4 top-1/2 -translate-y-1/2 text-[#8C8278] pointer-events-none"
             />
+          </div>
+
+          {/* Search */}
+          <div className="relative w-40">
+            <Icon
+              name="MagnifyingGlassIcon"
+              size={16}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-[#B5ADA5]"
+            />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search..."
+              className="w-full bg-white border border-[#DDD5C8] rounded-full pl-8 pr-8 py-2.5 text-sm text-[#1A1612] placeholder-[#B5ADA5] focus:outline-none focus:border-[#C4622D] transition-colors"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#B5ADA5] hover:text-[#5C5347] transition-colors"
+                aria-label="Clear search"
+              >
+                <Icon name="XMarkIcon" size={16} />
+              </button>
+            )}
           </div>
         </div>
 
