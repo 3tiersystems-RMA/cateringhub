@@ -764,27 +764,62 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
     setSavingEventDates(prev => ({ ...prev, [eventId]: true }));
     setEventDatesMsg(prev => ({ ...prev, [eventId]: '' }));
     try {
-      // Delete existing rows for this event
-      await supabase.from('cooking_class_event_dates').delete().eq('event_id', eventId);
-
       const rows = eventDateRows[eventId] || [];
-      const rowsToInsert = rows
-        .filter(r => r.event_date || r.start_time || r.end_time)
-        .map((r, i) => ({
+      const validRows = rows.filter(r => r.event_date || r.start_time || r.end_time);
+
+      // Separate existing rows (have an id) from new rows (no id)
+      const existingRows = validRows.filter(r => r.id);
+      const newRows = validRows.filter(r => !r.id);
+
+      // Determine which existing DB rows were removed by the user
+      // by comparing current DB ids against what's still in the UI
+      const { data: currentDbRows } = await supabase
+        .from('cooking_class_event_dates')
+        .select('id')
+        .eq('event_id', eventId);
+      const currentDbIds = (currentDbRows || []).map((r: { id: string }) => r.id);
+      const keptIds = existingRows.map(r => r.id as string);
+      const removedIds = currentDbIds.filter((id: string) => !keptIds.includes(id));
+
+      // Delete only the rows the user explicitly removed
+      if (removedIds.length > 0) {
+        await supabase.from('cooking_class_event_dates').delete().in('id', removedIds);
+      }
+
+      // Update existing rows in place (preserves their id → booking counts stay intact)
+      for (let i = 0; i < existingRows.length; i++) {
+        const r = existingRows[i];
+        const updatePayload: Record<string, unknown> = {
           event_id: eventId,
           event_date: r.event_date || null,
           start_time: r.start_time || null,
           end_time: r.end_time || null,
           location: r.location || defaultLocation,
-          sort_order: i,
+          sort_order: validRows.indexOf(r),
+          seating: r.seating || 0,
+          status_id: r.status_id || null,
+          class_fee: r.class_fee !== '' ? parseFloat(r.class_fee) : null,
+          child_fee: r.child_fee !== '' ? parseFloat(r.child_fee) : null,
+          session_name: r.session_name || null,
+        };
+        await supabase.from('cooking_class_event_dates').update(updatePayload).eq('id', r.id as string);
+      }
+
+      // Insert brand-new rows
+      if (newRows.length > 0) {
+        const rowsToInsert = newRows.map((r, i) => ({
+          event_id: eventId,
+          event_date: r.event_date || null,
+          start_time: r.start_time || null,
+          end_time: r.end_time || null,
+          location: r.location || defaultLocation,
+          sort_order: validRows.indexOf(r),
           seating: r.seating || 0,
           status_id: r.status_id || null,
           class_fee: r.class_fee !== '' ? parseFloat(r.class_fee) : null,
           child_fee: r.child_fee !== '' ? parseFloat(r.child_fee) : null,
           session_name: r.session_name || null,
         }));
-
-      if (rowsToInsert.length > 0) {
         await insertDateRows(rowsToInsert);
       }
 
