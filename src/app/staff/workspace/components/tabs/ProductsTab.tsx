@@ -52,6 +52,7 @@ export default function ProductsTab({ can }: ProductsTabProps) {
   const [categoryNames, setCategoryNames] = useState<string[]>([]);
   const [productSearchQuery, setProductSearchQuery] = useState('');
   const [staffProductCategory, setStaffProductCategory] = useState<string>('All');
+  const [availabilityFilter, setAvailabilityFilter] = useState<'All' | 'Available' | 'Unavailable'>('All');
   const [oldPriceErrorModal, setOldPriceErrorModal] = useState(false);
   const [globalError, setGlobalError] = useState('');
   const [globalErrorTitle, setGlobalErrorTitle] = useState('');
@@ -229,7 +230,11 @@ export default function ProductsTab({ can }: ProductsTabProps) {
     const q = productSearchQuery.toLowerCase();
     const matchSearch = !q || p.name.toLowerCase().includes(q) || p.category.toLowerCase().includes(q);
     const matchCat = staffProductCategory === 'All' || p.category === staffProductCategory;
-    return matchSearch && matchCat;
+    const matchAvail =
+      availabilityFilter === 'All' ||
+      (availabilityFilter === 'Available' && p.available) ||
+      (availabilityFilter === 'Unavailable' && !p.available);
+    return matchSearch && matchCat && matchAvail;
   });
 
   return (
@@ -274,13 +279,28 @@ export default function ProductsTab({ can }: ProductsTabProps) {
               onChange={e => setProductSearchQuery(e.target.value)}
               className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
             />
+            <div className="flex items-center rounded-xl border border-[#DDD5C8] overflow-hidden bg-white">
+              {(['All', 'Available', 'Unavailable'] as const).map(tab => (
+                <button
+                  key={tab}
+                  onClick={() => setAvailabilityFilter(tab)}
+                  className={`px-3 py-2 text-sm font-medium transition-colors ${
+                    availabilityFilter === tab
+                      ? 'bg-[#C4622D] text-white'
+                      : 'text-[#5C4F3D] hover:bg-[#FAF5EE]'
+                  }`}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
             <select
               value={staffProductCategory}
               onChange={e => setStaffProductCategory(e.target.value)}
               className="border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white"
             >
               <option value="All">All Categories</option>
-              {categoryNames.map(c => <option key={c} value={c}>{c}</option>)}
+              {categoryNames.filter(c => c !== 'Weekly Menu').map(c => <option key={c} value={c}>{c}</option>)}
             </select>
             {can('create') && (
               <button
