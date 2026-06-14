@@ -1493,7 +1493,7 @@ export default function CookingClassesPage() {
                 Select scheduled session(s) <span className="text-red-500">*</span>
               </label>
               {page1.selectedEvents.length === 0 ?
-            <p className="text-xs text-[#8C8278] italic">... select the planned Class above to see available dates ...</p> :
+            <p className="text-xs text-[#8C8278] italic">Select a planned Class above to see available dates</p> :
             filteredDates.length === 0 ?
             <p className="text-xs text-[#8C8278] italic">No dates are currently scheduled for this event.</p> :
 
