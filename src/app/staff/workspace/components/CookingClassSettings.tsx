@@ -168,6 +168,9 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
   const [menuItemInput, setMenuItemInput] = useState<Record<string, string>>({});
   const [savingNotes, setSavingNotes] = useState<Record<string, boolean>>({});
   const [notesMsg, setNotesMsg] = useState<Record<string, string>>({});
+  // Inline menu item editing — key format: `${eventId}-${itemIndex}`
+  const [editingMenuItemKey, setEditingMenuItemKey] = useState<string | null>(null);
+  const [editingMenuItemValue, setEditingMenuItemValue] = useState<string>('');
 
   useEffect(() => {
     loadSettings();
@@ -1520,25 +1523,103 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
                         {/* Existing tags */}
                         {(menuItemDrafts[ev.id] || []).length > 0 && (
                           <div className="flex flex-wrap gap-1.5 mb-2">
-                            {(menuItemDrafts[ev.id] || []).map((item, idx) => (
-                              <span
-                                key={idx}
-                                className="inline-flex items-center gap-1 bg-[#FAF5EE] border border-[#EDE7DA] text-[#5C5347] text-xs px-2.5 py-1 rounded-full"
-                              >
-                                {item}
-                                {!readOnly && (
+                            {(menuItemDrafts[ev.id] || []).map((item, idx) => {
+                              const itemKey = `${ev.id}-${idx}`;
+                              const isEditingItem = editingMenuItemKey === itemKey;
+                              return isEditingItem ? (
+                                <div key={idx} className="flex items-center gap-1 bg-[#FAF5EE] border border-[#C4622D] rounded-full px-2.5 py-1 w-full max-w-full">
+                                  <input
+                                    type="text"
+                                    value={editingMenuItemValue}
+                                    onChange={e => setEditingMenuItemValue(e.target.value)}
+                                    onKeyDown={e => {
+                                      if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        const trimmed = editingMenuItemValue.trim();
+                                        if (trimmed) {
+                                          setMenuItemDrafts(prev => {
+                                            const arr = [...(prev[ev.id] || [])];
+                                            arr[idx] = trimmed;
+                                            return { ...prev, [ev.id]: arr };
+                                          });
+                                        }
+                                        setEditingMenuItemKey(null);
+                                        setEditingMenuItemValue('');
+                                      } else if (e.key === 'Escape') {
+                                        setEditingMenuItemKey(null);
+                                        setEditingMenuItemValue('');
+                                      }
+                                    }}
+                                    autoFocus
+                                    className="flex-1 bg-transparent text-xs text-[#5C5347] outline-none min-w-0"
+                                  />
                                   <button
                                     type="button"
-                                    onClick={() => removeMenuItem(ev.id, idx)}
-                                    className="text-[#8C8278] hover:text-red-500 transition-colors ml-0.5"
+                                    onClick={() => {
+                                      const trimmed = editingMenuItemValue.trim();
+                                      if (trimmed) {
+                                        setMenuItemDrafts(prev => {
+                                          const arr = [...(prev[ev.id] || [])];
+                                          arr[idx] = trimmed;
+                                          return { ...prev, [ev.id]: arr };
+                                        });
+                                      }
+                                      setEditingMenuItemKey(null);
+                                      setEditingMenuItemValue('');
+                                    }}
+                                    className="text-[#C4622D] hover:text-[#A04E22] transition-colors ml-0.5 flex-shrink-0"
+                                    title="Save"
+                                  >
+                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => { setEditingMenuItemKey(null); setEditingMenuItemValue(''); }}
+                                    className="text-[#8C8278] hover:text-red-500 transition-colors ml-0.5 flex-shrink-0"
+                                    title="Cancel"
                                   >
                                     <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                                       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                                     </svg>
                                   </button>
-                                )}
-                              </span>
-                            ))}
+                                </div>
+                              ) : (
+                                <span
+                                  key={idx}
+                                  className="inline-flex items-center gap-1 bg-[#FAF5EE] border border-[#EDE7DA] text-[#5C5347] text-xs px-2.5 py-1 rounded-full"
+                                >
+                                  {item}
+                                  {!readOnly && (
+                                    <>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setEditingMenuItemKey(itemKey);
+                                          setEditingMenuItemValue(item);
+                                        }}
+                                        className="text-[#C4622D] hover:text-[#A04E22] hover:bg-orange-50 transition-colors ml-0.5 rounded"
+                                        title="Edit item"
+                                      >
+                                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                          <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                        </svg>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => removeMenuItem(ev.id, idx)}
+                                        className="text-[#8C8278] hover:text-red-500 transition-colors ml-0.5"
+                                      >
+                                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                      </button>
+                                    </>
+                                  )}
+                                </span>
+                              );
+                            })}
                           </div>
                         )}
                         {/* Add new item input */}
