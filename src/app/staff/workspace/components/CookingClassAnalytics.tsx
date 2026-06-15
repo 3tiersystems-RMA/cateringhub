@@ -90,7 +90,7 @@ export default function CookingClassAnalytics() {
         supabase.from('cooking_class_registrations').select('id, first_name, surname, email, payment_status, payment_method, amount, created_at, children, attend_school_holiday'),
         supabase.from('cooking_class_booking_counts').select('registration_id, event_date_id'),
         supabase.from('cooking_class_sessions').select('id, event_date, class_fee, class_id, seating'),
-        supabase.from('cooking_classes').select('id, name, is_active').eq('is_active', true),
+        supabase.from('cooking_class_name').select('id, name, is_active').eq('is_active', true),
       ]);
       if (regsRes.error) throw regsRes.error;
       setRegistrations(regsRes.data || []);
