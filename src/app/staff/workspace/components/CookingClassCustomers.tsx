@@ -193,7 +193,7 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
           let eventsMap: Record<string, string> = {};
           if (eventIds.length > 0) {
             const { data: events } = await supabase
-              .from('cooking_class_name')
+              .from('cooking_classes')
               .select('id, name')
               .in('id', eventIds);
             (events || []).forEach((e: { id: string; name: string }) => { eventsMap[e.id] = e.name; });
