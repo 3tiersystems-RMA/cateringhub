@@ -476,7 +476,8 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
                           <span className={`inline-flex items-center justify-center gap-1 px-2 py-1 rounded-full text-xs font-semibold border ${
                             r.source === 'class' ?'bg-orange-50 text-orange-700 border-orange-200' :'bg-purple-50 text-purple-700 border-purple-200'
                           }`}>
-                            {r.source === 'class' ? '👨‍🍳 Class' : '🎪 Event'}
+                            <span className="flex items-center justify-center leading-none">{r.source === 'class' ? '👨‍🍳' : '🎪'}</span>
+                            {r.source === 'class' ? 'Class' : 'Event'}
                           </span>
                         </td>
                         <td className="px-4 py-3 max-w-[180px]">
