@@ -95,7 +95,7 @@ function formatDate(dateStr: string | null | undefined) {
 
 function formatCurrency(val: number | null | undefined) {
   if (val == null) return '—';
-  return `R${Number(val).toFixed(2)}`;
+  return `R${Math.round(Number(val)).toLocaleString('en-ZA')}`;
 }
 
 function calcAge(dob: string | null | undefined): string {
