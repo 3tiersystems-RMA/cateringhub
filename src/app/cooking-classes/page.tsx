@@ -406,14 +406,15 @@ export default function CookingClassesPage() {
       select('event_date_id, registration_id').
       in('event_date_id', dateIds);
       if (data) {
-        // For each booking row, fetch the registration to count total participants
+        // For each booking row, fetch ONLY PAID registrations to count total participants
         const regIds = [...new Set(data.map((row: {registration_id: string;}) => row.registration_id))];
         let regParticipantMap: Record<string, number> = {};
         if (regIds.length > 0) {
           const { data: regs } = await supabase.
           from('cooking_class_registrations').
           select('id, children').
-          in('id', regIds);
+          in('id', regIds).
+          eq('payment_status', 'paid');
           (regs || []).forEach((reg: {id: string;children: unknown[] | null;}) => {
             const kids = Array.isArray(reg.children) ?
             reg.children.filter((c: unknown) => {
@@ -426,8 +427,10 @@ export default function CookingClassesPage() {
             regParticipantMap[reg.id] = kids;
           });
         }
+        // Only count registrations that are paid (those in regParticipantMap)
         const counts: Record<string, number> = {};
         data.forEach((row: {event_date_id: string;registration_id: string;}) => {
+          if (!(row.registration_id in regParticipantMap)) return;
           const participants = regParticipantMap[row.registration_id] || 1;
           counts[row.event_date_id] = (counts[row.event_date_id] || 0) + participants;
         });
