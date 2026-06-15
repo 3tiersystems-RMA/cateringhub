@@ -160,7 +160,7 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
         let classEventsMap: Record<string, string> = {};
         if (classEventIds.length > 0) {
           const { data: classEvents } = await supabase
-            .from('cooking_classes')
+            .from('cooking_class_name')
             .select('id, name')
             .in('id', classEventIds);
           (classEvents || []).forEach((e: { id: string; name: string }) => { classEventsMap[e.id] = e.name; });

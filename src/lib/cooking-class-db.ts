@@ -1,6 +1,6 @@
 /** Supabase table names for in-person cooking & baking classes (not marketing events). */
 export const COOKING_CLASS_TABLES = {
-  classes: 'cooking_classes',
+  classes: 'cooking_class_name',
   sessions: 'cooking_class_sessions',
   settings: 'cooking_class_settings',
   registrations: 'cooking_class_registrations',
