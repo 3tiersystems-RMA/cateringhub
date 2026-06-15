@@ -1386,6 +1386,9 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
             {saving ? 'Saving...' : 'Save Settings'}
           </button>
 
+          {/* ── Classes + Session Status Options — side by side ── */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
           {/* ── Classes Management ── */}
           <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5">
             <h3 className="text-base font-semibold text-[#1A1612] mb-1">Classes</h3>
@@ -1512,6 +1515,8 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
               <p className={`text-xs mt-2 ${statusMsg.includes('Failed') ? 'text-red-500' : 'text-green-600'}`}>{statusMsg}</p>
             )}
           </div>
+
+          </div>{/* ── end side-by-side grid ── */}
 
           {/* (6) Per-class Session Details blocks — one per class, each collapsible */}
           {events.map(ev => {
