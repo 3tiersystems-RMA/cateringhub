@@ -182,7 +182,9 @@ export default function CookingClassAnalytics() {
   bookings.forEach(b => {
     const ed = eventDateMap[b.event_date_id];
     if (!ed) return;
-    const eventName = eventsMap[ed.class_id] || 'Unknown Class';
+    // Only include active classes (those present in eventsMap)
+    const eventName = eventsMap[ed.class_id];
+    if (!eventName) return;
     bookingsByEvent[eventName] = (bookingsByEvent[eventName] || 0) + 1;
     const reg = registrations.find(r => r.id === b.registration_id);
     if (reg && reg.payment_status === 'paid') {
@@ -200,29 +202,27 @@ export default function CookingClassAnalytics() {
   registrations.forEach(r => { regMap[r.id] = r; });
 
   // If revenueByEvent is still empty after booking_counts join, fall back to
-  // grouping paid registrations directly by their amount (attributed to 'General')
+  // grouping paid registrations directly by their amount (attributed to active classes only)
   const revenueByEventData = Object.entries(revenueByEvent)
     .map(([name, revenue]) => ({ name: name.length > 20 ? name.slice(0, 18) + '…' : name, revenue, fullName: name }))
     .sort((a, b) => b.revenue - a.revenue)
     .slice(0, 8);
 
-  // Fallback: if no event-linked revenue found but paid registrations exist, show them under their event name
+  // Fallback: if no event-linked revenue found, show paid registrations linked to active classes only
   const fallbackRevenueData = revenueByEventData.length === 0
     ? (() => {
         const fallback: Record<string, number> = {};
         paidRegs.forEach(r => {
           if ((r.amount || 0) > 0) {
-            // Try to get event name from booking_counts
             const regBookings = bookings.filter(b => b.registration_id === r.id);
-            if (regBookings.length > 0) {
-              regBookings.forEach(b => {
-                const ed = eventDateMap[b.event_date_id];
-                const eventName = ed ? (eventsMap[ed.class_id] || 'Unknown Class') : 'Unknown Class';
-                fallback[eventName] = (fallback[eventName] || 0) + (r.amount || 0);
-              });
-            } else {
-              fallback['Unassigned'] = (fallback['Unassigned'] || 0) + (r.amount || 0);
-            }
+            regBookings.forEach(b => {
+              const ed = eventDateMap[b.event_date_id];
+              if (!ed) return;
+              const eventName = eventsMap[ed.class_id];
+              // Only include active classes (skip unknown/inactive)
+              if (!eventName) return;
+              fallback[eventName] = (fallback[eventName] || 0) + (r.amount || 0);
+            });
           }
         });
         return Object.entries(fallback)
