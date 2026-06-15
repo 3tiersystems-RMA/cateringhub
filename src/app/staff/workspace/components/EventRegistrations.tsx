@@ -269,26 +269,26 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
       });
       const uniqueDateIds = [...new Set(allDateIds)];
 
-      // 3. Fetch cooking class event dates with event names
+      // 3. Fetch cooking class sessions with class names
       let eventDatesMap: Record<string, SessionDate> = {};
 
       if (uniqueDateIds.length > 0) {
         const { data: dates } = await supabase
-          .from('cooking_class_event_dates')
-          .select('id, event_date, start_time, end_time, location, class_fee, event_id')
+          .from('cooking_class_sessions')
+          .select('id, event_date, start_time, end_time, location, class_fee, class_id')
           .in('id', uniqueDateIds);
 
         if (dates && dates.length > 0) {
-          const eventIds = [...new Set(dates.map((d: { event_id: string }) => d.event_id).filter(Boolean))];
+          const eventIds = [...new Set(dates.map((d: { class_id: string }) => d.class_id).filter(Boolean))];
           let eventsMap: Record<string, string> = {};
           if (eventIds.length > 0) {
             const { data: events } = await supabase
-              .from('cooking_class_events')
+              .from('cooking_classes')
               .select('id, name')
               .in('id', eventIds);
             (events || []).forEach((e: { id: string; name: string }) => { eventsMap[e.id] = e.name; });
           }
-          dates.forEach((d: { id: string; event_date: string | null; start_time: string | null; end_time: string | null; location: string | null; class_fee: number | null; event_id: string }) => {
+          dates.forEach((d: { id: string; event_date: string | null; start_time: string | null; end_time: string | null; location: string | null; class_fee: number | null; class_id: string }) => {
             eventDatesMap[d.id] = {
               id: d.id,
               event_date: d.event_date,
@@ -296,7 +296,7 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
               end_time: d.end_time,
               location: d.location,
               class_fee: d.class_fee,
-              event_name: eventsMap[d.event_id] || null,
+              event_name: eventsMap[d.class_id] || null,
             };
           });
         }
@@ -431,7 +431,7 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
         });
       } else {
         sessionDates.forEach(sd => {
-          const evName = sd.event_name || 'Unknown Event';
+          const evName = sd.event_name || 'Unknown Class';
           const dateKey = formatDate(sd.event_date);
           const timeslot = sd.start_time && sd.end_time
             ? `${sd.start_time} – ${sd.end_time}`
@@ -493,7 +493,7 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
         });
       } else {
         sessionDates.forEach(sd => {
-          const evName = sd.event_name || 'Unknown Event';
+          const evName = sd.event_name || 'Unknown Class';
           const timeslot = sd.start_time && sd.end_time
             ? `${sd.start_time} – ${sd.end_time}`
             : sd.start_time || 'Time TBC';
@@ -594,7 +594,7 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
   // PDF helpers
   const handleCreateParticipantPDF = () => {
     const rows = sortedParticipantRows;
-    const eventLabel = participantEventFilter !== 'all' ? participantEventFilter : 'All Events';
+    const eventLabel = participantEventFilter !== 'all' ? participantEventFilter : 'All Classes';
     const generatedAt = new Date().toLocaleString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
     const tableRows = rows.map((row, idx) => `
       <tr style="background:${idx % 2 === 0 ? '#ffffff' : '#faf5ee'}">
@@ -615,7 +615,7 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
     <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#2c2420;background:#fff;padding:24px}.header{border-bottom:2px solid #c4622d;padding-bottom:16px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:flex-end}.header-left h1{font-size:20px;font-weight:700;color:#1a1612}.header-left p{font-size:12px;color:#8c7b6b;margin-top:4px}.meta{display:flex;gap:24px;margin-bottom:16px}.meta-item{background:#faf5ee;border:1px solid #e8ddd0;border-radius:8px;padding:8px 14px}.meta-item .label{font-size:10px;color:#8c7b6b;text-transform:uppercase;letter-spacing:.05em;font-weight:600}.meta-item .value{font-size:14px;font-weight:700;color:#c4622d;margin-top:2px}table{width:100%;border-collapse:collapse}thead tr{background:#f5efe8}thead th{padding:10px 12px;text-align:left;font-size:10px;font-weight:700;color:#5c5347;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid #e8ddd0}.footer{margin-top:20px;padding-top:12px;border-top:1px solid #e8ddd0;font-size:10px;color:#8c7b6b;text-align:center}@media print{body{padding:16px}@page{margin:1cm;size:A4 landscape}}</style>
     </head><body>
     <div class="header"><div class="header-left"><h1>Participant Bookings</h1><p>Event: ${eventLabel}</p></div><div style="text-align:right;font-size:11px;color:#8c7b6b">Generated: ${generatedAt}</div></div>
-    <div class="meta"><div class="meta-item"><div class="label">Total Participants</div><div class="value">${rows.length}</div></div><div class="meta-item"><div class="label">Event Filter</div><div class="value" style="font-size:12px;color:#5c5347">${eventLabel}</div></div></div>
+    <div class="meta"><div class="meta-item"><div class="label">Total Participants</div><div class="value">${rows.length}</div></div><div class="meta-item"><div class="label">Class Filter</div><div class="value" style="font-size:12px;color:#5c5347">${eventLabel}</div></div></div>
     <table><thead><tr><th>#</th><th>Class</th><th>Date &amp; Time</th><th>Full Name</th><th>Date of Birth</th><th>Age</th><th>Gender</th><th>Allergies</th></tr></thead><tbody>${tableRows}</tbody></table>
     <div class="footer">Cardamom Kitchen — Event Bookings · Participant Bookings Report</div>
     <script>window.onload=function(){window.print();}<\/script></body></html>`;
@@ -680,7 +680,7 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-semibold text-[#2C2420]">Class Registrations</h2>
-          <p className="text-sm text-[#8C7B6B] mt-0.5">All event booking registrations with participant details</p>
+          <p className="text-sm text-[#8C7B6B] mt-0.5">All in-person class registrations with participant details</p>
         </div>
         <button
           onClick={loadData}
@@ -837,8 +837,8 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
               {sortedParticipantRows.length === 0 ? (
                 <div className="p-12 text-center">
                   <p className="text-3xl mb-2">👧</p>
-                  <p className="text-[#5C5347] font-medium">No participants found for this event</p>
-                  <p className="text-sm text-[#8C7B6B] mt-1">Try selecting a different event or &quot;All Events&quot;</p>
+                  <p className="text-[#5C5347] font-medium">No participants found for this class</p>
+                  <p className="text-sm text-[#8C7B6B] mt-1">Try selecting a different class or &quot;All Classes&quot;</p>
                 </div>
               ) : (
                 <>

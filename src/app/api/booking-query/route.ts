@@ -94,7 +94,8 @@ async function enrichWithSessionDates(
   bookingTable: string,
   datesTable: string,
   eventsTable: string,
-  feeField: "class_fee" | "event_fee"
+  feeField: "class_fee" | "event_fee",
+  parentIdColumn: "class_id" | "event_id" = "event_id",
 ): Promise<Map<string, SessionDate[]>> {
   const result = new Map<string, SessionDate[]>();
   if (regs.length === 0) return result;
@@ -112,12 +113,14 @@ async function enrichWithSessionDates(
 
   const { data: dates } = await supabase
     .from(datesTable)
-    .select(`id, event_date, start_time, end_time, location, event_id, ${feeField}`)
+    .select(`id, event_date, start_time, end_time, location, ${parentIdColumn}, ${feeField}`)
     .in("id", dateIds);
 
   if (!dates || dates.length === 0) return result;
 
-  const eventIds = [...new Set((dates as EventDate[]).map((d) => d.event_id).filter(Boolean))];
+  const eventIds = [...new Set(
+    (dates as Record<string, string | null>[]).map((d) => d[parentIdColumn]).filter(Boolean)
+  )] as string[];
   const eventsMap: Record<string, string> = {};
 
   if (eventIds.length > 0) {
@@ -129,15 +132,16 @@ async function enrichWithSessionDates(
   }
 
   const datesMap: Record<string, SessionDate> = {};
-  (dates as EventDate[]).forEach((d) => {
-    datesMap[d.id] = {
-      id: d.id,
-      event_date: d.event_date,
-      start_time: d.start_time,
-      end_time: d.end_time,
-      location: d.location,
-      event_name: d.event_id ? (eventsMap[d.event_id] ?? null) : null,
-      fee: feeField === "class_fee" ? (d.class_fee ?? null) : (d.event_fee ?? null),
+  (dates as Record<string, unknown>[]).forEach((d) => {
+    const parentId = d[parentIdColumn] as string | null | undefined;
+    datesMap[d.id as string] = {
+      id: d.id as string,
+      event_date: d.event_date as string | null,
+      start_time: d.start_time as string | null,
+      end_time: d.end_time as string | null,
+      location: d.location as string | null,
+      event_name: parentId ? (eventsMap[parentId] ?? null) : null,
+      fee: feeField === "class_fee" ? (d.class_fee as number | null ?? null) : (d.event_fee as number | null ?? null),
     };
   });
 
@@ -232,9 +236,10 @@ export async function GET(req: NextRequest) {
     enrichWithSessionDates(
       ccRegs,
       "cooking_class_booking_counts",
-      "cooking_class_event_dates",
-      "cooking_class_events",
-      "class_fee"
+      "cooking_class_sessions",
+      "cooking_classes",
+      "class_fee",
+      "class_id",
     ),
     enrichWithSessionDates(
       emRegs,

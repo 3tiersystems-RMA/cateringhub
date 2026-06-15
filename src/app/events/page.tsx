@@ -6,8 +6,19 @@ import { createClient } from '@/lib/supabase/client';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { resolveEnrollmentUrl, resolveCheckoutFee } from '@/lib/event-management-sync';
+import { buildCookingClassEnrollmentUrl } from '@/lib/cooking-class-params';
+import { COOKING_CLASS_TABLES } from '@/lib/cooking-class-db';
+import { DEFAULT_REGISTERED_EVENT_BADGE } from '@/lib/marketing-events-db';
 
 type OfferingType = 'event' | 'class';
+
+/** Shared pill styles — high contrast on busy flyer photos */
+const CARD_BADGE_PILL =
+  'inline-flex items-center font-bold rounded-full shadow-lg ring-2 ring-white/90 backdrop-blur-[2px]';
+const EVENT_CATEGORY_BADGE = `${CARD_BADGE_PILL} bg-[#C4622D] text-white text-xs px-3 py-1 tracking-wide`;
+const EVENT_TAG_BADGE = `${CARD_BADGE_PILL} bg-white text-[#1A1612] text-[10px] px-2.5 py-1 uppercase tracking-wide`;
+const CLASS_CATEGORY_BADGE = `${CARD_BADGE_PILL} bg-[#1E40AF] text-white text-xs px-3 py-1 tracking-wide`;
+const CLASS_TAG_BADGE = `${CARD_BADGE_PILL} bg-[#FFF8F4] text-[#A04E22] text-[10px] px-2.5 py-1 border border-[#F0D5C4] uppercase tracking-wide`;
 
 interface Event {
   id: string;
@@ -34,13 +45,13 @@ interface Event {
   child_cost?: number | null;
   /** Optional instructor/chef name (provision). */
   instructor?: string | null;
-  /** Class-level menu items (from cooking_class_events.menu_items). */
+  /** Class-level menu items (from cooking_classes.menu_items). */
   menu_items?: string[] | null;
-  /** Class-level menu note (from cooking_class_events.menu_note). */
+  /** Class-level menu note (from cooking_classes.menu_note). */
   menu_note?: string | null;
-  /** Badge label for the class card (from cooking_class_events.badge). */
+  /** Badge label for marketing event cards (from events.badge). */
   badge?: string | null;
-  /** Tag pills for the class card (from cooking_class_events.tags). */
+  /** Tag pills for marketing event or class cards. */
   tags?: string[] | null;
 }
 
@@ -71,10 +82,10 @@ function EventsContent() {
   const loadClassCards = async (): Promise<Event[]> => {
     try {
       const results = await Promise.all([
-        supabase.from('cooking_class_events').select('*').eq('is_active', true).order('sort_order', { ascending: true }),
-        supabase.from('cooking_class_event_dates').select('*'),
-        supabase.from('cooking_class_session_statuses').select('id, label'),
-        supabase.from('cooking_class_settings').select('*').limit(1).single(),
+        supabase.from(COOKING_CLASS_TABLES.classes).select('*').eq('is_active', true).order('sort_order', { ascending: true }),
+        supabase.from(COOKING_CLASS_TABLES.sessions).select('*'),
+        supabase.from(COOKING_CLASS_TABLES.sessionStatuses).select('id, label'),
+        supabase.from(COOKING_CLASS_TABLES.settings).select('*').limit(1).single(),
       ]);
       const classEvents = results[0].data;
       const dates = results[1].data;
@@ -98,8 +109,8 @@ function EventsContent() {
       const cards: Event[] = [];
       for (const ce of classEvents as Array<{ id: string; name: string; instructor?: string | null; image_url?: string | null; image_path?: string | null; menu_items?: string[] | null; menu_note?: string | null }>) {
         const sessions = (dates ?? [])
-          .filter((d: { event_id: string | null; event_date: string | null; status_id: string | null }) =>
-            d.event_id === ce.id && !!d.event_date && statusLabelById.get(d.status_id ?? '') !== 'cancelled'
+          .filter((d: { class_id: string | null; event_date: string | null; status_id: string | null }) =>
+            d.class_id === ce.id && !!d.event_date && statusLabelById.get(d.status_id ?? '') !== 'cancelled'
           )
           .sort((a: { event_date: string }, b: { event_date: string }) => (a.event_date < b.event_date ? -1 : 1));
         if (sessions.length === 0) continue;
@@ -144,7 +155,7 @@ function EventsContent() {
           is_published: true,
           is_registered: true,
           cost: fee > 0 ? fee : null,
-          enrollment_url: `/cooking-classes?eventId=${ce.id}&sessionId=${chosen.id}`,
+          enrollment_url: buildCookingClassEnrollmentUrl(ce.id, chosen.id),
           event_menu: null,
           event_management_event_id: null,
           event_management_session_id: null,
@@ -463,28 +474,40 @@ function EventsContent() {
                     ) : (
                       <span className="text-5xl">🍪</span>
                     )}
-                    {/* Registered / Cooking Class badge */}
-                    <div className="absolute top-3 left-3 flex items-center gap-1.5">
+                    {/* Readability scrim behind badges on busy images */}
+                    <div
+                      className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-black/55 via-black/25 to-transparent pointer-events-none"
+                      aria-hidden
+                    />
+                    {/* Category + tag badges */}
+                    <div className="absolute top-3 left-3 right-3 flex flex-wrap items-center gap-1.5 z-[1]">
                       {ev.offering_type === 'class' ? (
                         <>
-                          <span className="bg-[#2563EB] text-white text-xs font-bold px-3 py-1 rounded-full shadow">
+                          <span className={CLASS_CATEGORY_BADGE}>
                             {ev.badge || 'Cooking Class'}
                           </span>
                           {ev.tags && ev.tags.length > 0 && ev.tags.map((tag, i) => (
-                            <span key={i} className="bg-[#C4622D] text-white text-[10px] font-bold px-2 py-1 rounded-full shadow">
+                            <span key={i} className={CLASS_TAG_BADGE}>
                               {tag}
                             </span>
                           ))}
                         </>
                       ) : (
-                        <span className="bg-[#C4622D] text-white text-xs font-bold px-3 py-1 rounded-full shadow">
-                          Registered Event
-                        </span>
+                        <>
+                          <span className={EVENT_CATEGORY_BADGE}>
+                            {ev.badge || DEFAULT_REGISTERED_EVENT_BADGE}
+                          </span>
+                          {ev.tags && ev.tags.length > 0 && ev.tags.map((tag, i) => (
+                            <span key={i} className={EVENT_TAG_BADGE}>
+                              {tag}
+                            </span>
+                          ))}
+                        </>
                       )}
                     </div>
                     {activeTab === 'past' && (
-                      <div className="absolute top-3 right-3">
-                        <span className="bg-gray-700/80 text-white text-xs px-2.5 py-1 rounded-full">
+                      <div className="absolute top-3 right-3 z-[1]">
+                        <span className={`${CARD_BADGE_PILL} bg-gray-800/90 text-white text-xs px-2.5 py-1`}>
                           Past Event
                         </span>
                       </div>
@@ -539,14 +562,14 @@ function EventsContent() {
                       </div>
                     )}
 
-                    {/* Event Menu — class-level menu_items/menu_note (cooking classes) */}
+                    {/* Class Menu — class-level menu_items/menu_note (in-person classes) */}
                     {ev.offering_type === 'class' && ev.menu_items && ev.menu_items.length > 0 && (
                       <div className="bg-[#F5F0E8] rounded-xl p-4 mb-3">
                         <p className="text-xs font-bold text-[#5C5347] uppercase tracking-wider mb-2 flex items-center gap-1.5">
                           <svg className="w-3.5 h-3.5 text-[#C4622D]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                           </svg>
-                          Event Menu
+                          Class Menu
                         </p>
                         <div className="space-y-1 mb-2">
                           {ev.menu_items.map((item, idx) => (

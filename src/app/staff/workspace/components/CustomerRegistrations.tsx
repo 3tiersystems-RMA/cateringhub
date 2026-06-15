@@ -152,24 +152,24 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
       let classEventDatesMap: Record<string, { event_date: string | null; event_name: string | null; location: string | null }> = {};
       if (uniqueClassEventIds.length > 0) {
         const { data: classDates } = await supabase
-          .from('cooking_class_event_dates')
-          .select('id, event_date, location, event_id')
+          .from('cooking_class_sessions')
+          .select('id, event_date, location, class_id')
           .in('id', uniqueClassEventIds);
 
-        const classEventIds = [...new Set((classDates || []).map((d: { event_id: string }) => d.event_id).filter(Boolean))];
+        const classEventIds = [...new Set((classDates || []).map((d: { class_id: string }) => d.class_id).filter(Boolean))];
         let classEventsMap: Record<string, string> = {};
         if (classEventIds.length > 0) {
           const { data: classEvents } = await supabase
-            .from('cooking_class_events')
+            .from('cooking_classes')
             .select('id, name')
             .in('id', classEventIds);
           (classEvents || []).forEach((e: { id: string; name: string }) => { classEventsMap[e.id] = e.name; });
         }
 
-        (classDates || []).forEach((d: { id: string; event_date: string | null; location: string | null; event_id: string }) => {
+        (classDates || []).forEach((d: { id: string; event_date: string | null; location: string | null; class_id: string }) => {
           classEventDatesMap[d.id] = {
             event_date: d.event_date,
-            event_name: classEventsMap[d.event_id] || null,
+            event_name: classEventsMap[d.class_id] || null,
             location: d.location,
           };
         });
@@ -371,7 +371,7 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
         </div>
         <div className="bg-white rounded-2xl border border-[#E8DDD0] p-5">
           <p className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-2">Total Revenue</p>
-          <p className="text-2xl font-bold text-[#C4622D]">R {totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+          <p className="text-2xl font-bold text-[#C4622D]">R {totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
           <p className="text-xs text-[#8C8278] mt-1">from paid registrations</p>
         </div>
         <div className="bg-white rounded-2xl border border-[#E8DDD0] p-5">

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { COOKING_CLASS_TABLES } from '@/lib/cooking-class-db';
 
 interface ClassSettings {
   id: string;
@@ -53,7 +54,7 @@ interface SessionStatus {
 
 interface EventDateRow {
   id?: string;
-  event_id: string;
+  class_id: string;
   event_date: string;
   start_time: string;
   end_time: string;
@@ -80,7 +81,7 @@ const PAYMENT_STATUS_COLORS: Record<string, string> = {
 };
 
 const EMPTY_DATE_ROW = (eventId = '', sortOrder = 0, defaultLoc = ''): Omit<EventDateRow, 'id'> => ({
-  event_id: eventId,
+  class_id: eventId,
   event_date: '',
   start_time: '',
   end_time: '',
@@ -137,13 +138,13 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
   const [savingStatus, setSavingStatus] = useState(false);
   const [statusMsg, setStatusMsg] = useState('');
 
-  // (6) General Session Details block (no event_id) — dynamic sessions
+  // (6) General Session Details block (no class_id) — dynamic sessions
   const [generalDateRows, setGeneralDateRows] = useState<EventDateRow[]>(
     [{ ...EMPTY_DATE_ROW('', 0) }]
   );  const [savingGeneralDates, setSavingGeneralDates] = useState(false);
   const [generalDatesMsg, setGeneralDatesMsg] = useState('');
 
-  // (6) Per-event Session Details block — dynamic sessions per event, keyed by event_id
+  // (6) Per-event Session Details block — dynamic sessions per event, keyed by class_id
   const [eventDateRows, setEventDateRows] = useState<Record<string, EventDateRow[]>>({});
   const [savingEventDates, setSavingEventDates] = useState<Record<string, boolean>>({});
   const [eventDatesMsg, setEventDatesMsg] = useState<Record<string, string>>({});
@@ -224,7 +225,7 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
     setLoading(true);
     try {
       const { data } = await supabase
-        .from('cooking_class_settings')
+        .from(COOKING_CLASS_TABLES.settings)
         .select('*')
         .limit(1)
         .single();
@@ -245,7 +246,7 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
   async function loadEvents() {
     try {
       const { data } = await supabase
-        .from('cooking_class_events')
+        .from(COOKING_CLASS_TABLES.classes)
         .select('*')
         .order('sort_order', { ascending: true });
       if (data) setEvents(data);
@@ -257,7 +258,7 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
   async function loadSessionStatuses() {
     try {
       const { data } = await supabase
-        .from('cooking_class_session_statuses')
+        .from(COOKING_CLASS_TABLES.sessionStatuses)
         .select('*')
         .order('sort_order', { ascending: true });
       if (data) setSessionStatuses(data);
@@ -269,16 +270,16 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
   async function loadAllDateRows() {
     try {
       const { data } = await supabase
-        .from('cooking_class_event_dates')
+        .from(COOKING_CLASS_TABLES.sessions)
         .select('*')
         .order('sort_order', { ascending: true });
       if (!data) return;
 
-      // General rows (no event_id)
-      const generalRows = data.filter((r: any) => !r.event_id);
+      // General rows (no class_id)
+      const generalRows = data.filter((r: any) => !r.class_id);
       const filledGeneral: EventDateRow[] = generalRows.map((r: any) => ({
         id: r.id,
-        event_id: '',
+        class_id: '',
         event_date: r.event_date || '',
         start_time: r.start_time || '',
         end_time: r.end_time || '',
@@ -294,12 +295,12 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
 
       // Per-event rows
       const perEventMap: Record<string, EventDateRow[]> = {};
-      const eventRows = data.filter((r: any) => r.event_id);
+      const eventRows = data.filter((r: any) => r.class_id);
       eventRows.forEach((r: any) => {
-        if (!perEventMap[r.event_id]) perEventMap[r.event_id] = [];
-        perEventMap[r.event_id].push({
+        if (!perEventMap[r.class_id]) perEventMap[r.class_id] = [];
+        perEventMap[r.class_id].push({
           id: r.id,
-          event_id: r.event_id,
+          class_id: r.class_id,
           event_date: r.event_date || '',
           start_time: r.start_time || '',
           end_time: r.end_time || '',
@@ -371,7 +372,7 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
     setNotesMsg(prev => ({ ...prev, [eventId]: '' }));
     try {
       const { error } = await supabase
-        .from('cooking_class_events')
+        .from(COOKING_CLASS_TABLES.classes)
         .update({
           menu_items: menuItemDrafts[eventId] || [],
           menu_note: menuNoteDrafts[eventId] || null,
@@ -415,7 +416,7 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
     setRegsError('');
     try {
       const { data, error } = await supabase
-        .from('cooking_class_registrations')
+        .from(COOKING_CLASS_TABLES.registrations)
         .select('*')
         .order('created_at', { ascending: false });
       if (error) throw error;
@@ -458,7 +459,7 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
     try {
       if (settings?.id) {
         const { error } = await supabase
-          .from('cooking_class_settings')
+          .from(COOKING_CLASS_TABLES.settings)
           .update({ flyer_image_url: null, flyer_image_path: null, updated_at: new Date().toISOString() })
           .eq('id', settings.id);
         if (error) throw error;
@@ -487,13 +488,13 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
 
       if (settings?.id) {
         const { error } = await supabase
-          .from('cooking_class_settings')
+          .from(COOKING_CLASS_TABLES.settings)
           .update(payload)
           .eq('id', settings.id);
         if (error) throw error;
       } else {
         const { error } = await supabase
-          .from('cooking_class_settings')
+          .from(COOKING_CLASS_TABLES.settings)
           .insert({ ...payload, class_fee: 0 });
         if (error) throw error;
       }
@@ -513,7 +514,7 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
     try {
       if (settings?.id) {
         const { error } = await supabase
-          .from('cooking_class_settings')
+          .from(COOKING_CLASS_TABLES.settings)
           .update({ online_form_status: newStatus, updated_at: new Date().toISOString() })
           .eq('id', settings.id);
         if (error) throw error;
@@ -521,7 +522,7 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
         setStatusSaveMsg('Saved');
       } else {
         const { data, error } = await supabase
-          .from('cooking_class_settings')
+          .from(COOKING_CLASS_TABLES.settings)
           .insert({ online_form_status: newStatus, class_fee: 0, sheet_name: 'Registrations' })
           .select()
           .single();
@@ -538,13 +539,14 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
     }
   }
 
+  // Adds an in-person class row (legacy handler name: handleAddEvent).
   async function handleAddEvent() {
     if (readOnly) return;
     if (!newEventName.trim()) return;
     setSavingEvent(true);
     setEventMsg('');
     try {
-      const { error } = await supabase.from('cooking_class_events').insert({
+      const { error } = await supabase.from(COOKING_CLASS_TABLES.classes).insert({
         name: newEventName.trim(),
         sort_order: events.length,
         is_active: true,
@@ -563,7 +565,7 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
   async function handleDeleteEvent(id: string) {
     if (readOnly) return;
     try {
-      await supabase.from('cooking_class_events').delete().eq('id', id);
+      await supabase.from(COOKING_CLASS_TABLES.classes).delete().eq('id', id);
       await loadEvents();
     } catch {
       // ignore
@@ -574,7 +576,7 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
     if (readOnly) return;
     if (!editingEventName.trim()) return;
     try {
-      await supabase.from('cooking_class_events').update({ name: editingEventName.trim() }).eq('id', id);
+      await supabase.from(COOKING_CLASS_TABLES.classes).update({ name: editingEventName.trim() }).eq('id', id);
       setEditingEventId(null);
       setEditingEventName('');
       await loadEvents();
@@ -587,7 +589,7 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
     if (readOnly) return;
     try {
       await supabase
-        .from('cooking_class_events')
+        .from(COOKING_CLASS_TABLES.classes)
         .update({ is_active: !ev.is_active })
         .eq('id', ev.id);
       await loadEvents();
@@ -602,7 +604,7 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
     setSavingStatus(true);
     setStatusMsg('');
     try {
-      const { error } = await supabase.from('cooking_class_session_statuses').insert({
+      const { error } = await supabase.from(COOKING_CLASS_TABLES.sessionStatuses).insert({
         label: newStatusLabel.trim(),
         sort_order: sessionStatuses.length,
       });
@@ -620,7 +622,7 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
   async function handleDeleteStatus(id: string) {
     if (readOnly) return;
     try {
-      await supabase.from('cooking_class_session_statuses').delete().eq('id', id);
+      await supabase.from(COOKING_CLASS_TABLES.sessionStatuses).delete().eq('id', id);
       await loadSessionStatuses();
     } catch {
       // ignore
@@ -646,10 +648,10 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
   // Insert session rows; if the optional `child_fee` column hasn't been migrated
   // yet, gracefully retry without it so saving never breaks.
   async function insertDateRows(rows: Record<string, unknown>[]) {
-    const { error } = await supabase.from('cooking_class_event_dates').insert(rows);
+    const { error } = await supabase.from(COOKING_CLASS_TABLES.sessions).insert(rows);
     if (error && /child_fee/i.test(error.message || '')) {
       const stripped = rows.map(({ child_fee, ...rest }) => rest);
-      const retry = await supabase.from('cooking_class_event_dates').insert(stripped);
+      const retry = await supabase.from(COOKING_CLASS_TABLES.sessions).insert(stripped);
       if (retry.error) throw retry.error;
       return;
     }
@@ -663,7 +665,7 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
     setInstructorMsg(prev => ({ ...prev, [eventId]: '' }));
     try {
       const { error } = await supabase
-        .from('cooking_class_events')
+        .from(COOKING_CLASS_TABLES.classes)
         .update({ instructor: value || null })
         .eq('id', eventId);
       if (error) throw error;
@@ -686,7 +688,7 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
     setBadgeMsg(prev => ({ ...prev, [eventId]: '' }));
     try {
       const { error } = await supabase
-        .from('cooking_class_events')
+        .from(COOKING_CLASS_TABLES.classes)
         .update({ badge: value || null })
         .eq('id', eventId);
       if (error) throw error;
@@ -708,7 +710,7 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
     setTagsMsg(prev => ({ ...prev, [eventId]: '' }));
     try {
       const { error } = await supabase
-        .from('cooking_class_events')
+        .from(COOKING_CLASS_TABLES.classes)
         .update({ tags: tagsArray })
         .eq('id', eventId);
       if (error) throw error;
@@ -727,13 +729,13 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
     setSavingGeneralDates(true);
     setGeneralDatesMsg('');
     try {
-      // Delete existing general rows (no event_id)
-      await supabase.from('cooking_class_event_dates').delete().is('event_id', null);
+      // Delete existing general rows (no class_id)
+      await supabase.from(COOKING_CLASS_TABLES.sessions).delete().is('class_id', null);
 
       const rowsToInsert = generalDateRows
         .filter(r => r.event_date || r.start_time || r.end_time)
         .map((r, i) => ({
-          event_id: null,
+          class_id: null,
           event_date: r.event_date || null,
           start_time: r.start_time || null,
           end_time: r.end_time || null,
@@ -774,23 +776,23 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
       // Determine which existing DB rows were removed by the user
       // by comparing current DB ids against what's still in the UI
       const { data: currentDbRows } = await supabase
-        .from('cooking_class_event_dates')
+        .from(COOKING_CLASS_TABLES.sessions)
         .select('id')
-        .eq('event_id', eventId);
+        .eq('class_id', eventId);
       const currentDbIds = (currentDbRows || []).map((r: { id: string }) => r.id);
       const keptIds = existingRows.map(r => r.id as string);
       const removedIds = currentDbIds.filter((id: string) => !keptIds.includes(id));
 
       // Delete only the rows the user explicitly removed
       if (removedIds.length > 0) {
-        await supabase.from('cooking_class_event_dates').delete().in('id', removedIds);
+        await supabase.from(COOKING_CLASS_TABLES.sessions).delete().in('id', removedIds);
       }
 
       // Update existing rows in place (preserves their id → booking counts stay intact)
       for (let i = 0; i < existingRows.length; i++) {
         const r = existingRows[i];
         const updatePayload: Record<string, unknown> = {
-          event_id: eventId,
+          class_id: eventId,
           event_date: r.event_date || null,
           start_time: r.start_time || null,
           end_time: r.end_time || null,
@@ -802,13 +804,13 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
           child_fee: r.child_fee !== '' ? parseFloat(r.child_fee) : null,
           session_name: r.session_name || null,
         };
-        await supabase.from('cooking_class_event_dates').update(updatePayload).eq('id', r.id as string);
+        await supabase.from(COOKING_CLASS_TABLES.sessions).update(updatePayload).eq('id', r.id as string);
       }
 
       // Insert brand-new rows
       if (newRows.length > 0) {
         const rowsToInsert = newRows.map((r, i) => ({
-          event_id: eventId,
+          class_id: eventId,
           event_date: r.event_date || null,
           start_time: r.start_time || null,
           end_time: r.end_time || null,
@@ -846,7 +848,7 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
       const { data: urlData } = supabase.storage.from('cooking-class-flyers').getPublicUrl(path);
       const imageUrl = urlData?.publicUrl || '';
       const { error: updateErr } = await supabase
-        .from('cooking_class_events')
+        .from(COOKING_CLASS_TABLES.classes)
         .update({ image_url: imageUrl, image_path: path })
         .eq('id', eventId);
       if (updateErr) throw updateErr;
@@ -869,7 +871,7 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
         await supabase.storage.from('cooking-class-flyers').remove([imagePath]);
       }
       const { error } = await supabase
-        .from('cooking_class_events')
+        .from(COOKING_CLASS_TABLES.classes)
         .update({ image_url: null, image_path: null })
         .eq('id', eventId);
       if (error) throw error;
@@ -907,7 +909,7 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
   async function handleMarkPaid(regId: string) {
     if (readOnly) return;
     await supabase
-      .from('cooking_class_registrations')
+      .from(COOKING_CLASS_TABLES.registrations)
       .update({ payment_status: 'paid' })
       .eq('id', regId);
     await loadRegistrations();
@@ -917,7 +919,7 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
   async function handleDeleteRegistration(regId: string) {
     setDeletingId(regId);
     try {
-      await supabase.from('cooking_class_registrations').delete().eq('id', regId);
+      await supabase.from(COOKING_CLASS_TABLES.registrations).delete().eq('id', regId);
       setDeleteConfirmId(null);
       await loadRegistrations();
     } catch {
@@ -1178,7 +1180,7 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
 
       <div className="mb-6">
         <h2 className="text-xl font-bold text-[#1A1612]">Cooking &amp; Baking Classes</h2>
-        <p className="text-sm text-[#8C8278] mt-0.5">Manage class settings, flyer, events, and registrations</p>
+        <p className="text-sm text-[#8C8278] mt-0.5">Manage class settings, flyer, classes, and registrations</p>
       </div>
 
       {readOnly && (
@@ -1384,10 +1386,10 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
             {saving ? 'Saving...' : 'Save Settings'}
           </button>
 
-          {/* ── Events Management ── */}
+          {/* ── Classes Management ── */}
           <div className="bg-white rounded-2xl border border-[#EDE7DA] p-5">
             <h3 className="text-base font-semibold text-[#1A1612] mb-1">Classes</h3>
-            <p className="text-xs text-[#8C8278] mb-4">Add the events that will appear on the registration form (e.g. Kids Event, Adults Event, Leadership Workshop).</p>
+            <p className="text-xs text-[#8C8278] mb-4">Add the in-person classes that will appear on the registration form (e.g. Kids Class, Adults Class, Leadership Workshop).</p>
 
             {events.length > 0 && (
               <div className="space-y-2 mb-4">
@@ -1451,7 +1453,7 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
                 value={newEventName}
                 onChange={e => setNewEventName(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') handleAddEvent(); }}
-                placeholder="e.g. Kids Event, Leadership Workshop..."
+                placeholder="e.g. Kids Class, Leadership Workshop..."
                 className="flex-1 border border-[#DDD5C8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D]"
               />
               <button
@@ -1511,12 +1513,12 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
             )}
           </div>
 
-          {/* (6) Per-event Session Details blocks — one per event, each collapsible */}
+          {/* (6) Per-class Session Details blocks — one per class, each collapsible */}
           {events.map(ev => {
             const isBlockCollapsed = collapsedEventBlocks[ev.id] ?? true;
             return (
               <div key={ev.id} className="bg-white rounded-2xl border border-[#EDE7DA] overflow-hidden">
-                {/* Event block header — always visible, click to collapse */}
+                {/* Class block header — always visible, click to collapse */}
                 <button
                   type="button"
                   onClick={() => setCollapsedEventBlocks(prev => ({ ...prev, [ev.id]: !prev[ev.id] }))}
@@ -1533,12 +1535,12 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
                   <span className="text-[#8C8278] text-sm ml-4 flex-shrink-0">{isBlockCollapsed ? '▶' : '▼'}</span>
                 </button>
 
-                {/* Event block body — collapsible */}
+                {/* Class block body — collapsible */}
                 {!isBlockCollapsed && (
                   <div className="px-5 pb-5">
-                    {/* Event Image */}
+                    {/* Class Image */}
                     <div className="mb-5 pb-5 border-b border-[#EDE7DA]">
-                      <h4 className="text-sm font-semibold text-[#1A1612] mb-3">Event Image</h4>
+                      <h4 className="text-sm font-semibold text-[#1A1612] mb-3">Class Image</h4>
                       {ev.image_url && (
                         <div className="mb-3 rounded-xl overflow-hidden border border-[#EDE7DA] max-w-xs">
                           <img src={ev.image_url} alt={`${ev.name} class image`} className="w-full max-h-40 object-contain" />
@@ -1930,7 +1932,7 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
                       </div>
                       <p className="text-xs text-[#5C5347]">{reg.email} · {reg.cellphone}</p>
                       <p className="text-xs text-[#8C8278] mt-1">
-                        Events: {(reg.selected_events || []).join(', ')}
+                        Classes: {(reg.selected_events || []).join(', ')}
                       </p>
                       {reg.adult_class_dates?.length > 0 && (
                         <p className="text-xs text-[#8C8278]">

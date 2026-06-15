@@ -17,6 +17,7 @@ import {
   formatSessionLabel,
   SAST_OFFSET_MINUTES,
 } from '@/lib/event-management-sync';
+import { DEFAULT_REGISTERED_EVENT_BADGE, MARKETING_EVENTS_TABLE } from '@/lib/marketing-events-db';
 
 interface Event {
   id: string;
@@ -34,6 +35,8 @@ interface Event {
   event_menu: string | null;
   event_management_event_id: string | null;
   event_management_session_id: string | null;
+  badge?: string | null;
+  tags?: string[] | null;
   created_at: string;
   imageUrl?: string;
 }
@@ -52,6 +55,8 @@ interface EventForm {
   event_menu: string;
   event_management_event_id: string;
   event_management_session_id: string;
+  badge: string;
+  tags: string;
 }
 
 const emptyEventForm: EventForm = {
@@ -68,6 +73,8 @@ const emptyEventForm: EventForm = {
   event_menu: '',
   event_management_event_id: '',
   event_management_session_id: '',
+  badge: '',
+  tags: '',
 };
 
 export default function EventManagement({ canCreate = true, canDelete = true }: { canCreate?: boolean; canDelete?: boolean }) {
@@ -173,14 +180,25 @@ export default function EventManagement({ canCreate = true, canDelete = true }: 
       enrollment_url: '',
       event_management_event_id: '',
       event_management_session_id: '',
+      badge: '',
+      tags: '',
     };
+  }
+
+  function parseTagsInput(raw: string): string[] {
+    return raw.trim() ? raw.split(',').map((t) => t.trim()).filter(Boolean) : [];
   }
 
   function setEventType(registered: boolean) {
     setShowSyncedOverrides(false);
     setForm((f) => {
       if (registered) {
-        return { ...f, is_registered: true, enrollment_url: f.enrollment_url || getEnrollmentUrl() };
+        return {
+          ...f,
+          is_registered: true,
+          badge: f.badge.trim() || DEFAULT_REGISTERED_EVENT_BADGE,
+          enrollment_url: f.enrollment_url || getEnrollmentUrl(),
+        };
       }
       return clearBookableSyncedFields({ ...f, is_registered: false });
     });
@@ -208,6 +226,7 @@ export default function EventManagement({ canCreate = true, canDelete = true }: 
       event_management_event_id: bookable.id,
       event_management_session_id: session.id,
       is_registered: true,
+      badge: prev.badge.trim() || DEFAULT_REGISTERED_EVENT_BADGE,
     };
   }
 
@@ -270,7 +289,7 @@ export default function EventManagement({ canCreate = true, canDelete = true }: 
   const loadEvents = async () => {
     setLoading(true);
     const { data, error } = await supabase
-      .from('events')
+      .from(MARKETING_EVENTS_TABLE)
       .select('*')
       .order('event_date', { ascending: false });
 
@@ -350,6 +369,8 @@ export default function EventManagement({ canCreate = true, canDelete = true }: 
       event_menu: ev.event_menu || '',
       event_management_event_id: ev.event_management_event_id || '',
       event_management_session_id: ev.event_management_session_id || '',
+      badge: ev.badge || (ev.is_registered ? DEFAULT_REGISTERED_EVENT_BADGE : ''),
+      tags: (ev.tags ?? []).join(', '),
     });
     setPendingImageFile(null);
     // If there's a stored image_path preview use it, else use image_url
@@ -566,6 +587,8 @@ export default function EventManagement({ canCreate = true, canDelete = true }: 
       event_menu: form.is_registered && form.event_menu.trim() ? form.event_menu.trim() : null,
       event_management_event_id: form.is_registered ? form.event_management_event_id : null,
       event_management_session_id: form.is_registered ? form.event_management_session_id : null,
+      badge: form.is_registered && form.badge.trim() ? form.badge.trim() : null,
+      tags: form.is_registered ? parseTagsInput(form.tags) : [],
     };
 
     if (form.is_registered && form.event_management_event_id && form.event_management_session_id) {
@@ -589,12 +612,12 @@ export default function EventManagement({ canCreate = true, canDelete = true }: 
     }
 
     if (editingEvent) {
-      const { data, error } = await supabase.from('events').update(payload).eq('id', editingEvent.id).select('id');
+      const { data, error } = await supabase.from(MARKETING_EVENTS_TABLE).update(payload).eq('id', editingEvent.id).select('id');
       if (error) { setFormError(error.message); setSaving(false); return; }
       if (!data || data.length === 0) { setFormError('Update was blocked — you may not have permission to edit events.'); setSaving(false); return; }
       setFormSuccess('Event updated successfully.');
     } else {
-      const { data, error } = await supabase.from('events').insert([payload]).select('id');
+      const { data, error } = await supabase.from(MARKETING_EVENTS_TABLE).insert([payload]).select('id');
       if (error) { setFormError(error.message); setSaving(false); return; }
       if (!data || data.length === 0) { setFormError('Could not create the event. Please try again.'); setSaving(false); return; }
       setFormSuccess('Event created successfully.');
@@ -611,7 +634,7 @@ export default function EventManagement({ canCreate = true, canDelete = true }: 
   const handleDelete = async (id: string) => {
     setDeletingId(id);
     setListError('');
-    const { data, error } = await supabase.from('events').delete().eq('id', id).select('id');
+    const { data, error } = await supabase.from(MARKETING_EVENTS_TABLE).delete().eq('id', id).select('id');
     if (error || !data || data.length === 0) {
       setListError(error?.message || 'Delete was blocked — you may not have permission to delete events.');
       await loadEvents();
@@ -624,7 +647,7 @@ export default function EventManagement({ canCreate = true, canDelete = true }: 
 
   const handleTogglePublish = async (ev: Event) => {
     const { data, error } = await supabase
-      .from('events')
+      .from(MARKETING_EVENTS_TABLE)
       .update({ is_published: !ev.is_published })
       .eq('id', ev.id)
       .select('id');
@@ -1051,6 +1074,34 @@ export default function EventManagement({ canCreate = true, canDelete = true }: 
                                   className={`${editableFieldClass} resize-none`}
                                 />
                               </div>
+
+                              <div>
+                                <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">
+                                  Badge
+                                </label>
+                                <input
+                                  type="text"
+                                  value={form.badge}
+                                  onChange={(e) => setForm((f) => ({ ...f, badge: e.target.value }))}
+                                  placeholder={`e.g. ${DEFAULT_REGISTERED_EVENT_BADGE}`}
+                                  className={editableFieldClass}
+                                />
+                                <p className="text-[10px] text-[#8C8278] mt-1">Shown on the public Events card (orange pill).</p>
+                              </div>
+
+                              <div>
+                                <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">
+                                  Tags <span className="text-[#B0A89E] font-normal normal-case">(comma-separated)</span>
+                                </label>
+                                <input
+                                  type="text"
+                                  value={form.tags}
+                                  onChange={(e) => setForm((f) => ({ ...f, tags: e.target.value }))}
+                                  placeholder="e.g. Kids Only, V&A Waterfront"
+                                  className={editableFieldClass}
+                                />
+                                <p className="text-[10px] text-[#8C8278] mt-1">Optional tag pills next to the badge on /events.</p>
+                              </div>
                             </div>
                           </>
                         )}
@@ -1139,6 +1190,7 @@ export default function EventManagement({ canCreate = true, canDelete = true }: 
                         <ul className="space-y-1">
                           <li>{isLinkedToSettings ? '✓' : '○'} Linked to Event Bookings → Settings</li>
                           <li>{hasValidCost ? '✓' : '○'} Price set {hasValidCost ? `(R ${Number(form.cost).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })})` : '— select a bookable event with a fee'}</li>
+                          <li>{form.badge.trim() ? '✓' : '○'} Badge set {form.badge.trim() ? `("${form.badge.trim()}")` : `— defaults to "${DEFAULT_REGISTERED_EVENT_BADGE}"`}</li>
                           <li>{form.is_published ? '✓' : '○'} Published (visible on /events)</li>
                         </ul>
                         <p className="mt-2 font-medium">
@@ -1273,7 +1325,7 @@ export default function EventManagement({ canCreate = true, canDelete = true }: 
                               <h3 className="text-sm font-bold text-[#1A1612]">{ev.title}</h3>
                               {ev.is_registered ? (
                                 <span className="text-xs px-2 py-0.5 rounded-full bg-[#FFF0E8] text-[#C4622D] border border-[#F0D5C4] font-semibold">
-                                  Bookable
+                                  {ev.badge || DEFAULT_REGISTERED_EVENT_BADGE}
                                 </span>
                               ) : (
                                 <span className="text-xs px-2 py-0.5 rounded-full bg-[#F5F0E8] text-[#5C5347] border border-[#EDE7DA] font-medium">

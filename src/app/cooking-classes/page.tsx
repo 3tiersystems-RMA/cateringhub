@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { usePaymentSettings } from '@/hooks/usePaymentSettings';
 import { validateSAMobileForPayFast } from '@/lib/payfast-validation';
 import { submitPayFastForm } from '@/lib/payfast-form';
+import { getClassIdFromSearchParams, getClassNameFromSearchParams } from '@/lib/cooking-class-params';
+import { COOKING_CLASS_TABLES } from '@/lib/cooking-class-db';
 
 
 interface FormPage1 {
@@ -16,7 +18,7 @@ interface FormPage1 {
   emailConfirm: string;
   cellphone: string;
   whatsappNumber: string;
-  selectedEvents: string[];
+  selectedEvents: string[]; // legacy field name — stores selected class *names*
   selectedDates: string[];
   selectedDateIds: string[];
 }
@@ -95,7 +97,7 @@ interface SessionStatus {
 
 interface EventDateRow {
   id: string;
-  event_id: string | null;
+  class_id: string | null;
   event_date: string | null;
   start_time: string | null;
   end_time: string | null;
@@ -276,24 +278,23 @@ export default function CookingClassesPage() {
     loadSessionStatuses();
   }, []);
 
-  // Deep-link preselect: /cooking-classes?eventId=<classEventId>&sessionId=<dateId>
-  // Mirrors the Events booking form so "Register Now" on the /events page lands here
-  // with the class (and a valid date, when supplied) already selected.
+  // Deep-link preselect: /cooking-classes?classId=<id>&sessionId=<dateId>
+  // Legacy: eventId / event query params still supported.
   useEffect(() => {
     if (preselectApplied.current || typeof window === 'undefined') return;
     if (classEvents.length === 0 || eventDates.length === 0) return;
 
     const params = new URLSearchParams(window.location.search);
-    const eventId = params.get('eventId');
+    const classId = getClassIdFromSearchParams(params);
     const sessionId = params.get('sessionId');
-    const eventNameParam = params.get('event');
-    if (!eventId && !eventNameParam) return;
+    const classNameParam = getClassNameFromSearchParams(params);
+    if (!classId && !classNameParam) return;
 
-    let ce = eventId ? classEvents.find((e) => e.id === eventId) : undefined;
-    if (!ce && eventNameParam) ce = classEvents.find((e) => e.name === eventNameParam);
+    let ce = classId ? classEvents.find((e) => e.id === classId) : undefined;
+    if (!ce && classNameParam) ce = classEvents.find((e) => e.name === classNameParam);
     if (!ce) return;
 
-    const datesForEvent = eventDates.filter((row) => row.event_id === ce!.id);
+    const datesForEvent = eventDates.filter((row) => row.class_id === ce!.id);
     let targetRow = sessionId ? datesForEvent.find((row) => row.id === sessionId) : undefined;
     if (targetRow && !isDateSelectable(targetRow)) targetRow = undefined;
 
@@ -313,7 +314,7 @@ export default function CookingClassesPage() {
     const selectedEventIds = classEvents.
     filter((ev) => page1.selectedEvents.includes(ev.name)).
     map((ev) => ev.id);
-    const datesForSelected = eventDates.filter((row) => row.event_id && selectedEventIds.includes(row.event_id));
+    const datesForSelected = eventDates.filter((row) => row.class_id && selectedEventIds.includes(row.class_id));
     if (datesForSelected.length === 0) {
       setShowNoDatesPopup(true);
     }
@@ -336,7 +337,7 @@ export default function CookingClassesPage() {
     setLoadingSettings(true);
     try {
       const { data } = await supabase.
-      from('cooking_class_settings').
+      from(COOKING_CLASS_TABLES.settings).
       select('*').
       limit(1).
       single();
@@ -353,7 +354,7 @@ export default function CookingClassesPage() {
   async function loadClassEvents() {
     try {
       const { data } = await supabase.
-      from('cooking_class_events').
+      from(COOKING_CLASS_TABLES.classes).
       select('*').
       eq('is_active', true).
       order('sort_order', { ascending: true });
@@ -366,7 +367,7 @@ export default function CookingClassesPage() {
   async function loadSessionStatuses() {
     try {
       const { data } = await supabase.
-      from('cooking_class_session_statuses').
+      from(COOKING_CLASS_TABLES.sessionStatuses).
       select('id, label').
       order('sort_order', { ascending: true });
       if (data) setSessionStatuses(data);
@@ -378,7 +379,7 @@ export default function CookingClassesPage() {
   async function loadEventDates() {
     try {
       const { data } = await supabase.
-      from('cooking_class_event_dates').
+      from(COOKING_CLASS_TABLES.sessions).
       select('*').
       order('sort_order', { ascending: true });
       if (data) {
@@ -402,7 +403,7 @@ export default function CookingClassesPage() {
   async function loadBookingCounts(dateIds: string[]) {
     try {
       const { data } = await supabase.
-      from('cooking_class_booking_counts').
+      from(COOKING_CLASS_TABLES.bookingCounts).
       select('event_date_id, registration_id').
       in('event_date_id', dateIds);
       if (data) {
@@ -411,7 +412,7 @@ export default function CookingClassesPage() {
         let regParticipantMap: Record<string, number> = {};
         if (regIds.length > 0) {
           const { data: regs } = await supabase.
-          from('cooking_class_registrations').
+          from(COOKING_CLASS_TABLES.registrations).
           select('id, children').
           in('id', regIds).
           eq('payment_status', 'paid');
@@ -509,12 +510,12 @@ export default function CookingClassesPage() {
     filter((ev) => page1.selectedEvents.includes(ev.name)).
     map((ev) => ev.id);
     return eventDates.filter((row) => {
-      if (!row.event_id) return false;
-      return selectedEventIds.includes(row.event_id);
+      if (!row.class_id) return false;
+      return selectedEventIds.includes(row.class_id);
     });
   }
 
-  /** Resolve fee for a session row: prefer cooking_class_event_dates.class_fee, else settings fallback. */
+  /** Resolve fee for a session row: prefer cooking_class_sessions.class_fee, else settings fallback. */
   function resolveClassFee(row?: EventDateRow): number {
     if (row && row.class_fee != null && row.class_fee > 0) return row.class_fee;
     return settings?.class_fee || 0;
@@ -528,7 +529,7 @@ export default function CookingClassesPage() {
 
   // (6) Get the class_fee from the selected session row (UUID), then selected event dates
   function getEventClassFee(): number {
-    // ID-based lookup first (one-to-one with cooking_class_event_dates.id)
+    // ID-based lookup first (one-to-one with cooking_class_sessions.id)
     if (page1.selectedDateIds.length > 0) {
       for (const id of page1.selectedDateIds) {
         let row = eventDates.find((r) => r.id === id);
@@ -623,7 +624,7 @@ export default function CookingClassesPage() {
       errors.whatsappNumber = 'Please enter a valid WhatsApp number (e.g. +27 82 123 4567)';
     }
     if (page1.selectedEvents.length === 0) {
-      errors.selectedEvents = 'Please select at least one event';
+      errors.selectedEvents = 'Please select at least one class';
     }
     const filteredDates = getFilteredDates();
     if (filteredDates.length > 0 && page1.selectedDates.length === 0) {
@@ -1152,7 +1153,7 @@ export default function CookingClassesPage() {
     //   // Non-blocking
     // }
     // ── END DISABLE BLOCK ─────────────────────────────────────────────────
-  }async function initiatePayFast(regId: string, regCode: string, overrideAmount?: number) {const amount = overrideAmount !== undefined ? overrideAmount : getAmountDue();if (amount <= 0) {await supabase.from('cooking_class_registrations').update({ payment_status: 'paid' }).eq('id', regId);setCurrentPage(6);return;}const res = await fetch('/api/cooking-classes/payfast-initiate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ registrationCode: regCode, order: { amount: amount, itemDescription: `${page1.firstName} ${page1.surname} - ${page1.selectedEvents.join(', ')}` }, buyer: { firstName: page1.firstName.trim(), lastName: page1.surname.trim(),
+  }async function initiatePayFast(regId: string, regCode: string, overrideAmount?: number) {const amount = overrideAmount !== undefined ? overrideAmount : getAmountDue();if (amount <= 0) {await supabase.from(COOKING_CLASS_TABLES.registrations).update({ payment_status: 'paid' }).eq('id', regId);setCurrentPage(6);return;}const res = await fetch('/api/cooking-classes/payfast-initiate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ registrationCode: regCode, order: { amount: amount, itemDescription: `${page1.firstName} ${page1.surname} - ${page1.selectedEvents.join(', ')}` }, buyer: { firstName: page1.firstName.trim(), lastName: page1.surname.trim(),
               email: page1.email.trim(),
               cell: page1.cellphone.trim()
             }
@@ -1163,7 +1164,7 @@ export default function CookingClassesPage() {
     if (!res.ok || !data.success) throw new Error(data.error || 'Failed to initiate payment');
 
     await supabase.
-    from('cooking_class_registrations').
+    from(COOKING_CLASS_TABLES.registrations).
     update({ payfast_payment_id: data.params.m_payment_id }).
     eq('id', regId);
 
@@ -1233,7 +1234,7 @@ export default function CookingClassesPage() {
             </div>
             <h3 className="text-lg font-bold text-[#1A1612] mb-3">Contact Our Office</h3>
             <p className="text-sm text-[#5C5347] leading-relaxed mb-6">
-              Enquire about the Event — <span className="font-semibold text-[#1A1612]">087 265 2262</span> or drop us an email:{' '}
+              Enquire about the Class — <span className="font-semibold text-[#1A1612]">087 265 2262</span> or drop us an email:{' '}
               <a href="mailto:info@cardamomkitchen.co.za" className="font-semibold text-[#C4622D] hover:underline">
                 info@cardamomkitchen.co.za
               </a>
@@ -1462,20 +1463,20 @@ export default function CookingClassesPage() {
               </div>
             </div>
 
-            {/* (1) Select an Event — radio buttons, only one at a time */}
+            {/* Select a Class — radio buttons, only one at a time */}
             <div className="mb-5">
               <label className="block text-sm font-semibold text-[#1A1612] mb-2">
                 Select the Class to attend <span className="text-red-500">*</span>
               </label>
               {classEvents.length === 0 ?
-            <p className="text-xs text-[#8C8278] italic">No events available at this time.</p> :
+            <p className="text-xs text-[#8C8278] italic">No classes available at this time.</p> :
 
             <div className="space-y-2.5">
                   {classEvents.map((ev) =>
               <label key={ev.id} className="flex items-center gap-3 cursor-pointer">
                       <input
                   type="radio"
-                  name="selectedEvent"
+                  name="selectedClass"
                   checked={page1.selectedEvents.includes(ev.name)}
                   onChange={() => selectEvent(ev.name)}
                   className="w-4 h-4 border-[#DDD5C8] text-[#C4622D] focus:ring-[#C4622D]" />
@@ -1490,7 +1491,7 @@ export default function CookingClassesPage() {
             }
             </div>
 
-            {/* Select Attendance — only show dates for selected events */}
+            {/* Select Attendance — only show dates for selected classes */}
             <div className="mb-5">
               <label className="block text-sm font-semibold text-[#1A1612] mb-2">
                 Select scheduled session(s) <span className="text-red-500">*</span>
@@ -1498,7 +1499,7 @@ export default function CookingClassesPage() {
               {page1.selectedEvents.length === 0 ?
             <p className="text-xs text-[#8C8278] italic">Select a planned Class above to see available dates</p> :
             filteredDates.length === 0 ?
-            <p className="text-xs text-[#8C8278] italic">No dates are currently scheduled for this event.</p> :
+            <p className="text-xs text-[#8C8278] italic">No dates are currently scheduled for this class.</p> :
 
             <div className="space-y-3">
                   {filteredDates.map((row) => {
@@ -1945,7 +1946,7 @@ export default function CookingClassesPage() {
             onClick={() => setCookingClassesOpen((o) => !o)}
             className="w-full flex items-center justify-between bg-[#4A4540] text-white px-5 py-4 rounded-xl font-medium text-sm mb-6">
 
-              <span>Participant to attend the Event on offer</span>
+              <span>Participant to attend the class on offer</span>
               <svg
               className={`w-6 h-6 transition-transform ${cookingClassesOpen ? 'rotate-180' : ''}`}
               fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -2389,7 +2390,7 @@ export default function CookingClassesPage() {
               <p className="text-[#5C5347]">{page1.email}</p>
               <p className="text-[#5C5347]">{page1.cellphone}</p>
               {page1.selectedEvents.length > 0 &&
-            <p className="text-[#5C5347] mt-1">Events: {page1.selectedEvents.join(', ')}</p>
+            <p className="text-[#5C5347] mt-1">Class: {page1.selectedEvents.join(', ')}</p>
             }
               {selectedInstructor &&
             <p className="text-[#5C5347]">Instructor: {selectedInstructor}</p>

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { COOKING_CLASS_TABLES } from '@/lib/cooking-class-db';
 
 export async function POST(req: NextRequest) {
   // ── TEMPORARILY DISABLED ─────────────────────────────────────────────────
@@ -26,7 +27,7 @@ export async function POST(req: NextRequest) {
 
     // Load registration
     const { data: reg, error: regErr } = await supabaseAdmin
-      .from('cooking_class_registrations')
+      .from(COOKING_CLASS_TABLES.registrations)
       .select('*')
       .eq('id', registrationId)
       .single();
@@ -37,7 +38,7 @@ export async function POST(req: NextRequest) {
 
     // Load settings
     const { data: settings } = await supabaseAdmin
-      .from('cooking_class_settings')
+      .from(COOKING_CLASS_TABLES.settings)
       .select('sheet_id, sheet_name')
       .limit(1)
       .single();
@@ -51,7 +52,7 @@ export async function POST(req: NextRequest) {
 
     // Load event names from DB for better labels
     const { data: eventsData } = await supabaseAdmin
-      .from('cooking_class_events')
+      .from(COOKING_CLASS_TABLES.classes)
       .select('id, name');
     const eventMap: Record<string, string> = {};
     (eventsData || []).forEach((e: { id: string; name: string }) => {
@@ -60,7 +61,7 @@ export async function POST(req: NextRequest) {
 
     // Load event date labels from DB
     const { data: datesData } = await supabaseAdmin
-      .from('cooking_class_event_dates')
+      .from(COOKING_CLASS_TABLES.sessions)
       .select('id, event_date, start_time, end_time');
     const dateMap: Record<string, string> = {};
     (datesData || []).forEach((d: { id: string; event_date: string; start_time: string; end_time: string }) => {
@@ -219,7 +220,7 @@ export async function POST(req: NextRequest) {
 
     // Mark as synced
     await supabaseAdmin
-      .from('cooking_class_registrations')
+      .from(COOKING_CLASS_TABLES.registrations)
       .update({ synced_to_sheet: true })
       .eq('id', registrationId);
 

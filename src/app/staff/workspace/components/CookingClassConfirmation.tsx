@@ -104,21 +104,21 @@ export default function CookingClassConfirmation({ userRole }: CookingClassConfi
 
         if (eventDateIds.length > 0) {
           const { data: dates } = await supabase
-            .from('cooking_class_event_dates')
-            .select('id, event_date, start_time, end_time, location, class_fee, event_id')
+            .from('cooking_class_sessions')
+            .select('id, event_date, start_time, end_time, location, class_fee, class_id')
             .in('id', eventDateIds);
 
           if (dates && dates.length > 0) {
-            const eventIds = [...new Set(dates.map((d: { event_id: string }) => d.event_id).filter(Boolean))];
+            const eventIds = [...new Set(dates.map((d: { class_id: string }) => d.class_id).filter(Boolean))];
             const eventsMap: Record<string, string> = {};
             if (eventIds.length > 0) {
               const { data: events } = await supabase
-                .from('cooking_class_events')
+                .from('cooking_classes')
                 .select('id, name')
                 .in('id', eventIds);
               (events || []).forEach((e: { id: string; name: string }) => { eventsMap[e.id] = e.name; });
             }
-            dates.forEach((d: { id: string; event_date: string | null; start_time: string | null; end_time: string | null; location: string | null; class_fee: number | null; event_id: string }) => {
+            dates.forEach((d: { id: string; event_date: string | null; start_time: string | null; end_time: string | null; location: string | null; class_fee: number | null; class_id: string }) => {
               eventDatesMap[d.id] = {
                 id: d.id,
                 event_date: d.event_date,
@@ -126,7 +126,7 @@ export default function CookingClassConfirmation({ userRole }: CookingClassConfi
                 end_time: d.end_time,
                 location: d.location,
                 class_fee: d.class_fee,
-                event_name: eventsMap[d.event_id] || null,
+                event_name: eventsMap[d.class_id] || null,
               };
             });
           }

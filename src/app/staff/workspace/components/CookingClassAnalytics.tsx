@@ -30,7 +30,7 @@ interface EventDateRow {
   id: string;
   event_date: string | null;
   class_fee: number | null;
-  event_id: string;
+  class_id: string;
   seating: number | null;
 }
 
@@ -88,8 +88,8 @@ export default function CookingClassAnalytics() {
       const [regsRes, bookingsRes, datesRes, eventsRes] = await Promise.all([
         supabase.from('cooking_class_registrations').select('id, first_name, surname, email, payment_status, payment_method, amount, created_at, children, attend_school_holiday'),
         supabase.from('cooking_class_booking_counts').select('registration_id, event_date_id'),
-        supabase.from('cooking_class_event_dates').select('id, event_date, class_fee, event_id, seating'),
-        supabase.from('cooking_class_events').select('id, name'),
+        supabase.from('cooking_class_sessions').select('id, event_date, class_fee, class_id, seating'),
+        supabase.from('cooking_classes').select('id, name'),
       ]);
       if (regsRes.error) throw regsRes.error;
       setRegistrations(regsRes.data || []);
@@ -181,7 +181,7 @@ export default function CookingClassAnalytics() {
   bookings.forEach(b => {
     const ed = eventDateMap[b.event_date_id];
     if (!ed) return;
-    const eventName = eventsMap[ed.event_id] || 'Unknown Event';
+    const eventName = eventsMap[ed.class_id] || 'Unknown Class';
     bookingsByEvent[eventName] = (bookingsByEvent[eventName] || 0) + 1;
     const reg = registrations.find(r => r.id === b.registration_id);
     if (reg && reg.payment_status === 'paid') {
@@ -216,7 +216,7 @@ export default function CookingClassAnalytics() {
             if (regBookings.length > 0) {
               regBookings.forEach(b => {
                 const ed = eventDateMap[b.event_date_id];
-                const eventName = ed ? (eventsMap[ed.event_id] || 'Unknown Event') : 'Unknown Event';
+                const eventName = ed ? (eventsMap[ed.class_id] || 'Unknown Class') : 'Unknown Class';
                 fallback[eventName] = (fallback[eventName] || 0) + (r.amount || 0);
               });
             } else {
@@ -248,7 +248,7 @@ export default function CookingClassAnalytics() {
       }, 0);
       return {
         label: formatDate(d.event_date!),
-        eventName: eventsMap[d.event_id] || 'Event',
+        eventName: eventsMap[d.class_id] || 'Class',
         capacity,
         booked,
         available: Math.max(0, capacity - booked),
