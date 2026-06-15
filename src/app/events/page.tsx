@@ -387,7 +387,7 @@ function EventsContent() {
               activeTab === 'current' ? 'bg-[#C4622D] text-white shadow-sm' : 'text-[#5C5347] hover:text-[#C4622D]'
             }`}
           >
-            Current Events
+            Current
             <span
               className={`text-xs px-2 py-0.5 rounded-full font-bold min-w-[22px] text-center ${
                 activeTab === 'current' ?'bg-white/25 text-white' :'bg-[#C4622D] text-white'
@@ -402,7 +402,7 @@ function EventsContent() {
               activeTab === 'past' ? 'bg-[#C4622D] text-white shadow-sm' : 'text-[#5C5347] hover:text-[#C4622D]'
             }`}
           >
-            Past Events
+            Past
             <span
               className={`text-xs px-2 py-0.5 rounded-full font-bold min-w-[22px] text-center ${
                 activeTab === 'past' ?'bg-white/25 text-white' :'bg-[#C4622D] text-white'
