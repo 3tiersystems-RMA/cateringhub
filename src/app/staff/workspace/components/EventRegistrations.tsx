@@ -114,7 +114,7 @@ function formatDate(dateStr: string | null | undefined) {
 
 function formatCurrency(val: number | null | undefined) {
   if (val == null) return '—';
-  return `R ${Math.round(Number(val)).toLocaleString('en-ZA')}`;
+  return `R ${Math.round(Number(val)).toLocaleString('en-US')}`;
 }
 
 function calcAge(dob: string | null | undefined): string {
