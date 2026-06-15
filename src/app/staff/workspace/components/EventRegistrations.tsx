@@ -225,6 +225,7 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
   // Derived filter options
   const [eventOptions, setEventOptions] = useState<string[]>([]);
   const [venueOptions, setVenueOptions] = useState<string[]>([]);
+  const [activeClassOptions, setActiveClassOptions] = useState<string[]>([]);
 
   // Expanded row for participant details
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -325,6 +326,18 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
       });
       setEventOptions([...allEvents].sort());
       setVenueOptions([...allVenues].sort());
+
+      // 6. Fetch active classes from Class Settings for the "Filter by Class" dropdowns
+      const { data: activeClasses } = await supabase
+        .from('cooking_class_name')
+        .select('name')
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true });
+      if (activeClasses && activeClasses.length > 0) {
+        setActiveClassOptions(activeClasses.map((c: { name: string }) => c.name));
+      } else {
+        setActiveClassOptions([...allEvents].sort());
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to load registrations');
     } finally {
@@ -820,7 +833,7 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
                   className="flex-1 max-w-xs px-3 py-1.5 text-sm border border-[#E8DDD0] rounded-lg bg-white text-[#2C2420] focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30"
                 >
                   <option value="all">All Classes</option>
-                  {eventOptions.map(ev => <option key={ev} value={ev}>{ev}</option>)}
+                  {activeClassOptions.map(ev => <option key={ev} value={ev}>{ev}</option>)}
                 </select>
                 {participantEventFilter !== 'all' && (
                   <button onClick={() => { setParticipantEventFilter('all'); setParticipantSortKey(null); }} className="text-xs text-[#C4622D] hover:underline">Clear</button>
@@ -1041,7 +1054,7 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
                     className="flex-1 max-w-xs px-3 py-1.5 text-sm border border-[#E8DDD0] rounded-lg bg-white text-[#2C2420] focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30"
                   >
                     <option value="all">All Classes</option>
-                    {eventOptions.map(ev => <option key={ev} value={ev}>{ev}</option>)}
+                    {activeClassOptions.map(ev => <option key={ev} value={ev}>{ev}</option>)}
                   </select>
                   {selectedEvent !== 'all' && (
                     <button onClick={() => setSelectedEvent('all')} className="text-xs text-[#C4622D] hover:underline">Clear</button>
