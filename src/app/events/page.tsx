@@ -240,7 +240,6 @@ function EventsContent() {
       : e.offering_type !== 'class';
   const currentEvents = events.filter((e) => new Date(e.event_date) >= now);
   const pastEvents = events.filter((e) => new Date(e.event_date) < now);
-  const hasClasses = events.some((e) => e.offering_type === 'class');
   const displayedEvents = (activeTab === 'current' ? currentEvents : pastEvents).filter(matchesOffering);
 
   const formatDateOnly = (from: string) => {
@@ -384,62 +383,56 @@ function EventsContent() {
         <div className="flex gap-1 bg-white border border-[#EDE7DA] rounded-2xl p-1 w-fit">
           <button
             onClick={() => setActiveTab('current')}
-            className={`px-6 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+            className={`px-6 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 ${
               activeTab === 'current' ? 'bg-[#C4622D] text-white shadow-sm' : 'text-[#5C5347] hover:text-[#C4622D]'
             }`}
           >
             Current Events
-            {currentEvents.length > 0 && (
-              <span
-                className={`ml-2 text-xs px-1.5 py-0.5 rounded-full ${
-                  activeTab === 'current' ? 'bg-white/20 text-white' : 'bg-[#F5F0E8] text-[#C4622D]'
-                }`}
-              >
-                {currentEvents.length}
-              </span>
-            )}
+            <span
+              className={`text-xs px-2 py-0.5 rounded-full font-bold min-w-[22px] text-center ${
+                activeTab === 'current' ?'bg-white/25 text-white' :'bg-[#C4622D] text-white'
+              }`}
+            >
+              {currentEvents.length}
+            </span>
           </button>
           <button
             onClick={() => setActiveTab('past')}
-            className={`px-6 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+            className={`px-6 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 ${
               activeTab === 'past' ? 'bg-[#C4622D] text-white shadow-sm' : 'text-[#5C5347] hover:text-[#C4622D]'
             }`}
           >
             Past Events
-            {pastEvents.length > 0 && (
-              <span
-                className={`ml-2 text-xs px-1.5 py-0.5 rounded-full ${
-                  activeTab === 'past' ? 'bg-white/20 text-white' : 'bg-[#F5F0E8] text-[#C4622D]'
-                }`}
-              >
-                {pastEvents.length}
-              </span>
-            )}
+            <span
+              className={`text-xs px-2 py-0.5 rounded-full font-bold min-w-[22px] text-center ${
+                activeTab === 'past' ?'bg-white/25 text-white' :'bg-[#C4622D] text-white'
+              }`}
+            >
+              {pastEvents.length}
+            </span>
           </button>
         </div>
 
-        {/* Offering type filter — only shown once at least one Cooking Class exists */}
-        {hasClasses && (
-          <div className="flex flex-wrap items-center gap-2 mt-4">
-            {([
-              { key: 'all', label: 'All' },
-              { key: 'events', label: 'Events' },
-              { key: 'classes', label: 'Cooking Classes' },
-            ] as const).map((opt) => (
-              <button
-                key={opt.key}
-                onClick={() => setOfferingFilter(opt.key)}
-                className={`px-4 py-1.5 rounded-full text-xs font-semibold border transition-all ${
-                  offeringFilter === opt.key
-                    ? 'bg-[#1A1612] text-white border-[#1A1612]'
-                    : 'bg-white text-[#5C5347] border-[#EDE7DA] hover:border-[#C4622D] hover:text-[#C4622D]'
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        )}
+        {/* Offering type filter — All / Events / Cooking Classes */}
+        <div className="flex flex-wrap items-center gap-2 mt-4">
+          {([
+            { key: 'all', label: 'All' },
+            { key: 'events', label: 'Events' },
+            { key: 'classes', label: 'Cooking Classes' },
+          ] as const).map((opt) => (
+            <button
+              key={opt.key}
+              onClick={() => setOfferingFilter(opt.key)}
+              className={`px-4 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+                offeringFilter === opt.key
+                  ? 'bg-[#1A1612] text-white border-[#1A1612]'
+                  : 'bg-white text-[#5C5347] border-[#EDE7DA] hover:border-[#C4622D] hover:text-[#C4622D]'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
       </section>
 
       {/* Events Grid */}
