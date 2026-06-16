@@ -658,7 +658,7 @@ function EventsContent() {
 
                     {/* Splash Banner */}
                     {ev.splash_banner_text && (
-                      <div className="relative w-full h-16 rounded-xl overflow-hidden mb-3">
+                      <div className="relative w-full h-16 rounded-xl overflow-hidden mb-3 mt-6">
                         <img
                           src="/assets/images/Splash_Banner-1781600335717.jpeg"
                           alt="Splash banner"
@@ -666,8 +666,8 @@ function EventsContent() {
                         />
                         <div className="absolute inset-0 flex items-center justify-center">
                           <span
-                            className="text-white font-extrabold text-lg tracking-widest uppercase drop-shadow-lg"
-                            style={{ transform: 'rotate(-8deg)', textShadow: '0 2px 8px rgba(0,0,0,0.7)' }}
+                            className="text-black font-extrabold text-lg tracking-widest uppercase drop-shadow-lg"
+                            style={{ transform: 'rotate(-8deg)' }}
                           >
                             {ev.splash_banner_text}
                           </span>
