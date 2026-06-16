@@ -612,7 +612,7 @@ export default function StaffWorkspacePage() {
                       {/* 5. Collection Notification */}
                       {canTab('collection_notification') && (
                         <button onClick={() => { handleTabChange('collection_notification'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'collection_notification' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
-                          <span className="text-base">🔔</span><span>Collection Notification</span>
+                          <span className="text-base">🔔</span><span>Order Collection Notification</span>
                         </button>
                       )}
                       {/* 6. Bookings Credit */}
