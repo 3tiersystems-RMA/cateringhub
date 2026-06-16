@@ -448,15 +448,15 @@ export default function CookingClassAnalytics() {
           <p className="text-xs text-[#8C8278] mb-4">Seat availability for the next {upcomingSessions.length} sessions</p>
           <div className="space-y-3">
             {upcomingSessions.map((s, i) => (
-              <div key={i} className="flex items-center gap-4">
-                <div className="w-32 flex-shrink-0">
-                  <p className="text-xs font-semibold text-[#1A1612] truncate">{s.eventName}</p>
+              <div key={i} className="flex items-center gap-3">
+                <div className="w-48 flex-shrink-0">
+                  <p className="text-xs font-semibold text-[#1A1612] leading-tight">{s.eventName}</p>
                   <p className="text-xs text-[#8C8278]">{s.label}</p>
                 </div>
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs text-[#8C8278]">{s.booked} booked</span>
-                    <span className="text-xs font-medium text-[#1A1612]">{s.fillPct}% full</span>
+                    <span className="text-xs text-[#8C8278] whitespace-nowrap">{s.booked} booked</span>
+                    <span className="text-xs font-medium text-[#1A1612] whitespace-nowrap ml-2">{s.fillPct}%</span>
                   </div>
                   <div className="h-2 bg-[#e9e0cf] rounded-full overflow-hidden">
                     <div
@@ -468,7 +468,7 @@ export default function CookingClassAnalytics() {
                     />
                   </div>
                 </div>
-                <div className="w-20 text-right flex-shrink-0">
+                <div className="w-16 text-right flex-shrink-0">
                   <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
                     s.available === 0
                       ? 'bg-red-100 text-red-700 border-red-200'
