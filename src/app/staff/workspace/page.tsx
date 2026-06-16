@@ -558,7 +558,7 @@ export default function StaffWorkspacePage() {
               {canAnyTab('reporting', 'analytics') && (
                 <>
                   <button onClick={() => setReportsMenuOpen(prev => !prev)} className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${['reporting', 'analytics'].includes(activeTab) ? 'text-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'}`}>
-                    <span className="text-base">📊</span><span className="flex-1">Reports</span><span className="text-xs">{reportsMenuOpen ? '▲' : '▼'}</span>
+                    <span className="text-base">📊</span><span className="flex-1">Orders Report</span><span className="text-xs">{reportsMenuOpen ? '▲' : '▼'}</span>
                   </button>
                   {reportsMenuOpen && (
                     <div className="pl-4 border-l-2 border-[#E8DDD0] ml-4">

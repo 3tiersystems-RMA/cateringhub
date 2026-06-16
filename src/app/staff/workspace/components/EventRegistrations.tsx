@@ -262,22 +262,22 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
       if (regsErr) throw regsErr;
       if (!regs || regs.length === 0) { setRegistrations([]); return; }
 
-      // 2. Collect all event date IDs from selected_events and adult_class_dates
-      const allDateIds: string[] = [];
-      regs.forEach((r: RegistrationRow & { selected_events?: string[]; adult_class_dates?: string[] }) => {
-        (r.selected_events || []).forEach((id: string) => { if (id) allDateIds.push(id); });
-        (r.adult_class_dates || []).forEach((id: string) => { if (id) allDateIds.push(id); });
-      });
-      const uniqueDateIds = [...new Set(allDateIds)];
+      // 2. Fetch booking counts (links registrations → session IDs)
+      const regIds = regs.map((r: RegistrationRow) => r.id);
+      const { data: bookings } = await supabase
+        .from('cooking_class_booking_counts')
+        .select('registration_id, event_date_id')
+        .in('registration_id', regIds);
 
       // 3. Fetch cooking class sessions with class names
+      const eventDateIds = [...new Set((bookings || []).map((b: { event_date_id: string }) => b.event_date_id))];
       let eventDatesMap: Record<string, SessionDate> = {};
 
-      if (uniqueDateIds.length > 0) {
+      if (eventDateIds.length > 0) {
         const { data: dates } = await supabase
           .from('cooking_class_sessions')
           .select('id, event_date, start_time, end_time, location, class_fee, class_id')
-          .in('id', uniqueDateIds);
+          .in('id', eventDateIds);
 
         if (dates && dates.length > 0) {
           const eventIds = [...new Set(dates.map((d: { class_id: string }) => d.class_id).filter(Boolean))];
@@ -303,15 +303,19 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
         }
       }
 
-      // 4. Build registration → session_dates map from selected_events + adult_class_dates
-      const enriched: RegistrationRow[] = regs.map((r: RegistrationRow & { selected_events?: string[]; adult_class_dates?: string[] }) => {
-        const allIds = [...(r.selected_events || []), ...(r.adult_class_dates || [])];
-        const uniqueIds = [...new Set(allIds)];
-        const session_dates = uniqueIds
-          .map(id => eventDatesMap[id])
-          .filter(Boolean) as SessionDate[];
-        return { ...r, session_dates };
+      // 4. Build registration → session_dates map from booking_counts
+      const regSessionMap: Record<string, SessionDate[]> = {};
+      (bookings || []).forEach((b: { registration_id: string; event_date_id: string }) => {
+        if (!regSessionMap[b.registration_id]) regSessionMap[b.registration_id] = [];
+        if (eventDatesMap[b.event_date_id]) {
+          regSessionMap[b.registration_id].push(eventDatesMap[b.event_date_id]);
+        }
       });
+
+      const enriched: RegistrationRow[] = regs.map((r: RegistrationRow) => ({
+        ...r,
+        session_dates: regSessionMap[r.id] || [],
+      }));
 
       setRegistrations(enriched);
 

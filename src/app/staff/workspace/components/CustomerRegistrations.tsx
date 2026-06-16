@@ -136,78 +136,90 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
       // ── 1. Fetch Cooking Class Registrations ──────────────────────────────
       const { data: classRegs, error: classErr } = await supabase
         .from('cooking_class_registrations')
-        .select('id, title, first_name, surname, email, cellphone, payment_status, amount, created_at, selected_events, adult_class_dates, children')
+        .select('id, title, first_name, surname, email, cellphone, payment_status, amount, created_at, children')
         .order('created_at', { ascending: false });
 
       if (classErr) throw classErr;
 
-      // Fetch cooking class event dates for class registrations
-      const allClassEventIds: string[] = [];
-      (classRegs || []).forEach((r: { selected_events?: string[]; adult_class_dates?: string[] }) => {
-        (r.selected_events || []).forEach((id: string) => { if (id) allClassEventIds.push(id); });
-        (r.adult_class_dates || []).forEach((id: string) => { if (id) allClassEventIds.push(id); });
-      });
-      const uniqueClassEventIds = [...new Set(allClassEventIds)];
+      const classRegIds = (classRegs || []).map((r: { id: string }) => r.id);
+      let classUnified: UnifiedRegistration[] = [];
 
-      let classEventDatesMap: Record<string, { event_date: string | null; event_name: string | null; location: string | null }> = {};
-      if (uniqueClassEventIds.length > 0) {
-        const { data: classDates } = await supabase
-          .from('cooking_class_sessions')
-          .select('id, event_date, location, class_id')
-          .in('id', uniqueClassEventIds);
+      if (classRegIds.length > 0) {
+        const { data: classBookings } = await supabase
+          .from('cooking_class_booking_counts')
+          .select('registration_id, event_date_id')
+          .in('registration_id', classRegIds);
 
-        const classEventIds = [...new Set((classDates || []).map((d: { class_id: string }) => d.class_id).filter(Boolean))];
-        let classEventsMap: Record<string, string> = {};
-        if (classEventIds.length > 0) {
-          const { data: classEvents } = await supabase
-            .from('cooking_classes')
-            .select('id, name')
-            .in('id', classEventIds);
-          (classEvents || []).forEach((e: { id: string; name: string }) => { classEventsMap[e.id] = e.name; });
+        const classEventDateIds = [...new Set((classBookings || []).map((b: { event_date_id: string }) => b.event_date_id))];
+        let classEventDatesMap: Record<string, { event_date: string | null; event_name: string | null; location: string | null }> = {};
+
+        if (classEventDateIds.length > 0) {
+          const { data: classDates } = await supabase
+            .from('cooking_class_sessions')
+            .select('id, event_date, location, class_id')
+            .in('id', classEventDateIds);
+
+          const classEventIds = [...new Set((classDates || []).map((d: { class_id: string }) => d.class_id).filter(Boolean))];
+          let classEventsMap: Record<string, string> = {};
+          if (classEventIds.length > 0) {
+            const { data: classEvents } = await supabase
+              .from('cooking_classes')
+              .select('id, name')
+              .in('id', classEventIds);
+            (classEvents || []).forEach((e: { id: string; name: string }) => { classEventsMap[e.id] = e.name; });
+          }
+
+          (classDates || []).forEach((d: { id: string; event_date: string | null; location: string | null; class_id: string }) => {
+            classEventDatesMap[d.id] = {
+              event_date: d.event_date,
+              event_name: classEventsMap[d.class_id] || null,
+              location: d.location,
+            };
+          });
         }
 
-        (classDates || []).forEach((d: { id: string; event_date: string | null; location: string | null; class_id: string }) => {
-          classEventDatesMap[d.id] = {
-            event_date: d.event_date,
-            event_name: classEventsMap[d.class_id] || null,
-            location: d.location,
+        const classRegSessionMap: Record<string, { event_date: string | null; event_name: string | null; location: string | null }[]> = {};
+        (classBookings || []).forEach((b: { registration_id: string; event_date_id: string }) => {
+          if (!classRegSessionMap[b.registration_id]) classRegSessionMap[b.registration_id] = [];
+          if (classEventDatesMap[b.event_date_id]) {
+            classRegSessionMap[b.registration_id].push(classEventDatesMap[b.event_date_id]);
+          }
+        });
+
+        classUnified = (classRegs || []).map((r: {
+          id: string; title: string; first_name: string; surname: string; email: string;
+          cellphone: string; payment_status: string; amount: number | null; created_at: string;
+          children?: unknown[];
+        }) => {
+          const sessions = classRegSessionMap[r.id] || [];
+          const eventNames = [...new Set(sessions.map(s => s.event_name).filter(Boolean))] as string[];
+          const eventDates = [...new Set(sessions.map(s => s.event_date).filter(Boolean))] as string[];
+          const venue = sessions.map(s => s.location).find(Boolean) || null;
+          const filledChildren = Array.isArray(r.children)
+            ? r.children.filter((c: unknown) => {
+                if (!c || typeof c !== 'object') return false;
+                const p = c as Record<string, unknown>;
+                return p.fullName || p.full_name || p.name;
+              })
+            : [];
+          return {
+            id: r.id,
+            source: 'class' as const,
+            title: r.title,
+            first_name: r.first_name,
+            surname: r.surname,
+            email: r.email,
+            cellphone: r.cellphone,
+            payment_status: r.payment_status,
+            amount: r.amount,
+            created_at: r.created_at,
+            event_names: eventNames,
+            venue,
+            event_dates: eventDates,
+            participant_count: filledChildren.length,
           };
         });
       }
-
-      const classUnified: UnifiedRegistration[] = (classRegs || []).map((r: {
-        id: string; title: string; first_name: string; surname: string; email: string;
-        cellphone: string; payment_status: string; amount: number | null; created_at: string;
-        selected_events?: string[]; adult_class_dates?: string[]; children?: unknown[];
-      }) => {
-        const allIds = [...(r.selected_events || []), ...(r.adult_class_dates || [])];
-        const eventNames = [...new Set(allIds.map(id => classEventDatesMap[id]?.event_name).filter(Boolean))] as string[];
-        const eventDates = [...new Set(allIds.map(id => classEventDatesMap[id]?.event_date).filter(Boolean))] as string[];
-        const venue = allIds.map(id => classEventDatesMap[id]?.location).find(Boolean) || null;
-        const filledChildren = Array.isArray(r.children)
-          ? r.children.filter((c: unknown) => {
-              if (!c || typeof c !== 'object') return false;
-              const p = c as Record<string, unknown>;
-              return p.fullName || p.full_name || p.name;
-            })
-          : [];
-        return {
-          id: r.id,
-          source: 'class' as const,
-          title: r.title,
-          first_name: r.first_name,
-          surname: r.surname,
-          email: r.email,
-          cellphone: r.cellphone,
-          payment_status: r.payment_status,
-          amount: r.amount,
-          created_at: r.created_at,
-          event_names: eventNames,
-          venue,
-          event_dates: eventDates,
-          participant_count: filledChildren.length,
-        };
-      });
 
       // ── 2. Fetch Event Management Registrations ───────────────────────────
       const { data: eventRegs, error: eventErr } = await supabase
