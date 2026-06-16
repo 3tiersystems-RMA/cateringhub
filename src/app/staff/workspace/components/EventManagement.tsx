@@ -37,6 +37,7 @@ interface Event {
   event_management_session_id: string | null;
   badge?: string | null;
   tags?: string[] | null;
+  splash_banner_text?: string | null;
   created_at: string;
   imageUrl?: string;
 }
@@ -57,6 +58,7 @@ interface EventForm {
   event_management_session_id: string;
   badge: string;
   tags: string;
+  splash_banner_text: string;
 }
 
 const emptyEventForm: EventForm = {
@@ -75,6 +77,7 @@ const emptyEventForm: EventForm = {
   event_management_session_id: '',
   badge: '',
   tags: '',
+  splash_banner_text: '',
 };
 
 export default function EventManagement({ canCreate = true, canDelete = true }: { canCreate?: boolean; canDelete?: boolean }) {
@@ -371,6 +374,7 @@ export default function EventManagement({ canCreate = true, canDelete = true }: 
       event_management_session_id: ev.event_management_session_id || '',
       badge: ev.badge || (ev.is_registered ? DEFAULT_REGISTERED_EVENT_BADGE : ''),
       tags: (ev.tags ?? []).join(', '),
+      splash_banner_text: ev.splash_banner_text || '',
     });
     setPendingImageFile(null);
     // If there's a stored image_path preview use it, else use image_url
@@ -589,6 +593,7 @@ export default function EventManagement({ canCreate = true, canDelete = true }: 
       event_management_session_id: form.is_registered ? form.event_management_session_id : null,
       badge: form.is_registered && form.badge.trim() ? form.badge.trim() : null,
       tags: form.is_registered ? parseTagsInput(form.tags) : [],
+      splash_banner_text: form.splash_banner_text.trim() || null,
     };
 
     if (form.is_registered && form.event_management_event_id && form.event_management_session_id) {
@@ -1203,6 +1208,21 @@ export default function EventManagement({ canCreate = true, canDelete = true }: 
                         </p>
                       </div>
                     )}
+
+                    {/* Splash Banner */}
+                    <div>
+                      <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">
+                        Splash Banner Text <span className="text-[#B0A89C] font-normal normal-case tracking-normal">— optional overlay text on the banner image</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={form.splash_banner_text}
+                        onChange={(e) => setForm((f) => ({ ...f, splash_banner_text: e.target.value }))}
+                        placeholder="e.g. WELCOME, BOOK NOW, LIMITED SEATS..."
+                        className="w-full border border-[#DDD5C8] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#C4622D]"
+                      />
+                      <p className="text-[10px] text-[#8C8278] mt-1">Displayed diagonally on the colourful splash banner below the location on the event card.</p>
+                    </div>
 
                     {/* Published toggle */}
                     <div className="flex items-center justify-between bg-[#e9e0cf] rounded-xl px-4 py-3">

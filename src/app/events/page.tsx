@@ -53,6 +53,8 @@ interface Event {
   badge?: string | null;
   /** Tag pills for marketing event or class cards. */
   tags?: string[] | null;
+  /** Optional splash banner overlay text shown on the event card. */
+  splash_banner_text?: string | null;
 }
 
 function EventsContent() {
@@ -653,6 +655,26 @@ function EventsContent() {
                         </div>
                       )}
                     </div>
+
+                    {/* Splash Banner */}
+                    {ev.splash_banner_text && (
+                      <div className="relative w-full h-16 rounded-xl overflow-hidden mb-3">
+                        <img
+                          src="/assets/images/Splash_Banner-1781600335717.jpeg"
+                          alt="Splash banner"
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <span
+                            className="text-white font-extrabold text-lg tracking-widest uppercase drop-shadow-lg"
+                            style={{ transform: 'rotate(-8deg)', textShadow: '0 2px 8px rgba(0,0,0,0.7)' }}
+                          >
+                            {ev.splash_banner_text}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
                   </div>
                 </div>
               )
