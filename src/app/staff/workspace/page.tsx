@@ -606,7 +606,7 @@ export default function StaffWorkspacePage() {
                       {/* 4. Payment Confirmation */}
                       {canTab('payment_confirmation') && (
                         <button onClick={() => { handleTabChange('payment_confirmation'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'payment_confirmation' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
-                          <span className="text-base">✅</span><span>Payment Confirmation</span>
+                          <span className="text-base">✅</span><span>Order Payment Confirmation</span>
                         </button>
                       )}
                       {/* 5. Collection Notification */}
