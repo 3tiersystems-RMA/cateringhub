@@ -55,6 +55,8 @@ interface Event {
   tags?: string[] | null;
   /** Optional splash banner overlay text shown on the event card. */
   splash_banner_text?: string | null;
+  /** True when seating capacity is reached (auto-computed from booking counts). */
+  isFullyBooked?: boolean;
 }
 
 function EventsContent() {
@@ -88,11 +90,13 @@ function EventsContent() {
         supabase.from(COOKING_CLASS_TABLES.sessions).select('*'),
         supabase.from(COOKING_CLASS_TABLES.sessionStatuses).select('id, label'),
         supabase.from(COOKING_CLASS_TABLES.settings).select('*').limit(1).single(),
+        supabase.from(COOKING_CLASS_TABLES.bookingCounts).select('event_date_id, registration_id'),
       ]);
       const classEvents = results[0].data;
       const dates = results[1].data;
       const statuses = results[2].data;
       const classSettings = results[3].data;
+      const rawBookingCounts = results[4].data ?? [];
 
       if (!classEvents || classEvents.length === 0) return [];
 
@@ -107,6 +111,13 @@ function EventsContent() {
           : null) ||
         undefined;
       const today = new Date().toISOString().slice(0, 10);
+
+      // Build a map: session_id → count of unique paid registrations
+      // We count distinct registration_id per event_date_id as a proxy for participant count
+      const sessionBookingMap = new Map<string, number>();
+      for (const row of rawBookingCounts as Array<{ event_date_id: string; registration_id: string }>) {
+        sessionBookingMap.set(row.event_date_id, (sessionBookingMap.get(row.event_date_id) ?? 0) + 1);
+      }
 
       const cards: Event[] = [];
       for (const ce of classEvents as Array<{ id: string; name: string; instructor?: string | null; image_url?: string | null; image_path?: string | null; menu_items?: string[] | null; menu_note?: string | null }>) {
@@ -131,6 +142,14 @@ function EventsContent() {
           ? (chosen.child_fee != null && Number(chosen.child_fee) > 0 ? Number(chosen.child_fee) : fee)
           : null;
         const instructor = ce.instructor && ce.instructor.trim() ? ce.instructor.trim() : null;
+
+        // Determine if the chosen (next upcoming) session is fully booked
+        const sessionSeating = (chosen as { seating?: number | null }).seating ?? 0;
+        const sessionBooked = sessionBookingMap.get(chosen.id) ?? 0;
+        const statusLabel = statusLabelById.get((chosen as { status_id?: string | null }).status_id ?? '') ?? '';
+        const isFullyBooked =
+          statusLabel === 'fully booked' ||
+          (sessionSeating > 0 && sessionBooked >= sessionSeating);
 
         // Resolve image: per-event image takes priority over global flyer
         const eventImageUrl =
@@ -170,6 +189,7 @@ function EventsContent() {
           menu_note: ce.menu_note ?? null,
           badge: (ce as { badge?: string | null }).badge ?? null,
           tags: (ce as { tags?: string[] | null }).tags ?? null,
+          isFullyBooked,
         });
       }
       return cards;
@@ -216,14 +236,56 @@ function EventsContent() {
         }
       }
 
+      // Fetch event management booking counts to determine fully booked status for event cards
+      const eventMgmtSessionIds = data
+        .map((ev: Event) => ev.event_management_session_id)
+        .filter((id): id is string => !!id);
+
+      let eventMgmtFullyBookedIds = new Set<string>();
+      if (eventMgmtSessionIds.length > 0) {
+        try {
+          const [datesRes, bookingsRes] = await Promise.all([
+            supabase
+              .from('event_management_event_dates')
+              .select('id, seating')
+              .in('id', eventMgmtSessionIds),
+            supabase
+              .from('event_management_booking_counts')
+              .select('event_date_id, registration_id')
+              .in('event_date_id', eventMgmtSessionIds),
+          ]);
+          const datesData = datesRes.data ?? [];
+          const bookingsData = bookingsRes.data ?? [];
+
+          // Count bookings per session
+          const bookingCountMap = new Map<string, number>();
+          for (const b of bookingsData as Array<{ event_date_id: string; registration_id: string }>) {
+            bookingCountMap.set(b.event_date_id, (bookingCountMap.get(b.event_date_id) ?? 0) + 1);
+          }
+
+          for (const d of datesData as Array<{ id: string; seating: number | null }>) {
+            const seating = d.seating ?? 0;
+            const booked = bookingCountMap.get(d.id) ?? 0;
+            if (seating > 0 && booked >= seating) {
+              eventMgmtFullyBookedIds.add(d.id);
+            }
+          }
+        } catch (e) {
+          console.error('Failed to fetch event management booking counts:', e);
+        }
+      }
+
       const withUrls = data.map((ev: Event) => {
+        const isFullyBooked = ev.event_management_session_id
+          ? eventMgmtFullyBookedIds.has(ev.event_management_session_id)
+          : false;
         if (ev.image_path && signedUrlMap[ev.image_path]) {
-          return { ...ev, imageUrl: signedUrlMap[ev.image_path], offering_type: 'event' as const };
+          return { ...ev, imageUrl: signedUrlMap[ev.image_path], offering_type: 'event' as const, isFullyBooked };
         }
         if (ev.image_url) {
-          return { ...ev, imageUrl: ev.image_url, offering_type: 'event' as const };
+          return { ...ev, imageUrl: ev.image_url, offering_type: 'event' as const, isFullyBooked };
         }
-        return { ...ev, offering_type: 'event' as const };
+        return { ...ev, offering_type: 'event' as const, isFullyBooked };
       });
 
       setEvents([...withUrls, ...classCards]);
@@ -507,6 +569,25 @@ function EventsContent() {
                         </span>
                       </div>
                     )}
+                    {/* Fully Booked diagonal badge */}
+                    {ev.isFullyBooked && (
+                      <div className="absolute inset-0 overflow-hidden pointer-events-none z-[2]">
+                        <div
+                          className="absolute bg-red-600 text-white text-xs font-extrabold tracking-widest uppercase shadow-lg"
+                          style={{
+                            width: '160%',
+                            textAlign: 'center',
+                            padding: '6px 0',
+                            top: '38%',
+                            left: '-30%',
+                            transform: 'rotate(-35deg)',
+                            transformOrigin: 'center',
+                          }}
+                        >
+                          Fully Booked
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Content */}
@@ -593,14 +674,23 @@ function EventsContent() {
                     {/* Enroll Button */}
                     {ev.enrollment_url && activeTab === 'current' && (
                       <div className="mt-auto pt-1">
-                        <a
-                          href={getEnrollHref(ev)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="block w-full text-center bg-[#C4622D] text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors"
-                        >
-                          Register Now
-                        </a>
+                        {ev.isFullyBooked ? (
+                          <button
+                            disabled
+                            className="block w-full text-center bg-gray-300 text-gray-500 py-2.5 rounded-xl text-sm font-semibold cursor-not-allowed"
+                          >
+                            Register Now
+                          </button>
+                        ) : (
+                          <a
+                            href={getEnrollHref(ev)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block w-full text-center bg-[#C4622D] text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors"
+                          >
+                            Register Now
+                          </a>
+                        )}
                       </div>
                     )}
                   </div>
