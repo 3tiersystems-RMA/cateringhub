@@ -236,7 +236,7 @@ export default function CookingClassAnalytics() {
   const activeClassIds = new Set(events.filter(e => e.is_active).map(e => e.id));
 
   const upcomingSessions = eventDates
-    .filter(d => d.event_date && new Date(d.event_date) >= new Date() && (d.class_id ? activeClassIds.has(d.class_id) : true))
+    .filter(d => d.event_date && new Date(d.event_date) >= new Date() && d.class_id && activeClassIds.has(d.class_id))
     .sort((a, b) => new Date(a.event_date!).getTime() - new Date(b.event_date!).getTime())
     .map(d => {
       const capacity = d.seating || 0;
