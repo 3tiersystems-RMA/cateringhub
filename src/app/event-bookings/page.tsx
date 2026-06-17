@@ -675,6 +675,76 @@ export default function EventBookingsPage() {
         };
       });
 
+      // ── PayFast: defer DB creation to ITN ─────────────────────────────────
+      // For PayFast payments, do NOT create the registration now.
+      // Store the payload as a pending record; the ITN handler creates the
+      // actual registration row only after PayFast confirms COMPLETE.
+      if (amountAfterCredit > 0 && page5.paymentMethod === 'payfast') {
+        const registrationPayload = {
+          title: page1.title,
+          first_name: page1.firstName,
+          surname: page1.surname,
+          email: page1.email,
+          cellphone: page1.cellphone,
+          whatsapp_number: page1.whatsappNumber.trim() || null,
+          selected_events: page1.selectedEvents,
+          adult_class_dates: page1.selectedDates,
+          emergency_contact1: { title: page3.contact1.title, firstName: page3.contact1.firstName, surname: page3.contact1.surname, cellNo: page3.contact1.cellNo, relationshipToChild: page3.contact1.relationshipToChild },
+          emergency_contact2: { title: page3.contact2.title, firstName: page3.contact2.firstName, surname: page3.contact2.surname, cellNo: page3.contact2.cellNo, relationshipToChild: page3.contact2.relationshipToChild },
+          medical_doctor_first_name: page3.medicalDoctorFirstName,
+          medical_doctor_surname: page3.medicalDoctorSurname,
+          medical_aid_name: page3.medicalAidName,
+          medical_aid_number: page3.medicalAidNumber,
+          children: participantsWithTickets,
+          attend_school_holiday: page4.attendSchoolHoliday,
+          pictures_taken: page4.children.filter(c => c.fullName.trim()).map(c => c.picturesTaken).join(', '),
+          indemnity_consent: page4.children.filter(c => c.fullName.trim()).every(c => c.indemnityConsent),
+          payment_method: 'payfast',
+          payment_status: 'pending',
+          proof_of_payment_url: null,
+          proof_of_payment_drive_url: null,
+          amount: amountDue,
+          registration_code: newRegistrationCode,
+        };
+
+        const pendingRes = await fetch('/api/payfast/pending', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            m_payment_id: newRegistrationCode,
+            payment_type: 'event_booking',
+            payload: {
+              registration: registrationPayload,
+              selectedDateIds: page1.selectedDateIds,
+            },
+          }),
+        });
+        if (!pendingRes.ok) {
+          const pendingErr = await pendingRes.json();
+          throw new Error(pendingErr.error || 'Failed to prepare payment.');
+        }
+
+        // Apply credit if selected (non-blocking, best-effort)
+        if (selectedCredit && creditApply > 0) {
+          try {
+            await fetch('/api/credits/check', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                creditId: selectedCredit.id,
+                bookingRef: newRegistrationCode,
+                bookingType: 'event',
+                amountToApply: creditApply,
+              }),
+            });
+          } catch { /* Non-blocking */ }
+        }
+
+        await initiatePayFast('', newRegistrationCode, amountAfterCredit);
+        return;
+      }
+      // ── End PayFast deferred path ──────────────────────────────────────────
+
       let paymentStatus: string;
       if (amountAfterCredit <= 0) {
         paymentStatus = 'paid';

@@ -287,41 +287,11 @@ export default function CartSidebar() {
   const handlePayFastCheckout = async () => {
     setProcessing(true);
     try {
-      // Step 1: Create the order in DB with awaiting_payment status
       const orderNotes = dvApplied && dvData
         ? `Discount Voucher: ${dvData.dv_code} (R${dvData.dv_amount.toFixed(2)} credit). ${form.notes}`.trim()
         : form.notes;
 
-      const createRes = await fetch("/api/orders/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          m_payment_id: orderRef,
-          customer_name: form.name,
-          customer_email: form.email,
-          customer_phone: form.phone,
-          items: items.map((i) => ({
-            id: i.product.id, name: i.product.name, quantity: i.quantity,
-            price: i.product.price, unit: i.product.unit, category: i.product.category,
-            package_type: i.product.packageType || 'none',
-          })),
-          subtotal,
-          delivery_fee: delivery,
-          total: discountedTotal,
-          payment_status: "awaiting_payment",
-          payment_method: "payfast",
-          event_date: form.date || null,
-          delivery_address: form.address,
-          notes: orderNotes,
-        }),
-      });
-
-      const createResult = await createRes.json();
-      if (!createRes.ok) throw new Error(createResult.error || "Failed to create order.");
-
-      const finalRef = createResult.reference ?? orderRef;
-
-      // Step 2: Get signed PayFast payload from server
+      // Step 1: Get signed PayFast payload from server
       const nameParts = form.name.trim().split(" ");
       const firstName = nameParts[0] || form.name;
       const lastName = nameParts.slice(1).join(" ") || "-";
@@ -331,9 +301,9 @@ export default function CartSidebar() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           order: {
-            paymentId: finalRef,
+            paymentId: orderRef,
             amount: discountedTotal,
-            itemName: `Central Kitchen Order ${finalRef}`,
+            itemName: `Central Kitchen Order ${orderRef}`,
             itemDescription: items.map((i) => `${i.product.name} x${i.quantity}`).join(", "),
           },
           buyer: {
@@ -347,6 +317,40 @@ export default function CartSidebar() {
 
       const initiateResult = await initiateRes.json();
       if (!initiateRes.ok) throw new Error(initiateResult.error || "Failed to initiate PayFast payment.");
+
+      // Step 2: Store the full order payload as a pending payment record.
+      // The actual order row will only be created by the ITN handler once
+      // PayFast confirms COMPLETE — no DB record is created here.
+      const pendingRes = await fetch("/api/payfast/pending", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          m_payment_id: orderRef,
+          payment_type: "order",
+          payload: {
+            m_payment_id: orderRef,
+            customer_name: form.name,
+            customer_email: form.email,
+            customer_phone: form.phone,
+            items: items.map((i) => ({
+              id: i.product.id, name: i.product.name, quantity: i.quantity,
+              price: i.product.price, unit: i.product.unit, category: i.product.category,
+              package_type: i.product.packageType || 'none',
+            })),
+            subtotal,
+            delivery_fee: delivery,
+            total: discountedTotal,
+            event_date: form.date || null,
+            delivery_address: form.address,
+            notes: orderNotes,
+          },
+        }),
+      });
+
+      if (!pendingRes.ok) {
+        const pendingErr = await pendingRes.json();
+        throw new Error(pendingErr.error || "Failed to prepare payment.");
+      }
 
       // Step 3: Apply discount voucher usage if applicable
       if (dvApplied && dvData) {
