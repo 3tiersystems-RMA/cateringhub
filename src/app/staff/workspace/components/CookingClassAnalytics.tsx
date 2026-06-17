@@ -90,7 +90,7 @@ export default function CookingClassAnalytics() {
         supabase.from('cooking_class_registrations').select('id, first_name, surname, email, payment_status, payment_method, amount, created_at, children, attend_school_holiday'),
         supabase.from('cooking_class_booking_counts').select('registration_id, event_date_id'),
         supabase.from('cooking_class_sessions').select('id, event_date, class_fee, class_id, seating'),
-        supabase.from('cooking_class_name').select('id, name, is_active').eq('is_active', true),
+        supabase.from('cooking_class_name').select('id, name, is_active'),
       ]);
       if (regsRes.error) throw regsRes.error;
       setRegistrations(regsRes.data || []);
@@ -233,10 +233,11 @@ export default function CookingClassAnalytics() {
     : revenueByEventData;
 
   // ── Upcoming sessions capacity ────────────────────────────────────────────────
+  const activeClassIds = new Set(events.filter(e => e.is_active).map(e => e.id));
+
   const upcomingSessions = eventDates
-    .filter(d => d.event_date && new Date(d.event_date) >= new Date())
+    .filter(d => d.event_date && new Date(d.event_date) >= new Date() && (d.class_id ? activeClassIds.has(d.class_id) : true))
     .sort((a, b) => new Date(a.event_date!).getTime() - new Date(b.event_date!).getTime())
-    .slice(0, 6)
     .map(d => {
       const capacity = d.seating || 0;
       // Count only children (participants) for each booking linked to this event date
@@ -445,7 +446,7 @@ export default function CookingClassAnalytics() {
       {upcomingSessions.length > 0 && (
         <div className="bg-white border border-[#EDE7DA] rounded-2xl p-5">
           <h3 className="text-sm font-bold text-[#1A1612] mb-1">Upcoming Session Capacity</h3>
-          <p className="text-xs text-[#8C8278] mb-4">Seat availability for the next {upcomingSessions.length} sessions</p>
+          <p className="text-xs text-[#8C8278] mb-4">Seat availability for all upcoming sessions</p>
           <div className="space-y-3">
             {upcomingSessions.map((s, i) => (
               <div key={i} className="flex items-center gap-3">
