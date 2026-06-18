@@ -569,7 +569,7 @@ export default function StaffWorkspacePage() {
                       )}
                       {canTab('analytics') && (
                         <button onClick={() => { handleTabChange('analytics'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'analytics' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
-                          <span className="text-base">📈</span><span>Analytics</span>
+                          <span className="text-base">📈</span><span>Orders Analytics</span>
                         </button>
                       )}
                     </div>
