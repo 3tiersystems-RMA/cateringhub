@@ -1052,9 +1052,20 @@ export default function EventBookingsPage() {
                     <p className="text-sm font-medium text-[#1A1612]">{page1.selectedDates[0]}</p>
                     {(() => {
                       const row = eventDates.find(r => page1.selectedDateIds[0] === r.id);
-                      return row?.location ? (
-                        <p className="text-xs text-[#5C5347] mt-1">{row.location}</p>
-                      ) : null;
+                      const seats = row ? Math.max(0, (row.seating || 0) - getBookingCount(row.id)) : null;
+                      const showSeats = row && (row.seating || 0) > 0;
+                      return (
+                        <>
+                          {row?.location ? (
+                            <p className="text-xs text-[#5C5347] mt-1">{row.location}</p>
+                          ) : null}
+                          {showSeats && seats !== null && (
+                            <p className={`text-xs font-medium mt-1 ${seats === 0 ? 'text-red-600' : seats <= 5 ? 'text-amber-600' : 'text-green-700'}`}>
+                              {seats === 0 ? 'Fully Booked' : `${seats} seat${seats === 1 ? '' : 's'} available`}
+                            </p>
+                          )}
+                        </>
+                      );
                     })()}
                     <button
                       type="button"
