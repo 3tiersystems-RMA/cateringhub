@@ -152,7 +152,7 @@ function EventsContent() {
         const isFullyBooked =
           statusLabel === 'fully booked' ||
           (sessionSeating > 0 && sessionBooked >= sessionSeating);
-        const isBookingsClose = statusLabel.toLowerCase() === 'bookings close';
+        const isBookingsClose = statusLabel.toLowerCase() === 'bookings closed';
 
         // Resolve image: per-event image takes priority over global flyer
         const eventImageUrl =
@@ -592,7 +592,7 @@ function EventsContent() {
                         </div>
                       </div>
                     )}
-                    {/* Bookings Close diagonal badge */}
+                    {/* Bookings Closed diagonal badge */}
                     {!ev.isFullyBooked && ev.isBookingsClose && (
                       <div className="absolute inset-0 overflow-hidden pointer-events-none z-[2]">
                         <div
@@ -607,7 +607,7 @@ function EventsContent() {
                             transformOrigin: 'center',
                           }}
                         >
-                          Bookings Close
+                          Bookings Closed
                         </div>
                       </div>
                     )}
