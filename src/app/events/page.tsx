@@ -57,6 +57,8 @@ interface Event {
   splash_banner_text?: string | null;
   /** True when seating capacity is reached (auto-computed from booking counts). */
   isFullyBooked?: boolean;
+  /** True when the session status is 'Bookings Close'. */
+  isBookingsClose?: boolean;
 }
 
 function EventsContent() {
@@ -150,6 +152,7 @@ function EventsContent() {
         const isFullyBooked =
           statusLabel === 'fully booked' ||
           (sessionSeating > 0 && sessionBooked >= sessionSeating);
+        const isBookingsClose = statusLabel.toLowerCase() === 'bookings close';
 
         // Resolve image: per-event image takes priority over global flyer
         const eventImageUrl =
@@ -190,6 +193,7 @@ function EventsContent() {
           badge: (ce as { badge?: string | null }).badge ?? null,
           tags: (ce as { tags?: string[] | null }).tags ?? null,
           isFullyBooked,
+          isBookingsClose,
         });
       }
       return cards;
@@ -588,6 +592,25 @@ function EventsContent() {
                         </div>
                       </div>
                     )}
+                    {/* Bookings Close diagonal badge */}
+                    {!ev.isFullyBooked && ev.isBookingsClose && (
+                      <div className="absolute inset-0 overflow-hidden pointer-events-none z-[2]">
+                        <div
+                          className="absolute bg-amber-600 text-white text-xs font-extrabold tracking-widest uppercase shadow-lg"
+                          style={{
+                            width: '160%',
+                            textAlign: 'center',
+                            padding: '6px 0',
+                            top: '38%',
+                            left: '-30%',
+                            transform: 'rotate(-35deg)',
+                            transformOrigin: 'center',
+                          }}
+                        >
+                          Bookings Close
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Content */}
@@ -675,6 +698,13 @@ function EventsContent() {
                     {ev.enrollment_url && activeTab === 'current' && (
                       <div className="mt-auto pt-1">
                         {ev.isFullyBooked ? (
+                          <button
+                            disabled
+                            className="block w-full text-center bg-gray-300 text-gray-500 py-2.5 rounded-xl text-sm font-semibold cursor-not-allowed"
+                          >
+                            Register Now
+                          </button>
+                        ) : ev.isBookingsClose ? (
                           <button
                             disabled
                             className="block w-full text-center bg-gray-300 text-gray-500 py-2.5 rounded-xl text-sm font-semibold cursor-not-allowed"
