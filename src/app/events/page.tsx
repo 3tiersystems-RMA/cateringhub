@@ -825,7 +825,7 @@ function EventsContent() {
 
                     {/* Splash Banner */}
                     {ev.splash_banner_text && (
-                      <div className="relative w-full h-16 rounded-xl overflow-hidden mb-3 mt-6">
+                      <div className="relative w-full h-32 rounded-xl overflow-hidden mb-3 mt-6">
                         <img
                           src="/assets/images/Splash_banner-1781696232809.webp"
                           alt="Splash banner"
