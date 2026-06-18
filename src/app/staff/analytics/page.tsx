@@ -260,7 +260,7 @@ export default function StaffAnalyticsPage() {
 
       setSummaryMetrics([
         { label: 'Total Orders', value: String(totalOrders), sub: `${paidOrders} paid`, icon: '📋' },
-        { label: 'Total Revenue', value: `R${totalRevenue.toFixed(2)}`, sub: `Avg R${avgOrderValue.toFixed(2)}/order`, icon: '💰' },
+        { label: 'Total Revenue', value: `R ${Math.round(totalRevenue).toLocaleString('en-ZA')}`, sub: `Avg R ${Math.round(avgOrderValue).toLocaleString('en-ZA')}/order`, icon: '💰' },
         { label: 'Meal Vouchers Used', value: String(totalMealRedemptions), sub: 'Redemptions', icon: '🎟️' },
         { label: 'Discount Vouchers', value: String(totalDvUsed), sub: 'Orders with discount', icon: '🏷️' },
         { label: 'Delivered Orders', value: String(deliveredOrders), sub: `${fulfillmentRate}% fulfillment rate`, icon: '✅' },
