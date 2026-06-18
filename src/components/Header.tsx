@@ -13,8 +13,8 @@ const navLinks = [
 ];
 
 const eventsSubLinks = [
-  { label: "Current Events", href: "/events#current" },
-  { label: "Past Events", href: "/events#past" },
+  { label: "Current", href: "/events#current" },
+  { label: "Past", href: "/events#past" },
 ];
 
 const customerProfileSubLinks = [
@@ -111,7 +111,7 @@ export default function Header() {
                   : "text-[#D4CFC9] hover:text-white"
               }`}
             >
-              Events
+              Classes & Events
               <Icon
                 name={eventsDropdownOpen ? "ChevronUpIcon" : "ChevronDownIcon"}
                 size={14}
@@ -135,7 +135,7 @@ export default function Header() {
                   }`}
                 >
                   <Icon name="CalendarDaysIcon" size={15} />
-                  Current Events
+                  Current
                 </Link>
                 <Link
                   href="/events?tab=past"
@@ -143,7 +143,7 @@ export default function Header() {
                   className="flex items-center gap-2.5 px-4 py-3 text-sm transition-colors text-[#D4CFC9] hover:bg-[#1E1E1E] hover:text-white"
                 >
                   <Icon name="ClockIcon" size={15} />
-                  Past Events
+                  Past
                 </Link>
               </div>
             )}
@@ -251,7 +251,7 @@ export default function Header() {
                 isEventsActive ? "text-[#C4622D]" : "text-[#D4CFC9]"
               }`}
             >
-              Events
+              Classes & Events
               <Icon
                 name={mobileEventsOpen ? "ChevronUpIcon" : "ChevronDownIcon"}
                 size={16}
@@ -265,7 +265,7 @@ export default function Header() {
                   className="flex items-center gap-2 py-2 text-sm transition-colors text-[#A09890] hover:text-white"
                 >
                   <Icon name="CalendarDaysIcon" size={14} />
-                  Current Events
+                  Current
                 </Link>
                 <Link
                   href="/events?tab=past"
@@ -273,7 +273,7 @@ export default function Header() {
                   className="flex items-center gap-2 py-2 text-sm transition-colors text-[#A09890] hover:text-white"
                 >
                   <Icon name="ClockIcon" size={14} />
-                  Past Events
+                  Past
                 </Link>
               </div>
             )}
