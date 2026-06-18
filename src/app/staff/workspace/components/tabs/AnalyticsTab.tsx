@@ -165,7 +165,7 @@ export default function AnalyticsTab() {
       <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-xl font-bold text-[#1A1612]">
-            Analytics
+            Orders Analytics
             {getPeriodLabel(analyticsPeriod) && (
               <span className="ml-2 text-base font-medium text-[#C4622D]">
                 for ({getPeriodLabel(analyticsPeriod)})
