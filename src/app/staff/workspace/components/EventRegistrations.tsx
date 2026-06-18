@@ -403,7 +403,9 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
   const filtered = registrations.filter(r => {
     if (filterTab === 'event' && selectedEvent !== 'all') {
       const hasEvent = (r.session_dates || []).some(sd => sd.event_name === selectedEvent);
-      if (!hasEvent) return false;
+      // Fallback: check selected_events array directly on the registration
+      const hasEventFallback = !hasEvent && Array.isArray(r.selected_events) && r.selected_events.some(ev => ev === selectedEvent);
+      if (!hasEvent && !hasEventFallback) return false;
     }
     if (filterTab === 'registrant' && registrantSearch.trim()) {
       const fullName = `${r.first_name} ${r.surname}`.toLowerCase();
