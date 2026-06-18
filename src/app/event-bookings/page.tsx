@@ -279,7 +279,7 @@ export default function EventBookingsPage() {
   function getAvailabilityText(row: EventDateRow): { text: string; color: string } {
     const statusLabel = getStatusLabel(row.status_id);
     if (statusLabel && statusLabel.toLowerCase() !== 'active') {
-      const colorMap: Record<string, string> = { 'fully booked': 'text-red-600', 'cancelled': 'text-red-500', 'venue change': 'text-amber-600' };
+      const colorMap: Record<string, string> = { 'fully booked': 'text-red-600', 'cancelled': 'text-red-500', 'venue change': 'text-amber-600', 'bookings closed': 'text-amber-700' };
       return { text: statusLabel, color: colorMap[statusLabel.toLowerCase()] || 'text-[#8C8278]' };
     }
     const seating = row.seating || 0;
@@ -296,7 +296,7 @@ export default function EventBookingsPage() {
     const statusLabel = getStatusLabel(row.status_id);
     if (statusLabel) {
       const lower = statusLabel.toLowerCase();
-      if (lower === 'cancelled' || lower === 'fully booked') return false;
+      if (lower === 'cancelled' || lower === 'fully booked' || lower === 'bookings closed') return false;
     }
     const seating = row.seating || 0;
     if (seating > 0 && getBookingCount(row.id) >= seating) return false;

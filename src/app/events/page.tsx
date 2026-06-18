@@ -248,18 +248,26 @@ function EventsContent() {
       let eventMgmtFullyBookedIds = new Set<string>();
       if (eventMgmtSessionIds.length > 0) {
         try {
-          const [datesRes, bookingsRes] = await Promise.all([
+          const [datesRes, bookingsRes, statusesRes] = await Promise.all([
             supabase
               .from('event_management_event_dates')
-              .select('id, seating')
+              .select('id, seating, status_id')
               .in('id', eventMgmtSessionIds),
             supabase
               .from('event_management_booking_counts')
               .select('event_date_id, registration_id')
               .in('event_date_id', eventMgmtSessionIds),
+            supabase
+              .from('event_management_session_statuses')
+              .select('id, label'),
           ]);
           const datesData = datesRes.data ?? [];
           const bookingsData = bookingsRes.data ?? [];
+          const statusesData = (statusesRes.data ?? []) as Array<{ id: string; label: string }>;
+
+          const statusLabelByIdEvt = new Map<string, string>(
+            statusesData.map(s => [s.id, (s.label ?? '').toLowerCase()])
+          );
 
           // Count bookings per session
           const bookingCountMap = new Map<string, number>();
@@ -267,16 +275,55 @@ function EventsContent() {
             bookingCountMap.set(b.event_date_id, (bookingCountMap.get(b.event_date_id) ?? 0) + 1);
           }
 
-          for (const d of datesData as Array<{ id: string; seating: number | null }>) {
+          for (const d of datesData as Array<{ id: string; seating: number | null; status_id: string | null }>) {
             const seating = d.seating ?? 0;
             const booked = bookingCountMap.get(d.id) ?? 0;
             if (seating > 0 && booked >= seating) {
               eventMgmtFullyBookedIds.add(d.id);
             }
           }
+
+          // Build a set of session IDs whose status is 'bookings closed'
+          const eventMgmtBookingsClosedIds = new Set<string>(
+            (datesData as Array<{ id: string; status_id: string | null }>)
+              .filter(d => statusLabelByIdEvt.get(d.status_id ?? '') === 'bookings closed')
+              .map(d => d.id)
+          );
+
+          const withUrls = data.map((ev: Event) => {
+            const isFullyBooked = ev.event_management_session_id
+              ? eventMgmtFullyBookedIds.has(ev.event_management_session_id)
+              : false;
+            const isBookingsClose = !isFullyBooked && ev.event_management_session_id
+              ? eventMgmtBookingsClosedIds.has(ev.event_management_session_id)
+              : false;
+            if (ev.image_path && signedUrlMap[ev.image_path]) {
+              return { ...ev, imageUrl: signedUrlMap[ev.image_path], offering_type: 'event' as const, isFullyBooked, isBookingsClose };
+            }
+            if (ev.image_url) {
+              return { ...ev, imageUrl: ev.image_url, offering_type: 'event' as const, isFullyBooked, isBookingsClose };
+            }
+            return { ...ev, offering_type: 'event' as const, isFullyBooked, isBookingsClose };
+          });
+
+          setEvents([...withUrls, ...classCards]);
         } catch (e) {
           console.error('Failed to fetch event management booking counts:', e);
+          // Fall back: map without status
+          const withUrls = data.map((ev: Event) => {
+            const isFullyBooked = false;
+            if (ev.image_path && signedUrlMap[ev.image_path]) {
+              return { ...ev, imageUrl: signedUrlMap[ev.image_path], offering_type: 'event' as const, isFullyBooked };
+            }
+            if (ev.image_url) {
+              return { ...ev, imageUrl: ev.image_url, offering_type: 'event' as const, isFullyBooked };
+            }
+            return { ...ev, offering_type: 'event' as const, isFullyBooked };
+          });
+          setEvents([...withUrls, ...classCards]);
         }
+        setLoading(false);
+        return;
       }
 
       const withUrls = data.map((ev: Event) => {
