@@ -406,6 +406,7 @@ function ProductsContent({ initialCatalog }: ProductsContentProps) {
   const [visibilityLoaded, setVisibilityLoaded] = useState(isPrefetched);
   const sectionRef = useRef<HTMLDivElement>(null);
   const { addItem, appliedVoucher } = useCart();
+  const [showCustomizePopup, setShowCustomizePopup] = useState(false);
 
   // Apply category from URL on first render
   useEffect(() => {
@@ -578,6 +579,13 @@ function ProductsContent({ initialCatalog }: ProductsContentProps) {
             </h1>
           </div>
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowCustomizePopup(true)}
+              className="flex items-center gap-2 bg-white border border-[#C4622D]/40 text-[#C4622D] px-4 py-2.5 rounded-full text-sm font-semibold hover:bg-[#F5EDE6] transition-all"
+            >
+              <Icon name="AdjustmentsHorizontalIcon" size={15} />
+              Customize Meal Package
+            </button>
             <Link
               href="/vouchers"
               className="flex items-center gap-2 bg-white border border-[#C4622D]/40 text-[#C4622D] px-4 py-2.5 rounded-full text-sm font-semibold hover:bg-[#F5EDE6] transition-all"
@@ -588,6 +596,27 @@ function ProductsContent({ initialCatalog }: ProductsContentProps) {
             <CartButton />
           </div>
         </div>
+
+        {/* Customize Meal Package popup */}
+        {showCustomizePopup && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowCustomizePopup(false)}>
+            <div className="bg-white rounded-2xl shadow-xl px-8 py-7 max-w-sm w-full mx-4 text-center" onClick={e => e.stopPropagation()}>
+              <div className="flex justify-center mb-4">
+                <span className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-[#F5EDE6]">
+                  <Icon name="AdjustmentsHorizontalIcon" size={24} className="text-[#C4622D]" />
+                </span>
+              </div>
+              <h3 className="text-lg font-bold text-[#2C1810] mb-2">Coming Soon</h3>
+              <p className="text-[#6B4226] text-sm mb-6">This OPTION will be available in our next release.</p>
+              <button
+                onClick={() => setShowCustomizePopup(false)}
+                className="bg-[#C4622D] text-white px-6 py-2.5 rounded-full text-sm font-semibold hover:bg-[#A8522A] transition-all"
+              >
+                Got it
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* ─── Apply Voucher Banner ─── */}
         <ApplyVoucherBanner />
