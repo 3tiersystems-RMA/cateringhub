@@ -560,10 +560,14 @@ function EventsContent() {
           <div className="text-center py-20">
             <span className="text-5xl">🗓️</span>
             <h3 className="text-xl font-bold font-display text-[#1A1612] mt-4 mb-2">
-              {activeTab === 'current' ? 'No Upcoming Events' : 'No Past Events'}
+              {activeTab === 'current'
+                ? (offeringFilter === 'classes' ? 'No Upcoming Classes' : 'No Upcoming Events')
+                : (offeringFilter === 'classes' ? 'No Past Classes' : 'No Past Events')}
             </h3>
             <p className="text-[#8C8278] text-sm">
-              {activeTab === 'current' ?'Check back soon for upcoming events from Cardamom Kitchen.' :'Past events will appear here once they have concluded.'}
+              {activeTab === 'current'
+                ? (offeringFilter === 'classes' ?'Check back soon for upcoming classes from Cardamom Kitchen.' :'Check back soon for upcoming events from Cardamom Kitchen.')
+                : (offeringFilter === 'classes' ?'Past classes will appear here once they have concluded.' :'Past events will appear here once they have concluded.')}
             </p>
           </div>
         ) : (
