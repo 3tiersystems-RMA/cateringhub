@@ -107,6 +107,7 @@ interface EventDateRow {
   status_id: string | null;
   class_fee: number | null;
   child_fee: number | null;
+  session_name?: string | null;
 }
 
 interface BookingCount {
@@ -1606,6 +1607,11 @@ export default function CookingClassesPage() {
 
                           <span className={`text-sm ${selectable ? 'text-[#1A1612]' : 'text-[#8C8278]'}`}>{label}</span>
                         </label>
+                        {row.session_name &&
+                    <p className="text-xs mt-0.5 ml-7 text-[#5C5347] font-medium">
+                            {row.session_name}
+                          </p>
+                    }
                         {row.location &&
                     <p className="text-xs mt-0.5 ml-7 text-[#5C5347]">
                             {row.location}

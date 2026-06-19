@@ -675,10 +675,11 @@ export default function EventBookingsPage() {
         };
       });
 
-      // ── PayFast: defer DB creation to ITN ─────────────────────────────────
-      // For PayFast payments, do NOT create the registration now.
-      // Store the payload as a pending record; the ITN handler creates the
-      // actual registration row only after PayFast confirms COMPLETE.
+      // ── PayFast: defer DB creation to ITN (DISABLED — use register-first flow below) ──
+      // Deferred flow left in place for reference; it caused paid bookings with no DB row
+      // when ITN was missed (e.g. EB-QILRFXOA). Cooking classes still use deferred; events
+      // now match the legacy path that worked for EB-RHURRT16 / EB-R5CR308L.
+      /*
       if (amountAfterCredit > 0 && page5.paymentMethod === 'payfast') {
         const registrationPayload = {
           title: page1.title,
@@ -724,7 +725,6 @@ export default function EventBookingsPage() {
           throw new Error(pendingErr.error || 'Failed to prepare payment.');
         }
 
-        // Apply credit if selected (non-blocking, best-effort)
         if (selectedCredit && creditApply > 0) {
           try {
             await fetch('/api/credits/check', {
@@ -737,13 +737,14 @@ export default function EventBookingsPage() {
                 amountToApply: creditApply,
               }),
             });
-          } catch { /* Non-blocking */ }
+          } catch { /* Non-blocking *\/ }
         }
 
         await initiatePayFast('', newRegistrationCode, amountAfterCredit);
         return;
       }
-      // ── End PayFast deferred path ──────────────────────────────────────────
+      */
+      // ── End PayFast deferred path (disabled) ────────────────────────────────
 
       let paymentStatus: string;
       if (amountAfterCredit <= 0) {

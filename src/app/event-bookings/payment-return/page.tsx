@@ -2,14 +2,65 @@
 
 export const dynamic = 'force-dynamic';
 
-import { Suspense } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { parseCheckoutReturnParams } from '@/lib/checkout-return';
 
 function PaymentReturnContent() {
   const searchParams = useSearchParams();
   const status = searchParams?.get('status');
   const isSuccess = status === 'success';
+  const { orderId: registrationCode, isPayFastReturn, paymentStatus } =
+    parseCheckoutReturnParams(searchParams);
+
+  const [confirmState, setConfirmState] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
+  const [confirmMessage, setConfirmMessage] = useState<string | null>(null);
+  const completionAttemptedRef = useRef(false);
+
+  useEffect(() => {
+    if (!isSuccess || !isPayFastReturn || !registrationCode) return;
+    if (completionAttemptedRef.current) return;
+    completionAttemptedRef.current = true;
+
+    setConfirmState('loading');
+
+    fetch('/api/event-bookings/complete-pending-payment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        registrationCode,
+        paymentStatus: paymentStatus || 'COMPLETE',
+        pf_payment_id: searchParams?.get('pf_payment_id') || null,
+      }),
+    })
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok && res.status !== 404) {
+          throw new Error(data.error || 'Failed to confirm booking');
+        }
+        if (res.ok) {
+          setConfirmState('done');
+          if (data.outcome === 'created') {
+            setConfirmMessage('Your booking has been confirmed.');
+          } else if (data.outcome === 'updated') {
+            setConfirmMessage('Your payment has been recorded.');
+          } else if (data.outcome === 'already_paid') {
+            setConfirmMessage('Your booking was already confirmed.');
+          }
+        } else {
+          // Legacy register-first flow: booking already exists; ITN or return will mark paid
+          setConfirmState('done');
+          setConfirmMessage('Your payment is being verified. You will receive a confirmation email shortly.');
+        }
+      })
+      .catch((err) => {
+        setConfirmState('error');
+        setConfirmMessage(
+          err instanceof Error ? err.message : 'Could not verify booking. Please contact us with your reference.'
+        );
+      });
+  }, [isSuccess, isPayFastReturn, registrationCode, paymentStatus, searchParams]);
 
   return (
     <div className="min-h-screen bg-[#FAF5EE] flex items-center justify-center px-4">
@@ -22,9 +73,20 @@ function PaymentReturnContent() {
               </svg>
             </div>
             <h2 className="text-xl font-bold text-[#1A1612] mb-2">Payment Successful!</h2>
+            {registrationCode && (
+              <p className="text-xs font-mono text-[#C4622D] mb-2">{registrationCode}</p>
+            )}
             <p className="text-sm text-[#5C5347] mb-6">
-              Your event booking has been confirmed. You will receive a confirmation email shortly.
+              {confirmState === 'loading'
+                ? 'Confirming your booking…'
+                : confirmMessage ||
+                  'Your event booking has been confirmed. You will receive a confirmation email shortly.'}
             </p>
+            {confirmState === 'error' && (
+              <p className="text-xs text-amber-700 mb-4">
+                If you paid successfully, save reference <strong>{registrationCode}</strong> and contact support.
+              </p>
+            )}
           </>
         ) : (
           <>
