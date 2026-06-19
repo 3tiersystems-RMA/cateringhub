@@ -314,6 +314,17 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
         }
       });
 
+      // Build a map: class name → first known location (for enriching legacy synthetic sessions)
+      const classNameToLocation: Record<string, string | null> = {};
+      Object.values(eventDatesMap).forEach(sd => {
+        const name = sd.event_name || '';
+        if (name && classNameToLocation[name] === undefined) {
+          classNameToLocation[name] = sd.location || null;
+        } else if (name && !classNameToLocation[name] && sd.location) {
+          classNameToLocation[name] = sd.location;
+        }
+      });
+
       const enriched: RegistrationRow[] = regs.map((r: RegistrationRow) => {
         const sessions = regSessionMap[r.id] || [];
         if (sessions.length > 0) {
@@ -330,7 +341,7 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
               event_date: d,
               start_time: null,
               end_time: null,
-              location: null,
+              location: classNameToLocation[name] || null,
               class_fee: null,
               event_name: name,
             })
@@ -341,7 +352,7 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
             event_date: null,
             start_time: null,
             end_time: null,
-            location: null,
+            location: classNameToLocation[name] || null,
             class_fee: null,
             event_name: name,
           }));
