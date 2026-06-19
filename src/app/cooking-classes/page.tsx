@@ -415,7 +415,7 @@ export default function CookingClassesPage() {
           from(COOKING_CLASS_TABLES.registrations).
           select('id, children').
           in('id', regIds).
-          eq('payment_status', 'paid');
+          in('payment_status', ['paid', 'awaiting_confirmation', 'awaiting_payment']);
           (regs || []).forEach((reg: {id: string;children: unknown[] | null;}) => {
             const kids = Array.isArray(reg.children) ?
             reg.children.filter((c: unknown) => {
