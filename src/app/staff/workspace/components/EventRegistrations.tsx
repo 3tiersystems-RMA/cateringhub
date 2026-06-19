@@ -381,7 +381,7 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
         .eq('is_active', true)
         .order('sort_order', { ascending: true });
       if (activeClasses && activeClasses.length > 0) {
-        setActiveClassOptions(activeClasses.map((c: { name: string }) => c.name));
+        setActiveClassOptions([...new Set(activeClasses.map((c: { name: string }) => c.name))]);
       } else {
         setActiveClassOptions([...allEvents].sort());
       }
