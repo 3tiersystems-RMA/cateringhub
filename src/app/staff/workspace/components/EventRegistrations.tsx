@@ -50,6 +50,8 @@ interface RegistrationRow {
   indemnity_consent: boolean | null;
   notes: string | null;
   first_time_portal?: string | null;
+  selected_events?: string[];
+  adult_class_dates?: string[];
   // enriched
   session_dates?: SessionDate[];
 }
@@ -312,10 +314,40 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
         }
       });
 
-      const enriched: RegistrationRow[] = regs.map((r: RegistrationRow) => ({
-        ...r,
-        session_dates: regSessionMap[r.id] || [],
-      }));
+      const enriched: RegistrationRow[] = regs.map((r: RegistrationRow) => {
+        const sessions = regSessionMap[r.id] || [];
+        if (sessions.length > 0) {
+          return { ...r, session_dates: sessions };
+        }
+
+        const names = Array.isArray(r.selected_events) ? r.selected_events.filter(Boolean) : [];
+        const dates = Array.isArray(r.adult_class_dates) ? r.adult_class_dates.filter(Boolean) : [];
+        const synthetic: SessionDate[] = [];
+        if (names.length > 0 && dates.length > 0) {
+          names.forEach(name => dates.forEach(d =>
+            synthetic.push({
+              id: '',
+              event_date: d,
+              start_time: null,
+              end_time: null,
+              location: null,
+              class_fee: null,
+              event_name: name,
+            })
+          ));
+        } else if (names.length > 0) {
+          names.forEach(name => synthetic.push({
+            id: '',
+            event_date: null,
+            start_time: null,
+            end_time: null,
+            location: null,
+            class_fee: null,
+            event_name: name,
+          }));
+        }
+        return { ...r, session_dates: synthetic };
+      });
 
       setRegistrations(enriched);
 
@@ -1130,7 +1162,16 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
                       const isExpanded = expandedId === reg.id;
                       const sessions = reg.session_dates || [];
                       const uniqueEvents = [...new Set(sessions.map(s => s.event_name).filter(Boolean))];
-                      const uniqueVenues = [...new Set(sessions.map(s => s.location).filter(Boolean))];
+                      // Build a per-class venue map: event_name → first non-null location for that class
+                      const venueByClass: Record<string, string | null> = {};
+                      sessions.forEach(s => {
+                        const key = s.event_name || '';
+                        if (key && venueByClass[key] === undefined) {
+                          venueByClass[key] = s.location || null;
+                        } else if (key && !venueByClass[key] && s.location) {
+                          venueByClass[key] = s.location;
+                        }
+                      });
                       const filledChildren = filterFilledChildren(reg.children);
                       const childCount = filledChildren.length;
 
@@ -1161,11 +1202,16 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
                               ) : <span className="text-[#8C7B6B]">—</span>}
                             </td>
                             <td className="px-4 py-3">
-                              {uniqueVenues.length > 0 ? (
+                              {uniqueEvents.length > 0 ? (
                                 <div className="space-y-0.5">
-                                  {uniqueVenues.map((v, i) => (
-                                    <div key={i} className="text-xs text-[#5C5347] truncate max-w-[160px]" title={v ?? undefined}>{v}</div>
-                                  ))}
+                                  {uniqueEvents.map((ev, i) => {
+                                    const venue = ev ? venueByClass[ev] : null;
+                                    return (
+                                      <div key={i} className="text-xs text-[#5C5347] truncate max-w-[160px]" title={venue ?? undefined}>
+                                        {venue || '—'}
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               ) : <span className="text-[#8C7B6B]">—</span>}
                             </td>
