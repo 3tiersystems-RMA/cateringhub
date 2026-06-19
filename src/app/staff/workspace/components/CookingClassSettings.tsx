@@ -1200,8 +1200,8 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
           </button>
         )}
         <button
-          disabled
-          className="px-4 py-2 rounded-lg text-sm font-medium text-[#B0A89E] cursor-not-allowed opacity-50"
+          onClick={() => setActiveSubTab('registrations')}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeSubTab === 'registrations' ? 'bg-white text-[#C4622D] shadow-sm' : 'text-[#5C5347] hover:text-[#C4622D]'}`}
         >
           📋 Registrations
         </button>
