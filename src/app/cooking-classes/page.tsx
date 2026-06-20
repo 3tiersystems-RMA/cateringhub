@@ -485,7 +485,7 @@ export default function CookingClassesPage() {
     const statusLabel = getStatusLabel(row.status_id);
     if (statusLabel) {
       const lower = statusLabel.toLowerCase();
-      if (lower === 'cancelled' || lower === 'fully booked') return false;
+      if (lower !== 'active') return false;
     }
     const seating = row.seating || 0;
     if (seating > 0) {
