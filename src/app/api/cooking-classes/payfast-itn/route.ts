@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { validateITNSignature, validateWithPayFast, PAYFAST_IPS, IS_TEST } from '@/lib/payfast';
+import { completeCookingClassPayfast } from '@/lib/cooking-class-payfast-complete';
 
 export async function POST(req: NextRequest) {
   const responseOk = new NextResponse('OK', { status: 200 });
@@ -44,74 +45,26 @@ export async function POST(req: NextRequest) {
       { auth: { persistSession: false } }
     );
 
-    // ── Check if this is a pending (pre-creation) PayFast registration ────────
-    const { data: pendingRow } = await supabaseAdmin
-      .from('payfast_pending_payments')
-      .select('payload')
-      .eq('m_payment_id', registrationCode)
-      .eq('payment_type', 'cooking_class')
-      .maybeSingle();
-
-    if (pendingRow) {
-      if (pfData.payment_status === 'COMPLETE') {
-        const p = pendingRow.payload as {
-          registration: Record<string, unknown>;
-          selectedDateIds: string[];
-        };
-
-        // Insert the registration
-        const { data: reg, error: regErr } = await supabaseAdmin
-          .from('cooking_class_registrations')
-          .insert({
-            ...p.registration,
-            payment_status: 'paid',
-            payfast_payment_id: pfData.pf_payment_id || registrationCode,
-          })
-          .select('id')
-          .single();
-
-        if (regErr || !reg) {
-          console.error('[CC PayFast ITN] Failed to create registration from pending:', regErr?.message);
-          return responseOk;
-        }
-
-        // Insert booking counts
-        if (Array.isArray(p.selectedDateIds) && p.selectedDateIds.length > 0) {
-          await supabaseAdmin.from('cooking_class_booking_counts').insert(
-            p.selectedDateIds.map((event_date_id: string) => ({
-              event_date_id,
-              registration_id: reg.id,
-            }))
-          );
-        }
-
-        // Clean up pending record
-        await supabaseAdmin
-          .from('payfast_pending_payments')
-          .delete()
-          .eq('m_payment_id', registrationCode);
-
-        console.log('[CC PayFast ITN] Registration created from pending payment:', registrationCode);
-      } else if (pfData.payment_status === 'FAILED') {
-        await supabaseAdmin
-          .from('payfast_pending_payments')
-          .delete()
-          .eq('m_payment_id', registrationCode);
-        console.log('[CC PayFast ITN] Pending cooking class payment failed, record removed:', registrationCode);
-      }
-      return responseOk;
-    }
-
-    // ── Legacy path: registration already exists (EFT or old PayFast) ─────────
     if (pfData.payment_status === 'COMPLETE') {
-      await supabaseAdmin
-        .from('cooking_class_registrations')
-        .update({
-          payment_status: 'paid',
-          payfast_payment_id: pfData.pf_payment_id || pfData.m_payment_id,
-        })
-        .eq('registration_code', registrationCode);
+      const result = await completeCookingClassPayfast(
+        supabaseAdmin,
+        registrationCode,
+        pfData.pf_payment_id || registrationCode,
+        pfData
+      );
+
+      if (result.status === 'error') {
+        console.error('[CC PayFast ITN] Complete failed:', result.message);
+      } else if (result.status === 'created') {
+        console.log('[CC PayFast ITN] Registration created from pending payment:', registrationCode);
+      }
     } else if (pfData.payment_status === 'FAILED') {
+      await supabaseAdmin
+        .from('payfast_pending_payments')
+        .delete()
+        .eq('m_payment_id', registrationCode)
+        .eq('payment_type', 'cooking_class');
+
       await supabaseAdmin
         .from('cooking_class_registrations')
         .update({ payment_status: 'failed' })

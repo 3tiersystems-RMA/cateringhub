@@ -2,14 +2,89 @@
 
 export const dynamic = 'force-dynamic';
 
-import { Suspense } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { parseCheckoutReturnParams } from '@/lib/checkout-return';
+
+const PENDING_CODE_KEY = 'cc_pending_registration_code';
 
 function PaymentReturnContent() {
   const searchParams = useSearchParams();
   const status = searchParams?.get('status');
   const isSuccess = status === 'success';
+  const { orderId: registrationCodeFromUrl, isPayFastReturn, paymentStatus } =
+    parseCheckoutReturnParams(searchParams);
+
+  const [registrationCode, setRegistrationCode] = useState(registrationCodeFromUrl);
+  const [confirmState, setConfirmState] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
+  const [confirmMessage, setConfirmMessage] = useState<string | null>(null);
+  const completionAttemptedRef = useRef(false);
+
+  useEffect(() => {
+    if (registrationCodeFromUrl) {
+      setRegistrationCode(registrationCodeFromUrl);
+      return;
+    }
+    try {
+      const stored = sessionStorage.getItem(PENDING_CODE_KEY)?.trim() || '';
+      if (stored) setRegistrationCode(stored);
+    } catch {
+      // ignore
+    }
+  }, [registrationCodeFromUrl]);
+
+  useEffect(() => {
+    if (!isSuccess || !registrationCode) return;
+    if (completionAttemptedRef.current) return;
+    completionAttemptedRef.current = true;
+
+    setConfirmState('loading');
+
+    fetch('/api/cooking-classes/complete-pending-payment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        registrationCode,
+        paymentStatus: paymentStatus || (isPayFastReturn ? 'COMPLETE' : 'COMPLETE'),
+        pf_payment_id: searchParams?.get('pf_payment_id') || null,
+      }),
+    })
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok && res.status !== 404) {
+          throw new Error(data.error || 'Failed to confirm registration');
+        }
+        if (res.ok) {
+          setConfirmState('done');
+          if (data.outcome === 'created') {
+            setConfirmMessage('Your class registration has been confirmed.');
+          } else if (data.outcome === 'updated') {
+            setConfirmMessage('Your payment has been recorded.');
+          } else if (data.outcome === 'already_paid') {
+            setConfirmMessage('Your registration was already confirmed.');
+          }
+          try {
+            sessionStorage.removeItem(PENDING_CODE_KEY);
+          } catch {
+            // ignore
+          }
+        } else {
+          setConfirmState('done');
+          setConfirmMessage(
+            'Your payment is being verified. You will receive a confirmation email shortly.'
+          );
+        }
+      })
+      .catch((err) => {
+        setConfirmState('error');
+        setConfirmMessage(
+          err instanceof Error
+            ? err.message
+            : 'Could not verify registration. Please contact us with your reference.'
+        );
+      });
+  }, [isSuccess, isPayFastReturn, registrationCode, paymentStatus, searchParams]);
 
   return (
     <div className="min-h-screen bg-[#FAF5EE] flex items-center justify-center px-4">
@@ -22,9 +97,20 @@ function PaymentReturnContent() {
               </svg>
             </div>
             <h2 className="text-xl font-bold text-[#1A1612] mb-2">Payment Successful!</h2>
+            {registrationCode && (
+              <p className="text-xs font-mono text-[#C4622D] mb-2">{registrationCode}</p>
+            )}
             <p className="text-sm text-[#5C5347] mb-6">
-              Your registration for the Cooking &amp; Baking Class has been confirmed. You will receive a confirmation email shortly.
+              {confirmState === 'loading'
+                ? 'Confirming your registration…'
+                : confirmMessage ||
+                  'Your registration for the Cooking & Baking Class has been confirmed. You will receive a confirmation email shortly.'}
             </p>
+            {confirmState === 'error' && registrationCode && (
+              <p className="text-xs text-amber-700 mb-4">
+                If you paid successfully, save reference <strong>{registrationCode}</strong> and contact support.
+              </p>
+            )}
           </>
         ) : (
           <>

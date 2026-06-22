@@ -2,6 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { roleCanAccessTab } from '@/app/staff/workspace/rbac';
+
+const STAFF_RECEIPT_ROLES = ['admin', 'super_admin', 'staff'] as const;
 
 interface ChildParticipant {
   fullName?: string;
@@ -52,8 +55,30 @@ interface RegistrationRow {
   first_time_portal?: string | null;
   selected_events?: string[];
   adult_class_dates?: string[];
+  payment_method?: string;
+  registration_code?: string | null;
+  payfast_payment_id?: string | null;
+  proof_of_payment_url?: string | null;
+  proof_of_payment_path?: string | null;
   // enriched
   session_dates?: SessionDate[];
+}
+
+interface PayFastReceipt {
+  payerName: string;
+  email: string;
+  cellphone: string;
+  paymentStatus: string;
+  paymentDate: string;
+  registrationCode: string | null;
+  mPaymentId: string | null;
+  pfPaymentId: string | null;
+  itemName: string;
+  itemDescription: string | null;
+  amountGross: string | null;
+  amountFee: string | null;
+  amountNet: string | null;
+  hasItnData: boolean;
 }
 
 interface SessionDate {
@@ -139,6 +164,22 @@ function filterFilledChildren(children: ChildParticipant[] | null): ChildPartici
   });
 }
 
+function isPayfastPaidRegistration(reg: RegistrationRow): boolean {
+  if (!['paid', 'awaiting_confirmation'].includes(reg.payment_status)) return false;
+  if (reg.payment_method === 'eft' || reg.payment_method === 'credit') return false;
+  if (reg.payment_method === 'payfast') return true;
+  if (reg.payfast_payment_id) return true;
+  if (reg.proof_of_payment_url || reg.proof_of_payment_path) return false;
+  return true;
+}
+
+function canAccessPayfastReceipt(userRole: string): boolean {
+  return (
+    STAFF_RECEIPT_ROLES.includes(userRole as (typeof STAFF_RECEIPT_ROLES)[number]) &&
+    roleCanAccessTab(userRole, 'event_registrations')
+  );
+}
+
 // Elegant paginator component
 function Paginator({
   currentPage,
@@ -208,9 +249,10 @@ function SortIcon({ col, sortKey, sortDir }: { col: ParticipantSortKey; sortKey:
 
 interface EventRegistrationsProps {
   isSuperAdmin?: boolean;
+  userRole?: string;
 }
 
-export default function EventRegistrations({ isSuperAdmin = false }: EventRegistrationsProps) {
+export default function EventRegistrations({ isSuperAdmin = false, userRole = '' }: EventRegistrationsProps) {
   const supabase = createClient();
   const [registrations, setRegistrations] = useState<RegistrationRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -250,6 +292,12 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
+
+  // PayFast receipt modal
+  const [receiptTarget, setReceiptTarget] = useState<RegistrationRow | null>(null);
+  const [receiptData, setReceiptData] = useState<PayFastReceipt | null>(null);
+  const [receiptLoading, setReceiptLoading] = useState(false);
+  const [receiptError, setReceiptError] = useState('');
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -409,6 +457,35 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
     setDeleteTarget(null);
     setDeleteConfirmText('');
     setDeleteError('');
+  };
+
+  const closeReceiptModal = () => {
+    setReceiptTarget(null);
+    setReceiptData(null);
+    setReceiptError('');
+    setReceiptLoading(false);
+  };
+
+  const canViewPayfastReceipt = (reg: RegistrationRow) =>
+    canAccessPayfastReceipt(userRole) && isPayfastPaidRegistration(reg);
+
+  const openReceiptModal = async (reg: RegistrationRow, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    if (!canAccessPayfastReceipt(userRole)) return;
+    setReceiptTarget(reg);
+    setReceiptData(null);
+    setReceiptError('');
+    setReceiptLoading(true);
+    try {
+      const res = await fetch(`/api/cooking-classes/payfast-receipt?registrationId=${encodeURIComponent(reg.id)}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to load PayFast receipt');
+      setReceiptData(data.receipt as PayFastReceipt);
+    } catch (err: unknown) {
+      setReceiptError(err instanceof Error ? err.message : 'Failed to load PayFast receipt');
+    } finally {
+      setReceiptLoading(false);
+    }
   };
 
   const handleDelete = async () => {
@@ -1237,9 +1314,23 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
                               ) : <span className="text-[#8C7B6B]">—</span>}
                             </td>
                             <td className="px-4 py-3">
-                              <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded-full border capitalize ${PAYMENT_STATUS_COLORS[reg.payment_status] || 'bg-gray-100 text-gray-600 border-gray-200'}`}>
-                                {reg.payment_status.replace(/_/g, ' ')}
-                              </span>
+                              <div className="flex flex-col gap-1.5">
+                                <span className={`inline-block w-fit px-2 py-0.5 text-xs font-medium rounded-full border capitalize ${PAYMENT_STATUS_COLORS[reg.payment_status] || 'bg-gray-100 text-gray-600 border-gray-200'}`}>
+                                  {reg.payment_status.replace(/_/g, ' ')}
+                                </span>
+                                {canViewPayfastReceipt(reg) && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => openReceiptModal(reg, e)}
+                                    className="inline-flex items-center gap-1 w-fit px-2 py-0.5 text-[11px] font-semibold rounded-lg border border-[#C4622D]/30 bg-[#FDF6EE] text-[#C4622D] hover:bg-[#F5EFE8] transition-colors"
+                                  >
+                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                    </svg>
+                                    PayFast Receipt
+                                  </button>
+                                )}
+                              </div>
                             </td>
                             <td className="px-4 py-3 font-medium text-[#2C2420]">{formatCurrency(reg.amount)}</td>
                             <td className="px-4 py-3 text-xs text-[#5C5347]">{formatDate(reg.created_at)}</td>
@@ -1448,6 +1539,21 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
                                       <p className="text-xs text-amber-800">{reg.notes}</p>
                                     </div>
                                   )}
+
+                                  {canViewPayfastReceipt(reg) && (
+                                    <div className="flex justify-end">
+                                      <button
+                                        type="button"
+                                        onClick={(e) => openReceiptModal(reg, e)}
+                                        className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl border border-[#C4622D] bg-white text-[#C4622D] hover:bg-[#FDF6EE] transition-colors"
+                                      >
+                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                        </svg>
+                                        View PayFast Receipt
+                                      </button>
+                                    </div>
+                                  )}
                                 </div>
                               </td>
                             </tr>
@@ -1472,6 +1578,120 @@ export default function EventRegistrations({ isSuperAdmin = false }: EventRegist
           </>
         )}
       </div>
+
+      {/* ── PAYFAST RECEIPT MODAL ── */}
+      {receiptTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={closeReceiptModal}>
+          <div
+            className="bg-white rounded-2xl shadow-2xl border border-[#E8DDD0] w-full max-w-lg max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-[#E8DDD0]">
+              <div>
+                <h3 className="text-base font-bold text-[#1A1612]">PayFast Receipt</h3>
+                <p className="text-xs text-[#8C7B6B] mt-0.5">
+                  {receiptTarget.title} {receiptTarget.first_name} {receiptTarget.surname}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeReceiptModal}
+                className="w-8 h-8 rounded-full border border-[#E8DDD0] text-[#8C7B6B] hover:bg-[#FAF5EE] transition-colors"
+                aria-label="Close receipt"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="px-6 py-5">
+              {receiptLoading ? (
+                <div className="flex items-center justify-center py-10">
+                  <div className="w-8 h-8 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : receiptError ? (
+                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {receiptError}
+                </div>
+              ) : receiptData ? (
+                <div className="rounded-xl overflow-hidden border border-[#E8DDD0]">
+                  <div className="bg-[#1A1612] px-5 py-4 text-center">
+                    <p className="text-white font-bold text-lg">PayFast</p>
+                    <p className="text-[#C4622D] text-xs tracking-widest uppercase mt-1">Payment Receipt</p>
+                  </div>
+                  <div className="bg-green-50 border-b border-green-200 px-5 py-2.5 text-center">
+                    <p className="text-green-700 font-semibold text-sm capitalize">
+                      {receiptData.paymentStatus.replace(/_/g, ' ').toLowerCase()}
+                    </p>
+                  </div>
+                  <div className="bg-white px-5 py-4 space-y-3 text-sm">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <p className="text-xs text-[#8C7B6B]">Payer</p>
+                        <p className="font-medium text-[#1A1612]">{receiptData.payerName}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-[#8C7B6B]">Payment Date</p>
+                        <p className="font-medium text-[#1A1612]">{formatDate(receiptData.paymentDate)}</p>
+                      </div>
+                      <div className="col-span-2">
+                        <p className="text-xs text-[#8C7B6B]">Email</p>
+                        <p className="font-medium text-[#1A1612]">{receiptData.email}</p>
+                      </div>
+                      {receiptData.mPaymentId && (
+                        <div>
+                          <p className="text-xs text-[#8C7B6B]">Payment Reference</p>
+                          <p className="font-mono text-xs font-semibold text-[#C4622D]">{receiptData.mPaymentId}</p>
+                        </div>
+                      )}
+                      {receiptData.pfPaymentId && (
+                        <div>
+                          <p className="text-xs text-[#8C7B6B]">PayFast Transaction ID</p>
+                          <p className="font-mono text-xs font-semibold text-[#1A1612]">{receiptData.pfPaymentId}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="border-t border-[#F0E8DE] pt-3">
+                      <p className="text-xs text-[#8C7B6B]">Item</p>
+                      <p className="font-medium text-[#1A1612]">{receiptData.itemName}</p>
+                      {receiptData.itemDescription && (
+                        <p className="text-xs text-[#5C5347] mt-1">{receiptData.itemDescription}</p>
+                      )}
+                    </div>
+
+                    <div className="border-t border-[#F0E8DE] pt-3 space-y-1.5">
+                      {receiptData.amountGross && (
+                        <div className="flex justify-between">
+                          <span className="text-[#5C5347]">Amount</span>
+                          <span className="font-semibold text-[#1A1612]">{receiptData.amountGross}</span>
+                        </div>
+                      )}
+                      {receiptData.amountFee && (
+                        <div className="flex justify-between text-xs">
+                          <span className="text-[#8C7B6B]">PayFast Fee</span>
+                          <span className="text-[#5C5347]">{receiptData.amountFee}</span>
+                        </div>
+                      )}
+                      {receiptData.amountNet && (
+                        <div className="flex justify-between text-xs">
+                          <span className="text-[#8C7B6B]">Net Amount</span>
+                          <span className="text-[#5C5347]">{receiptData.amountNet}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {!receiptData.hasItnData && (
+                      <p className="text-[11px] text-[#8C7B6B] border-t border-[#F0E8DE] pt-3">
+                        Receipt built from registration data. Full PayFast fee breakdown is available for payments completed after this update.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── DELETE CONFIRMATION MODAL ── */}
       {deleteTarget && (

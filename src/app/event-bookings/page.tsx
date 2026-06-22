@@ -828,7 +828,9 @@ export default function EventBookingsPage() {
   async function initiatePayFast(regId: string, regCode: string, overrideAmount?: number) {
     const amount = overrideAmount !== undefined ? overrideAmount : getAmountDue();
     if (amount <= 0) {
-      await supabase.from('event_management_registrations').update({ payment_status: 'paid' }).eq('id', regId);
+      if (regId) {
+        await supabase.from('event_management_registrations').update({ payment_status: 'paid' }).eq('id', regId);
+      }
       setCurrentPage(6);
       return;
     }
@@ -851,7 +853,9 @@ export default function EventBookingsPage() {
     });
     const data = await res.json();
     if (!res.ok || !data.success) throw new Error(data.error || 'Failed to initiate payment');
-    await supabase.from('event_management_registrations').update({ payfast_payment_id: data.params.m_payment_id }).eq('id', regId);
+    if (regId) {
+      await supabase.from('event_management_registrations').update({ payfast_payment_id: data.params.m_payment_id }).eq('id', regId);
+    }
     setPaymentLaunched(true);
     submitPayFastForm(data.gatewayUrl, data.fields);
   }

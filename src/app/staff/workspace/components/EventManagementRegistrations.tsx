@@ -266,7 +266,7 @@ export default function EventManagementRegistrations({ isSuperAdmin = false }: E
       fullName.includes(searchQuery.toLowerCase()) ||
       r.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
       r.cellphone.includes(searchQuery);
-    const matchPayment = paymentFilter === 'all' || r.payment_status === paymentFilter;
+    const matchPayment = paymentFilter === 'all' || (paymentFilter === 'awaiting_payment' ? r.payment_status?.includes('awaiting') : r.payment_status === paymentFilter);
     return matchSearch && matchPayment;
   });
 

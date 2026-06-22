@@ -1242,7 +1242,7 @@ export default function CookingClassesPage() {
     //   // Non-blocking
     // }
     // ── END DISABLE BLOCK ─────────────────────────────────────────────────
-  }async function initiatePayFast(regId: string, regCode: string, overrideAmount?: number) {const amount = overrideAmount !== undefined ? overrideAmount : getAmountDue();if (amount <= 0) {await supabase.from(COOKING_CLASS_TABLES.registrations).update({ payment_status: 'paid' }).eq('id', regId);setCurrentPage(6);return;}const res = await fetch('/api/cooking-classes/payfast-initiate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ registrationCode: regCode, order: { amount: amount, itemDescription: `${page1.firstName} ${page1.surname} - ${page1.selectedEvents.join(', ')}` }, buyer: { firstName: page1.firstName.trim(), lastName: page1.surname.trim(),
+  }async function initiatePayFast(regId: string, regCode: string, overrideAmount?: number) {const amount = overrideAmount !== undefined ? overrideAmount : getAmountDue();if (amount <= 0) {if (regId) {await supabase.from(COOKING_CLASS_TABLES.registrations).update({ payment_status: 'paid' }).eq('id', regId);}setCurrentPage(6);return;}const res = await fetch('/api/cooking-classes/payfast-initiate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ registrationCode: regCode, order: { amount: amount, itemDescription: `${page1.firstName} ${page1.surname} - ${page1.selectedEvents.join(', ')}` }, buyer: { firstName: page1.firstName.trim(), lastName: page1.surname.trim(),
               email: page1.email.trim(),
               cell: page1.cellphone.trim()
             }
@@ -1252,12 +1252,20 @@ export default function CookingClassesPage() {
     const data = await res.json();
     if (!res.ok || !data.success) throw new Error(data.error || 'Failed to initiate payment');
 
-    await supabase.
-    from(COOKING_CLASS_TABLES.registrations).
-    update({ payfast_payment_id: data.params.m_payment_id }).
-    eq('id', regId);
+    // Deferred PayFast flow: registration row does not exist yet (created after payment).
+    if (regId) {
+      await supabase.
+      from(COOKING_CLASS_TABLES.registrations).
+      update({ payfast_payment_id: data.params.m_payment_id }).
+      eq('id', regId);
+    }
 
     setPaymentLaunched(true);
+    try {
+      sessionStorage.setItem('cc_pending_registration_code', regCode);
+    } catch {
+      // Non-blocking
+    }
     submitPayFastForm(data.gatewayUrl, data.fields);
   }
 
