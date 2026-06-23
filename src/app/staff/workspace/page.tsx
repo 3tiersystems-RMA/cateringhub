@@ -353,7 +353,7 @@ export default function StaffWorkspacePage() {
                     }`}
                   >
                     <span className="text-base">👨‍🍳</span>
-                    <span className="flex-1">Cooking &amp; Baking Classes</span>
+                    <span className="flex-1">Class Bookings</span>
                     <span className="text-xs">{cookingClassesOpen ? '▲' : '▼'}</span>
                   </button>
                   {cookingClassesOpen && (
