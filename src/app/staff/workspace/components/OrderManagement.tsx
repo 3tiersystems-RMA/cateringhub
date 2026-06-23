@@ -34,7 +34,7 @@ interface Order {
   delivered_date: string | null;
 }
 
-type FulfillmentStatus = 'new' | 'confirmed' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
+type FulfillmentStatus = 'new' | 'confirmed' | 'preparing' | 'ready' | 'delivered' | 'collected' | 'cancelled';
 type PaymentStatus = 'pending' | 'paid' | 'failed' | 'awaiting_payment' | 'refunded' | 'discounted' | 'unpaid' | 'awaiting_confirmation';
 
 const FULFILLMENT_STATUSES: { value: FulfillmentStatus; label: string; color: string }[] = [
@@ -43,6 +43,7 @@ const FULFILLMENT_STATUSES: { value: FulfillmentStatus; label: string; color: st
   { value: 'preparing', label: 'Preparing', color: 'bg-amber-50 text-amber-700 border-amber-200' },
   { value: 'ready', label: 'Ready', color: 'bg-purple-50 text-purple-700 border-purple-200' },
   { value: 'delivered', label: 'Delivered', color: 'bg-black text-white border-black' },
+  { value: 'collected', label: 'Collected', color: 'bg-teal-600 text-white border-teal-600' },
   { value: 'cancelled', label: 'Cancelled', color: 'bg-red-50 text-red-700 border-red-200' },
 ];
 
@@ -204,6 +205,7 @@ export default function OrderManagement({ userRole = '' }: OrderManagementProps)
     new: orders.filter(o => o.fulfillment_status === 'new').length,
     preparing: orders.filter(o => o.fulfillment_status === 'preparing').length,
     delivered: orders.filter(o => o.fulfillment_status === 'delivered').length,
+    collected: orders.filter(o => o.fulfillment_status === 'collected').length,
     cancelled: orders.filter(o => o.fulfillment_status === 'cancelled').length,
   };
 
@@ -253,6 +255,7 @@ export default function OrderManagement({ userRole = '' }: OrderManagementProps)
           { label: 'New', value: summaryCounts.new, color: 'bg-[#C4622D] text-white' },
           { label: 'Preparing', value: summaryCounts.preparing, color: 'bg-amber-50 text-amber-700' },
           { label: 'Delivered', value: summaryCounts.delivered, color: 'bg-black text-white' },
+          { label: 'Collected', value: summaryCounts.collected, color: 'bg-teal-600 text-white' },
           { label: 'Cancelled', value: summaryCounts.cancelled, color: 'bg-red-50 text-red-700' },
         ].map(card => (
           <div key={card.label} className={`rounded-2xl border border-[#EDE7DA] p-4 text-center ${card.color}`}>

@@ -23,5 +23,5 @@ export function calculateOrderTotal(order: OrderTotalInput): number {
 }
 
 export function isFulfillmentStatusLocked(status: string): boolean {
-  return status === 'delivered' || status === 'cancelled';
+  return status === 'delivered' || status === 'collected' || status === 'cancelled';
 }

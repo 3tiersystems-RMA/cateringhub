@@ -48,6 +48,7 @@ function getFulfillmentColor(status: string): string {
     preparing: 'bg-amber-50 text-amber-700 border-amber-200',
     ready: 'bg-purple-50 text-purple-700 border-purple-200',
     delivered: 'bg-black text-white border-black',
+    collected: 'bg-teal-600 text-white border-teal-600',
     cancelled: 'bg-red-50 text-red-700 border-red-200',
   };
   return map[status] ?? 'bg-gray-100 text-gray-600 border-gray-200';

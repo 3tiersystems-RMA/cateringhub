@@ -9,7 +9,7 @@ import Link from 'next/link';
 import { calculateOrderTotal, isFulfillmentStatusLocked } from '@/lib/order-totals';
 
 type PaymentStatus = 'pending' | 'paid' | 'failed' | 'awaiting_payment' | 'refunded' | 'discounted' | 'unpaid';
-type FulfillmentStatus = 'new' | 'confirmed' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
+type FulfillmentStatus = 'new' | 'confirmed' | 'preparing' | 'ready' | 'delivered' | 'collected' | 'cancelled';
 
 interface OrderItem {
   id: string;
@@ -75,6 +75,7 @@ const FULFILLMENT_STATUS_LABELS: Record<FulfillmentStatus, string> = {
   preparing: 'Preparing',
   ready: 'Ready',
   delivered: 'Delivered',
+  collected: 'Collected',
   cancelled: 'Cancelled',
 };
 
@@ -84,10 +85,11 @@ const FULFILLMENT_STATUS_COLORS: Record<FulfillmentStatus, string> = {
   preparing: 'bg-orange-100 text-orange-700 border-orange-200',
   ready: 'bg-teal-100 text-teal-700 border-teal-200',
   delivered: 'bg-green-100 text-green-700 border-green-200',
+  collected: 'bg-teal-600 text-white border-teal-600',
   cancelled: 'bg-red-100 text-red-600 border-red-200',
 };
 
-const FULFILLMENT_OPTIONS: FulfillmentStatus[] = ['new', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled'];
+const FULFILLMENT_OPTIONS: FulfillmentStatus[] = ['new', 'confirmed', 'preparing', 'ready', 'delivered', 'collected', 'cancelled'];
 const PAYMENT_OPTIONS: PaymentStatus[] = ['awaiting_payment', 'paid', 'refunded', 'pending', 'failed', 'discounted', 'unpaid'];
 
 export default function StaffOrdersPage() {
