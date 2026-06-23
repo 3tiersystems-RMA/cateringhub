@@ -364,7 +364,7 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
       {/* ── Header ── */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-[#1A1612]">Customer Registrations / Bookings</h2>
+          <h2 className="text-2xl font-bold text-[#1A1612]">Customer Registrations</h2>
           <p className="text-sm text-[#8C8278] mt-1">Combined class and event booking registrations</p>
         </div>
         <button
@@ -472,10 +472,10 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
               <table className="w-full">
                 <thead>
                   <tr className="bg-[#F5F0E8] border-b border-[#E8DDD0]">
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-[#5C5347] uppercase tracking-wider">Name</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-[#5C5347] uppercase tracking-wider">NAME</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-[#5C5347] uppercase tracking-wider">CONTACT</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-[#5C5347] uppercase tracking-wider">TYPE</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-[#5C5347] uppercase tracking-wider">Name</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-[#5C5347] uppercase tracking-wider">EVENT / CLASS</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-[#5C5347] uppercase tracking-wider">VENUE</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-[#5C5347] uppercase tracking-wider">DATE(S)</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-[#5C5347] uppercase tracking-wider">STATUS</th>
