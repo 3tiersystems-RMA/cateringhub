@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { validateITNSignature, validateWithPayFast, PAYFAST_IPS, IS_TEST } from '@/lib/payfast';
 import { completeCookingClassPayfast } from '@/lib/cooking-class-payfast-complete';
+import { recordFailedBookingPayment } from '@/lib/booking-payfast-failed';
 
 export async function POST(req: NextRequest) {
   const responseOk = new NextResponse('OK', { status: 200 });
@@ -59,16 +60,19 @@ export async function POST(req: NextRequest) {
         console.log('[CC PayFast ITN] Registration created from pending payment:', registrationCode);
       }
     } else if (pfData.payment_status === 'FAILED') {
-      await supabaseAdmin
-        .from('payfast_pending_payments')
-        .delete()
-        .eq('m_payment_id', registrationCode)
-        .eq('payment_type', 'cooking_class');
-
-      await supabaseAdmin
-        .from('cooking_class_registrations')
-        .update({ payment_status: 'failed' })
-        .eq('registration_code', registrationCode);
+      const failResult = await recordFailedBookingPayment(supabaseAdmin, {
+        bookingType: 'cooking_class',
+        mPaymentId: registrationCode,
+        payfastPaymentId: pfData.pf_payment_id || null,
+      });
+      if (failResult.status === 'error') {
+        console.error('[CC PayFast ITN] Failed to record failed payment:', failResult.message);
+      } else {
+        console.log('[CC PayFast ITN] Failed payment transaction recorded:', registrationCode, failResult.status);
+      }
+      // Previous behaviour (deleted pending, updated generic failed — often left no history row):
+      // await supabaseAdmin.from('payfast_pending_payments').delete().eq('m_payment_id', registrationCode).eq('payment_type', 'cooking_class');
+      // await supabaseAdmin.from('cooking_class_registrations').update({ payment_status: 'failed' }).eq('registration_code', registrationCode);
     }
   } catch (err) {
     console.error('[CC PayFast ITN] Exception:', err instanceof Error ? err.message : err);

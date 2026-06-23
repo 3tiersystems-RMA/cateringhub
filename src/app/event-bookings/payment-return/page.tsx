@@ -7,16 +7,50 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { parseCheckoutReturnParams } from '@/lib/checkout-return';
 
+const PENDING_CODE_KEY = 'eb_pending_registration_code';
+
 function PaymentReturnContent() {
   const searchParams = useSearchParams();
   const status = searchParams?.get('status');
   const isSuccess = status === 'success';
-  const { orderId: registrationCode, isPayFastReturn, paymentStatus } =
+  const { orderId: registrationCodeFromUrl, isPayFastReturn, paymentStatus } =
     parseCheckoutReturnParams(searchParams);
 
+  const [registrationCode, setRegistrationCode] = useState(registrationCodeFromUrl);
   const [confirmState, setConfirmState] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
   const [confirmMessage, setConfirmMessage] = useState<string | null>(null);
   const completionAttemptedRef = useRef(false);
+  const failedRecordedRef = useRef(false);
+
+  useEffect(() => {
+    if (registrationCodeFromUrl) {
+      setRegistrationCode(registrationCodeFromUrl);
+      return;
+    }
+    try {
+      const stored = sessionStorage.getItem(PENDING_CODE_KEY)?.trim() || '';
+      if (stored) setRegistrationCode(stored);
+    } catch {
+      // ignore
+    }
+  }, [registrationCodeFromUrl]);
+
+  useEffect(() => {
+    if (isSuccess || !registrationCode || failedRecordedRef.current) return;
+    failedRecordedRef.current = true;
+
+    fetch('/api/bookings/record-failed-payment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        bookingType: 'event',
+        mPaymentId: registrationCode,
+        paymentStatus: paymentStatus || 'CANCELLED',
+      }),
+    }).catch(() => {
+      // Non-blocking — ITN may still record the failure
+    });
+  }, [isSuccess, registrationCode, paymentStatus]);
 
   useEffect(() => {
     if (!isSuccess || !isPayFastReturn || !registrationCode) return;
@@ -47,6 +81,11 @@ function PaymentReturnContent() {
             setConfirmMessage('Your payment has been recorded.');
           } else if (data.outcome === 'already_paid') {
             setConfirmMessage('Your booking was already confirmed.');
+          }
+          try {
+            sessionStorage.removeItem(PENDING_CODE_KEY);
+          } catch {
+            // ignore
           }
         } else {
           // Legacy register-first flow: booking already exists; ITN or return will mark paid
@@ -97,7 +136,7 @@ function PaymentReturnContent() {
             </div>
             <h2 className="text-xl font-bold text-[#1A1612] mb-2">Payment Cancelled</h2>
             <p className="text-sm text-[#5C5347] mb-6">
-              Your payment was cancelled. Your registration has been saved — you can return to complete payment.
+              Your payment was not completed. This attempt has been recorded in our booking history as a failed payment (no booking reference was assigned). You can try again when ready.
             </p>
             <Link href="/event-bookings" className="inline-block bg-[#C4622D] text-white px-6 py-3 rounded-xl font-semibold text-sm hover:bg-[#A04E22] transition-colors mb-3">
               Try Again

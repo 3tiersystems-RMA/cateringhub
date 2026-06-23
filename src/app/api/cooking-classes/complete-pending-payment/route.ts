@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { completeCookingClassPayfast } from '@/lib/cooking-class-payfast-complete';
+import { recordFailedBookingPayment } from '@/lib/booking-payfast-failed';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,6 +26,35 @@ export async function POST(req: NextRequest) {
       paymentStatus === 'COMPLETE' ||
       paymentStatus === 'Complete';
 
+    const isFailed =
+      paymentStatus === 'FAILED' ||
+      paymentStatus === 'Failed' ||
+      paymentStatus === 'CANCELLED';
+
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { persistSession: false } }
+    );
+
+    if (isFailed) {
+      const failResult = await recordFailedBookingPayment(supabaseAdmin, {
+        bookingType: 'cooking_class',
+        mPaymentId: registrationCode,
+        payfastPaymentId,
+      });
+      if (failResult.status === 'error') {
+        return NextResponse.json({ error: failResult.message, registrationCode }, { status: 500 });
+      }
+      return NextResponse.json({
+        success: true,
+        outcome: failResult.status,
+        registrationId:
+          'registrationId' in failResult ? failResult.registrationId : undefined,
+        registrationCode,
+      });
+    }
+
     if (!isComplete) {
       return NextResponse.json(
         { error: 'Payment not complete', registrationCode },
@@ -32,11 +62,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { persistSession: false } }
-    );
+    // const supabaseAdmin = createClient(...) — moved above for failed path
 
     const result = await completeCookingClassPayfast(
       supabaseAdmin,

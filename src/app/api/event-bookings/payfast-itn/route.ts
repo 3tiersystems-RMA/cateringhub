@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { validateITNSignature, validateWithPayFast, PAYFAST_IPS, IS_TEST } from '@/lib/payfast';
 import { completeEventBookingPayfast } from '@/lib/event-booking-payfast-complete';
+import { recordFailedBookingPayment } from '@/lib/booking-payfast-failed';
 
 export async function POST(req: NextRequest) {
   const responseOk = new NextResponse('OK', { status: 200 });
@@ -69,11 +70,19 @@ export async function POST(req: NextRequest) {
           console.error('[EB PayFast ITN] Failed to create registration from pending:', result.message);
         }
       } else if (pfData.payment_status === 'FAILED') {
-        await supabaseAdmin
-          .from('payfast_pending_payments')
-          .delete()
-          .eq('m_payment_id', registrationCode);
-        console.log('[EB PayFast ITN] Pending event booking payment failed, record removed:', registrationCode);
+        const failResult = await recordFailedBookingPayment(supabaseAdmin, {
+          bookingType: 'event',
+          mPaymentId: registrationCode,
+          payfastPaymentId: pfData.pf_payment_id || null,
+        });
+        if (failResult.status === 'error') {
+          console.error('[EB PayFast ITN] Failed to record failed payment:', failResult.message);
+        } else {
+          console.log('[EB PayFast ITN] Failed payment transaction recorded:', registrationCode, failResult.status);
+        }
+        // Previous behaviour (discarded pending / set generic failed):
+        // await supabaseAdmin.from('payfast_pending_payments').delete().eq('m_payment_id', registrationCode);
+        // await supabaseAdmin.from('event_management_registrations').update({ payment_status: 'failed' }).eq('registration_code', registrationCode);
       }
       return responseOk;
     }
@@ -88,10 +97,16 @@ export async function POST(req: NextRequest) {
         })
         .eq('registration_code', registrationCode);
     } else if (pfData.payment_status === 'FAILED') {
-      await supabaseAdmin
-        .from('event_management_registrations')
-        .update({ payment_status: 'failed' })
-        .eq('registration_code', registrationCode);
+      const failResult = await recordFailedBookingPayment(supabaseAdmin, {
+        bookingType: 'event',
+        mPaymentId: registrationCode,
+        payfastPaymentId: pfData.pf_payment_id || null,
+      });
+      if (failResult.status === 'error') {
+        console.error('[EB PayFast ITN] Failed to record failed payment (legacy path):', failResult.message);
+      }
+      // Previous behaviour:
+      // await supabaseAdmin.from('event_management_registrations').update({ payment_status: 'failed' }).eq('registration_code', registrationCode);
     }
   } catch (err) {
     console.error('[EB PayFast ITN] Exception:', err instanceof Error ? err.message : err);

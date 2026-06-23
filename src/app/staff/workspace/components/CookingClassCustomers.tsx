@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { filterFilledChildren, getChildDisplayName } from '@/lib/cooking-class-participants';
+import { matchesPaymentStatusFilter, formatBookingPaymentStatus } from '@/lib/booking-payment-status';
 
 interface ChildParticipant {
   fullName?: string;
@@ -78,13 +79,14 @@ const PAYMENT_STATUS_COLORS: Record<string, string> = {
   pending: 'bg-amber-100 text-amber-700 border-amber-200',
   paid: 'bg-green-100 text-green-700 border-green-200',
   failed: 'bg-red-100 text-red-700 border-red-200',
+  failed_payment_transaction: 'bg-red-100 text-red-700 border-red-200',
   awaiting_confirmation: 'bg-blue-100 text-blue-700 border-blue-200',
   awaiting_payment: 'bg-blue-100 text-blue-700 border-blue-200',
   'no-show': 'bg-black text-white border-black',
 };
 
 // Fallback statuses in case DB has no distinct values yet
-const FALLBACK_STATUSES = ['pending', 'paid', 'failed', 'awaiting_payment', 'awaiting_confirmation', 'no-show'];
+const FALLBACK_STATUSES = ['pending', 'paid', 'failed', 'failed_payment_transaction', 'awaiting_payment', 'awaiting_confirmation', 'no-show'];
 
 function formatDate(dateStr: string | null | undefined) {
   if (!dateStr) return '—';
@@ -248,7 +250,7 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
       fullName.includes(searchQuery.toLowerCase()) ||
       r.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
       r.cellphone.includes(searchQuery);
-    const matchPayment = paymentFilter === 'all' || (paymentFilter === 'awaiting_payment' ? r.payment_status?.includes('awaiting') : r.payment_status === paymentFilter);
+    const matchPayment = matchesPaymentStatusFilter(r.payment_status, paymentFilter);
     return matchSearch && matchPayment;
   });
 
@@ -500,8 +502,11 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
                       {reg.title ? `${reg.title} ` : ''}{reg.first_name} {reg.surname}
                     </p>
                     <p className={`text-xs truncate ${isExpanded ? 'text-gray-400' : 'text-[#8C8278]'}`}>{reg.email} · {reg.cellphone}</p>
-                    {reg.registration_code && (
+                    {reg.registration_code && reg.payment_status !== 'failed_payment_transaction' && (
                       <p className={`text-xs font-mono font-semibold mt-0.5 ${isExpanded ? 'text-orange-300' : 'text-[#C4622D]'}`}>Reg: {reg.registration_code}</p>
+                    )}
+                    {reg.payment_status === 'failed_payment_transaction' && (
+                      <p className={`text-xs italic mt-0.5 ${isExpanded ? 'text-gray-400' : 'text-[#8C8278]'}`}>No reference assigned</p>
                     )}
                   </div>
 
@@ -528,7 +533,7 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
                       <p className={`text-xs ${isExpanded ? 'text-gray-400' : 'text-[#8C8278]'}`}>{formatDate(reg.created_at)}</p>
                     </div>
                     <span className={`text-xs font-medium px-2.5 py-1 rounded-full border ${PAYMENT_STATUS_COLORS[reg.payment_status] || 'bg-gray-100 text-gray-600 border-gray-200'}`}>
-                      {reg.payment_status.replace(/_/g, ' ')}
+                      {formatBookingPaymentStatus(reg.payment_status)}
                     </span>
 
                     {/* EDIT button — visible to all admin staff, only when expanded */}
@@ -933,7 +938,7 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
                               <div>
                                 <p className="text-xs text-[#8C8278]">Payment Status</p>
                                 <span className={`text-xs font-medium px-2.5 py-1 rounded-full border ${PAYMENT_STATUS_COLORS[reg.payment_status] || 'bg-gray-100 text-gray-600 border-gray-200'}`}>
-                                  {reg.payment_status.replace(/_/g, ' ')}
+                                  {formatBookingPaymentStatus(reg.payment_status)}
                                 </span>
                               </div>
                             </div>

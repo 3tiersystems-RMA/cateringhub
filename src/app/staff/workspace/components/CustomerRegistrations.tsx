@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { formatBookingPaymentStatus, matchesPaymentStatusFilter } from '@/lib/booking-payment-status';
 
 interface UnifiedRegistration {
   id: string;
@@ -25,6 +26,7 @@ const PAYMENT_STATUS_COLORS: Record<string, string> = {
   pending: 'bg-amber-100 text-amber-700 border-amber-200',
   paid: 'bg-green-100 text-green-700 border-green-200',
   failed: 'bg-red-100 text-red-700 border-red-200',
+  failed_payment_transaction: 'bg-red-100 text-red-700 border-red-200',
   awaiting_confirmation: 'bg-blue-100 text-blue-700 border-blue-200',
   awaiting_payment: 'bg-blue-100 text-blue-700 border-blue-200',
   unpaid: 'bg-amber-100 text-amber-700 border-amber-200',
@@ -47,9 +49,7 @@ function formatCurrency(val: number | null | undefined) {
 }
 
 function formatPaymentStatus(status: string) {
-  return status
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, c => c.toUpperCase());
+  return formatBookingPaymentStatus(status);
 }
 
 function Paginator({
@@ -332,7 +332,7 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
   // ── Filtering ──────────────────────────────────────────────────────────────
   const filtered = registrations.filter(r => {
     if (sourceFilter !== 'all' && r.source !== sourceFilter) return false;
-    if (paymentFilter !== 'all' && r.payment_status !== paymentFilter) return false;
+    if (paymentFilter !== 'all' && !matchesPaymentStatusFilter(r.payment_status, paymentFilter)) return false;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       const fullName = `${r.first_name} ${r.surname}`.toLowerCase();
@@ -345,7 +345,19 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
   const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   // Unique payment statuses for filter dropdown
-  const allStatuses = [...new Set(registrations.map(r => r.payment_status))].sort();
+  const ALL_PAYMENT_STATUSES = [
+    'paid',
+    'pending',
+    'awaiting_payment',
+    'awaiting_confirmation',
+    'unpaid',
+    'discounted',
+    'refunded',
+    'failed',
+    'failed_payment_transaction',
+    'no-show',
+    'cancelled',
+  ];
 
   return (
     <div className="p-6 space-y-6">
@@ -419,7 +431,7 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
             className="text-sm border border-[#DDD5C8] rounded-xl px-3 py-2 bg-white text-[#5C5347] focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30"
           >
             <option value="all">All Statuses</option>
-            {allStatuses.map(s => (
+            {ALL_PAYMENT_STATUSES.map(s => (
               <option key={s} value={s}>{formatPaymentStatus(s)}</option>
             ))}
           </select>

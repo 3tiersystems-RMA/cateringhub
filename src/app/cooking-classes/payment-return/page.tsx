@@ -20,6 +20,7 @@ function PaymentReturnContent() {
   const [confirmState, setConfirmState] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
   const [confirmMessage, setConfirmMessage] = useState<string | null>(null);
   const completionAttemptedRef = useRef(false);
+  const failedRecordedRef = useRef(false);
 
   useEffect(() => {
     if (registrationCodeFromUrl) {
@@ -33,6 +34,23 @@ function PaymentReturnContent() {
       // ignore
     }
   }, [registrationCodeFromUrl]);
+
+  useEffect(() => {
+    if (isSuccess || !registrationCode || failedRecordedRef.current) return;
+    failedRecordedRef.current = true;
+
+    fetch('/api/bookings/record-failed-payment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        bookingType: 'cooking_class',
+        mPaymentId: registrationCode,
+        paymentStatus: paymentStatus || 'CANCELLED',
+      }),
+    }).catch(() => {
+      // Non-blocking — ITN may still record the failure
+    });
+  }, [isSuccess, registrationCode, paymentStatus]);
 
   useEffect(() => {
     if (!isSuccess || !registrationCode) return;
@@ -121,7 +139,7 @@ function PaymentReturnContent() {
             </div>
             <h2 className="text-xl font-bold text-[#1A1612] mb-2">Payment Cancelled</h2>
             <p className="text-sm text-[#5C5347] mb-6">
-              Your payment was cancelled. Your registration has been saved — you can return to complete payment.
+              Your payment was not completed. This attempt has been recorded in our booking history as a failed payment (no booking reference was assigned). You can try again when ready.
             </p>
             <Link href="/cooking-classes" className="inline-block bg-[#C4622D] text-white px-6 py-3 rounded-xl font-semibold text-sm hover:bg-[#A04E22] transition-colors mb-3">
               Try Again

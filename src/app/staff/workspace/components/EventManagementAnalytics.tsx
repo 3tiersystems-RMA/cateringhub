@@ -122,7 +122,7 @@ export default function EventManagementAnalytics() {
   const paidRegs = registrations.filter(r => r.payment_status === 'paid');
   const totalRevenue = paidRegs.reduce((s, r) => s + (r.amount || 0), 0);
   const pendingRevenue = registrations
-    .filter(r => r.payment_status !== 'paid' && r.payment_status !== 'failed')
+    .filter(r => r.payment_status !== 'paid' && r.payment_status !== 'failed' && r.payment_status !== 'failed_payment_transaction')
     .reduce((s, r) => s + (r.amount || 0), 0);
   const totalBookings = bookings.length;
   const avgBookingsPerReg = totalRegs > 0 ? (totalBookings / totalRegs).toFixed(1) : '0';

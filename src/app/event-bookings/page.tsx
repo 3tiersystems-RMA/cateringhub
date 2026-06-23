@@ -857,6 +857,11 @@ export default function EventBookingsPage() {
       await supabase.from('event_management_registrations').update({ payfast_payment_id: data.params.m_payment_id }).eq('id', regId);
     }
     setPaymentLaunched(true);
+    try {
+      sessionStorage.setItem('eb_pending_registration_code', regCode);
+    } catch {
+      // Non-blocking
+    }
     submitPayFastForm(data.gatewayUrl, data.fields);
   }
 

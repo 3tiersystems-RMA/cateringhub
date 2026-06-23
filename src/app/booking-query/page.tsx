@@ -5,11 +5,15 @@ import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import AppIcon from "@/components/ui/AppIcon";
+import {
+  formatBookingPaymentStatus,
+  FAILED_PAYMENT_TRANSACTION_STATUS,
+} from "@/lib/booking-payment-status";
 
 type SearchType = "reference" | "email" | "cellphone";
 
 type PaymentStatus =
-  | "pending" |"paid" |"failed" |"awaiting_payment" |"awaiting_confirmation" |"refunded" |"discounted" | "no-show";
+  | "pending" |"paid" |"failed" |"failed_payment_transaction" |"awaiting_payment" |"awaiting_confirmation" |"refunded" |"discounted" | "no-show";
 
 interface SessionDate {
   id: string;
@@ -89,6 +93,7 @@ const PAYMENT_LABELS: Record<PaymentStatus, string> = {
   pending: "Pending",
   paid: "Paid",
   failed: "Failed",
+  failed_payment_transaction: "Failed Payment Transactions",
   awaiting_payment: "Awaiting Payment",
   awaiting_confirmation: "Awaiting Confirmation",
   refunded: "Refunded",
@@ -100,6 +105,7 @@ const PAYMENT_COLORS: Record<PaymentStatus, string> = {
   pending: "bg-amber-500/15 text-amber-300 border border-amber-500/30",
   paid: "bg-green-500/15 text-green-300 border border-green-500/30",
   failed: "bg-red-500/15 text-red-300 border border-red-500/30",
+  failed_payment_transaction: "bg-red-500/15 text-red-300 border border-red-500/30",
   awaiting_payment: "bg-blue-500/15 text-blue-300 border border-blue-500/30",
   awaiting_confirmation: "bg-purple-500/15 text-purple-300 border border-purple-500/30",
   refunded: "bg-gray-500/15 text-gray-400 border border-gray-500/30",
@@ -675,10 +681,14 @@ export default function BookingQueryPage() {
                             {/* Left: Ref + Date */}
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                {booking.registration_code && (
+                                {booking.registration_code &&
+                                  booking.payment_status !== FAILED_PAYMENT_TRANSACTION_STATUS && (
                                   <span className="text-xs text-[#C4622D] font-mono font-semibold">
                                     {booking.registration_code}
                                   </span>
+                                )}
+                                {booking.payment_status === FAILED_PAYMENT_TRANSACTION_STATUS && (
+                                  <span className="text-xs text-[#666] italic">No reference assigned</span>
                                 )}
                                 <span className="text-[#333]">·</span>
                                 <span className="text-xs text-[#666]">
@@ -695,7 +705,7 @@ export default function BookingQueryPage() {
                                 {TYPE_LABELS[booking.type]}
                               </span>
                               <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${PAYMENT_COLORS[booking.payment_status as PaymentStatus] ?? "bg-gray-500/15 text-gray-400 border border-gray-500/30"}`}>
-                                {PAYMENT_LABELS[booking.payment_status as PaymentStatus] ?? booking.payment_status}
+                                {PAYMENT_LABELS[booking.payment_status as PaymentStatus] ?? formatBookingPaymentStatus(booking.payment_status)}
                               </span>
                             </div>
 
