@@ -460,7 +460,7 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
               <table className="w-full">
                 <thead>
                   <tr className="bg-[#F5F0E8] border-b border-[#E8DDD0]">
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-[#5C5347] uppercase tracking-wider">REGISTRANT</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-[#5C5347] uppercase tracking-wider">NAME</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-[#5C5347] uppercase tracking-wider">CONTACT</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-[#5C5347] uppercase tracking-wider">TYPE</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-[#5C5347] uppercase tracking-wider">EVENT / CLASS</th>
