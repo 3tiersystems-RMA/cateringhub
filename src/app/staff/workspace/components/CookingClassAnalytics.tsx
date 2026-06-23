@@ -32,6 +32,7 @@ interface EventDateRow {
   class_fee: number | null;
   class_id: string;
   seating: number | null;
+  session_name: string | null;
 }
 
 interface EventRow {
@@ -89,7 +90,7 @@ export default function CookingClassAnalytics() {
       const [regsRes, bookingsRes, datesRes, eventsRes] = await Promise.all([
         supabase.from('cooking_class_registrations').select('id, first_name, surname, email, payment_status, payment_method, amount, created_at, children, attend_school_holiday'),
         supabase.from('cooking_class_booking_counts').select('registration_id, event_date_id'),
-        supabase.from('cooking_class_sessions').select('id, event_date, class_fee, class_id, seating'),
+        supabase.from('cooking_class_sessions').select('id, event_date, class_fee, class_id, seating, session_name'),
         supabase.from('cooking_class_name').select('id, name, is_active'),
       ]);
       if (regsRes.error) throw regsRes.error;
@@ -251,6 +252,7 @@ export default function CookingClassAnalytics() {
       return {
         label: formatDate(d.event_date!),
         eventName: eventsMap[d.class_id] || 'Class',
+        sessionName: d.session_name || null,
         capacity,
         booked,
         available: Math.max(0, capacity - booked),
@@ -452,6 +454,9 @@ export default function CookingClassAnalytics() {
               <div key={i} className="flex items-center gap-3">
                 <div className="w-48 flex-shrink-0">
                   <p className="text-xs font-semibold text-[#1A1612] leading-tight">{s.eventName}</p>
+                  {s.sessionName && (
+                    <p className="text-xs text-[#5C4E3D] font-medium leading-tight">{s.sessionName}</p>
+                  )}
                   <p className="text-xs text-[#8C8278]">{s.label}</p>
                 </div>
                 <div className="flex-1 min-w-0">
