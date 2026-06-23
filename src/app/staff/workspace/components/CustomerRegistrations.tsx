@@ -345,19 +345,7 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
   const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   // Unique payment statuses for filter dropdown
-  const ALL_PAYMENT_STATUSES = [
-    'paid',
-    'pending',
-    'awaiting_payment',
-    'awaiting_confirmation',
-    'unpaid',
-    'discounted',
-    'refunded',
-    'failed',
-    'failed_payment_transaction',
-    'no-show',
-    'cancelled',
-  ];
+  const allStatuses = [...new Set(registrations.map(r => r.payment_status))].sort();
 
   return (
     <div className="p-6 space-y-6">
@@ -431,7 +419,7 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
             className="text-sm border border-[#DDD5C8] rounded-xl px-3 py-2 bg-white text-[#5C5347] focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30"
           >
             <option value="all">All Statuses</option>
-            {ALL_PAYMENT_STATUSES.map(s => (
+            {allStatuses.map(s => (
               <option key={s} value={s}>{formatPaymentStatus(s)}</option>
             ))}
           </select>
