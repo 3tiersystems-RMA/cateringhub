@@ -27,6 +27,7 @@ import HomepageCardsTab from '@/app/staff/workspace/components/tabs/HomepageCard
 import MealVouchersTab from '@/app/staff/workspace/components/tabs/MealVouchersTab';
 import DiscountVouchersTab from '@/app/staff/workspace/components/tabs/DiscountVouchersTab';
 import type { StaffMember } from '@/app/staff/workspace/types';
+import FailedTransactions from '@/app/staff/workspace/components/FailedTransactions';
 
 
 
@@ -578,9 +579,9 @@ export default function StaffWorkspacePage() {
               )}
 
               {/* ── Customer Relations (collapsible) ── */}
-              {canAnyTab('media', 'cooking_class_customers', 'payment_confirmation', 'products', 'collection_notification', 'bookings_credit', 'customer_registrations') && (
+              {canAnyTab('media', 'cooking_class_customers', 'payment_confirmation', 'products', 'collection_notification', 'bookings_credit', 'customer_registrations', 'failed_transactions') && (
                 <>
-                  <button onClick={() => setMediaMenuOpen(prev => !prev)} className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${['media', 'cooking_class_customers', 'payment_confirmation', 'products', 'collection_notification', 'bookings_credit', 'customer_registrations'].includes(activeTab) ? 'text-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'}`}>
+                  <button onClick={() => setMediaMenuOpen(prev => !prev)} className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${['media', 'cooking_class_customers', 'payment_confirmation', 'products', 'collection_notification', 'bookings_credit', 'customer_registrations', 'failed_transactions'].includes(activeTab) ? 'text-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'}`}>
                     <span className="text-base">🗂️</span><span className="flex-1">Customer Relations</span><span className="text-xs">{mediaMenuOpen ? '▲' : '▼'}</span>
                   </button>
                   {mediaMenuOpen && (
@@ -621,7 +622,13 @@ export default function StaffWorkspacePage() {
                           <span className="text-base">💳</span><span>Bookings Credit</span>
                         </button>
                       )}
-                      {/* 7. Document Management */}
+                      {/* 7. Failed Transactions */}
+                      {canTab('failed_transactions') && (
+                        <button onClick={() => { handleTabChange('failed_transactions'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'failed_transactions' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
+                          <span className="text-base">❌</span><span>Failed Transactions</span>
+                        </button>
+                      )}
+                      {/* 8. Document Management */}
                       {canTab('media') && (
                         <button onClick={() => { handleTabChange('media'); }} className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left w-full ${activeTab === 'media' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:bg-[#FAF5EE] hover:text-[#C4622D]'}`}>
                           <span className="text-base">📄</span><span>Document Management</span>
@@ -788,6 +795,11 @@ export default function StaffWorkspacePage() {
             {/* ── BOOKINGS CREDIT TAB ── */}
             {activeTab === 'bookings_credit' && (
               <BookingsCredit />
+            )}
+
+            {/* ── FAILED TRANSACTIONS TAB ── */}
+            {activeTab === 'failed_transactions' && (
+              <FailedTransactions />
             )}
 
             {/* ── CUSTOMER REGISTRATIONS TAB ── */}
