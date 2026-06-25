@@ -145,6 +145,9 @@ export default function CookingClassAnalytics() {
   const [eventDates, setEventDates] = useState<EventDateRow[]>([]);
   const [events, setEvents] = useState<EventRow[]>([]);
 
+  // Soccer School Holiday Program — unfiltered registrations for the holiday attendance card
+  const [holidayProgramRegs, setHolidayProgramRegs] = useState<RegistrationRow[]>([]);
+
   const loadData = useCallback(async (bucket: TimeBucket = timeBucket) => {
     setLoading(true);
     setError('');
@@ -168,6 +171,47 @@ export default function CookingClassAnalytics() {
       setBookings(bookingsRes.data || []);
       setEventDates(datesRes.data || []);
       setEvents(eventsRes.data || []);
+
+      // Load Soccer School Holiday Program registrations (all-time, no date filter)
+      const allEventsData = eventsRes.data || [];
+      const soccerClass = allEventsData.find(
+        (e: EventRow) => e.name?.toLowerCase().includes('soccer') && e.name?.toLowerCase().includes('holiday')
+      );
+      if (soccerClass) {
+        // Get all sessions for this class
+        const allDatesData = datesRes.data || [];
+        const soccerSessionIds = allDatesData
+          .filter((d: EventDateRow) => d.class_id === soccerClass.id)
+          .map((d: EventDateRow) => d.id);
+
+        if (soccerSessionIds.length > 0) {
+          // Get all booking_counts for these sessions
+          const { data: soccerBookings } = await supabase
+            .from('cooking_class_booking_counts')
+            .select('registration_id')
+            .in('event_date_id', soccerSessionIds);
+
+          if (soccerBookings && soccerBookings.length > 0) {
+            const soccerRegIds = [...new Set(soccerBookings.map((b: { registration_id: string }) => b.registration_id))];
+            const { data: soccerRegs } = await supabase
+              .from('cooking_class_registrations')
+              .select('id, first_name, surname, email, payment_status, payment_method, amount, created_at, children, attend_school_holiday')
+              .in('id', soccerRegIds);
+            setHolidayProgramRegs(soccerRegs || []);
+          } else {
+            setHolidayProgramRegs([]);
+          }
+        } else {
+          setHolidayProgramRegs([]);
+        }
+      } else {
+        // Fallback: use attend_school_holiday field from all registrations (all-time)
+        const { data: allRegs } = await supabase
+          .from('cooking_class_registrations')
+          .select('id, first_name, surname, email, payment_status, payment_method, amount, created_at, children, attend_school_holiday')
+          .or('attend_school_holiday.ilike.yes,attend_school_holiday.ilike.no');
+        setHolidayProgramRegs(allRegs || []);
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to load analytics data');
     } finally {
@@ -383,8 +427,11 @@ export default function CookingClassAnalytics() {
     });
 
   // ── School holiday attendance ─────────────────────────────────────────────────
-  const holidayYes = registrations.filter(r => r.attend_school_holiday?.toLowerCase() === 'yes').length;
-  const holidayNo = registrations.filter(r => r.attend_school_holiday?.toLowerCase() === 'no').length;
+  // Use Soccer School Holiday Program registrations (all-time) instead of time-filtered registrations
+  const holidaySourceRegs = holidayProgramRegs.length > 0 ? holidayProgramRegs : registrations;
+  const holidayYes = holidaySourceRegs.filter(r => r.attend_school_holiday?.toLowerCase() === 'yes').length;
+  const holidayNo = holidaySourceRegs.filter(r => r.attend_school_holiday?.toLowerCase() === 'no').length;
+  const holidayTotal = holidaySourceRegs.length;
   const holidayData = [
     { name: 'School Holiday', value: holidayYes },
     { name: 'Regular Session', value: holidayNo },
@@ -578,7 +625,7 @@ export default function CookingClassAnalytics() {
                     </div>
                     <p className="text-xl font-bold text-[#1A1612] ml-5">{d.value}</p>
                     <p className="text-xs text-[#8C8278] ml-5">
-                      {totalRegs > 0 ? Math.round((d.value / totalRegs) * 100) : 0}% of total
+                      {holidayTotal > 0 ? Math.round((d.value / holidayTotal) * 100) : 0}% of total
                     </p>
                   </div>
                 ))}
