@@ -374,7 +374,7 @@ export default function EventManagementCustomers({ isSuperAdmin = false }: Event
           <p className="text-2xl font-bold text-green-700">{formatCurrency(totalPaid)}</p>
         </div>
         <div className="bg-white border border-[#EDE7DA] rounded-xl p-4">
-          <p className="text-xs text-[#8C8278] mb-1">Awaiting Payment</p>
+          <p className="text-xs text-[#8C8278] mb-1">Pending/Awaiting Payment</p>
           <p className="text-2xl font-bold text-amber-600">{totalPending}</p>
         </div>
       </div>
