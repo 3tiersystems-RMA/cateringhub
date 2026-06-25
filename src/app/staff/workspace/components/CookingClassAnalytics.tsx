@@ -460,8 +460,8 @@ export default function CookingClassAnalytics() {
             <Tooltip
               contentStyle={{ borderRadius: 12, border: '1px solid #EDE7DA', fontSize: 12 }}
               formatter={(value: number, name: string) => [
-                name === 'revenue' ? formatCurrency(value) : value,
-                name === 'revenue' ? 'Revenue' : 'Registrations',
+                name === 'Revenue (R)' ? formatCurrency(value) : value,
+                name === 'Revenue (R)' ? 'Revenue' : 'Registrations',
               ]}
             />
             <Legend wrapperStyle={{ fontSize: 12 }} />
