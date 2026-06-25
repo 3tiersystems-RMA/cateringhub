@@ -539,7 +539,12 @@ export default function EventManagementAnalytics() {
               const ed = eventDateMap[b.event_date_id];
               if (!ed) return;
               const eventName = eventsMap[ed.event_id] || 'Unknown Event';
-              bookingsByEvent[eventName] = (bookingsByEvent[eventName] || 0) + 1;
+              const reg = registrations.find(r => r.id === b.registration_id);
+              const filledChildren = reg && Array.isArray(reg.children)
+                ? reg.children.filter(c => !!(c.fullName || c.full_name || c.name)).length
+                : 0;
+              const participants = 1 + filledChildren;
+              bookingsByEvent[eventName] = (bookingsByEvent[eventName] || 0) + participants;
             });
             const data = Object.entries(bookingsByEvent)
               .map(([name, value]) => ({ name: name.length > 20 ? name.slice(0, 18) + '…' : name, value, fullName: name }))
@@ -557,7 +562,7 @@ export default function EventManagementAnalytics() {
                     contentStyle={{ borderRadius: 12, border: '1px solid #EDE7DA', fontSize: 12 }}
                     labelFormatter={(_, payload) => payload?.[0]?.payload?.fullName || ''}
                   />
-                  <Bar dataKey="value" fill="#5C5347" radius={[0, 6, 6, 0]} name="Bookings" />
+                  <Bar dataKey="value" fill="#5C5347" radius={[0, 6, 6, 0]} name="Participants" />
                 </BarChart>
               </ResponsiveContainer>
             );
