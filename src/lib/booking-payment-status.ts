@@ -102,7 +102,7 @@ export function formatBookingPaymentMethod(
 }
 
 const PAYMENT_METHOD_BADGE_CLASSES: Record<string, string> = {
-  payfast: "bg-[#FDF6EE] text-[#C4622D] border-[#E8C9B0]",
+  payfast: "bg-[#C4622D] text-white border-[#C4622D]",
   eft: "bg-black text-white border-black",
   credit: "bg-green-50 text-green-700 border-green-200",
   voucher: "bg-amber-50 text-amber-800 border-amber-200",
