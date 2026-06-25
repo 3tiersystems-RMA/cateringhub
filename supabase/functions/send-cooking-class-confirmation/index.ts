@@ -341,7 +341,7 @@ serve(async (req) => {
           <tr>
             <td style="padding: 0 32px 28px 32px;">
               <p style="margin: 0 0 12px 0; color: #5C5347; font-size: 14px;">View your cooking class bookings:</p>
-              <a href="https://cardamomkitchen.co.za" style="display: inline-block; background-color: #C4622D; color: #ffffff; font-size: 14px; font-weight: 700; padding: 12px 24px; border-radius: 8px; text-decoration: none;">
+              <a href="https://cardamomkitchen.co.za/booking-query" style="display: inline-block; background-color: #C4622D; color: #ffffff; font-size: 14px; font-weight: 700; padding: 12px 24px; border-radius: 8px; text-decoration: none;">
                 View My Classes →
               </a>
             </td>
