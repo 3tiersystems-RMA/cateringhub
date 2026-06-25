@@ -145,8 +145,8 @@ export default function CookingClassAnalytics() {
   const [eventDates, setEventDates] = useState<EventDateRow[]>([]);
   const [events, setEvents] = useState<EventRow[]>([]);
 
-  // Soccer School Holiday Program — unfiltered registrations for the holiday attendance card
-  const [holidayProgramRegs, setHolidayProgramRegs] = useState<RegistrationRow[]>([]);
+  // All-time registrations that have attend_school_holiday answered (yes or no)
+  const [holidayAttendanceRegs, setHolidayAttendanceRegs] = useState<RegistrationRow[]>([]);
 
   const loadData = useCallback(async (bucket: TimeBucket = timeBucket) => {
     setLoading(true);
@@ -156,7 +156,7 @@ export default function CookingClassAnalytics() {
       const fromISO = from.toISOString();
       const toISO = to.toISOString();
 
-      const [regsRes, bookingsRes, datesRes, eventsRes] = await Promise.all([
+      const [regsRes, bookingsRes, datesRes, eventsRes, holidayRes] = await Promise.all([
         supabase
           .from('cooking_class_registrations')
           .select('id, first_name, surname, email, payment_status, payment_method, amount, created_at, children, attend_school_holiday')
@@ -165,53 +165,19 @@ export default function CookingClassAnalytics() {
         supabase.from('cooking_class_booking_counts').select('registration_id, event_date_id'),
         supabase.from('cooking_class_sessions').select('id, event_date, class_fee, class_id, seating, session_name'),
         supabase.from('cooking_class_name').select('id, name, is_active'),
+        // Fetch ALL registrations with attend_school_holiday answered (all-time, no date filter)
+        supabase
+          .from('cooking_class_registrations')
+          .select('id, first_name, surname, email, payment_status, payment_method, amount, created_at, children, attend_school_holiday')
+          .not('attend_school_holiday', 'is', null)
+          .neq('attend_school_holiday', ''),
       ]);
       if (regsRes.error) throw regsRes.error;
       setRegistrations(regsRes.data || []);
       setBookings(bookingsRes.data || []);
       setEventDates(datesRes.data || []);
       setEvents(eventsRes.data || []);
-
-      // Load Soccer School Holiday Program registrations (all-time, no date filter)
-      const allEventsData = eventsRes.data || [];
-      const soccerClass = allEventsData.find(
-        (e: EventRow) => e.name?.toLowerCase().includes('soccer') && e.name?.toLowerCase().includes('holiday')
-      );
-      if (soccerClass) {
-        // Get all sessions for this class
-        const allDatesData = datesRes.data || [];
-        const soccerSessionIds = allDatesData
-          .filter((d: EventDateRow) => d.class_id === soccerClass.id)
-          .map((d: EventDateRow) => d.id);
-
-        if (soccerSessionIds.length > 0) {
-          // Get all booking_counts for these sessions
-          const { data: soccerBookings } = await supabase
-            .from('cooking_class_booking_counts')
-            .select('registration_id')
-            .in('event_date_id', soccerSessionIds);
-
-          if (soccerBookings && soccerBookings.length > 0) {
-            const soccerRegIds = [...new Set(soccerBookings.map((b: { registration_id: string }) => b.registration_id))];
-            const { data: soccerRegs } = await supabase
-              .from('cooking_class_registrations')
-              .select('id, first_name, surname, email, payment_status, payment_method, amount, created_at, children, attend_school_holiday')
-              .in('id', soccerRegIds);
-            setHolidayProgramRegs(soccerRegs || []);
-          } else {
-            setHolidayProgramRegs([]);
-          }
-        } else {
-          setHolidayProgramRegs([]);
-        }
-      } else {
-        // Fallback: use attend_school_holiday field from all registrations (all-time)
-        const { data: allRegs } = await supabase
-          .from('cooking_class_registrations')
-          .select('id, first_name, surname, email, payment_status, payment_method, amount, created_at, children, attend_school_holiday')
-          .or('attend_school_holiday.ilike.yes,attend_school_holiday.ilike.no');
-        setHolidayProgramRegs(allRegs || []);
-      }
+      setHolidayAttendanceRegs(holidayRes.data || []);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to load analytics data');
     } finally {
@@ -405,7 +371,7 @@ export default function CookingClassAnalytics() {
 
   const upcomingSessions = eventDates
     .filter(d => d.event_date && new Date(d.event_date) >= new Date() && d.class_id && activeClassIds.has(d.class_id))
-    .sort((a, b) => new Date(a.event_date!).getTime() - new Date(b.event_date!).getTime())
+    .sort((a, b) => new Date(a.event_date! as any).getTime() - new Date(b.event_date! as any).getTime())
     .map(d => {
       const capacity = d.seating || 0;
       const sessionBookings = bookings.filter(b => b.event_date_id === d.id);
@@ -427,11 +393,10 @@ export default function CookingClassAnalytics() {
     });
 
   // ── School holiday attendance ─────────────────────────────────────────────────
-  // Use Soccer School Holiday Program registrations (all-time) instead of time-filtered registrations
-  const holidaySourceRegs = holidayProgramRegs.length > 0 ? holidayProgramRegs : registrations;
-  const holidayYes = holidaySourceRegs.filter(r => r.attend_school_holiday?.toLowerCase() === 'yes').length;
-  const holidayNo = holidaySourceRegs.filter(r => r.attend_school_holiday?.toLowerCase() === 'no').length;
-  const holidayTotal = holidaySourceRegs.length;
+  // Direct all-time query: registrations where attend_school_holiday is answered (yes/no)
+  const holidayYes = holidayAttendanceRegs.filter(r => r.attend_school_holiday?.toLowerCase() === 'yes').length;
+  const holidayNo = holidayAttendanceRegs.filter(r => r.attend_school_holiday?.toLowerCase() === 'no').length;
+  const holidayTotal = holidayAttendanceRegs.length;
   const holidayData = [
     { name: 'School Holiday', value: holidayYes },
     { name: 'Regular Session', value: holidayNo },
