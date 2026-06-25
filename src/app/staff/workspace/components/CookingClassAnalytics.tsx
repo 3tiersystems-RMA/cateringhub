@@ -487,7 +487,7 @@ export default function CookingClassAnalytics() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Revenue by Event */}
         <div className="bg-white border border-[#EDE7DA] rounded-2xl p-5">
-          <h3 className="text-sm font-bold text-[#1A1612] mb-1">Revenue by Event</h3>
+          <h3 className="text-sm font-bold text-[#1A1612] mb-1">Revenue by Class</h3>
           <p className="text-xs text-[#8C8278] mb-4">Confirmed paid revenue per event (top 8)</p>
           {fallbackRevenueData.length === 0 ? (
             <div className="flex items-center justify-center h-40 text-sm text-[#8C8278]">No revenue data yet</div>
