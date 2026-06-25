@@ -8,6 +8,8 @@ import {
 } from 'recharts';
 import { filterFilledChildren } from '@/lib/cooking-class-participants';
 
+type TimeBucket = '7d' | '30d' | '90d' | '12m';
+
 interface RegistrationRow {
   id: string;
   first_name: string;
@@ -53,6 +55,65 @@ function formatDate(d: string) {
   catch { return d; }
 }
 
+function getTimeBucketRange(bucket: TimeBucket): { from: Date; to: Date } {
+  const now = new Date();
+  const to = new Date(now);
+  let from: Date;
+  if (bucket === '7d') {
+    // Current week (Mon–Sun)
+    const day = now.getDay(); // 0=Sun
+    const diffToMon = day === 0 ? -6 : 1 - day;
+    from = new Date(now);
+    from.setDate(now.getDate() + diffToMon);
+    from.setHours(0, 0, 0, 0);
+  } else if (bucket === '30d') {
+    // Current calendar month
+    from = new Date(now.getFullYear(), now.getMonth(), 1);
+    from.setHours(0, 0, 0, 0);
+  } else if (bucket === '90d') {
+    // Current quarter
+    const quarter = Math.floor(now.getMonth() / 3);
+    from = new Date(now.getFullYear(), quarter * 3, 1);
+    from.setHours(0, 0, 0, 0);
+  } else {
+    // Current year
+    from = new Date(now.getFullYear(), 0, 1);
+    from.setHours(0, 0, 0, 0);
+  }
+  to.setHours(23, 59, 59, 999);
+  return { from, to };
+}
+
+function getPeriodLabel(bucket: TimeBucket): string {
+  const now = new Date();
+  if (bucket === '7d') {
+    const day = now.getDay();
+    const diffToSunday = day === 0 ? 0 : 7 - day;
+    const weekEnd = new Date(now);
+    weekEnd.setDate(now.getDate() + diffToSunday);
+    const jan4 = new Date(now.getFullYear(), 0, 4);
+    const startOfWeek1 = new Date(jan4);
+    startOfWeek1.setDate(jan4.getDate() - ((jan4.getDay() + 6) % 7));
+    const weekNum = Math.ceil(((now.getTime() - startOfWeek1.getTime()) / 86400000 + 1) / 7);
+    const dd = String(weekEnd.getDate()).padStart(2, '0');
+    const mm = String(weekEnd.getMonth() + 1).padStart(2, '0');
+    const yyyy = weekEnd.getFullYear();
+    return `Week ${weekNum}, ending ${dd}/${mm}/${yyyy}`;
+  }
+  if (bucket === '30d') {
+    const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const monthNum = now.getMonth() + 1;
+    const monthName = monthNames[now.getMonth()];
+    const year = now.getFullYear();
+    return `Month ${monthNum} – ${monthName} ${year}`;
+  }
+  if (bucket === '90d') {
+    const quarter = Math.ceil((now.getMonth() + 1) / 3);
+    return `Q${quarter} ${now.getFullYear()}`;
+  }
+  return `${now.getFullYear()}`;
+}
+
 interface KpiCardProps {
   icon: string;
   label: string;
@@ -76,6 +137,7 @@ export default function CookingClassAnalytics() {
   const supabase = createClient();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [timeBucket, setTimeBucket] = useState<TimeBucket>('30d');
 
   // Raw data
   const [registrations, setRegistrations] = useState<RegistrationRow[]>([]);
@@ -83,12 +145,20 @@ export default function CookingClassAnalytics() {
   const [eventDates, setEventDates] = useState<EventDateRow[]>([]);
   const [events, setEvents] = useState<EventRow[]>([]);
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (bucket: TimeBucket = timeBucket) => {
     setLoading(true);
     setError('');
     try {
+      const { from, to } = getTimeBucketRange(bucket);
+      const fromISO = from.toISOString();
+      const toISO = to.toISOString();
+
       const [regsRes, bookingsRes, datesRes, eventsRes] = await Promise.all([
-        supabase.from('cooking_class_registrations').select('id, first_name, surname, email, payment_status, payment_method, amount, created_at, children, attend_school_holiday'),
+        supabase
+          .from('cooking_class_registrations')
+          .select('id, first_name, surname, email, payment_status, payment_method, amount, created_at, children, attend_school_holiday')
+          .gte('created_at', fromISO)
+          .lte('created_at', toISO),
         supabase.from('cooking_class_booking_counts').select('registration_id, event_date_id'),
         supabase.from('cooking_class_sessions').select('id, event_date, class_fee, class_id, seating, session_name'),
         supabase.from('cooking_class_name').select('id, name, is_active'),
@@ -103,9 +173,14 @@ export default function CookingClassAnalytics() {
     } finally {
       setLoading(false);
     }
-  }, [supabase]);
+  }, [supabase, timeBucket]);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => { loadData(timeBucket); }, []);
+
+  const handleBucketChange = (bucket: TimeBucket) => {
+    setTimeBucket(bucket);
+    loadData(bucket);
+  };
 
   if (loading) {
     return (
@@ -153,22 +228,75 @@ export default function CookingClassAnalytics() {
   });
   const paymentMethodData = Object.entries(methodCounts).map(([name, value]) => ({ name, value }));
 
-  // ── Registrations over time (last 12 months) ─────────────────────────────────
+  // ── Registrations over time (bucketed by selected period) ────────────────────
+  const { from: periodFrom } = getTimeBucketRange(timeBucket);
   const monthlyMap: Record<string, { registrations: number; revenue: number }> = {};
-  const now = new Date();
-  for (let i = 11; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const key = d.toLocaleDateString('en-ZA', { month: 'short', year: '2-digit' });
-    monthlyMap[key] = { registrations: 0, revenue: 0 };
-  }
-  registrations.forEach(r => {
-    const d = new Date(r.created_at);
-    const key = d.toLocaleDateString('en-ZA', { month: 'short', year: '2-digit' });
-    if (monthlyMap[key]) {
-      monthlyMap[key].registrations += 1;
-      if (r.payment_status === 'paid') monthlyMap[key].revenue += r.amount || 0;
+
+  if (timeBucket === '7d') {
+    // Daily buckets for the week
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(periodFrom);
+      d.setDate(periodFrom.getDate() + i);
+      const key = d.toLocaleDateString('en-ZA', { weekday: 'short', day: '2-digit', month: 'short' });
+      monthlyMap[key] = { registrations: 0, revenue: 0 };
     }
-  });
+    registrations.forEach(r => {
+      const d = new Date(r.created_at);
+      const key = d.toLocaleDateString('en-ZA', { weekday: 'short', day: '2-digit', month: 'short' });
+      if (monthlyMap[key]) {
+        monthlyMap[key].registrations += 1;
+        if (r.payment_status === 'paid') monthlyMap[key].revenue += r.amount || 0;
+      }
+    });
+  } else if (timeBucket === '30d') {
+    // Weekly buckets for the month
+    const now = new Date();
+    const weeksInMonth = Math.ceil(new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() / 7);
+    for (let w = 1; w <= weeksInMonth; w++) {
+      monthlyMap[`Week ${w}`] = { registrations: 0, revenue: 0 };
+    }
+    registrations.forEach(r => {
+      const d = new Date(r.created_at);
+      const weekNum = Math.ceil(d.getDate() / 7);
+      const key = `Week ${weekNum}`;
+      if (monthlyMap[key]) {
+        monthlyMap[key].registrations += 1;
+        if (r.payment_status === 'paid') monthlyMap[key].revenue += r.amount || 0;
+      }
+    });
+  } else if (timeBucket === '90d') {
+    // Monthly buckets for the quarter
+    const quarter = Math.floor(new Date().getMonth() / 3);
+    for (let m = 0; m < 3; m++) {
+      const d = new Date(new Date().getFullYear(), quarter * 3 + m, 1);
+      const key = d.toLocaleDateString('en-ZA', { month: 'short', year: '2-digit' });
+      monthlyMap[key] = { registrations: 0, revenue: 0 };
+    }
+    registrations.forEach(r => {
+      const d = new Date(r.created_at);
+      const key = d.toLocaleDateString('en-ZA', { month: 'short', year: '2-digit' });
+      if (monthlyMap[key]) {
+        monthlyMap[key].registrations += 1;
+        if (r.payment_status === 'paid') monthlyMap[key].revenue += r.amount || 0;
+      }
+    });
+  } else {
+    // Monthly buckets for the year
+    const now = new Date();
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(now.getFullYear(), i, 1);
+      const key = d.toLocaleDateString('en-ZA', { month: 'short', year: '2-digit' });
+      monthlyMap[key] = { registrations: 0, revenue: 0 };
+    }
+    registrations.forEach(r => {
+      const d = new Date(r.created_at);
+      const key = d.toLocaleDateString('en-ZA', { month: 'short', year: '2-digit' });
+      if (monthlyMap[key]) {
+        monthlyMap[key].registrations += 1;
+        if (r.payment_status === 'paid') monthlyMap[key].revenue += r.amount || 0;
+      }
+    });
+  }
   const monthlyTrendData = Object.entries(monthlyMap).map(([label, v]) => ({ label, ...v }));
 
   // ── Revenue by event ─────────────────────────────────────────────────────────
@@ -180,14 +308,15 @@ export default function CookingClassAnalytics() {
 
   const revenueByEvent: Record<string, number> = {};
   const bookingsByEvent: Record<string, number> = {};
+  const regIds = new Set(registrations.map(r => r.id));
   bookings.forEach(b => {
+    if (!regIds.has(b.registration_id)) return;
     const ed = eventDateMap[b.event_date_id];
     if (!ed) return;
     const eventName = eventsMap[ed.class_id] || 'Unknown Class';
     bookingsByEvent[eventName] = (bookingsByEvent[eventName] || 0) + 1;
     const reg = registrations.find(r => r.id === b.registration_id);
     if (reg && reg.payment_status === 'paid') {
-      // Use the registration's actual paid amount; fall back to event date class_fee if amount is missing
       const revenueAmount = (reg.amount != null && reg.amount > 0)
         ? reg.amount
         : (ed.class_fee || 0);
@@ -195,25 +324,19 @@ export default function CookingClassAnalytics() {
     }
   });
 
-  // Also capture paid registrations that have selected_events but no booking_counts entry
-  // by using the registrations' own amount grouped by their event selections
   const regMap: Record<string, RegistrationRow> = {};
   registrations.forEach(r => { regMap[r.id] = r; });
 
-  // If revenueByEvent is still empty after booking_counts join, fall back to
-  // grouping paid registrations directly by their amount (attributed to 'General')
   const revenueByEventData = Object.entries(revenueByEvent)
     .map(([name, revenue]) => ({ name: name.length > 20 ? name.slice(0, 18) + '…' : name, revenue, fullName: name }))
     .sort((a, b) => b.revenue - a.revenue)
     .slice(0, 8);
 
-  // Fallback: if no event-linked revenue found but paid registrations exist, show them under their event name
   const fallbackRevenueData = revenueByEventData.length === 0
     ? (() => {
         const fallback: Record<string, number> = {};
         paidRegs.forEach(r => {
           if ((r.amount || 0) > 0) {
-            // Try to get event name from booking_counts
             const regBookings = bookings.filter(b => b.registration_id === r.id);
             if (regBookings.length > 0) {
               regBookings.forEach(b => {
@@ -241,7 +364,6 @@ export default function CookingClassAnalytics() {
     .sort((a, b) => new Date(a.event_date!).getTime() - new Date(b.event_date!).getTime())
     .map(d => {
       const capacity = d.seating || 0;
-      // Count only children (participants) for each booking linked to this event date
       const sessionBookings = bookings.filter(b => b.event_date_id === d.id);
       const booked = sessionBookings.reduce((sum, b) => {
         const reg = registrations.find(r => r.id === b.registration_id);
@@ -274,23 +396,45 @@ export default function CookingClassAnalytics() {
     .sort((a, b) => (b.amount || 0) - (a.amount || 0))
     .slice(0, 5);
 
+  const trendLabel = timeBucket === '7d' ? 'Daily overview — current week'
+    : timeBucket === '30d' ? 'Weekly overview — current month'
+    : timeBucket === '90d'? 'Monthly overview — current quarter' :'Monthly overview — current year';
+
   return (
     <div className="p-6 space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h2 className="text-xl font-bold text-[#1A1612]">Cooking Class Analytics</h2>
-          <p className="text-sm text-[#8C8278] mt-0.5">Registration, revenue, and capacity insights</p>
+          <h2 className="text-xl font-bold text-[#1A1612]">
+            Customer Analytics
+            {getPeriodLabel(timeBucket) && (
+              <span className="ml-2 text-base font-medium text-[#C4622D]">
+                for ({getPeriodLabel(timeBucket)})
+              </span>
+            )}
+          </h2>
+          <p className="text-sm text-[#8C8278] mt-0.5">Booking registration and revenue insights for the selected period</p>
         </div>
-        <button
-          onClick={loadData}
-          className="flex items-center gap-2 px-3 py-2 rounded-xl border border-[#DDD5C8] text-xs font-medium text-[#5C5347] hover:bg-[#FAF5EE] transition-colors"
-        >
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-          Refresh
-        </button>
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-1 bg-white border border-[#EDE7DA] rounded-xl p-1">
+            {([['7d', 'Week'], ['30d', 'Month'], ['90d', 'Quarter'], ['12m', 'Year']] as [TimeBucket, string][]).map(([val, label]) => (
+              <button
+                key={val}
+                onClick={() => handleBucketChange(val)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${timeBucket === val ? 'bg-[#C4622D] text-white' : 'text-[#5C5347] hover:bg-[#FAF5EE]'}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => loadData(timeBucket)}
+            disabled={loading}
+            className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#A04E22] transition-colors disabled:opacity-50"
+          >
+            {loading ? 'Loading…' : 'Refresh'}
+          </button>
+        </div>
       </div>
 
       {/* KPI Cards */}
@@ -303,10 +447,10 @@ export default function CookingClassAnalytics() {
         <KpiCard icon="📈" label="Conversion Rate" value={`${conversionRate}%`} color={Number(conversionRate) >= 70 ? 'text-green-700' : 'text-amber-600'} sub="Paid / Total" />
       </div>
 
-      {/* Monthly Trend */}
+      {/* Trend Chart */}
       <div className="bg-white border border-[#EDE7DA] rounded-2xl p-5">
         <h3 className="text-sm font-bold text-[#1A1612] mb-1">Registrations &amp; Revenue Trend</h3>
-        <p className="text-xs text-[#8C8278] mb-4">Monthly overview — last 12 months</p>
+        <p className="text-xs text-[#8C8278] mb-4">{trendLabel}</p>
         <ResponsiveContainer width="100%" height={240}>
           <LineChart data={monthlyTrendData} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#EDE7DA" />
