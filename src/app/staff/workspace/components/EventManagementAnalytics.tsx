@@ -534,11 +534,18 @@ export default function EventManagementAnalytics() {
           <p className="text-xs text-[#8C8278] mb-4">Total booking count per event (top 8)</p>
           {(() => {
             const bookingsByEvent: Record<string, number> = {};
+            // Group by registration to avoid counting children multiple times
+            // (booking_counts has one row per participant slot, not per registration)
+            const processedRegs = new Set<string>();
             bookings.forEach(b => {
               if (!regIds.has(b.registration_id)) return;
               const ed = eventDateMap[b.event_date_id];
               if (!ed) return;
               const eventName = eventsMap[ed.event_id] || 'Unknown Event';
+              // Only count each registration once per event
+              const key = `${b.registration_id}__${ed.event_id}`;
+              if (processedRegs.has(key)) return;
+              processedRegs.add(key);
               const reg = registrations.find(r => r.id === b.registration_id);
               const filledChildren = reg && Array.isArray(reg.children)
                 ? reg.children.filter(c => !!(c.fullName || c.full_name || c.name)).length
