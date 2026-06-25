@@ -1309,7 +1309,12 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
                               {sessions.length > 0 ? (
                                 <div className="space-y-0.5">
                                   {sessions.slice(0, 2).map((s, i) => (
-                                    <div key={i} className="text-xs text-[#5C5347]">{formatDate(s.event_date)}</div>
+                                    <div key={i} className="text-xs text-[#5C5347]">
+                                      {s.event_name && (
+                                        <span className="block text-[10px] font-semibold text-[#C4622D] leading-tight mb-0.5">{s.event_name}</span>
+                                      )}
+                                      {formatDate(s.event_date)}
+                                    </div>
                                   ))}
                                   {sessions.length > 2 && <div className="text-xs text-[#8C7B6B]">+{sessions.length - 2} more</div>}
                                 </div>

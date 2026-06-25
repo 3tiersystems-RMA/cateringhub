@@ -226,11 +226,54 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
         }
       });
 
-      // 5. Merge
-      const enriched: Registration[] = cleanedRegs.map((r: Registration) => ({
-        ...r,
-        session_dates: regSessionMap[r.id] || [],
-      }));
+      // Build a map: class name → first known location (for enriching legacy synthetic sessions)
+      const classNameToLocation: Record<string, string | null> = {};
+      Object.values(eventDatesMap).forEach(sd => {
+        const name = sd.event_name || '';
+        if (name && classNameToLocation[name] === undefined) {
+          classNameToLocation[name] = sd.location || null;
+        } else if (name && !classNameToLocation[name] && sd.location) {
+          classNameToLocation[name] = sd.location;
+        }
+      });
+
+      // 5. Merge — with fallback to selected_events/adult_class_dates for registrations
+      // that have no booking_counts entries (e.g. older EFT registrations)
+      const enriched: Registration[] = cleanedRegs.map((r: Registration) => {
+        const sessions = regSessionMap[r.id] || [];
+        if (sessions.length > 0) {
+          return { ...r, session_dates: sessions };
+        }
+
+        // Fallback: synthesise session stubs from the registration's own arrays
+        const names = Array.isArray(r.selected_events) ? r.selected_events.filter(Boolean) : [];
+        const dates = Array.isArray(r.adult_class_dates) ? r.adult_class_dates.filter(Boolean) : [];
+        const synthetic: SessionDate[] = [];
+        if (names.length > 0 && dates.length > 0) {
+          names.forEach(name => dates.forEach(d =>
+            synthetic.push({
+              id: '',
+              event_date: d,
+              start_time: null,
+              end_time: null,
+              location: classNameToLocation[name] || null,
+              class_fee: null,
+              event_name: name,
+            })
+          ));
+        } else if (names.length > 0) {
+          names.forEach(name => synthetic.push({
+            id: '',
+            event_date: null,
+            start_time: null,
+            end_time: null,
+            location: classNameToLocation[name] || null,
+            class_fee: null,
+            event_name: name,
+          }));
+        }
+        return { ...r, session_dates: synthetic };
+      });
 
       setRegistrations(enriched);
 
