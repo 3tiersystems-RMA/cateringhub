@@ -2,7 +2,12 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { formatBookingPaymentStatus, matchesPaymentStatusFilter } from '@/lib/booking-payment-status';
+import {
+  formatBookingPaymentStatus,
+  matchesPaymentStatusFilter,
+  mergeBookingPaymentStatusOptions,
+} from '@/lib/booking-payment-status';
+import BookingPaymentMethodBadge from '@/app/staff/workspace/components/BookingPaymentMethodBadge';
 
 interface UnifiedRegistration {
   id: string;
@@ -13,6 +18,8 @@ interface UnifiedRegistration {
   email: string;
   cellphone: string;
   payment_status: string;
+  payment_method: string | null;
+  payfast_payment_id: string | null;
   amount: number | null;
   created_at: string;
   // event/class name(s)
@@ -31,6 +38,7 @@ const PAYMENT_STATUS_COLORS: Record<string, string> = {
   awaiting_payment: 'bg-blue-100 text-blue-700 border-blue-200',
   unpaid: 'bg-amber-100 text-amber-700 border-amber-200',
   discounted: 'bg-purple-100 text-purple-700 border-purple-200',
+  refunded: 'bg-purple-50 text-purple-700 border-purple-200',
   'no-show': 'bg-gray-100 text-gray-600 border-gray-300',
 };
 
@@ -50,6 +58,29 @@ function formatCurrency(val: number | null | undefined) {
 
 function formatPaymentStatus(status: string) {
   return formatBookingPaymentStatus(status);
+}
+
+function normalizePhoneDigits(value: string | null | undefined): string {
+  return (value ?? '').replace(/\D/g, '');
+}
+
+function matchesRegistrationSearch(reg: UnifiedRegistration, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+
+  const displayName = `${reg.title ? reg.title + ' ' : ''}${reg.first_name} ${reg.surname}`.trim().toLowerCase();
+  const nameOnly = `${reg.first_name} ${reg.surname}`.trim().toLowerCase();
+  const email = (reg.email ?? '').toLowerCase();
+  const phone = reg.cellphone ?? '';
+  const queryDigits = normalizePhoneDigits(q);
+  const phoneDigits = normalizePhoneDigits(phone);
+
+  if (displayName.includes(q) || nameOnly.includes(q)) return true;
+  if (email.includes(q)) return true;
+  if (phone.toLowerCase().includes(q)) return true;
+  if (queryDigits.length > 0 && phoneDigits.includes(queryDigits)) return true;
+
+  return false;
 }
 
 function Paginator({
@@ -126,7 +157,8 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
   // Filters
   const [sourceFilter, setSourceFilter] = useState<'all' | 'class' | 'event'>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [paymentFilter, setPaymentFilter] = useState<string>('all');
+  const [paymentFilter, setPaymentFilter] = useState<string>('paid');
+  const [paymentStatusOptions, setPaymentStatusOptions] = useState<string[]>([...mergeBookingPaymentStatusOptions([])]);
   const [currentPage, setCurrentPage] = useState(1);
 
   const loadData = useCallback(async () => {
@@ -136,7 +168,7 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
       // ── 1. Fetch Cooking Class Registrations ──────────────────────────────
       const { data: classRegs, error: classErr } = await supabase
         .from('cooking_class_registrations')
-        .select('id, title, first_name, surname, email, cellphone, payment_status, amount, created_at, children')
+        .select('id, title, first_name, surname, email, cellphone, payment_status, payment_method, payfast_payment_id, amount, created_at, children')
         .order('created_at', { ascending: false });
 
       if (classErr) throw classErr;
@@ -188,7 +220,8 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
 
         classUnified = (classRegs || []).map((r: {
           id: string; title: string; first_name: string; surname: string; email: string;
-          cellphone: string; payment_status: string; amount: number | null; created_at: string;
+          cellphone: string; payment_status: string; payment_method: string | null;
+          payfast_payment_id: string | null; amount: number | null; created_at: string;
           children?: unknown[];
         }) => {
           const sessions = classRegSessionMap[r.id] || [];
@@ -211,6 +244,8 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
             email: r.email,
             cellphone: r.cellphone,
             payment_status: r.payment_status,
+            payment_method: r.payment_method,
+            payfast_payment_id: r.payfast_payment_id,
             amount: r.amount,
             created_at: r.created_at,
             event_names: eventNames,
@@ -224,7 +259,7 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
       // ── 2. Fetch Event Management Registrations ───────────────────────────
       const { data: eventRegs, error: eventErr } = await supabase
         .from('event_management_registrations')
-        .select('id, title, first_name, surname, email, cellphone, payment_status, amount, created_at, children')
+        .select('id, title, first_name, surname, email, cellphone, payment_status, payment_method, payfast_payment_id, amount, created_at, children')
         .order('created_at', { ascending: false });
 
       if (eventErr) throw eventErr;
@@ -273,7 +308,8 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
 
         eventUnified = (eventRegs || []).map((r: {
           id: string; title: string; first_name: string; surname: string; email: string;
-          cellphone: string; payment_status: string; amount: number | null; created_at: string;
+          cellphone: string; payment_status: string; payment_method: string | null;
+          payfast_payment_id: string | null; amount: number | null; created_at: string;
           children?: unknown[];
         }) => {
           const dateIds = regBookingsMap[r.id] || [];
@@ -296,6 +332,8 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
             email: r.email,
             cellphone: r.cellphone,
             payment_status: r.payment_status,
+            payment_method: r.payment_method,
+            payfast_payment_id: r.payfast_payment_id,
             amount: r.amount,
             created_at: r.created_at,
             event_names: eventNames,
@@ -311,6 +349,8 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
         (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
       setRegistrations(merged);
+      const dbStatuses = [...new Set(merged.map((r) => r.payment_status).filter(Boolean))] as string[];
+      setPaymentStatusOptions(mergeBookingPaymentStatusOptions(dbStatuses));
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to load registrations');
     } finally {
@@ -333,19 +373,12 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
   const filtered = registrations.filter(r => {
     if (sourceFilter !== 'all' && r.source !== sourceFilter) return false;
     if (paymentFilter !== 'all' && !matchesPaymentStatusFilter(r.payment_status, paymentFilter)) return false;
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      const fullName = `${r.first_name} ${r.surname}`.toLowerCase();
-      if (!fullName.includes(q) && !r.email.toLowerCase().includes(q) && !r.cellphone.includes(q)) return false;
-    }
+    if (searchQuery.trim() && !matchesRegistrationSearch(r, searchQuery)) return false;
     return true;
   });
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
-
-  // Unique payment statuses for filter dropdown
-  const allStatuses = [...new Set(registrations.map(r => r.payment_status))].sort();
 
   return (
     <div className="p-6 space-y-6">
@@ -419,7 +452,7 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
             className="text-sm border border-[#DDD5C8] rounded-xl px-3 py-2 bg-white text-[#5C5347] focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30"
           >
             <option value="all">All Statuses</option>
-            {allStatuses.map(s => (
+            {paymentStatusOptions.map(s => (
               <option key={s} value={s}>{formatPaymentStatus(s)}</option>
             ))}
           </select>
@@ -442,11 +475,14 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
         <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">{error}</div>
       )}
 
-      {/* ── Table ── */}
+      {/* ── Table (data area only — header/stats/filters stay visible) ── */}
       <div className="bg-white rounded-2xl border border-[#E8DDD0] overflow-hidden">
         {loading ? (
-          <div className="flex items-center justify-center py-16">
-            <div className="w-8 h-8 border-3 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
+          <div className="flex items-center justify-center py-20">
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-7 h-7 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
+              <p className="text-sm text-[#8C8278]">Loading registrations…</p>
+            </div>
           </div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-16 text-[#8C8278]">
@@ -467,6 +503,7 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
                     <th className="px-4 py-3 text-left text-xs font-semibold text-[#5C5347] uppercase tracking-wider">VENUE</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-[#5C5347] uppercase tracking-wider">DATE(S)</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-[#5C5347] uppercase tracking-wider">STATUS</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-[#5C5347] uppercase tracking-wider">PAYMENT</th>
                     <th className="px-4 py-3 text-right text-xs font-semibold text-[#5C5347] uppercase tracking-wider">AMOUNT</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-[#5C5347] uppercase tracking-wider">REGISTERED</th>
                   </tr>
@@ -525,9 +562,15 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
                           )}
                         </td>
                         <td className="px-4 py-3">
-                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${statusColor}`}>
+                          <span className={`inline-flex w-fit shrink-0 items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${statusColor}`}>
                             {formatPaymentStatus(r.payment_status)}
                           </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <BookingPaymentMethodBadge
+                            paymentMethod={r.payment_method}
+                            payfastPaymentId={r.payfast_payment_id}
+                          />
                         </td>
                         <td className="px-4 py-2.5 text-right font-mono text-[#1A1612] whitespace-nowrap text-sm">
                           {formatCurrency(r.amount)}

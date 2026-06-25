@@ -39,8 +39,8 @@ export async function POST(req: NextRequest) {
 
     // Use clean URLs — no & in return/cancel, no query params in notify_url.
     // The ITN handler identifies the registration via pfData.m_payment_id (= registrationCode).
-    const returnUrl = `${siteBase}/event-bookings/payment-return?status=success`;
-    const cancelUrl = `${siteBase}/event-bookings/payment-return?status=cancel`;
+    const returnUrl = `${siteBase}/event-bookings/payment-return?status=success&pt=${encodeURIComponent(registrationCode)}`;
+    const cancelUrl = `${siteBase}/event-bookings/payment-return?status=cancel&pt=${encodeURIComponent(registrationCode)}`;
     const notifyUrl = `${itnBase}/api/event-bookings/payfast-itn`;
 
     const payload = buildPaymentPayload(

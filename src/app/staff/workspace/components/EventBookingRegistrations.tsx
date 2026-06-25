@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import BookingPaymentMethodBadge from '@/app/staff/workspace/components/BookingPaymentMethodBadge';
 
 interface ChildParticipant {
   fullName?: string;
@@ -33,6 +34,8 @@ interface RegistrationRow {
   email: string;
   cellphone: string;
   payment_status: string;
+  payment_method?: string;
+  payfast_payment_id?: string | null;
   amount: number | null;
   created_at: string;
   relationship: string | null;
@@ -101,6 +104,7 @@ const PAYMENT_STATUS_COLORS: Record<string, string> = {
   pending: 'bg-amber-100 text-amber-700 border-amber-200',
   paid: 'bg-green-100 text-green-700 border-green-200',
   failed: 'bg-red-100 text-red-700 border-red-200',
+  failed_payment_transaction: 'bg-red-100 text-red-700 border-red-200',
   awaiting_confirmation: 'bg-blue-100 text-blue-700 border-blue-200',
   awaiting_payment: 'bg-blue-100 text-blue-700 border-blue-200',
 };
@@ -1128,9 +1132,16 @@ export default function EventBookingRegistrations({ isSuperAdmin = false }: Even
                               ) : <span className="text-[#8C7B6B]">—</span>}
                             </td>
                             <td className="px-4 py-3">
-                              <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded-full border capitalize ${PAYMENT_STATUS_COLORS[reg.payment_status] || 'bg-gray-100 text-gray-600 border-gray-200'}`}>
-                                {reg.payment_status.replace(/_/g, ' ')}
-                              </span>
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <span className={`inline-flex w-fit shrink-0 px-2 py-0.5 text-xs font-medium rounded-full border capitalize ${PAYMENT_STATUS_COLORS[reg.payment_status] || 'bg-gray-100 text-gray-600 border-gray-200'}`}>
+                                  {reg.payment_status.replace(/_/g, ' ')}
+                                </span>
+                                <BookingPaymentMethodBadge
+                                  paymentMethod={reg.payment_method}
+                                  payfastPaymentId={reg.payfast_payment_id}
+                                  size="sm"
+                                />
+                              </div>
                             </td>
                             <td className="px-4 py-3 font-medium text-[#2C2420]">{formatCurrency(reg.amount)}</td>
                             <td className="px-4 py-3 text-xs text-[#5C5347]">{formatDate(reg.created_at)}</td>
@@ -1173,6 +1184,11 @@ export default function EventBookingRegistrations({ isSuperAdmin = false }: Even
                                     <span className={`inline-block px-2.5 py-1 text-xs font-medium rounded-full border capitalize ${PAYMENT_STATUS_COLORS[reg.payment_status] || 'bg-gray-100 text-gray-600 border-gray-200'}`}>
                                       {reg.payment_status.replace(/_/g, ' ')}
                                     </span>
+                                    <BookingPaymentMethodBadge
+                                      paymentMethod={reg.payment_method}
+                                      payfastPaymentId={reg.payfast_payment_id}
+                                      size="sm"
+                                    />
                                     <span className="text-sm font-bold text-white">{formatCurrency(reg.amount)}</span>
                                     <span className="text-xs text-gray-400">{formatDate(reg.created_at)}</span>
                                   </div>

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { matchesPaymentStatusFilter, formatBookingPaymentStatus } from '@/lib/booking-payment-status';
+import BookingPaymentMethodBadge from '@/app/staff/workspace/components/BookingPaymentMethodBadge';
 
 interface ParticipantRow {
   fullName?: string;
@@ -36,6 +37,7 @@ interface Registration {
   selected_events: string[];
   adult_class_dates: string[];
   payment_method: string;
+  payfast_payment_id?: string | null;
   payment_status: string;
   amount: number | null;
   created_at: string;
@@ -473,9 +475,16 @@ export default function EventManagementCustomers({ isSuperAdmin = false }: Event
                       <p className={`text-sm font-bold ${isExpanded ? 'text-white' : 'text-[#1A1612]'}`}>{formatCurrency(reg.amount)}</p>
                       <p className={`text-xs ${isExpanded ? 'text-gray-400' : 'text-[#8C8278]'}`}>{formatDate(reg.created_at)}</p>
                     </div>
-                    <span className={`text-xs font-medium px-2.5 py-1 rounded-full border ${PAYMENT_STATUS_COLORS[reg.payment_status] || 'bg-gray-100 text-gray-600 border-gray-200'}`}>
-                      {formatBookingPaymentStatus(reg.payment_status)}
-                    </span>
+                    <div className="flex flex-wrap items-center justify-end gap-1.5">
+                      <span className={`inline-flex w-fit shrink-0 text-xs font-medium px-2.5 py-1 rounded-full border ${PAYMENT_STATUS_COLORS[reg.payment_status] || 'bg-gray-100 text-gray-600 border-gray-200'}`}>
+                        {formatBookingPaymentStatus(reg.payment_status)}
+                      </span>
+                      <BookingPaymentMethodBadge
+                        paymentMethod={reg.payment_method}
+                        payfastPaymentId={reg.payfast_payment_id}
+                        size="sm"
+                      />
+                    </div>
 
                     {/* EDIT button — visible when expanded */}
                     {isExpanded && (

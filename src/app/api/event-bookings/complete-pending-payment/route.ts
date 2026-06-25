@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { completeEventBookingPayfast } from "@/lib/event-booking-payfast-complete";
 import { recordFailedBookingPayment } from "@/lib/booking-payfast-failed";
+import { maybeSendPayfastBookingConfirmationEmail } from "@/lib/booking-payfast-confirmation-email";
 
 export const dynamic = "force-dynamic";
 
@@ -80,6 +81,8 @@ export async function POST(req: NextRequest) {
     if (result.status === "error") {
       return NextResponse.json({ error: result.message, registrationCode }, { status: 500 });
     }
+
+    await maybeSendPayfastBookingConfirmationEmail(supabaseAdmin, "event", result);
 
     return NextResponse.json({
       success: true,

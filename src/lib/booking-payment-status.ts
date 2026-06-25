@@ -16,6 +16,27 @@ const PAYMENT_STATUS_LABELS: Record<string, string> = {
   unpaid: "Unpaid",
 };
 
+/** All known booking registration statuses — merged with DB values for filter dropdowns. */
+export const BOOKING_PAYMENT_STATUS_OPTIONS = [
+  "pending",
+  "paid",
+  "failed",
+  "failed_payment_transaction",
+  "awaiting_payment",
+  "awaiting_confirmation",
+  "refunded",
+  "discounted",
+  "unpaid",
+  "no-show",
+] as const;
+
+export function mergeBookingPaymentStatusOptions(dbStatuses: string[]): string[] {
+  const merged = [...new Set([...BOOKING_PAYMENT_STATUS_OPTIONS, ...dbStatuses.filter(Boolean)])];
+  return merged.sort((a, b) =>
+    formatBookingPaymentStatus(a).localeCompare(formatBookingPaymentStatus(b))
+  );
+}
+
 export function formatBookingPaymentStatus(status: string): string {
   if (PAYMENT_STATUS_LABELS[status]) {
     return PAYMENT_STATUS_LABELS[status];
@@ -40,4 +61,60 @@ export function matchesPaymentStatusFilter(
     return isFailedPaymentTransaction(paymentStatus);
   }
   return paymentStatus === filter;
+}
+
+/** Resolve booking payment method from stored fields (class/event registrations). */
+export function resolveBookingPaymentMethod(
+  paymentMethod: string | null | undefined,
+  payfastPaymentId?: string | null
+): "payfast" | "eft" | "credit" | "voucher" | string {
+  if (payfastPaymentId) return "payfast";
+  const method = (paymentMethod || "").toLowerCase();
+  if (
+    method === "payfast" ||
+    method === "eft" ||
+    method === "credit" ||
+    method === "voucher"
+  ) {
+    return method;
+  }
+  return method || "eft";
+}
+
+export function formatBookingPaymentMethod(
+  paymentMethod: string | null | undefined,
+  payfastPaymentId?: string | null
+): string {
+  switch (resolveBookingPaymentMethod(paymentMethod, payfastPaymentId)) {
+    case "payfast":
+      return "PayFast";
+    case "eft":
+      return "EFT";
+    case "credit":
+      return "Credit";
+    case "voucher":
+      return "Meal Voucher";
+    default:
+      return paymentMethod
+        ? paymentMethod.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+        : "EFT";
+  }
+}
+
+const PAYMENT_METHOD_BADGE_CLASSES: Record<string, string> = {
+  payfast: "bg-[#FDF6EE] text-[#C4622D] border-[#E8C9B0]",
+  eft: "bg-slate-50 text-slate-700 border-slate-200",
+  credit: "bg-green-50 text-green-700 border-green-200",
+  voucher: "bg-amber-50 text-amber-800 border-amber-200",
+};
+
+export function getBookingPaymentMethodBadgeClass(
+  paymentMethod: string | null | undefined,
+  payfastPaymentId?: string | null
+): string {
+  const resolved = resolveBookingPaymentMethod(paymentMethod, payfastPaymentId);
+  return (
+    PAYMENT_METHOD_BADGE_CLASSES[resolved] ||
+    "bg-gray-50 text-gray-600 border-gray-200"
+  );
 }

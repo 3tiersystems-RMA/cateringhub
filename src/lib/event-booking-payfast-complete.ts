@@ -85,16 +85,28 @@ export async function completeEventBookingPayfast(
   }
 
   if (existing) {
-    const { error: updateErr } = await supabaseAdmin
+    const updatePayload = {
+      payment_status: 'paid',
+      payfast_payment_id: payfastPaymentId || code,
+    };
+
+    const { data: updatedRows, error: updateErr } = await supabaseAdmin
       .from("event_management_registrations")
-      .update({
-        payment_status: "paid",
-        payfast_payment_id: payfastPaymentId || code,
-      })
-      .eq("id", existing.id);
+      .update(updatePayload)
+      .eq("id", existing.id)
+      .neq("payment_status", "paid")
+      .select("id");
 
     if (updateErr) {
       return { status: "error", message: updateErr.message };
+    }
+
+    if (!updatedRows?.length) {
+      return {
+        status: "already_paid",
+        registrationId: existing.id,
+        registrationCode: existing.registration_code || code,
+      };
     }
 
     return {

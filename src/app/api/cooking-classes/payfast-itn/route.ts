@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { validateITNSignature, validateWithPayFast, PAYFAST_IPS, IS_TEST } from '@/lib/payfast';
 import { completeCookingClassPayfast } from '@/lib/cooking-class-payfast-complete';
 import { recordFailedBookingPayment } from '@/lib/booking-payfast-failed';
+import { maybeSendPayfastBookingConfirmationEmail } from '@/lib/booking-payfast-confirmation-email';
 
 export async function POST(req: NextRequest) {
   const responseOk = new NextResponse('OK', { status: 200 });
@@ -58,7 +59,11 @@ export async function POST(req: NextRequest) {
         console.error('[CC PayFast ITN] Complete failed:', result.message);
       } else if (result.status === 'created') {
         console.log('[CC PayFast ITN] Registration created from pending payment:', registrationCode);
+      } else if (result.status === 'updated') {
+        console.log('[CC PayFast ITN] Registration marked paid:', registrationCode);
       }
+
+      await maybeSendPayfastBookingConfirmationEmail(supabaseAdmin, 'cooking_class', result);
     } else if (pfData.payment_status === 'FAILED') {
       const failResult = await recordFailedBookingPayment(supabaseAdmin, {
         bookingType: 'cooking_class',

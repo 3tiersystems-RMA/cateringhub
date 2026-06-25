@@ -13,7 +13,7 @@ function PaymentReturnContent() {
   const searchParams = useSearchParams();
   const status = searchParams?.get('status');
   const isSuccess = status === 'success';
-  const { orderId: registrationCodeFromUrl, isPayFastReturn, paymentStatus } =
+  const { orderId: registrationCodeFromUrl, paymentStatus } =
     parseCheckoutReturnParams(searchParams);
 
   const [registrationCode, setRegistrationCode] = useState(registrationCodeFromUrl);
@@ -53,7 +53,10 @@ function PaymentReturnContent() {
   }, [isSuccess, registrationCode, paymentStatus]);
 
   useEffect(() => {
-    if (!isSuccess || !isPayFastReturn || !registrationCode) return;
+    // Match cooking-classes payment-return: confirm when status=success and we have
+    // the registration code (URL or sessionStorage). Do not require isPayFastReturn —
+    // PayFast often redirects to return_url with only ?status=success (no m_payment_id).
+    if (!isSuccess || !registrationCode) return;
     if (completionAttemptedRef.current) return;
     completionAttemptedRef.current = true;
 
@@ -99,7 +102,7 @@ function PaymentReturnContent() {
           err instanceof Error ? err.message : 'Could not verify booking. Please contact us with your reference.'
         );
       });
-  }, [isSuccess, isPayFastReturn, registrationCode, paymentStatus, searchParams]);
+  }, [isSuccess, registrationCode, paymentStatus, searchParams]);
 
   return (
     <div className="min-h-screen bg-[#FAF5EE] flex items-center justify-center px-4">

@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { validateITNSignature, validateWithPayFast, PAYFAST_IPS, IS_TEST } from '@/lib/payfast';
 import { completeEventBookingPayfast } from '@/lib/event-booking-payfast-complete';
 import { recordFailedBookingPayment } from '@/lib/booking-payfast-failed';
+import { maybeSendPayfastBookingConfirmationEmail } from '@/lib/booking-payfast-confirmation-email';
 
 export async function POST(req: NextRequest) {
   const responseOk = new NextResponse('OK', { status: 200 });
@@ -66,9 +67,13 @@ export async function POST(req: NextRequest) {
           console.log('[EB PayFast ITN] Registration created from pending payment:', registrationCode);
         } else if (result.status === 'already_paid') {
           console.log('[EB PayFast ITN] Pending payment already fulfilled:', registrationCode);
+        } else if (result.status === 'updated') {
+          console.log('[EB PayFast ITN] Registration marked paid:', registrationCode);
         } else if (result.status === 'error') {
           console.error('[EB PayFast ITN] Failed to create registration from pending:', result.message);
         }
+
+        await maybeSendPayfastBookingConfirmationEmail(supabaseAdmin, 'event', result);
       } else if (pfData.payment_status === 'FAILED') {
         const failResult = await recordFailedBookingPayment(supabaseAdmin, {
           bookingType: 'event',
@@ -87,15 +92,30 @@ export async function POST(req: NextRequest) {
       return responseOk;
     }
 
-    // ── Legacy path: registration already exists (EFT or old PayFast) ─────────
+    // ── Legacy path: registration already exists (register-first PayFast flow) ──
     if (pfData.payment_status === 'COMPLETE') {
-      await supabaseAdmin
-        .from('event_management_registrations')
-        .update({
-          payment_status: 'paid',
-          payfast_payment_id: pfData.pf_payment_id || pfData.m_payment_id,
-        })
-        .eq('registration_code', registrationCode);
+      const result = await completeEventBookingPayfast(
+        supabaseAdmin,
+        registrationCode,
+        pfData.pf_payment_id || pfData.m_payment_id
+      );
+
+      if (result.status === 'error') {
+        console.error('[EB PayFast ITN] Legacy complete failed:', result.message);
+      } else if (result.status === 'updated') {
+        console.log('[EB PayFast ITN] Legacy registration marked paid:', registrationCode);
+      }
+
+      await maybeSendPayfastBookingConfirmationEmail(supabaseAdmin, 'event', result);
+
+      // Previous behaviour (direct update without confirmation email):
+      // await supabaseAdmin
+      //   .from('event_management_registrations')
+      //   .update({
+      //     payment_status: 'paid',
+      //     payfast_payment_id: pfData.pf_payment_id || pfData.m_payment_id,
+      //   })
+      //   .eq('registration_code', registrationCode);
     } else if (pfData.payment_status === 'FAILED') {
       const failResult = await recordFailedBookingPayment(supabaseAdmin, {
         bookingType: 'event',

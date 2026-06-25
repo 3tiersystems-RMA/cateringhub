@@ -105,21 +105,33 @@ export async function completeCookingClassPayfast(
       updatePayload.payfast_itn_data = payfastItnData;
     }
 
-    let { error: updateErr } = await supabaseAdmin
+    let { data: updatedRows, error: updateErr } = await supabaseAdmin
       .from('cooking_class_registrations')
       .update(updatePayload)
-      .eq('id', existing.id);
+      .eq('id', existing.id)
+      .neq('payment_status', 'paid')
+      .select('id');
 
     if (updateErr && updatePayload.payfast_itn_data) {
       delete updatePayload.payfast_itn_data;
-      ({ error: updateErr } = await supabaseAdmin
+      ({ data: updatedRows, error: updateErr } = await supabaseAdmin
         .from('cooking_class_registrations')
         .update(updatePayload)
-        .eq('id', existing.id));
+        .eq('id', existing.id)
+        .neq('payment_status', 'paid')
+        .select('id'));
     }
 
     if (updateErr) {
       return { status: 'error', message: updateErr.message };
+    }
+
+    if (!updatedRows?.length) {
+      return {
+        status: 'already_paid',
+        registrationId: existing.id,
+        registrationCode: existing.registration_code || code,
+      };
     }
 
     return {

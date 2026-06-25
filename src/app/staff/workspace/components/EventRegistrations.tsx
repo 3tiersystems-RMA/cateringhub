@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { roleCanAccessTab } from '@/app/staff/workspace/rbac';
+import BookingPaymentMethodBadge from '@/app/staff/workspace/components/BookingPaymentMethodBadge';
 
 const STAFF_RECEIPT_ROLES = ['admin', 'super_admin', 'staff'] as const;
 
@@ -128,6 +129,7 @@ const PAYMENT_STATUS_COLORS: Record<string, string> = {
   pending: 'bg-amber-100 text-amber-700 border-amber-200',
   paid: 'bg-green-100 text-green-700 border-green-200',
   failed: 'bg-red-100 text-red-700 border-red-200',
+  failed_payment_transaction: 'bg-red-100 text-red-700 border-red-200',
   awaiting_confirmation: 'bg-blue-100 text-blue-700 border-blue-200',
   awaiting_payment: 'bg-blue-100 text-blue-700 border-blue-200',
 };
@@ -1314,10 +1316,17 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
                               ) : <span className="text-[#8C7B6B]">—</span>}
                             </td>
                             <td className="px-4 py-3">
-                              <div className="flex flex-col gap-1.5">
-                                <span className={`inline-block w-fit px-2 py-0.5 text-xs font-medium rounded-full border capitalize ${PAYMENT_STATUS_COLORS[reg.payment_status] || 'bg-gray-100 text-gray-600 border-gray-200'}`}>
-                                  {reg.payment_status.replace(/_/g, ' ')}
-                                </span>
+                              <div className="flex flex-col items-start gap-1.5">
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  <span className={`inline-flex w-fit shrink-0 px-2 py-0.5 text-xs font-medium rounded-full border capitalize ${PAYMENT_STATUS_COLORS[reg.payment_status] || 'bg-gray-100 text-gray-600 border-gray-200'}`}>
+                                    {reg.payment_status.replace(/_/g, ' ')}
+                                  </span>
+                                  <BookingPaymentMethodBadge
+                                    paymentMethod={reg.payment_method}
+                                    payfastPaymentId={reg.payfast_payment_id}
+                                    size="sm"
+                                  />
+                                </div>
                                 {canViewPayfastReceipt(reg) && (
                                   <button
                                     type="button"
@@ -1373,6 +1382,11 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
                                     <span className={`inline-block px-2.5 py-1 text-xs font-medium rounded-full border capitalize ${PAYMENT_STATUS_COLORS[reg.payment_status] || 'bg-gray-100 text-gray-600 border-gray-200'}`}>
                                       {reg.payment_status.replace(/_/g, ' ')}
                                     </span>
+                                    <BookingPaymentMethodBadge
+                                      paymentMethod={reg.payment_method}
+                                      payfastPaymentId={reg.payfast_payment_id}
+                                      size="sm"
+                                    />
                                     <span className="text-sm font-bold text-white">{formatCurrency(reg.amount)}</span>
                                     <span className="text-xs text-gray-400">{formatDate(reg.created_at)}</span>
                                   </div>
