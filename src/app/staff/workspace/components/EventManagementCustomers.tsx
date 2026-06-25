@@ -125,7 +125,7 @@ export default function EventManagementCustomers({ isSuperAdmin = false }: Event
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [paymentFilter, setPaymentFilter] = useState<'all' | 'paid' | 'pending' | 'awaiting_payment' | 'failed'>('all');
+  const [paymentFilter, setPaymentFilter] = useState<'all' | 'paid' | 'pending' | 'awaiting_payment'>('all');
   const [timeFilter, setTimeFilter] = useState<'all' | 'past' | 'current'>('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<Record<string, 'registrant' | 'participants' | 'sessions' | 'medical'>>({});
@@ -418,7 +418,7 @@ export default function EventManagementCustomers({ isSuperAdmin = false }: Event
           >
             Current
           </button>
-          {(['all', 'paid', 'pending', 'awaiting_payment', 'failed'] as const).map(s => (
+          {(['all', 'paid', 'pending', 'awaiting_payment'] as const).map(s => (
             <button
               key={s}
               onClick={() => setPaymentFilter(s)}
