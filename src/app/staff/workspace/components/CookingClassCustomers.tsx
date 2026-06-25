@@ -130,6 +130,7 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [paymentFilter, setPaymentFilter] = useState<'all' | 'paid' | 'pending' | 'awaiting_payment' | 'failed'>('all');
+  const [timeFilter, setTimeFilter] = useState<'all' | 'past' | 'current'>('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<Record<string, 'registrant' | 'participants' | 'sessions' | 'medical'>>({});
 
@@ -254,7 +255,24 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
       r.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
       r.cellphone.includes(searchQuery);
     const matchPayment = matchesPaymentStatusFilter(r.payment_status, paymentFilter);
-    return matchSearch && matchPayment;
+
+    // Time filter: based on session dates
+    let matchTime = true;
+    if (timeFilter !== 'all') {
+      const sessions = r.session_dates || [];
+      const now = new Date();
+      if (sessions.length === 0) {
+        // No session dates — treat as current
+        matchTime = timeFilter === 'current';
+      } else {
+        const hasUpcoming = sessions.some(s => s.event_date && new Date(s.event_date) >= now);
+        const allPast = sessions.every(s => s.event_date && new Date(s.event_date) < now);
+        if (timeFilter === 'past') matchTime = allPast;
+        if (timeFilter === 'current') matchTime = hasUpcoming;
+      }
+    }
+
+    return matchSearch && matchPayment && matchTime;
   });
 
   const toggleExpand = (id: string) => {
@@ -445,6 +463,22 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
           )}
         </div>
         <div className="flex gap-2 flex-wrap">
+          <button
+            onClick={() => setTimeFilter('past')}
+            className={`px-3 py-2 rounded-xl text-xs font-medium transition-all ${
+              timeFilter === 'past' ?'bg-[#C4622D] text-white' :'bg-white border border-[#DDD5C8] text-[#5C5347] hover:border-[#C4622D]/40'
+            }`}
+          >
+            Past
+          </button>
+          <button
+            onClick={() => setTimeFilter('current')}
+            className={`px-3 py-2 rounded-xl text-xs font-medium transition-all ${
+              timeFilter === 'current' ?'bg-[#C4622D] text-white' :'bg-white border border-[#DDD5C8] text-[#5C5347] hover:border-[#C4622D]/40'
+            }`}
+          >
+            Current
+          </button>
           {(['all', 'paid', 'pending', 'awaiting_payment', 'failed'] as const).map(s => (
             <button
               key={s}
