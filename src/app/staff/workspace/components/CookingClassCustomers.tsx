@@ -247,6 +247,7 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
   useEffect(() => { loadData(); }, [loadData]);
 
   const filtered = registrations.filter(r => {
+    if ((r.payment_status || '').toLowerCase().includes('failed')) return false;
     const fullName = `${r.first_name} ${r.surname}`.toLowerCase();
     const matchSearch = !searchQuery ||
       fullName.includes(searchQuery.toLowerCase()) ||
