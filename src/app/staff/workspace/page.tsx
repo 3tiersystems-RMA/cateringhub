@@ -799,7 +799,7 @@ export default function StaffWorkspacePage() {
 
             {/* ── FAILED TRANSACTIONS TAB ── */}
             {activeTab === 'failed_transactions' && (
-              <FailedTransactions />
+              <FailedTransactions isSuperAdmin={userProfile?.role === 'super_admin'} />
             )}
 
             {/* ── CUSTOMER REGISTRATIONS TAB ── */}
