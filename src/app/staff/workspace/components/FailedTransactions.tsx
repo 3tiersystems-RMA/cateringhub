@@ -291,7 +291,7 @@ export default function FailedTransactions({ isSuperAdmin = false }: { isSuperAd
       {/* Header */}
       <div className="mb-6">
         <h2 className="text-xl font-bold text-[#1A1612]">Failed Transactions</h2>
-        <p className="text-sm text-[#8C8278] mt-0.5">Cooking class registrations with failed payment transactions</p>
+        <p className="text-sm text-[#8C8278] mt-0.5">Failed payment Transactions via PayFast</p>
       </div>
 
       {/* Summary Cards */}
