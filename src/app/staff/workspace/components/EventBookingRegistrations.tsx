@@ -111,6 +111,7 @@ interface ParticipantBookingRow {
   location: string;
   registrationId: string;
   registrantName: string;
+  participantIndex: number; // original index in r.children array
 }
 
 type ParticipantSortKey = 'dob' | 'age' | 'gender' | 'allergies' | 'datetime';
@@ -280,6 +281,11 @@ export default function EventBookingRegistrations({ isSuperAdmin = false, userRo
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
+
+  // Participant-only delete state
+  const [deleteParticipantTarget, setDeleteParticipantTarget] = useState<{ registrationId: string; participantIndex: number; participantName: string } | null>(null);
+  const [deletingParticipant, setDeletingParticipant] = useState(false);
+  const [deleteParticipantError, setDeleteParticipantError] = useState('');
 
   // Confirmation email send (staff)
   const [correspondenceSettings, setCorrespondenceSettings] = useState<CorrespondenceSettings | null>(null);
@@ -595,6 +601,33 @@ export default function EventBookingRegistrations({ isSuperAdmin = false, userRo
     }
   };
 
+  const handleDeleteParticipant = async () => {
+    if (!deleteParticipantTarget) return;
+    setDeletingParticipant(true);
+    setDeleteParticipantError('');
+    try {
+      const reg = registrations.find(r => r.id === deleteParticipantTarget.registrationId);
+      if (!reg) throw new Error('Registration not found');
+      const updatedChildren = Array.isArray(reg.children) ? [...reg.children] : [];
+      updatedChildren.splice(deleteParticipantTarget.participantIndex, 1);
+      const { error } = await supabase
+        .from('event_management_registrations')
+        .update({ children: updatedChildren })
+        .eq('id', deleteParticipantTarget.registrationId);
+      if (error) throw error;
+      setRegistrations(prev => prev.map(r => {
+        if (r.id !== deleteParticipantTarget.registrationId) return r;
+        return { ...r, children: updatedChildren };
+      }));
+      setDeleteParticipantTarget(null);
+      setDeleteParticipantError('');
+    } catch (err: unknown) {
+      setDeleteParticipantError(err instanceof Error ? err.message : 'Failed to delete participant');
+    } finally {
+      setDeletingParticipant(false);
+    }
+  };
+
   // Apply filters
   const filtered = registrations.filter(r => {
     if (filterTab === 'event' && selectedEvent !== 'all') {
@@ -667,15 +700,19 @@ export default function EventBookingRegistrations({ isSuperAdmin = false, userRo
   const participantBookingRows: ParticipantBookingRow[] = (() => {
     const rows: ParticipantBookingRow[] = [];
     registrations.forEach(r => {
-      const children = filterFilledChildren(r.children);
-      if (children.length === 0) return;
+      const allChildren = Array.isArray(r.children) ? r.children : [];
       const registrantName = `${r.title ? r.title + ' ' : ''}${r.first_name} ${r.surname}`.trim();
+      // Build list of filled children with their original indices
+      const filledChildren: { child: ChildParticipant; originalIndex: number }[] = allChildren
+        .map((child, idx) => ({ child, originalIndex: idx }))
+        .filter(({ child }) => (child.fullName || child.full_name || child.name || '').trim().length > 0);
+      if (filledChildren.length === 0) return;
       (r.session_dates || []).forEach(sd => {
         const evName = sd.event_name || 'Unknown Event';
         const timeslot = sd.start_time && sd.end_time
           ? `${sd.start_time} – ${sd.end_time}`
           : sd.start_time || 'Time TBC';
-        children.forEach(child => {
+        filledChildren.forEach(({ child, originalIndex }) => {
           const ageStr = child.age != null ? String(child.age) : calcAge(child.dob);
           rows.push({
             eventName: evName,
@@ -689,6 +726,7 @@ export default function EventBookingRegistrations({ isSuperAdmin = false, userRo
             location: (sd.location || '').trim(),
             registrationId: r.id,
             registrantName,
+            participantIndex: originalIndex,
           });
         });
       });
@@ -1091,12 +1129,9 @@ export default function EventBookingRegistrations({ isSuperAdmin = false, userRo
                               <td className="px-4 py-3 text-center">
                                 <button
                                   type="button"
-                                  onClick={() => {
-                                    const reg = registrations.find(r => r.id === row.registrationId);
-                                    if (reg) openDeleteModal(reg, { stopPropagation: () => {} } as React.MouseEvent);
-                                  }}
+                                  onClick={() => setDeleteParticipantTarget({ registrationId: row.registrationId, participantIndex: row.participantIndex, participantName: row.fullName })}
                                   className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 hover:border-red-300 transition-colors"
-                                  title={`Delete booking for ${row.registrantName}`}
+                                  title={`Delete participant ${row.fullName}`}
                                 >
                                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -1224,12 +1259,9 @@ export default function EventBookingRegistrations({ isSuperAdmin = false, userRo
                               <td className="px-4 py-3 text-center">
                                 <button
                                   type="button"
-                                  onClick={() => {
-                                    const reg = registrations.find(r => r.id === row.registrationId);
-                                    if (reg) openDeleteModal(reg, { stopPropagation: () => {} } as React.MouseEvent);
-                                  }}
+                                  onClick={() => setDeleteParticipantTarget({ registrationId: row.registrationId, participantIndex: row.participantIndex, participantName: row.fullName })}
                                   className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 hover:border-red-300 transition-colors"
-                                  title={`Delete booking for ${row.registrantName}`}
+                                  title={`Delete participant ${row.fullName}`}
                                 >
                                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -1849,6 +1881,48 @@ export default function EventBookingRegistrations({ isSuperAdmin = false, userRo
                   <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Deleting…</>
                 ) : (
                   <><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>Delete Permanently</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── DELETE PARTICIPANT MODAL ── */}
+      {deleteParticipantTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-red-200 w-full max-w-md">
+            <div className="flex items-center gap-3 px-6 pt-6 pb-4 border-b border-red-100">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                <svg className="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-[#1A1612]">Delete Participant</h3>
+                <p className="text-xs text-red-600 font-medium">This action is permanent and cannot be undone</p>
+              </div>
+            </div>
+            <div className="px-6 py-5">
+              <p className="text-sm text-[#5C5347] mb-3">You are about to permanently delete this participant record only:</p>
+              <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-4">
+                <p className="text-sm font-bold text-[#1A1612]">{deleteParticipantTarget.participantName}</p>
+                <p className="text-xs text-[#8C8278] mt-0.5">Only this participant will be removed. The registrant and all other participants remain unchanged.</p>
+              </div>
+              {deleteParticipantError && <p className="text-xs text-red-600 mt-2">{deleteParticipantError}</p>}
+            </div>
+            <div className="flex gap-3 px-6 pb-6">
+              <button type="button" onClick={() => { setDeleteParticipantTarget(null); setDeleteParticipantError(''); }} disabled={deletingParticipant} className="flex-1 px-4 py-2.5 rounded-xl border border-[#DDD5C8] text-sm font-medium text-[#5C5347] hover:bg-[#FAF5EE] transition-colors disabled:opacity-50">Cancel</button>
+              <button
+                type="button"
+                onClick={handleDeleteParticipant}
+                disabled={deletingParticipant}
+                className="flex-1 px-4 py-2.5 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {deletingParticipant ? (
+                  <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Deleting…</>
+                ) : (
+                  <><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>Delete Participant</>
                 )}
               </button>
             </div>
