@@ -52,7 +52,8 @@ export async function POST(req: NextRequest) {
         supabaseAdmin,
         registrationCode,
         pfData.pf_payment_id || registrationCode,
-        pfData
+        pfData,
+        'payfast-itn'
       );
 
       if (result.status === 'error') {
@@ -63,12 +64,13 @@ export async function POST(req: NextRequest) {
         console.log('[CC PayFast ITN] Registration marked paid:', registrationCode);
       }
 
-      await maybeSendPayfastBookingConfirmationEmail(supabaseAdmin, 'cooking_class', result);
+      await maybeSendPayfastBookingConfirmationEmail(supabaseAdmin, 'cooking_class', result, 'payfast-itn');
     } else if (pfData.payment_status === 'FAILED') {
       const failResult = await recordFailedBookingPayment(supabaseAdmin, {
         bookingType: 'cooking_class',
         mPaymentId: registrationCode,
         payfastPaymentId: pfData.pf_payment_id || null,
+        testSource: 'payfast-itn',
       });
       if (failResult.status === 'error') {
         console.error('[CC PayFast ITN] Failed to record failed payment:', failResult.message);

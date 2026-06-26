@@ -6,6 +6,7 @@ import { Suspense, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { parseCheckoutReturnParams } from '@/lib/checkout-return';
+import { logPayfastTestBrowser } from '@/lib/payfast-test-logs';
 
 const PENDING_CODE_KEY = 'cc_pending_registration_code';
 
@@ -39,6 +40,11 @@ function PaymentReturnContent() {
     if (isSuccess || !registrationCode || failedRecordedRef.current) return;
     failedRecordedRef.current = true;
 
+    logPayfastTestBrowser('cooking_class', 'Recording failed/cancelled payment', {
+      registrationCode,
+      paymentStatus: paymentStatus || 'CANCELLED',
+    });
+
     fetch('/api/bookings/record-failed-payment', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -59,6 +65,11 @@ function PaymentReturnContent() {
 
     setConfirmState('loading');
 
+    logPayfastTestBrowser('cooking_class', 'Payment return success — completing pending payment', {
+      registrationCode,
+      paymentStatus: paymentStatus || 'COMPLETE',
+    });
+
     fetch('/api/cooking-classes/complete-pending-payment', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -75,6 +86,7 @@ function PaymentReturnContent() {
         }
         if (res.ok) {
           setConfirmState('done');
+          logPayfastTestBrowser('cooking_class', 'Complete pending payment response', data);
           if (data.outcome === 'created') {
             setConfirmMessage('Your class registration has been confirmed.');
           } else if (data.outcome === 'updated') {
@@ -95,6 +107,9 @@ function PaymentReturnContent() {
         }
       })
       .catch((err) => {
+        logPayfastTestBrowser('cooking_class', 'Complete pending payment error', {
+          message: err instanceof Error ? err.message : String(err),
+        });
         setConfirmState('error');
         setConfirmMessage(
           err instanceof Error

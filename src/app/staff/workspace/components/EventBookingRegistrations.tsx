@@ -1,8 +1,16 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import BookingPaymentMethodBadge from '@/app/staff/workspace/components/BookingPaymentMethodBadge';
+import {
+  ConfirmationEmailRecipientStatus,
+  RecipientCheckboxList,
+  buildSendRecipientOptions,
+  defaultSelectedRecipientKeys,
+} from '@/app/staff/workspace/components/ConfirmationEmailRecipientStatus';
+import type { ConfirmationEmailRecipientsMap, ConfirmationRecipientKey } from '@/lib/confirmation-email-recipients';
+import { resolveConfirmationRecipients } from '@/lib/confirmation-email-recipients';
 
 interface ChildParticipant {
   fullName?: string;
@@ -53,8 +61,18 @@ interface RegistrationRow {
   indemnity_consent: boolean | null;
   notes: string | null;
   first_time_portal?: string | null;
+  registration_code?: string | null;
+  payfast_confirmation_email_sent_at?: string | null;
+  payfast_confirmation_email_error?: string | null;
+  payfast_confirmation_email_resend_id?: string | null;
+  confirmation_email_recipients?: ConfirmationEmailRecipientsMap | null;
   // enriched
   session_dates?: SessionDate[];
+}
+
+interface CorrespondenceSettings {
+  info_email: string | null;
+  admin_email: string | null;
 }
 
 interface SessionDate {
@@ -207,11 +225,21 @@ function SortIcon({ col, sortKey, sortDir }: { col: ParticipantSortKey; sortKey:
   return <span className="ml-1 text-[#C4622D]">{sortDir === 'asc' ? '↑' : '↓'}</span>;
 }
 
-interface EventBookingRegistrationsProps {
-  isSuperAdmin?: boolean;
+function isAdminOrAbove(userRole: string): boolean {
+  return userRole === 'admin' || userRole === 'super_admin';
 }
 
-export default function EventBookingRegistrations({ isSuperAdmin = false }: EventBookingRegistrationsProps) {
+function canSendStaffConfirmation(userRole: string, reg: RegistrationRow): boolean {
+  if (!isAdminOrAbove(userRole)) return false;
+  return ['paid', 'awaiting_confirmation'].includes(reg.payment_status);
+}
+
+interface EventBookingRegistrationsProps {
+  isSuperAdmin?: boolean;
+  userRole?: string;
+}
+
+export default function EventBookingRegistrations({ isSuperAdmin = false, userRole = '' }: EventBookingRegistrationsProps) {
   const supabase = createClient();
   const [registrations, setRegistrations] = useState<RegistrationRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -251,8 +279,20 @@ export default function EventBookingRegistrations({ isSuperAdmin = false }: Even
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
+  // Confirmation email send (staff)
+  const [correspondenceSettings, setCorrespondenceSettings] = useState<CorrespondenceSettings | null>(null);
+  const [sendTarget, setSendTarget] = useState<RegistrationRow | null>(null);
+  const [selectedSendTargets, setSelectedSendTargets] = useState<ConfirmationRecipientKey[]>([]);
+  const [sendingConfirmationId, setSendingConfirmationId] = useState<string | null>(null);
+  const [sendError, setSendError] = useState('');
+  const [toastMessage, setToastMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const suppressSendModalUntil = useRef(0);
+
+  const loadData = useCallback(async (options?: { silent?: boolean }) => {
+    const silent = Boolean(options?.silent);
+    if (!silent) {
+      setLoading(true);
+    }
     setError('');
     try {
       // 1. Fetch all event management registrations
@@ -333,10 +373,24 @@ export default function EventBookingRegistrations({ isSuperAdmin = false }: Even
       });
       setEventOptions([...allEvents].sort());
       setVenueOptions([...allVenues].sort());
+
+      const { data: corrSettings } = await supabase
+        .from('correspondence_settings')
+        .select('info_email, admin_email')
+        .limit(1)
+        .maybeSingle();
+      if (corrSettings) {
+        setCorrespondenceSettings({
+          info_email: corrSettings.info_email,
+          admin_email: corrSettings.admin_email,
+        });
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to load registrations');
     } finally {
-      setLoading(false);
+      if (!options?.silent) {
+        setLoading(false);
+      }
     }
   }, [supabase]);
 
@@ -344,6 +398,155 @@ export default function EventBookingRegistrations({ isSuperAdmin = false }: Even
 
   // Reset to page 1 when filters change
   useEffect(() => { setCurrentPage(1); }, [filterTab, selectedEvent, registrantSearch, selectedVenue]);
+
+  const openSendModal = (reg: RegistrationRow, e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (Date.now() < suppressSendModalUntil.current) return;
+    if (!canSendStaffConfirmation(userRole, reg)) return;
+
+    const options = buildSendRecipientOptions(
+      resolveConfirmationRecipients(
+        reg.confirmation_email_recipients,
+        reg.email,
+        correspondenceSettings?.info_email,
+        correspondenceSettings?.admin_email,
+        reg.payfast_confirmation_email_sent_at,
+        reg.payfast_confirmation_email_resend_id
+      )
+    );
+
+    setSendTarget(reg);
+    setSelectedSendTargets(defaultSelectedRecipientKeys(options));
+    setSendError('');
+  };
+
+  const closeSendModal = () => {
+    setSendTarget(null);
+    setSelectedSendTargets([]);
+    setSendError('');
+    setSendingConfirmationId(null);
+  };
+
+  const patchRegistrationAfterSend = (
+    registrationId: string,
+    data: {
+      recipients?: ConfirmationEmailRecipientsMap;
+      resendId?: string;
+      results?: Partial<Record<ConfirmationRecipientKey, { sent?: boolean }>>;
+    }
+  ) => {
+    const sentAt = new Date().toISOString();
+    setRegistrations((prev) =>
+      prev.map((r) => {
+        if (r.id !== registrationId) return r;
+
+        let recipients = data.recipients ?? r.confirmation_email_recipients ?? null;
+        if (!recipients && data.results) {
+          const base = { ...(r.confirmation_email_recipients || {}) } as ConfirmationEmailRecipientsMap;
+          for (const [key, result] of Object.entries(data.results)) {
+            if (!result?.sent) continue;
+            const k = key as ConfirmationRecipientKey;
+            const email =
+              k === 'customer'
+                ? r.email
+                : k === 'info_admin'
+                  ? correspondenceSettings?.info_email
+                  : correspondenceSettings?.admin_email;
+            if (!email) continue;
+            base[k] = {
+              email,
+              sent_at: sentAt,
+              error: null,
+              resend_id: data.resendId || null,
+            };
+          }
+          if (Object.keys(base).length > 0) recipients = base;
+        }
+
+        return {
+          ...r,
+          confirmation_email_recipients: recipients,
+          payfast_confirmation_email_sent_at: sentAt,
+          payfast_confirmation_email_error: null,
+          payfast_confirmation_email_resend_id: data.resendId ?? r.payfast_confirmation_email_resend_id,
+        };
+      })
+    );
+  };
+
+  const showToast = (type: 'success' | 'error', text: string) => {
+    setToastMessage({ type, text });
+    window.setTimeout(() => setToastMessage(null), 6000);
+  };
+
+  const handleSendConfirmation = async () => {
+    if (!sendTarget || selectedSendTargets.length === 0) return;
+
+    const sendOptions = buildSendRecipientOptions(
+      resolveConfirmationRecipients(
+        sendTarget.confirmation_email_recipients,
+        sendTarget.email,
+        correspondenceSettings?.info_email,
+        correspondenceSettings?.admin_email,
+        sendTarget.payfast_confirmation_email_sent_at,
+        sendTarget.payfast_confirmation_email_resend_id
+      )
+    );
+    const forceResend = selectedSendTargets.some(
+      (key) => sendOptions.find((o) => o.key === key)?.status === 'sent'
+    );
+
+    setSendingConfirmationId(sendTarget.id);
+    setSendError('');
+    try {
+      const res = await fetch('/api/event-bookings/send-staff-confirmation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          registrationId: sendTarget.id,
+          targets: selectedSendTargets,
+          forceResend,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || data.message || 'Failed to send confirmation email');
+      }
+
+      if (data.skipped) {
+        const skipMsg =
+          data.message ||
+          data.error ||
+          'Selected recipients are already notified — check the box to resend.';
+        setSendError(skipMsg);
+        showToast('error', skipMsg);
+        return;
+      }
+
+      const sentLabels = selectedSendTargets
+        .map((key) => sendOptions.find((o) => o.key === key)?.label)
+        .filter(Boolean);
+
+      const registrationId = sendTarget.id;
+      suppressSendModalUntil.current = Date.now() + 800;
+      closeSendModal();
+      patchRegistrationAfterSend(registrationId, data);
+
+      showToast(
+        'success',
+        data.partial
+          ? 'Email sent with some failures. Check Confirm Email status for details.'
+          : `Confirmation email sent to ${sentLabels.join(', ') || 'selected recipients'}.`
+      );
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to send confirmation email';
+      setSendError(message);
+      showToast('error', message);
+    } finally {
+      setSendingConfirmationId(null);
+    }
+  };
 
   // ── Delete handlers ──────────────────────────────────────────────────────────
   const openDeleteModal = (reg: RegistrationRow, e: React.MouseEvent) => {
@@ -654,7 +857,7 @@ export default function EventBookingRegistrations({ isSuperAdmin = false }: Even
           <p className="text-sm text-[#8C7B6B] mt-0.5">All event booking registrations with participant details</p>
         </div>
         <button
-          onClick={loadData}
+          onClick={() => loadData()}
           className="flex items-center gap-2 px-3 py-2 text-sm bg-white border border-[#E8DDD0] rounded-lg text-[#5C5347] hover:bg-[#FAF5EE] transition-colors"
         >
           <span>↻</span> Refresh
@@ -848,7 +1051,7 @@ export default function EventBookingRegistrations({ isSuperAdmin = false }: Even
                       <tbody className="divide-y divide-[#F0E8DE]">
                         {sortedParticipantRows.map((row, idx) => (
                           <tr key={idx} className={idx % 2 === 0 ? 'bg-white hover:bg-[#FAF5EE]' : 'bg-[#FAF5EE] hover:bg-[#F5EFE8]'}>
-                            <td className="px-4 py-3 text-xs text-[#8C7B6B] font-medium">{idx + 1}</td>
+                            <td className="px-4 py-3"><span className="inline-flex items-center justify-center w-8 h-6 bg-black text-white text-xs font-semibold rounded-full">{idx + 1}</span></td>
                             <td className="px-4 py-3">
                               <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-[#FDF6EE] to-[#F5EFE8] text-[#C4622D] text-xs font-medium rounded-lg border border-[#E8C9B0] shadow-sm">
                                 <span className="w-1.5 h-1.5 rounded-full bg-[#C4622D] flex-shrink-0" />
@@ -956,7 +1159,7 @@ export default function EventBookingRegistrations({ isSuperAdmin = false }: Even
                       <tbody className="divide-y divide-[#F0E8DE]">
                         {sortedLocationParticipantRows.map((row, idx) => (
                           <tr key={idx} className={idx % 2 === 0 ? 'bg-white hover:bg-[#FAF5EE]' : 'bg-[#FAF5EE] hover:bg-[#F5EFE8]'}>
-                            <td className="px-4 py-3 text-xs text-[#8C7B6B] font-medium">{idx + 1}</td>
+                            <td className="px-4 py-3"><span className="inline-flex items-center justify-center w-8 h-6 bg-black text-white text-xs font-semibold rounded-full">{idx + 1}</span></td>
                             <td className="px-4 py-3">
                               <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-[#FDF6EE] to-[#F5EFE8] text-[#C4622D] text-xs font-medium rounded-lg border border-[#E8C9B0] shadow-sm">
                                 <span className="w-1.5 h-1.5 rounded-full bg-[#C4622D] flex-shrink-0" />
@@ -1072,9 +1275,15 @@ export default function EventBookingRegistrations({ isSuperAdmin = false }: Even
                       <th className="px-4 py-3 text-left font-semibold">Venue</th>
                       <th className="px-4 py-3 text-left font-semibold">Date(s)</th>
                       <th className="px-4 py-3 text-left font-semibold">Payment</th>
+                      {isAdminOrAbove(userRole) && (
+                        <th className="px-4 py-3 text-left font-semibold">Confirm Email</th>
+                      )}
                       <th className="px-4 py-3 text-left font-semibold">Amount</th>
                       <th className="px-4 py-3 text-left font-semibold">Registered</th>
                       <th className="px-4 py-3 text-center font-semibold">Participants</th>
+                      {isAdminOrAbove(userRole) && (
+                        <th className="px-4 py-3 text-center font-semibold w-16">Action</th>
+                      )}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#F0E8DE]">
@@ -1143,6 +1352,22 @@ export default function EventBookingRegistrations({ isSuperAdmin = false }: Even
                                 />
                               </div>
                             </td>
+                            {isAdminOrAbove(userRole) && (
+                              <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                                {canSendStaffConfirmation(userRole, reg) ? (
+                                  <ConfirmationEmailRecipientStatus
+                                    customerEmail={reg.email}
+                                    infoEmail={correspondenceSettings?.info_email ?? null}
+                                    mainAdminEmail={correspondenceSettings?.admin_email ?? null}
+                                    storedRecipients={reg.confirmation_email_recipients}
+                                    legacySentAt={reg.payfast_confirmation_email_sent_at}
+                                    legacyResendId={reg.payfast_confirmation_email_resend_id}
+                                  />
+                                ) : (
+                                  <span className="text-[#8C7B6B]">—</span>
+                                )}
+                              </td>
+                            )}
                             <td className="px-4 py-3 font-medium text-[#2C2420]">{formatCurrency(reg.amount)}</td>
                             <td className="px-4 py-3 text-xs text-[#5C5347]">{formatDate(reg.created_at)}</td>
                             <td className="px-4 py-3 text-center">
@@ -1169,12 +1394,38 @@ export default function EventBookingRegistrations({ isSuperAdmin = false }: Even
                                 </button>
                               </div>
                             </td>
+                            {isAdminOrAbove(userRole) && (
+                              <td className="px-4 py-3 text-center" onClick={e => e.stopPropagation()}>
+                                {canSendStaffConfirmation(userRole, reg) ? (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => openSendModal(reg, e)}
+                                    disabled={sendingConfirmationId === reg.id}
+                                    className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-[#E8DDD0] bg-white text-[#C4622D] hover:bg-[#FDF6EE] hover:border-[#C4622D] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    title="Send confirmation email to registrant and admins"
+                                  >
+                                    {sendingConfirmationId === reg.id ? (
+                                      <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                      </svg>
+                                    ) : (
+                                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                      </svg>
+                                    )}
+                                  </button>
+                                ) : (
+                                  <span className="text-[#C4B8A8]">—</span>
+                                )}
+                              </td>
+                            )}
                           </tr>
 
                           {/* Expanded participant details */}
                           {isExpanded && (
                             <tr key={`${reg.id}-expanded`} className="bg-[#FDF6EE]">
-                              <td colSpan={9} className="p-0">
+                              <td colSpan={isAdminOrAbove(userRole) ? 11 : 9} className="p-0">
                                 <div className="bg-black px-6 py-4 flex items-center gap-4">
                                   <div className="flex-1 min-w-0">
                                     <p className="text-sm font-bold text-white">{reg.title} {reg.first_name} {reg.surname}</p>
@@ -1379,6 +1630,131 @@ export default function EventBookingRegistrations({ isSuperAdmin = false }: Even
           </>
         )}
       </div>
+
+      {/* ── Toast ── */}
+      {toastMessage && (
+        <div
+          className={`fixed bottom-6 right-6 z-[60] max-w-md px-4 py-3 rounded-xl shadow-lg border text-sm font-medium ${
+            toastMessage.type === 'success' ?'bg-green-50 border-green-200 text-green-800' :'bg-red-50 border-red-200 text-red-800'
+          }`}
+        >
+          {toastMessage.text}
+        </div>
+      )}
+
+      {/* ── SEND CONFIRMATION EMAIL MODAL ── */}
+      {sendTarget && (() => {
+        const sendOptions = buildSendRecipientOptions(
+          resolveConfirmationRecipients(
+            sendTarget.confirmation_email_recipients,
+            sendTarget.email,
+            correspondenceSettings?.info_email,
+            correspondenceSettings?.admin_email,
+            sendTarget.payfast_confirmation_email_sent_at,
+            sendTarget.payfast_confirmation_email_resend_id
+          )
+        );
+        return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div
+            className="bg-white rounded-2xl shadow-2xl border border-[#E8DDD0] w-full max-w-lg"
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-[#E8DDD0]">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-[#FDF6EE] border border-[#E8C9B0] flex items-center justify-center flex-shrink-0">
+                  <svg className="w-5 h-5 text-[#C4622D]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-[#1A1612]">Send Confirmation Email</h3>
+                  <p className="text-xs text-[#8C7B6B] mt-0.5">Select who should receive this event booking confirmation</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={closeSendModal}
+                disabled={Boolean(sendingConfirmationId)}
+                className="w-8 h-8 rounded-full border border-[#E8DDD0] text-[#8C7B6B] hover:bg-[#FAF5EE] transition-colors disabled:opacity-50"
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="px-6 py-5 space-y-4">
+              <div className="bg-[#FAF5EE] border border-[#E8DDD0] rounded-xl p-3">
+                <p className="text-sm font-bold text-[#1A1612]">
+                  {sendTarget.title ? `${sendTarget.title} ` : ''}{sendTarget.first_name} {sendTarget.surname}
+                </p>
+                <p className="text-xs text-[#8C7B6B] mt-0.5">
+                  {sendTarget.registration_code ? `Ref: ${sendTarget.registration_code} · ` : ''}
+                  {formatCurrency(sendTarget.amount)} · {sendTarget.payment_status.replace(/_/g, ' ')}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold text-[#5C5347] uppercase tracking-wide mb-2">
+                  Select recipients
+                </p>
+                {sendOptions.length > 0 ? (
+                  <RecipientCheckboxList
+                    options={sendOptions}
+                    selected={selectedSendTargets}
+                    onChange={setSelectedSendTargets}
+                  />
+                ) : (
+                  <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                    No recipient emails are configured for this registration.
+                  </p>
+                )}
+              </div>
+
+              {sendError && (
+                <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{sendError}</p>
+              )}
+            </div>
+
+            <div className="flex gap-3 px-6 pb-6">
+              <button
+                type="button"
+                onClick={closeSendModal}
+                disabled={Boolean(sendingConfirmationId)}
+                className="flex-1 px-4 py-2.5 rounded-xl border border-[#DDD5C8] text-sm font-medium text-[#5C5347] hover:bg-[#FAF5EE] transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  void handleSendConfirmation();
+                }}
+                disabled={Boolean(sendingConfirmationId) || selectedSendTargets.length === 0}
+                className="flex-1 px-4 py-2.5 rounded-xl bg-[#1A1612] text-white text-sm font-semibold hover:bg-black transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {sendingConfirmationId ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Sending…
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                    </svg>
+                    Send to selected ({selectedSendTargets.length})
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+        );
+      })()}
 
       {/* ── DELETE CONFIRMATION MODAL ── */}
       {deleteTarget && (

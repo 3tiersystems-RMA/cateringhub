@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { logPayfastTestTransaction } from "@/lib/payfast-test-logs";
 
 export type CompleteEventPendingResult =
   | { status: "created"; registrationId: string; registrationCode: string }
@@ -19,10 +20,20 @@ interface PendingPayload {
 export async function completeEventBookingPayfast(
   supabaseAdmin: SupabaseClient,
   registrationCode: string,
-  payfastPaymentId?: string | null
+  payfastPaymentId?: string | null,
+  testSource: "payfast-itn" | "payment-return" | "complete-payfast" = "complete-payfast"
 ): Promise<CompleteEventPendingResult> {
   const code = registrationCode.trim();
   if (!code) {
+    logPayfastTestTransaction({
+      kind: "event",
+      source: testSource,
+      registrationCode: code,
+      payfastPaymentId: payfastPaymentId ?? null,
+      outcome: "not_found",
+      success: false,
+      reason: "Empty registration code",
+    });
     return { status: "not_found" };
   }
 
@@ -33,11 +44,22 @@ export async function completeEventBookingPayfast(
     .maybeSingle();
 
   if (existing?.payment_status === "paid") {
-    return {
-      status: "already_paid",
+    const result = {
+      status: "already_paid" as const,
       registrationId: existing.id,
       registrationCode: existing.registration_code || code,
     };
+    logPayfastTestTransaction({
+      kind: "event",
+      source: testSource,
+      registrationCode: code,
+      registrationId: existing.id,
+      payfastPaymentId: payfastPaymentId ?? null,
+      outcome: result.status,
+      success: true,
+      reason: "Registration already marked paid",
+    });
+    return result;
   }
 
   const { data: pendingRow } = await supabaseAdmin
@@ -61,10 +83,20 @@ export async function completeEventBookingPayfast(
       .single();
 
     if (regErr || !reg) {
-      return {
-        status: "error",
+      const result = {
+        status: "error" as const,
         message: regErr?.message || "Failed to create registration from pending payment",
       };
+      logPayfastTestTransaction({
+        kind: "event",
+        source: testSource,
+        registrationCode: code,
+        payfastPaymentId: payfastPaymentId ?? null,
+        outcome: result.status,
+        success: false,
+        reason: result.message,
+      });
+      return result;
     }
 
     if (Array.isArray(p.selectedDateIds) && p.selectedDateIds.length > 0) {
@@ -81,12 +113,23 @@ export async function completeEventBookingPayfast(
       .delete()
       .eq("m_payment_id", code);
 
-    return { status: "created", registrationId: reg.id, registrationCode: code };
+    const result = { status: "created" as const, registrationId: reg.id, registrationCode: code };
+    logPayfastTestTransaction({
+      kind: "event",
+      source: testSource,
+      registrationCode: code,
+      registrationId: reg.id,
+      payfastPaymentId: payfastPaymentId ?? null,
+      outcome: result.status,
+      success: true,
+      reason: "Created registration from pending PayFast payment",
+    });
+    return result;
   }
 
   if (existing) {
     const updatePayload = {
-      payment_status: 'paid',
+      payment_status: "paid",
       payfast_payment_id: payfastPaymentId || code,
     };
 
@@ -98,23 +141,65 @@ export async function completeEventBookingPayfast(
       .select("id");
 
     if (updateErr) {
-      return { status: "error", message: updateErr.message };
+      const result = { status: "error" as const, message: updateErr.message };
+      logPayfastTestTransaction({
+        kind: "event",
+        source: testSource,
+        registrationCode: code,
+        registrationId: existing.id,
+        payfastPaymentId: payfastPaymentId ?? null,
+        outcome: result.status,
+        success: false,
+        reason: result.message,
+      });
+      return result;
     }
 
     if (!updatedRows?.length) {
-      return {
-        status: "already_paid",
+      const result = {
+        status: "already_paid" as const,
         registrationId: existing.id,
         registrationCode: existing.registration_code || code,
       };
+      logPayfastTestTransaction({
+        kind: "event",
+        source: testSource,
+        registrationCode: code,
+        registrationId: existing.id,
+        payfastPaymentId: payfastPaymentId ?? null,
+        outcome: result.status,
+        success: true,
+        reason: "Update matched no rows — already paid",
+      });
+      return result;
     }
 
-    return {
-      status: "updated",
+    const result = {
+      status: "updated" as const,
       registrationId: existing.id,
       registrationCode: existing.registration_code || code,
     };
+    logPayfastTestTransaction({
+      kind: "event",
+      source: testSource,
+      registrationCode: code,
+      registrationId: existing.id,
+      payfastPaymentId: payfastPaymentId ?? null,
+      outcome: result.status,
+      success: true,
+      reason: "Existing registration marked paid",
+    });
+    return result;
   }
 
+  logPayfastTestTransaction({
+    kind: "event",
+    source: testSource,
+    registrationCode: code,
+    payfastPaymentId: payfastPaymentId ?? null,
+    outcome: "not_found",
+    success: false,
+    reason: "No pending payment or existing registration for code",
+  });
   return { status: "not_found" };
 }

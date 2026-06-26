@@ -6,6 +6,9 @@ import {
   formatBookingPaymentStatus,
   matchesPaymentStatusFilter,
   mergeBookingPaymentStatusOptions,
+  getPayfastConfirmationEmailStatus,
+  formatPayfastConfirmationEmailStatus,
+  getPayfastConfirmationEmailBadgeClass,
 } from '@/lib/booking-payment-status';
 import BookingPaymentMethodBadge from '@/app/staff/workspace/components/BookingPaymentMethodBadge';
 
@@ -20,6 +23,8 @@ interface UnifiedRegistration {
   payment_status: string;
   payment_method: string | null;
   payfast_payment_id: string | null;
+  payfast_confirmation_email_sent_at: string | null;
+  payfast_confirmation_email_error: string | null;
   amount: number | null;
   created_at: string;
   // event/class name(s)
@@ -43,6 +48,35 @@ const PAYMENT_STATUS_COLORS: Record<string, string> = {
 };
 
 const PAGE_SIZE = 15;
+
+const CLASS_REG_SELECT_WITH_PF_EMAIL =
+  'id, title, first_name, surname, email, cellphone, payment_status, payment_method, payfast_payment_id, payfast_confirmation_email_sent_at, payfast_confirmation_email_error, amount, created_at, children';
+
+const CLASS_REG_SELECT_LEGACY =
+  'id, title, first_name, surname, email, cellphone, payment_status, payment_method, payfast_payment_id, amount, created_at, children';
+
+const EVENT_REG_SELECT_WITH_PF_EMAIL =
+  'id, title, first_name, surname, email, cellphone, payment_status, payment_method, payfast_payment_id, payfast_confirmation_email_sent_at, payfast_confirmation_email_error, amount, created_at, children';
+
+const EVENT_REG_SELECT_LEGACY =
+  'id, title, first_name, surname, email, cellphone, payment_status, payment_method, payfast_payment_id, amount, created_at, children';
+
+function isPfEmailColumnError(message: string | undefined): boolean {
+  return Boolean(
+    message?.includes('payfast_confirmation_email_sent_at') ||
+    message?.includes('payfast_confirmation_email_error')
+  );
+}
+
+function withPfEmailDefaults<T extends Record<string, unknown>>(row: T) {
+  return {
+    ...row,
+    payfast_confirmation_email_sent_at:
+      (row.payfast_confirmation_email_sent_at as string | null | undefined) ?? null,
+    payfast_confirmation_email_error:
+      (row.payfast_confirmation_email_error as string | null | undefined) ?? null,
+  };
+}
 
 function formatDate(dateStr: string | null | undefined) {
   if (!dateStr) return '—';
@@ -160,18 +194,35 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
   const [paymentFilter, setPaymentFilter] = useState<string>('paid');
   const [paymentStatusOptions, setPaymentStatusOptions] = useState<string[]>([...mergeBookingPaymentStatusOptions([])]);
   const [currentPage, setCurrentPage] = useState(1);
+  const [pfEmailTrackingEnabled, setPfEmailTrackingEnabled] = useState(true);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
       // ── 1. Fetch Cooking Class Registrations ──────────────────────────────
-      const { data: classRegs, error: classErr } = await supabase
+      let classRegs: Record<string, unknown>[] | null = null;
+      let pfTracking = true;
+
+      const classExtended = await supabase
         .from('cooking_class_registrations')
-        .select('id, title, first_name, surname, email, cellphone, payment_status, payment_method, payfast_payment_id, amount, created_at, children')
+        .select(CLASS_REG_SELECT_WITH_PF_EMAIL)
         .order('created_at', { ascending: false });
 
-      if (classErr) throw classErr;
+      if (classExtended.error && isPfEmailColumnError(classExtended.error.message)) {
+        pfTracking = false;
+        const classLegacy = await supabase
+          .from('cooking_class_registrations')
+          .select(CLASS_REG_SELECT_LEGACY)
+          .order('created_at', { ascending: false });
+        if (classLegacy.error) throw classLegacy.error;
+        classRegs = (classLegacy.data || []).map((r) => withPfEmailDefaults(r as Record<string, unknown>));
+      } else {
+        if (classExtended.error) throw classExtended.error;
+        classRegs = classExtended.data || [];
+      }
+
+      setPfEmailTrackingEnabled(pfTracking);
 
       const classRegIds = (classRegs || []).map((r: { id: string }) => r.id);
       let classUnified: UnifiedRegistration[] = [];
@@ -221,7 +272,10 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
         classUnified = (classRegs || []).map((r: {
           id: string; title: string; first_name: string; surname: string; email: string;
           cellphone: string; payment_status: string; payment_method: string | null;
-          payfast_payment_id: string | null; amount: number | null; created_at: string;
+          payfast_payment_id: string | null;
+          payfast_confirmation_email_sent_at: string | null;
+          payfast_confirmation_email_error: string | null;
+          amount: number | null; created_at: string;
           children?: unknown[];
         }) => {
           const sessions = classRegSessionMap[r.id] || [];
@@ -246,6 +300,8 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
             payment_status: r.payment_status,
             payment_method: r.payment_method,
             payfast_payment_id: r.payfast_payment_id,
+            payfast_confirmation_email_sent_at: r.payfast_confirmation_email_sent_at,
+            payfast_confirmation_email_error: r.payfast_confirmation_email_error,
             amount: r.amount,
             created_at: r.created_at,
             event_names: eventNames,
@@ -257,12 +313,27 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
       }
 
       // ── 2. Fetch Event Management Registrations ───────────────────────────
-      const { data: eventRegs, error: eventErr } = await supabase
+      let eventRegs: Record<string, unknown>[] | null = null;
+
+      const eventExtended = await supabase
         .from('event_management_registrations')
-        .select('id, title, first_name, surname, email, cellphone, payment_status, payment_method, payfast_payment_id, amount, created_at, children')
+        .select(pfTracking ? EVENT_REG_SELECT_WITH_PF_EMAIL : EVENT_REG_SELECT_LEGACY)
         .order('created_at', { ascending: false });
 
-      if (eventErr) throw eventErr;
+      if (eventExtended.error && pfTracking && isPfEmailColumnError(eventExtended.error.message)) {
+        setPfEmailTrackingEnabled(false);
+        const eventLegacy = await supabase
+          .from('event_management_registrations')
+          .select(EVENT_REG_SELECT_LEGACY)
+          .order('created_at', { ascending: false });
+        if (eventLegacy.error) throw eventLegacy.error;
+        eventRegs = (eventLegacy.data || []).map((r) => withPfEmailDefaults(r as Record<string, unknown>));
+      } else {
+        if (eventExtended.error) throw eventExtended.error;
+        eventRegs = pfTracking
+          ? eventExtended.data || []
+          : (eventExtended.data || []).map((r) => withPfEmailDefaults(r as Record<string, unknown>));
+      }
 
       const eventRegIds = (eventRegs || []).map((r: { id: string }) => r.id);
       let eventUnified: UnifiedRegistration[] = [];
@@ -309,7 +380,10 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
         eventUnified = (eventRegs || []).map((r: {
           id: string; title: string; first_name: string; surname: string; email: string;
           cellphone: string; payment_status: string; payment_method: string | null;
-          payfast_payment_id: string | null; amount: number | null; created_at: string;
+          payfast_payment_id: string | null;
+          payfast_confirmation_email_sent_at: string | null;
+          payfast_confirmation_email_error: string | null;
+          amount: number | null; created_at: string;
           children?: unknown[];
         }) => {
           const dateIds = regBookingsMap[r.id] || [];
@@ -334,6 +408,8 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
             payment_status: r.payment_status,
             payment_method: r.payment_method,
             payfast_payment_id: r.payfast_payment_id,
+            payfast_confirmation_email_sent_at: r.payfast_confirmation_email_sent_at,
+            payfast_confirmation_email_error: r.payfast_confirmation_email_error,
             amount: r.amount,
             created_at: r.created_at,
             event_names: eventNames,
@@ -504,6 +580,9 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
                     <th className="px-4 py-3 text-left text-xs font-semibold text-[#5C5347] uppercase tracking-wider">DATE(S)</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-[#5C5347] uppercase tracking-wider">STATUS</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-[#5C5347] uppercase tracking-wider">PAYMENT</th>
+                    {pfEmailTrackingEnabled && (
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-[#5C5347] uppercase tracking-wider">PF EMAIL</th>
+                    )}
                     <th className="px-4 py-3 text-right text-xs font-semibold text-[#5C5347] uppercase tracking-wider">AMOUNT</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-[#5C5347] uppercase tracking-wider">REGISTERED</th>
                   </tr>
@@ -572,6 +651,30 @@ export default function CustomerRegistrations({ isSuperAdmin = false }: Customer
                             payfastPaymentId={r.payfast_payment_id}
                           />
                         </td>
+                        {pfEmailTrackingEnabled && (
+                        <td className="px-4 py-3">
+                          {(() => {
+                            const pfEmailStatus = getPayfastConfirmationEmailStatus(
+                              r.payment_method,
+                              r.payment_status,
+                              r.payfast_confirmation_email_sent_at,
+                              r.payfast_confirmation_email_error,
+                              r.payfast_payment_id
+                            );
+                            if (pfEmailStatus === 'not_applicable') {
+                              return <span className="text-xs text-[#8C8278]">—</span>;
+                            }
+                            return (
+                              <span
+                                className={`inline-flex w-fit shrink-0 items-center px-2 py-0.5 rounded-full text-[11px] font-medium border ${getPayfastConfirmationEmailBadgeClass(pfEmailStatus)}`}
+                                title={r.payfast_confirmation_email_error || undefined}
+                              >
+                                {formatPayfastConfirmationEmailStatus(pfEmailStatus)}
+                              </span>
+                            );
+                          })()}
+                        </td>
+                        )}
                         <td className="px-4 py-2.5 text-right font-mono text-[#1A1612] whitespace-nowrap text-sm">
                           {formatCurrency(r.amount)}
                         </td>

@@ -33,6 +33,7 @@ export async function POST(req: NextRequest) {
       bookingType,
       mPaymentId,
       payfastPaymentId,
+      testSource: "record-failed-payment",
     });
 
     if (result.status === "error") {

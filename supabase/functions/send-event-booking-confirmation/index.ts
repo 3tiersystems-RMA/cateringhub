@@ -32,6 +32,7 @@ serve(async (req) => {
       formHeaderTitle,
       logoUrl,
       adminEmails,
+      recipientTargets,
     } = await req.json();
 
     const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
@@ -357,60 +358,110 @@ ${participantsArray
 </body>
 </html>`;
 
-    // ── Send to customer ──────────────────────────────────────────────────────
-    const customerPayload = {
-      from: RESEND_FROM_EMAIL,
-      to: [customerEmail],
-      subject: `Event Booking Confirmed — Ref: ${bookingRef} | Cardamom Kitchen`,
-      html: emailHtml,
-    };
+    // ── Resolve per-recipient send targets ───────────────────────────────────
+    type RecipientKey = "customer" | "info_admin" | "main_admin";
 
-    const customerRes = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${RESEND_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(customerPayload),
-    });
-
-    const customerData = await customerRes.json();
-    if (!customerRes.ok) {
-      throw new Error(customerData.message || "Failed to send customer confirmation email");
-    }
-
-    // ── Send admin copy to info_email / admin_email ───────────────────────────
     const adminEmailList: string[] = Array.isArray(adminEmails)
       ? adminEmails.filter((e: unknown) => typeof e === "string" && e.trim().length > 0)
       : [];
 
-    if (adminEmailList.length > 0) {
-      const adminSubject = `Event Booking Confirmed — ${hasValue(fullName) ? fullName : customerEmail} | Ref: ${bookingRef} | Cardamom Kitchen`;
-      const adminPayload = {
+    const infoAdminEmail = adminEmailList[0] || null;
+    const mainAdminEmail =
+      adminEmailList.length > 1 ? adminEmailList[adminEmailList.length - 1] : null;
+
+    const defaultTargets: Array<{ key: RecipientKey; email: string }> = [];
+    if (customerEmail?.trim()) {
+      defaultTargets.push({ key: "customer", email: customerEmail.trim() });
+    }
+    if (infoAdminEmail) {
+      defaultTargets.push({ key: "info_admin", email: infoAdminEmail });
+    }
+    if (mainAdminEmail && mainAdminEmail !== infoAdminEmail) {
+      defaultTargets.push({ key: "main_admin", email: mainAdminEmail });
+    }
+
+    const targets: Array<{ key: RecipientKey; email: string }> = Array.isArray(recipientTargets)
+      ? recipientTargets
+          .filter(
+            (t: { key?: string; email?: string }) =>
+              typeof t?.key === "string" &&
+              typeof t?.email === "string" &&
+              t.email.trim().length > 0
+          )
+          .map((t: { key: RecipientKey; email: string }) => ({
+            key: t.key,
+            email: t.email.trim(),
+          }))
+      : defaultTargets;
+
+    if (targets.length === 0) {
+      throw new Error("No recipient targets specified for confirmation email");
+    }
+
+    const results: Record<
+      string,
+      { sent: boolean; emailId?: string; error?: string }
+    > = {};
+
+    const sendOne = async (
+      key: RecipientKey,
+      toEmail: string,
+      subject: string
+    ): Promise<void> => {
+      const payload = {
         from: RESEND_FROM_EMAIL,
-        to: adminEmailList,
-        subject: adminSubject,
+        to: [toEmail],
+        subject,
         html: emailHtml,
       };
 
-      const adminRes = await fetch("https://api.resend.com/emails", {
+      const res = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${RESEND_API_KEY}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(adminPayload),
+        body: JSON.stringify(payload),
       });
 
-      if (!adminRes.ok) {
-        const adminData = await adminRes.json();
-        console.error("[send-event-booking-confirmation] Admin email failed:", adminData.message);
-        // Don't throw — customer email already sent successfully
+      const data = await res.json();
+      if (!res.ok) {
+        results[key] = {
+          sent: false,
+          error: data.message || `Failed to send to ${toEmail}`,
+        };
+        return;
       }
+
+      results[key] = { sent: true, emailId: data.id };
+    };
+
+    const customerSubject = `Event Booking Confirmed — Ref: ${bookingRef} | Cardamom Kitchen`;
+    const adminSubject = `Event Booking Confirmed — ${hasValue(fullName) ? fullName : customerEmail} | Ref: ${bookingRef} | Cardamom Kitchen`;
+
+    for (const target of targets) {
+      const subject =
+        target.key === "customer" ? customerSubject : adminSubject;
+      await sendOne(target.key, target.email, subject);
     }
 
+    const anySent = Object.values(results).some((r) => r.sent);
+    const allFailed = Object.values(results).length > 0 && !anySent;
+
+    if (allFailed) {
+      const firstError =
+        Object.values(results).find((r) => r.error)?.error ||
+        "Failed to send confirmation email";
+      throw new Error(firstError);
+    }
+
+    const primaryId =
+      results.customer?.emailId ||
+      results.info_admin?.emailId ||
+      results.main_admin?.emailId;
+
     return new Response(
-      JSON.stringify({ success: true, emailId: customerData.id }),
+      JSON.stringify({ success: true, emailId: primaryId, results }),
       {
         headers: {
           "Content-Type": "application/json",

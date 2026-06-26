@@ -6,6 +6,7 @@ import { Suspense, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { parseCheckoutReturnParams } from '@/lib/checkout-return';
+import { logPayfastTestBrowser } from '@/lib/payfast-test-logs';
 
 const PENDING_CODE_KEY = 'eb_pending_registration_code';
 
@@ -39,6 +40,11 @@ function PaymentReturnContent() {
     if (isSuccess || !registrationCode || failedRecordedRef.current) return;
     failedRecordedRef.current = true;
 
+    logPayfastTestBrowser('event', 'Recording failed/cancelled payment', {
+      registrationCode,
+      paymentStatus: paymentStatus || 'CANCELLED',
+    });
+
     fetch('/api/bookings/record-failed-payment', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -62,6 +68,11 @@ function PaymentReturnContent() {
 
     setConfirmState('loading');
 
+    logPayfastTestBrowser('event', 'Payment return success — completing pending payment', {
+      registrationCode,
+      paymentStatus: paymentStatus || 'COMPLETE',
+    });
+
     fetch('/api/event-bookings/complete-pending-payment', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -78,6 +89,7 @@ function PaymentReturnContent() {
         }
         if (res.ok) {
           setConfirmState('done');
+          logPayfastTestBrowser('event', 'Complete pending payment response', data);
           if (data.outcome === 'created') {
             setConfirmMessage('Your booking has been confirmed.');
           } else if (data.outcome === 'updated') {
@@ -97,6 +109,9 @@ function PaymentReturnContent() {
         }
       })
       .catch((err) => {
+        logPayfastTestBrowser('event', 'Complete pending payment error', {
+          message: err instanceof Error ? err.message : String(err),
+        });
         setConfirmState('error');
         setConfirmMessage(
           err instanceof Error ? err.message : 'Could not verify booking. Please contact us with your reference.'

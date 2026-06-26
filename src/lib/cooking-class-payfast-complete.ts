@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { logPayfastTestTransaction } from '@/lib/payfast-test-logs';
 
 export type CompleteCookingClassPendingResult =
   | { status: 'created'; registrationId: string; registrationCode: string }
@@ -20,10 +21,20 @@ export async function completeCookingClassPayfast(
   supabaseAdmin: SupabaseClient,
   registrationCode: string,
   payfastPaymentId?: string | null,
-  payfastItnData?: Record<string, string> | null
+  payfastItnData?: Record<string, string> | null,
+  testSource: 'payfast-itn' | 'payment-return' | 'complete-payfast' = 'complete-payfast'
 ): Promise<CompleteCookingClassPendingResult> {
   const code = registrationCode.trim();
   if (!code) {
+    logPayfastTestTransaction({
+      kind: 'cooking_class',
+      source: testSource,
+      registrationCode: code,
+      payfastPaymentId: payfastPaymentId ?? null,
+      outcome: 'not_found',
+      success: false,
+      reason: 'Empty registration code',
+    });
     return { status: 'not_found' };
   }
 
@@ -34,11 +45,22 @@ export async function completeCookingClassPayfast(
     .maybeSingle();
 
   if (existing?.payment_status === 'paid') {
-    return {
-      status: 'already_paid',
+    const result = {
+      status: 'already_paid' as const,
       registrationId: existing.id,
       registrationCode: existing.registration_code || code,
     };
+    logPayfastTestTransaction({
+      kind: 'cooking_class',
+      source: testSource,
+      registrationCode: code,
+      registrationId: existing.id,
+      payfastPaymentId: payfastPaymentId ?? null,
+      outcome: result.status,
+      success: true,
+      reason: 'Registration already marked paid',
+    });
+    return result;
   }
 
   const { data: pendingRow } = await supabaseAdmin
@@ -76,10 +98,20 @@ export async function completeCookingClassPayfast(
     }
 
     if (regErr || !reg) {
-      return {
-        status: 'error',
+      const result = {
+        status: 'error' as const,
         message: regErr?.message || 'Failed to create registration from pending payment',
       };
+      logPayfastTestTransaction({
+        kind: 'cooking_class',
+        source: testSource,
+        registrationCode: code,
+        payfastPaymentId: payfastPaymentId ?? null,
+        outcome: result.status,
+        success: false,
+        reason: result.message,
+      });
+      return result;
     }
 
     if (Array.isArray(p.selectedDateIds) && p.selectedDateIds.length > 0) {
@@ -93,7 +125,18 @@ export async function completeCookingClassPayfast(
 
     await supabaseAdmin.from('payfast_pending_payments').delete().eq('m_payment_id', code);
 
-    return { status: 'created', registrationId: reg.id, registrationCode: code };
+    const result = { status: 'created' as const, registrationId: reg.id, registrationCode: code };
+    logPayfastTestTransaction({
+      kind: 'cooking_class',
+      source: testSource,
+      registrationCode: code,
+      registrationId: reg.id,
+      payfastPaymentId: payfastPaymentId ?? null,
+      outcome: result.status,
+      success: true,
+      reason: 'Created registration from pending PayFast payment',
+    });
+    return result;
   }
 
   if (existing) {
@@ -123,23 +166,65 @@ export async function completeCookingClassPayfast(
     }
 
     if (updateErr) {
-      return { status: 'error', message: updateErr.message };
+      const result = { status: 'error' as const, message: updateErr.message };
+      logPayfastTestTransaction({
+        kind: 'cooking_class',
+        source: testSource,
+        registrationCode: code,
+        registrationId: existing.id,
+        payfastPaymentId: payfastPaymentId ?? null,
+        outcome: result.status,
+        success: false,
+        reason: result.message,
+      });
+      return result;
     }
 
     if (!updatedRows?.length) {
-      return {
-        status: 'already_paid',
+      const result = {
+        status: 'already_paid' as const,
         registrationId: existing.id,
         registrationCode: existing.registration_code || code,
       };
+      logPayfastTestTransaction({
+        kind: 'cooking_class',
+        source: testSource,
+        registrationCode: code,
+        registrationId: existing.id,
+        payfastPaymentId: payfastPaymentId ?? null,
+        outcome: result.status,
+        success: true,
+        reason: 'Update matched no rows — already paid',
+      });
+      return result;
     }
 
-    return {
-      status: 'updated',
+    const result = {
+      status: 'updated' as const,
       registrationId: existing.id,
       registrationCode: existing.registration_code || code,
     };
+    logPayfastTestTransaction({
+      kind: 'cooking_class',
+      source: testSource,
+      registrationCode: code,
+      registrationId: existing.id,
+      payfastPaymentId: payfastPaymentId ?? null,
+      outcome: result.status,
+      success: true,
+      reason: 'Existing registration marked paid',
+    });
+    return result;
   }
 
+  logPayfastTestTransaction({
+    kind: 'cooking_class',
+    source: testSource,
+    registrationCode: code,
+    payfastPaymentId: payfastPaymentId ?? null,
+    outcome: 'not_found',
+    success: false,
+    reason: 'No pending payment or existing registration for code',
+  });
   return { status: 'not_found' };
 }

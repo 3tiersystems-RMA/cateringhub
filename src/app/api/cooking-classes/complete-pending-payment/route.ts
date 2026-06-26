@@ -43,6 +43,7 @@ export async function POST(req: NextRequest) {
         bookingType: 'cooking_class',
         mPaymentId: registrationCode,
         payfastPaymentId,
+        testSource: 'payment-return',
       });
       if (failResult.status === 'error') {
         return NextResponse.json({ error: failResult.message, registrationCode }, { status: 500 });
@@ -68,7 +69,9 @@ export async function POST(req: NextRequest) {
     const result = await completeCookingClassPayfast(
       supabaseAdmin,
       registrationCode,
-      payfastPaymentId
+      payfastPaymentId,
+      undefined,
+      'payment-return'
     );
 
     if (result.status === 'not_found') {
@@ -82,7 +85,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: result.message, registrationCode }, { status: 500 });
     }
 
-    await maybeSendPayfastBookingConfirmationEmail(supabaseAdmin, 'cooking_class', result);
+    await maybeSendPayfastBookingConfirmationEmail(supabaseAdmin, 'cooking_class', result, 'payment-return');
 
     return NextResponse.json({
       success: true,

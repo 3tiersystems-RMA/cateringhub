@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { FAILED_PAYMENT_TRANSACTION_STATUS } from "./booking-payment-status";
+import { logPayfastTestTransaction } from "./payfast-test-logs";
 
 export type RecordFailedBookingResult =
   | { status: "created"; registrationId: string }
@@ -106,10 +107,23 @@ export async function recordFailedBookingPayment(
     bookingType: BookingKind;
     mPaymentId: string;
     payfastPaymentId?: string | null;
+    testSource?: "payfast-itn" | "payment-return" | "record-failed-payment";
   }
 ): Promise<RecordFailedBookingResult> {
+  const testSource = options.testSource ?? "record-failed-payment";
+  const kind = options.bookingType === "event" ? "event" : "cooking_class";
   const code = options.mPaymentId.trim();
   if (!code) {
+    logPayfastTestTransaction({
+      kind,
+      source: testSource,
+      registrationCode: code,
+      payfastPaymentId: options.payfastPaymentId ?? null,
+      payfastPaymentStatus: "FAILED",
+      outcome: "not_found",
+      success: false,
+      reason: "Empty m_payment_id",
+    });
     return { status: "not_found" };
   }
 
@@ -123,12 +137,34 @@ export async function recordFailedBookingPayment(
 
   if (existing) {
     if (existing.payment_status === "paid") {
+      logPayfastTestTransaction({
+        kind,
+        source: testSource,
+        registrationCode: code,
+        registrationId: existing.id,
+        payfastPaymentId: options.payfastPaymentId ?? null,
+        payfastPaymentStatus: "FAILED",
+        outcome: "skipped_paid",
+        success: false,
+        reason: "Cannot record failed transaction — registration already paid",
+      });
       return { status: "skipped_paid", registrationId: existing.id };
     }
     if (
       existing.payment_status === FAILED_PAYMENT_TRANSACTION_STATUS ||
       existing.payment_status === "failed"
     ) {
+      logPayfastTestTransaction({
+        kind,
+        source: testSource,
+        registrationCode: code,
+        registrationId: existing.id,
+        payfastPaymentId: options.payfastPaymentId ?? null,
+        payfastPaymentStatus: "FAILED",
+        outcome: "already_recorded",
+        success: true,
+        reason: "Failed payment transaction already recorded",
+      });
       return { status: "already_recorded", registrationId: existing.id };
     }
 
@@ -144,6 +180,17 @@ export async function recordFailedBookingPayment(
       .eq("id", existing.id);
 
     if (updateErr) {
+      logPayfastTestTransaction({
+        kind,
+        source: testSource,
+        registrationCode: code,
+        registrationId: existing.id,
+        payfastPaymentId: options.payfastPaymentId ?? null,
+        payfastPaymentStatus: "FAILED",
+        outcome: "error",
+        success: false,
+        reason: updateErr.message,
+      });
       return { status: "error", message: updateErr.message };
     }
 
@@ -153,6 +200,17 @@ export async function recordFailedBookingPayment(
       .eq("m_payment_id", code)
       .eq("payment_type", pendingType);
 
+    logPayfastTestTransaction({
+      kind,
+      source: testSource,
+      registrationCode: code,
+      registrationId: existing.id,
+      payfastPaymentId: options.payfastPaymentId ?? null,
+      payfastPaymentStatus: "FAILED",
+      outcome: "updated",
+      success: true,
+      reason: "Existing registration marked failed_payment_transaction",
+    });
     return { status: "updated", registrationId: existing.id };
   }
 
@@ -173,6 +231,16 @@ export async function recordFailedBookingPayment(
     );
 
     if ("error" in inserted) {
+      logPayfastTestTransaction({
+        kind,
+        source: testSource,
+        registrationCode: code,
+        payfastPaymentId: options.payfastPaymentId ?? null,
+        payfastPaymentStatus: "FAILED",
+        outcome: "error",
+        success: false,
+        reason: inserted.error,
+      });
       return { status: "error", message: inserted.error };
     }
 
@@ -182,8 +250,29 @@ export async function recordFailedBookingPayment(
       .eq("m_payment_id", code)
       .eq("payment_type", pendingType);
 
+    logPayfastTestTransaction({
+      kind,
+      source: testSource,
+      registrationCode: code,
+      registrationId: inserted.registrationId,
+      payfastPaymentId: options.payfastPaymentId ?? null,
+      payfastPaymentStatus: "FAILED",
+      outcome: "created",
+      success: true,
+      reason: "Failed payment transaction created from pending payload",
+    });
     return { status: "created", registrationId: inserted.registrationId };
   }
 
+  logPayfastTestTransaction({
+    kind,
+    source: testSource,
+    registrationCode: code,
+    payfastPaymentId: options.payfastPaymentId ?? null,
+    payfastPaymentStatus: "FAILED",
+    outcome: "not_found",
+    success: false,
+    reason: "No pending payment or existing registration for failed record",
+  });
   return { status: "not_found" };
 }

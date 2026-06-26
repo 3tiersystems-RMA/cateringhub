@@ -774,7 +774,10 @@ export default function StaffWorkspacePage() {
             {/* ── EVENT BOOKING REGISTRATIONS TAB ── */}
             {activeTab === 'event_booking_registrations' && (
               <div className="p-6">
-                <EventBookingRegistrations isSuperAdmin={userProfile?.role === 'super_admin'} />
+                <EventBookingRegistrations
+                  isSuperAdmin={userProfile?.role === 'super_admin'}
+                  userRole={userProfile?.role || ''}
+                />
               </div>
             )}
 

@@ -60,7 +60,8 @@ export async function POST(req: NextRequest) {
         const result = await completeEventBookingPayfast(
           supabaseAdmin,
           registrationCode,
-          pfData.pf_payment_id || registrationCode
+          pfData.pf_payment_id || registrationCode,
+          'payfast-itn'
         );
 
         if (result.status === 'created') {
@@ -73,12 +74,13 @@ export async function POST(req: NextRequest) {
           console.error('[EB PayFast ITN] Failed to create registration from pending:', result.message);
         }
 
-        await maybeSendPayfastBookingConfirmationEmail(supabaseAdmin, 'event', result);
+        await maybeSendPayfastBookingConfirmationEmail(supabaseAdmin, 'event', result, 'payfast-itn');
       } else if (pfData.payment_status === 'FAILED') {
         const failResult = await recordFailedBookingPayment(supabaseAdmin, {
           bookingType: 'event',
           mPaymentId: registrationCode,
           payfastPaymentId: pfData.pf_payment_id || null,
+          testSource: 'payfast-itn',
         });
         if (failResult.status === 'error') {
           console.error('[EB PayFast ITN] Failed to record failed payment:', failResult.message);
@@ -97,7 +99,8 @@ export async function POST(req: NextRequest) {
       const result = await completeEventBookingPayfast(
         supabaseAdmin,
         registrationCode,
-        pfData.pf_payment_id || pfData.m_payment_id
+        pfData.pf_payment_id || pfData.m_payment_id,
+        'payfast-itn'
       );
 
       if (result.status === 'error') {
@@ -106,7 +109,7 @@ export async function POST(req: NextRequest) {
         console.log('[EB PayFast ITN] Legacy registration marked paid:', registrationCode);
       }
 
-      await maybeSendPayfastBookingConfirmationEmail(supabaseAdmin, 'event', result);
+      await maybeSendPayfastBookingConfirmationEmail(supabaseAdmin, 'event', result, 'payfast-itn');
 
       // Previous behaviour (direct update without confirmation email):
       // await supabaseAdmin
@@ -121,6 +124,7 @@ export async function POST(req: NextRequest) {
         bookingType: 'event',
         mPaymentId: registrationCode,
         payfastPaymentId: pfData.pf_payment_id || null,
+        testSource: 'payfast-itn',
       });
       if (failResult.status === 'error') {
         console.error('[EB PayFast ITN] Failed to record failed payment (legacy path):', failResult.message);
