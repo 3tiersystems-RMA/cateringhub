@@ -848,13 +848,13 @@ export default function CookingClassesPage() {
         last.skillLevel !== '');
 
     }
+    // Indemnity consent is validated at submission only — not required to unlock next participant
     return (
       last.fullName.trim() !== '' &&
       last.dob !== '' &&
       last.gender !== '' &&
       last.dietaryRestrictions !== '' &&
-      last.picturesTaken !== '' &&
-      last.indemnityConsent === true);
+      last.picturesTaken !== '');
 
   }
 
@@ -2296,7 +2296,7 @@ export default function CookingClassesPage() {
                 </div>
 
                 {/* + Add another participant button */}
-                {page4.children.length < 10 &&
+                {page4.children.length < 10 && (availableSeats === null || page4.children.length < availableSeats) &&
             <div className="mb-6">
                     <button
                 type="button"
