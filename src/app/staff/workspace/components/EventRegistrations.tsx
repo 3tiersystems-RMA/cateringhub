@@ -463,7 +463,7 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
       setVenueOptions([...allVenues].sort());
 
       // 6. Fetch active classes from Class Settings for the "Filter by Class" dropdowns
-      const [{ data: activeClasses }, { data: corrSettings }] = await Promise.all([
+      const [activeClassesResult, corrSettingsResult] = await Promise.all([
         supabase
           .from('cooking_class_name')
           .select('name')
@@ -475,6 +475,8 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
           .limit(1)
           .maybeSingle(),
       ]);
+      const activeClasses = activeClassesResult.data;
+      const corrSettings = corrSettingsResult.data;
       if (corrSettings) {
         setCorrespondenceSettings({
           info_email: corrSettings.info_email,
@@ -1220,7 +1222,9 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
                       <tbody className="divide-y divide-[#F0E8DE]">
                         {sortedParticipantRows.map((row, idx) => (
                           <tr key={idx} className={idx % 2 === 0 ? 'bg-white hover:bg-[#FAF5EE]' : 'bg-[#FAF5EE] hover:bg-[#F5EFE8]'}>
-                            <td className="px-4 py-3 text-xs text-[#8C7B6B] font-medium">{idx + 1}</td>
+                            <td className="px-4 py-3">
+                              <span className="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-2 bg-black text-white text-xs font-semibold rounded-full">{idx + 1}</span>
+                            </td>
                             <td className="px-4 py-3">
                               <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-[#FDF6EE] to-[#F5EFE8] text-[#C4622D] text-xs font-medium rounded-lg border border-[#E8C9B0] shadow-sm">
                                 <span className="w-1.5 h-1.5 rounded-full bg-[#C4622D] flex-shrink-0" />
@@ -1328,7 +1332,9 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
                       <tbody className="divide-y divide-[#F0E8DE]">
                         {sortedLocationParticipantRows.map((row, idx) => (
                           <tr key={idx} className={idx % 2 === 0 ? 'bg-white hover:bg-[#FAF5EE]' : 'bg-[#FAF5EE] hover:bg-[#F5EFE8]'}>
-                            <td className="px-4 py-3 text-xs text-[#8C7B6B] font-medium">{idx + 1}</td>
+                            <td className="px-4 py-3">
+                              <span className="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-2 bg-black text-white text-xs font-semibold rounded-full">{idx + 1}</span>
+                            </td>
                             <td className="px-4 py-3">
                               <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-[#FDF6EE] to-[#F5EFE8] text-[#C4622D] text-xs font-medium rounded-lg border border-[#E8C9B0] shadow-sm">
                                 <span className="w-1.5 h-1.5 rounded-full bg-[#C4622D] flex-shrink-0" />
@@ -1966,9 +1972,7 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
       {toastMessage && (
         <div
           className={`fixed bottom-6 right-6 z-[60] max-w-md px-4 py-3 rounded-xl shadow-lg border text-sm font-medium ${
-            toastMessage.type === 'success'
-              ? 'bg-green-50 border-green-200 text-green-800'
-              : 'bg-red-50 border-red-200 text-red-800'
+            toastMessage.type === 'success' ?'bg-green-50 border-green-200 text-green-800' :'bg-red-50 border-red-200 text-red-800'
           }`}
         >
           {toastMessage.text}
