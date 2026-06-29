@@ -270,8 +270,8 @@ function HeroSectionInner() {
             </div>
           </div>
 
-          {/* Right: Floating Cards — only render if at least one card is visible */}
-          {cardsLoaded && (specialCard || bookingCard || reviewCard) &&
+          {/* Right: Floating Cards */}
+          {cardsLoaded &&
           <div className="lg:col-span-5 hidden lg:flex flex-col gap-4 items-end">
 
               {/* Card 1 — Today's Special */}
