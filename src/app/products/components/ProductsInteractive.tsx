@@ -543,8 +543,8 @@ function ProductsContent({ initialCatalog }: ProductsContentProps) {
   };
 
   const displayCategories = (() => {
-    const desiredOrder = ["All", "Weekly Menu", "Packaged Meals", "Voucher Meals", "Frozen Meals", "Prepared Meals", "À La Carte", "Wellness", "Retail POD", "Fadwah Mugs"];
-    const available = ["All", "Weekly Menu", ...categories];
+    const desiredOrder = ["All", "Packaged Meals", "Voucher Meals", "Frozen Meals", "Prepared Meals", "À La Carte", "Wellness", "Retail POD", "Fadwah Mugs"];
+    const available = ["All", ...categories];
     return desiredOrder.filter((c) => available.includes(c));
   })();
 
@@ -673,17 +673,13 @@ function ProductsContent({ initialCatalog }: ProductsContentProps) {
             <>
               {displayCategories.map((cat) => {
                 const count = getCategoryCount(cat);
-                const isZero = cat !== "Weekly Menu" && cat !== "All" && count === 0;
+                const isZero = cat !== "All" && count === 0;
                 if (isZero) return null;
                 return (
                   <button
                     key={cat}
                     onClick={() => {
-                      if (cat === "Weekly Menu") {
-                        router.push("/weekly-menu");
-                      } else {
-                        setActiveCategory(cat);
-                      }
+                      setActiveCategory(cat);
                     }}
                     className={`px-5 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
                       activeCategory === cat
@@ -697,7 +693,7 @@ function ProductsContent({ initialCatalog }: ProductsContentProps) {
                         activeCategory === cat ? "text-white/70" : "text-[#B5ADA5]"
                       }`}
                     >
-                      {cat !== "Weekly Menu" && `(${count})`}
+                      {`(${count})`}
                     </span>
                   </button>
                 );
