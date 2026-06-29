@@ -98,9 +98,6 @@ export default function Footer() {
             <Link href="/weekly-menu" className="hover:text-[#C4622D] transition-colors">
               Weekly Menu
             </Link>
-            <a href={isHomepage ? '#services' : '/homepage#services'} className="hover:text-[#C4622D] transition-colors">
-              Services
-            </a>
             <Link href="/contact" className="hover:text-[#C4622D] transition-colors">
               Contact
             </Link>
