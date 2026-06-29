@@ -151,46 +151,36 @@ export default function EventBookingConfirmation({ userRole }: EventBookingConfi
     setSendResult(null);
 
     try {
-      const fullName = `${previewReg.title ? previewReg.title + ' ' : ''}${previewReg.first_name} ${previewReg.surname}`;
-
-      // Build admin recipient list from correspondence settings
-      const normalize = (val: string | null | undefined): string | null => {
-        if (!val || val.trim() === '') return null;
-        return val.trim();
-      };
-      const infoEmail = normalize(correspondenceSettings?.info_email);
-      const adminEmail = normalize(correspondenceSettings?.admin_email);
-      const adminEmails: string[] = [];
-      if (infoEmail) adminEmails.push(infoEmail);
-      if (adminEmail && adminEmail !== infoEmail) adminEmails.push(adminEmail);
-
-      const res = await fetch('/api/event-bookings/send-confirmation', {
+      const res = await fetch('/api/event-bookings/send-staff-confirmation', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          registrationId: previewReg.id,
-          registrationCode: previewReg.registration_code,
-          fullName,
-          customerEmail: previewReg.email,
-          cellphone: previewReg.cellphone,
-          amount: previewReg.amount,
-          createdAt: previewReg.created_at,
-          notes: previewReg.notes,
-          sessionDates: previewReg.session_dates || [],
-          participants: previewReg.participants || [],
-          formHeaderTitle: 'Cardamom Kitchen',
-          logoUrl: correspondenceSettings?.logo_url || null,
-          adminEmails,
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ registrationId: previewReg.id }),
       });
 
       const result = await res.json();
 
-      if (!res.ok || result.error) {
+      if (!res.ok || (result.error && !result.skipped)) {
         throw new Error(result.error || 'Failed to send confirmation email');
       }
+
+      if (result.skipped) {
+        throw new Error(
+          result.message || result.error || 'Selected recipients are already notified'
+        );
+      }
+
+      /* Legacy edge-proxy path (no DB delivery tracking) — kept for reference:
+      const fullName = `${previewReg.title ? previewReg.title + ' ' : ''}${previewReg.first_name} ${previewReg.surname}`;
+      ...
+      const res = await fetch('/api/event-bookings/send-confirmation', { ... });
+      */
+
+      const infoEmail = correspondenceSettings?.info_email?.trim();
+      const adminEmail = correspondenceSettings?.admin_email?.trim();
+      const adminNote =
+        infoEmail || adminEmail
+          ? ` Admin copy sent to ${[infoEmail, adminEmail].filter(Boolean).join(', ')}.`
+          : '';
 
       // Update payment_status to 'paid' to confirm the booking
       const { error: updateError } = await supabase
@@ -202,7 +192,18 @@ export default function EventBookingConfirmation({ userRole }: EventBookingConfi
         throw new Error('Email sent but failed to update registration status: ' + updateError.message);
       }
 
-      setSendResult({ success: true, message: 'Event booking confirmed. Confirmation email sent to customer.' + (adminEmails.length > 0 ? ` Admin copy sent to ${adminEmails.join(', ')}.` : '') });
+      const persistWarning =
+        result.persisted === false
+          ? ` Note: ${result.persistError || 'delivery status could not be saved'}.`
+          : '';
+
+      setSendResult({
+        success: true,
+        message:
+          'Event booking confirmed. Confirmation email sent to customer.' +
+          adminNote +
+          persistWarning,
+      });
       showToast('success', `Confirmation sent to ${previewReg.email}`);
 
       setTimeout(() => {

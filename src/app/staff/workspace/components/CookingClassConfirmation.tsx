@@ -183,9 +183,27 @@ export default function CookingClassConfirmation({ userRole }: CookingClassConfi
     setSendResult(null);
 
     try {
-      const fullName = `${previewReg.title ? previewReg.title + ' ' : ''}${previewReg.first_name} ${previewReg.surname}`;
+      // Tracking-aware send (customer + admin copies, persists delivery status to DB).
+      const res = await fetch('/api/cooking-classes/send-staff-confirmation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ registrationId: previewReg.id }),
+      });
 
-      // Build admin recipient list from correspondence settings
+      const result = await res.json();
+
+      if (!res.ok || (result.error && !result.skipped)) {
+        throw new Error(result.error || 'Failed to send confirmation email');
+      }
+
+      if (result.skipped) {
+        throw new Error(
+          result.message || result.error || 'Selected recipients are already notified'
+        );
+      }
+
+      /* Legacy edge-proxy path (no DB delivery tracking) — kept for reference:
+      const fullName = `${previewReg.title ? previewReg.title + ' ' : ''}${previewReg.first_name} ${previewReg.surname}`;
       const normalize = (val: string | null | undefined): string | null => {
         if (!val || val.trim() === '') return null;
         return val.trim();
@@ -195,34 +213,15 @@ export default function CookingClassConfirmation({ userRole }: CookingClassConfi
       const adminEmails: string[] = [];
       if (infoEmail) adminEmails.push(infoEmail);
       if (adminEmail && adminEmail !== infoEmail) adminEmails.push(adminEmail);
+      const res = await fetch('/api/cooking-classes/send-confirmation', { ... });
+      */
 
-      const res = await fetch('/api/cooking-classes/send-confirmation', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          registrationId: previewReg.id,
-          registrationCode: previewReg.registration_code,
-          fullName,
-          customerEmail: previewReg.email,
-          cellphone: previewReg.cellphone,
-          amount: previewReg.amount,
-          createdAt: previewReg.created_at,
-          notes: previewReg.notes,
-          sessionDates: previewReg.session_dates || [],
-          participants: previewReg.participants || [],
-          formHeaderTitle: 'Cardamom Kitchen',
-          logoUrl: correspondenceSettings?.logo_url || null,
-          adminEmails,
-        }),
-      });
-
-      const result = await res.json();
-
-      if (!res.ok || result.error) {
-        throw new Error(result.error || 'Failed to send confirmation email');
-      }
+      const infoEmail = correspondenceSettings?.info_email?.trim();
+      const adminEmail = correspondenceSettings?.admin_email?.trim();
+      const adminNote =
+        infoEmail || adminEmail
+          ? ` Admin copy sent to ${[infoEmail, adminEmail].filter(Boolean).join(', ')}.`
+          : '';
 
       // Update payment_status to 'paid' (mark as confirmed)
       const { error: updateError } = await supabase
@@ -234,7 +233,18 @@ export default function CookingClassConfirmation({ userRole }: CookingClassConfi
         throw new Error('Email sent but failed to update registration status: ' + updateError.message);
       }
 
-      setSendResult({ success: true, message: 'Class booking confirmed. Confirmation email sent to customer.' + (adminEmails.length > 0 ? ` Admin copy sent to ${adminEmails.join(', ')}.` : '') });
+      const persistWarning =
+        result.persisted === false
+          ? ` Note: ${result.persistError || 'delivery status could not be saved to the database'}.`
+          : '';
+
+      setSendResult({
+        success: true,
+        message:
+          'Class booking confirmed. Confirmation email sent to customer.' +
+          adminNote +
+          persistWarning,
+      });
       showToast('success', `Confirmation sent to ${previewReg.email}`);
 
       setTimeout(() => {
@@ -343,43 +353,37 @@ export default function CookingClassConfirmation({ userRole }: CookingClassConfi
 
     try {
       const reg = manualSelectedReg;
-      const fullName = `${reg.title ? reg.title + ' ' : ''}${reg.first_name} ${reg.surname}`;
 
-      const normalize = (val: string | null | undefined): string | null => {
-        if (!val || val.trim() === '') return null;
-        return val.trim();
-      };
-      const infoEmail = normalize(correspondenceSettings?.info_email);
-      const adminEmail = normalize(correspondenceSettings?.admin_email);
-      const adminEmails: string[] = [];
-      if (infoEmail) adminEmails.push(infoEmail);
-      if (adminEmail && adminEmail !== infoEmail) adminEmails.push(adminEmail);
-
-      const res = await fetch('/api/cooking-classes/send-confirmation', {
+      const res = await fetch('/api/cooking-classes/send-staff-confirmation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          registrationId: reg.id,
-          registrationCode: reg.registration_code,
-          fullName,
-          customerEmail: reg.email,
-          cellphone: reg.cellphone,
-          amount: reg.amount,
-          createdAt: reg.created_at,
-          notes: reg.notes,
-          sessionDates: reg.session_dates || [],
-          participants: reg.participants || [],
-          formHeaderTitle: 'Cardamom Kitchen',
-          logoUrl: correspondenceSettings?.logo_url || null,
-          adminEmails,
-        }),
+        body: JSON.stringify({ registrationId: reg.id }),
       });
 
       const result = await res.json();
 
-      if (!res.ok || result.error) {
+      if (!res.ok || (result.error && !result.skipped)) {
         throw new Error(result.error || 'Failed to send confirmation email');
       }
+
+      if (result.skipped) {
+        throw new Error(
+          result.message || result.error || 'Selected recipients are already notified'
+        );
+      }
+
+      /* Legacy edge-proxy path (no DB delivery tracking) — kept for reference:
+      const fullName = `${reg.title ? reg.title + ' ' : ''}${reg.first_name} ${reg.surname}`;
+      ...
+      const res = await fetch('/api/cooking-classes/send-confirmation', { ... });
+      */
+
+      const infoEmail = correspondenceSettings?.info_email?.trim();
+      const adminEmail = correspondenceSettings?.admin_email?.trim();
+      const adminNote =
+        infoEmail || adminEmail
+          ? ` Admin copy sent to ${[infoEmail, adminEmail].filter(Boolean).join(', ')}.`
+          : '';
 
       // Update payment_status to 'paid' if currently pending/awaiting
       if (reg.payment_status === 'pending' || reg.payment_status === 'awaiting_confirmation') {
@@ -392,9 +396,14 @@ export default function CookingClassConfirmation({ userRole }: CookingClassConfi
         setRegistrations(prev => prev.filter(r => r.id !== reg.id));
       }
 
+      const persistWarning =
+        result.persisted === false
+          ? ` Note: ${result.persistError || 'delivery status could not be saved'}.`
+          : '';
+
       setManualSendResult({
         success: true,
-        message: `Confirmation sent to ${reg.email}.` + (adminEmails.length > 0 ? ` Admin copy sent to ${adminEmails.join(', ')}.` : ''),
+        message: `Confirmation sent to ${reg.email}.` + adminNote + persistWarning,
       });
       showToast('success', `Manual confirmation sent to ${reg.email}`);
     } catch (err: unknown) {

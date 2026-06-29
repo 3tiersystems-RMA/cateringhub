@@ -10,7 +10,7 @@ import {
   defaultSelectedRecipientKeys,
 } from '@/app/staff/workspace/components/ConfirmationEmailRecipientStatus';
 import type { ConfirmationEmailRecipientsMap, ConfirmationRecipientKey } from '@/lib/confirmation-email-recipients';
-import { resolveConfirmationRecipients } from '@/lib/confirmation-email-recipients';
+import { resolveConfirmationRecipients, isCustomerConfirmationDelivered } from '@/lib/confirmation-email-recipients';
 
 interface ChildParticipant {
   fullName?: string;
@@ -442,6 +442,7 @@ export default function EventBookingRegistrations({ isSuperAdmin = false, userRo
       recipients?: ConfirmationEmailRecipientsMap;
       resendId?: string;
       results?: Partial<Record<ConfirmationRecipientKey, { sent?: boolean }>>;
+      partial?: boolean;
     }
   ) => {
     const sentAt = new Date().toISOString();
@@ -472,11 +473,16 @@ export default function EventBookingRegistrations({ isSuperAdmin = false, userRo
           if (Object.keys(base).length > 0) recipients = base;
         }
 
+        const customerSent =
+          isCustomerConfirmationDelivered(recipients) || Boolean(data.results?.customer?.sent);
+
         return {
           ...r,
           confirmation_email_recipients: recipients,
-          payfast_confirmation_email_sent_at: sentAt,
-          payfast_confirmation_email_error: null,
+          payfast_confirmation_email_sent_at: customerSent
+            ? recipients?.customer?.sent_at || sentAt
+            : r.payfast_confirmation_email_sent_at,
+          payfast_confirmation_email_error: customerSent ? null : r.payfast_confirmation_email_error,
           payfast_confirmation_email_resend_id: data.resendId ?? r.payfast_confirmation_email_resend_id,
         };
       })
@@ -541,11 +547,17 @@ export default function EventBookingRegistrations({ isSuperAdmin = false, userRo
       closeSendModal();
       patchRegistrationAfterSend(registrationId, data);
 
+      const persistNote =
+        data.persisted === false
+          ? ` Warning: ${data.persistError || 'delivery status could not be saved'}.`
+          : '';
+
       showToast(
         'success',
-        data.partial
+        (data.partial
           ? 'Email sent with some failures. Check Confirm Email status for details.'
-          : `Confirmation email sent to ${sentLabels.join(', ') || 'selected recipients'}.`
+          : `Confirmation email sent to ${sentLabels.join(', ') || 'selected recipients'}.`) +
+          persistNote
       );
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to send confirmation email';

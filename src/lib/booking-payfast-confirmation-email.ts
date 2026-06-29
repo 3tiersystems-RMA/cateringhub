@@ -6,6 +6,18 @@ import {
 } from "@/lib/payfast-test-logs";
 import { sendCookingClassConfirmationEmail } from "@/lib/cooking-class-confirmation-send";
 import { sendEventBookingConfirmationEmail } from "@/lib/event-booking-confirmation-send";
+import {
+  type ConfirmationEmailRecipientsMap,
+  recoverConfirmationDeliveryPersistence,
+  isDeliveryLoggingFailedError,
+  markDeliveryLoggingFailed,
+  alignCoAdminRecipientsWithCustomer,
+  persistConfirmationRecipientStatus,
+  allApplicableRecipientsSent,
+  resolveConfirmationRecipients,
+  isCustomerConfirmationDelivered,
+  isConfirmationRecipientsColumnError,
+} from "@/lib/confirmation-email-recipients";
 
 export type PayfastBookingKind = "cooking_class" | "event";
 
@@ -19,8 +31,12 @@ export interface PayfastCompleteOutcome {
 export interface PayfastConfirmationEmailResult {
   sent: boolean;
   skipped?: boolean;
+  partial?: boolean;
   error?: string;
   resendId?: string;
+  persisted?: boolean;
+  persistError?: string;
+  recipients?: ConfirmationEmailRecipientsMap;
 }
 
 interface SessionDatePayload {
@@ -158,7 +174,7 @@ async function markPayfastConfirmationEmailSent(
   kind: PayfastBookingKind,
   registrationId: string,
   resendId?: string | null
-): Promise<void> {
+): Promise<boolean> {
   const sentAt = new Date().toISOString();
   const { error: updateErr } = await supabaseAdmin
     .from(registrationTable(kind))
@@ -174,7 +190,174 @@ async function markPayfastConfirmationEmailSent(
       `[payfast-confirmation-email] Sent but failed to mark ${registrationId}:`,
       updateErr.message
     );
+    return false;
   }
+  return !updateErr;
+}
+
+/**
+ * After Resend delivery, ensure DB reflects sent state. Retries recovery without resending email.
+ */
+export async function ensurePayfastDeliveryStatusSynced(
+  supabaseAdmin: SupabaseClient,
+  kind: PayfastBookingKind,
+  registrationId: string,
+  sendResult: PayfastConfirmationEmailResult
+): Promise<PayfastConfirmationEmailResult> {
+  if (!sendResult.sent || sendResult.persisted !== false) {
+    return sendResult;
+  }
+
+  const table = registrationTable(kind);
+  const logPrefix = `[payfast-confirmation-email] ${kind}`;
+
+  if (
+    sendResult.recipients &&
+    isCustomerConfirmationDelivered(sendResult.recipients)
+  ) {
+    const recovered = await recoverConfirmationDeliveryPersistence(
+      supabaseAdmin,
+      {
+        tableName: table,
+        registrationId,
+        recipientsMap: sendResult.recipients,
+        customerDelivered: true,
+        primaryResendId: sendResult.resendId,
+        logPrefix,
+      }
+    );
+    if (recovered.ok) {
+      return { ...sendResult, persisted: true, persistError: undefined };
+    }
+  }
+
+  if (sendResult.resendId) {
+    const marked = await markPayfastConfirmationEmailSent(
+      supabaseAdmin,
+      kind,
+      registrationId,
+      sendResult.resendId
+    );
+    if (marked) {
+      return { ...sendResult, persisted: true, persistError: undefined };
+    }
+  }
+
+  const { data: verify } = await supabaseAdmin
+    .from(table)
+    .select(
+      "payfast_confirmation_email_sent_at, payfast_confirmation_email_error, confirmation_email_recipients"
+    )
+    .eq("id", registrationId)
+    .maybeSingle();
+
+  if (verify?.payfast_confirmation_email_sent_at) {
+    return { ...sendResult, persisted: true, persistError: undefined };
+  }
+
+  if (
+    isCustomerConfirmationDelivered(
+      verify?.confirmation_email_recipients as ConfirmationEmailRecipientsMap | null
+    )
+  ) {
+    const backfilled = await markPayfastConfirmationEmailSent(
+      supabaseAdmin,
+      kind,
+      registrationId,
+      sendResult.resendId
+    );
+    if (backfilled) {
+      return { ...sendResult, persisted: true, persistError: undefined };
+    }
+  }
+
+  if (!isDeliveryLoggingFailedError(verify?.payfast_confirmation_email_error)) {
+    await markDeliveryLoggingFailed(
+      supabaseAdmin,
+      table,
+      registrationId,
+      sendResult.persistError
+    );
+  }
+
+  console.error(
+    `${logPrefix} ${registrationId}: delivery status still not synced after recovery`,
+    sendResult.persistError
+  );
+
+  return sendResult;
+}
+
+/**
+ * Backfill info/main admin copies when customer is already logged (same batch).
+ * Fixes legacy rows where only the registrant was persisted.
+ */
+export async function syncCoAdminRecipientStatus(
+  supabaseAdmin: SupabaseClient,
+  kind: PayfastBookingKind,
+  registrationId: string
+): Promise<boolean> {
+  const table = registrationTable(kind);
+
+  const [{ data: row }, { data: corr }] = await Promise.all([
+    supabaseAdmin
+      .from(table)
+      .select(
+        "email, confirmation_email_recipients, payfast_confirmation_email_sent_at, payfast_confirmation_email_resend_id"
+      )
+      .eq("id", registrationId)
+      .maybeSingle(),
+    supabaseAdmin
+      .from("correspondence_settings")
+      .select("info_email, admin_email")
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  if (!row?.email) return false;
+
+  const current = (row.confirmation_email_recipients ||
+    null) as ConfirmationEmailRecipientsMap | null;
+  if (!isCustomerConfirmationDelivered(current)) return false;
+
+  const aligned = alignCoAdminRecipientsWithCustomer(
+    current,
+    corr?.info_email,
+    corr?.admin_email
+  );
+
+  const unchanged =
+    JSON.stringify(aligned) === JSON.stringify(current || {});
+  if (unchanged) return false;
+
+  const resolved = resolveConfirmationRecipients(
+    aligned,
+    row.email,
+    corr?.info_email,
+    corr?.admin_email,
+    row.payfast_confirmation_email_sent_at,
+    row.payfast_confirmation_email_resend_id
+  );
+  const allSent = allApplicableRecipientsSent(resolved);
+  const customerDelivered = isCustomerConfirmationDelivered(aligned);
+
+  const persistResult = await persistConfirmationRecipientStatus(
+    supabaseAdmin,
+    {
+      tableName: table,
+      registrationId,
+      recipientsMap: aligned,
+      allSent,
+      recipientsColumnEnabled: true,
+      anySent: true,
+      customerDelivered,
+      primaryResendId: row.payfast_confirmation_email_resend_id,
+      aggregateError: null,
+      logPrefix: `[payfast-confirmation-email] ${kind}`,
+    }
+  );
+
+  return persistResult.ok;
 }
 
 async function loadCookingClassSessionDates(
@@ -391,16 +574,27 @@ export async function sendPayfastBookingConfirmationEmail(
       customerEmail: row.email,
       sent: result.sent,
       skipped: result.skipped,
-      error: result.error,
+      error: result.error || result.persistError,
       resendId: result.resendId,
-      willRetry: Boolean(result.error && !result.sent),
+      willRetry: Boolean((result.error || result.persistError) && !result.sent),
     });
+
+    if (result.sent && result.persisted === false) {
+      console.warn(
+        `[payfast-confirmation-email] ${kind} ${registrationId}: email sent but DB persist failed:`,
+        result.persistError
+      );
+    }
 
     return {
       sent: result.sent,
       skipped: result.skipped,
-      error: result.error,
+      partial: result.partial,
+      error: result.error || result.persistError,
       resendId: result.resendId,
+      persisted: result.persisted,
+      persistError: result.persistError,
+      recipients: result.recipients,
     };
   }
 
@@ -419,16 +613,27 @@ export async function sendPayfastBookingConfirmationEmail(
       customerEmail: row.email,
       sent: result.sent,
       skipped: result.skipped,
-      error: result.error,
+      error: result.error || result.persistError,
       resendId: result.resendId,
-      willRetry: Boolean(result.error && !result.sent),
+      willRetry: Boolean((result.error || result.persistError) && !result.sent),
     });
+
+    if (result.sent && result.persisted === false) {
+      console.warn(
+        `[payfast-confirmation-email] ${kind} ${registrationId}: email sent but DB persist failed:`,
+        result.persistError
+      );
+    }
 
     return {
       sent: result.sent,
       skipped: result.skipped,
-      error: result.error,
+      partial: result.partial,
+      error: result.error || result.persistError,
       resendId: result.resendId,
+      persisted: result.persisted,
+      persistError: result.persistError,
+      recipients: result.recipients,
     };
   }
 
@@ -566,18 +771,36 @@ export async function maybeSendPayfastBookingConfirmationEmail(
       return;
     }
 
-    if (!isPayfastPaidRegistration(row || {})) {
+    if (!isPayfastPaidRegistration(
+      row || { payment_method: null, payment_status: null }
+    )) {
       return;
     }
   }
 
   try {
-    await sendPayfastBookingConfirmationEmail(
+    const sendResult = await sendPayfastBookingConfirmationEmail(
       supabaseAdmin,
       kind,
       outcome.registrationId,
       testSource
     );
+
+    if (sendResult.sent) {
+      if (sendResult.persisted === false) {
+        await ensurePayfastDeliveryStatusSynced(
+          supabaseAdmin,
+          kind,
+          outcome.registrationId,
+          sendResult
+        );
+      }
+      await syncCoAdminRecipientStatus(
+        supabaseAdmin,
+        kind,
+        outcome.registrationId
+      );
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(
@@ -606,6 +829,7 @@ export interface ReconcilePayfastConfirmationResult {
   sent: number;
   failed: number;
   skipped: number;
+  backfilled: number;
   details: Array<{
     kind: PayfastBookingKind;
     registrationId: string;
@@ -633,18 +857,32 @@ export async function reconcilePayfastConfirmationEmails(
     sent: 0,
     failed: 0,
     skipped: 0,
+    backfilled: 0,
     details: [],
   };
 
   const kinds: PayfastBookingKind[] = ["cooking_class", "event"];
 
+  const { data: correspondenceSettings } = await supabaseAdmin
+    .from("correspondence_settings")
+    .select("info_email, admin_email")
+    .limit(1)
+    .maybeSingle();
+
   for (const kind of kinds) {
     const table = registrationTable(kind);
-    let rows: Array<{ id: string; email: string }> | null = null;
+    let rows: Array<{
+      id: string;
+      email: string;
+      confirmation_email_recipients?: import("@/lib/confirmation-email-recipients").ConfirmationEmailRecipientsMap | null;
+      payfast_confirmation_email_sent_at?: string | null;
+    }> | null = null;
 
     const extended = await supabaseAdmin
       .from(table)
-      .select("id, email")
+      .select(
+        "id, email, confirmation_email_recipients, payfast_confirmation_email_sent_at"
+      )
       .eq("payment_status", "paid")
       .eq("payment_method", "payfast")
       .is("payfast_confirmation_email_sent_at", null)
@@ -670,11 +908,31 @@ export async function reconcilePayfastConfirmationEmails(
       }
       rows = legacy.data;
     } else if (extended.error) {
-      console.error(
-        `[payfast-confirmation-email] Reconcile query failed (${kind}):`,
-        extended.error.message
-      );
-      continue;
+      if (isConfirmationRecipientsColumnError(extended.error.message)) {
+        const pfOnly = await supabaseAdmin
+          .from(table)
+          .select("id, email, payfast_confirmation_email_sent_at")
+          .eq("payment_status", "paid")
+          .eq("payment_method", "payfast")
+          .is("payfast_confirmation_email_sent_at", null)
+          .gte("created_at", sinceIso)
+          .order("created_at", { ascending: true })
+          .limit(limit);
+        if (pfOnly.error) {
+          console.error(
+            `[payfast-confirmation-email] Reconcile query failed (${kind}):`,
+            pfOnly.error.message
+          );
+          continue;
+        }
+        rows = pfOnly.data;
+      } else {
+        console.error(
+          `[payfast-confirmation-email] Reconcile query failed (${kind}):`,
+          extended.error.message
+        );
+        continue;
+      }
     } else {
       rows = extended.data;
     }
@@ -682,13 +940,58 @@ export async function reconcilePayfastConfirmationEmails(
     for (const row of rows || []) {
       if (result.attempted >= limit) break;
 
+      // Backfill legacy sent_at when JSONB already shows customer delivered (avoids duplicate Resend).
+      if (
+        isCustomerConfirmationDelivered(row.confirmation_email_recipients) &&
+        !row.payfast_confirmation_email_sent_at
+      ) {
+        result.attempted += 1;
+        await markPayfastConfirmationEmailSent(
+          supabaseAdmin,
+          kind,
+          row.id,
+          row.confirmation_email_recipients?.customer?.resend_id
+        );
+        result.backfilled += 1;
+        result.details.push({
+          kind,
+          registrationId: row.id,
+          email: row.email,
+          result: { sent: false, skipped: true, error: "Backfilled legacy sent_at from recipients JSONB" },
+        });
+        continue;
+      }
+
       result.attempted += 1;
-      const sendResult = await sendPayfastBookingConfirmationEmail(
+      let sendResult = await sendPayfastBookingConfirmationEmail(
         supabaseAdmin,
         kind,
         row.id,
         "reconcile-emails"
       );
+
+      if (sendResult.sent && sendResult.persisted === false) {
+        sendResult = await ensurePayfastDeliveryStatusSynced(
+          supabaseAdmin,
+          kind,
+          row.id,
+          sendResult
+        );
+        if (sendResult.persisted) {
+          result.backfilled += 1;
+        }
+      }
+
+      if (sendResult.sent) {
+        const coAdminSynced = await syncCoAdminRecipientStatus(
+          supabaseAdmin,
+          kind,
+          row.id
+        );
+        if (coAdminSynced) {
+          result.backfilled += 1;
+        }
+      }
 
       result.details.push({
         kind,
@@ -700,6 +1003,115 @@ export async function reconcilePayfastConfirmationEmails(
       if (sendResult.sent) result.sent += 1;
       else if (sendResult.skipped) result.skipped += 1;
       else result.failed += 1;
+    }
+
+    // Repair rows marked DELIVERY_LOGGING_FAILED (email sent, DB sync failed earlier).
+    const loggingFailedQuery = await supabaseAdmin
+      .from(table)
+      .select(
+        "id, email, confirmation_email_recipients, payfast_confirmation_email_resend_id, payfast_confirmation_email_error"
+      )
+      .eq("payment_status", "paid")
+      .eq("payment_method", "payfast")
+      .like("payfast_confirmation_email_error", "DELIVERY_LOGGING_FAILED%")
+      .gte("created_at", sinceIso)
+      .order("created_at", { ascending: true })
+      .limit(limit);
+
+    if (!loggingFailedQuery.error) {
+      for (const row of loggingFailedQuery.data || []) {
+        if (result.attempted >= limit) break;
+        result.attempted += 1;
+
+        const synced = await ensurePayfastDeliveryStatusSynced(
+          supabaseAdmin,
+          kind,
+          row.id,
+          {
+            sent: true,
+            persisted: false,
+            recipients: row.confirmation_email_recipients as
+              | ConfirmationEmailRecipientsMap
+              | undefined,
+            resendId: row.payfast_confirmation_email_resend_id,
+            persistError: row.payfast_confirmation_email_error,
+          }
+        );
+
+        result.details.push({
+          kind,
+          registrationId: row.id,
+          email: row.email,
+          result: synced,
+        });
+
+        if (synced.persisted) {
+          result.backfilled += 1;
+        } else {
+          result.failed += 1;
+        }
+      }
+    }
+
+    // Backfill info/main admin when customer is logged but co-admin copies still pending.
+    const coAdminBackfillQuery = await supabaseAdmin
+      .from(table)
+      .select("id, email, confirmation_email_recipients")
+      .eq("payment_status", "paid")
+      .eq("payment_method", "payfast")
+      .not("confirmation_email_recipients", "is", null)
+      .gte("created_at", sinceIso)
+      .order("created_at", { ascending: true })
+      .limit(limit);
+
+    if (!coAdminBackfillQuery.error) {
+      for (const row of coAdminBackfillQuery.data || []) {
+        if (result.attempted >= limit) break;
+        if (
+          !isCustomerConfirmationDelivered(
+            row.confirmation_email_recipients as ConfirmationEmailRecipientsMap | null
+          )
+        ) {
+          continue;
+        }
+
+        const aligned = alignCoAdminRecipientsWithCustomer(
+          row.confirmation_email_recipients as ConfirmationEmailRecipientsMap,
+          correspondenceSettings?.info_email,
+          correspondenceSettings?.admin_email
+        );
+        const unchanged =
+          JSON.stringify(aligned) ===
+          JSON.stringify(row.confirmation_email_recipients || {});
+        if (unchanged) continue;
+
+        result.attempted += 1;
+        const synced = await syncCoAdminRecipientStatus(
+          supabaseAdmin,
+          kind,
+          row.id
+        );
+
+        result.details.push({
+          kind,
+          registrationId: row.id,
+          email: row.email,
+          result: {
+            sent: false,
+            skipped: true,
+            persisted: synced,
+            error: synced
+              ? "Backfilled co-admin recipient status from customer delivery"
+              : "Co-admin backfill failed",
+          },
+        });
+
+        if (synced) {
+          result.backfilled += 1;
+        } else {
+          result.failed += 1;
+        }
+      }
     }
   }
 

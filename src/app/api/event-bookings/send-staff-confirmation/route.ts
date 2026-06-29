@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireAdminOrAbove } from "@/lib/api/staff-auth";
 import { sendEventBookingConfirmationEmail } from "@/lib/event-booking-confirmation-send";
+import { ensurePayfastDeliveryStatusSynced, syncCoAdminRecipientStatus } from "@/lib/booking-payfast-confirmation-email";
 import type { ConfirmationRecipientKey } from "@/lib/confirmation-email-recipients";
 
 export const dynamic = "force-dynamic";
@@ -67,10 +68,31 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const result = await sendEventBookingConfirmationEmail(supabaseAdmin, registrationId, {
+    let result = await sendEventBookingConfirmationEmail(supabaseAdmin, registrationId, {
       targets,
       forceResend,
     });
+
+    if (result.sent && result.persisted === false) {
+      const synced = await ensurePayfastDeliveryStatusSynced(
+        supabaseAdmin,
+        "event",
+        registrationId,
+        {
+          sent: result.sent,
+          partial: result.partial,
+          resendId: result.resendId,
+          persisted: result.persisted,
+          persistError: result.persistError,
+          recipients: result.recipients,
+        }
+      );
+      result = { ...result, persisted: synced.persisted, persistError: synced.persistError };
+    }
+
+    if (result.sent) {
+      await syncCoAdminRecipientStatus(supabaseAdmin, "event", registrationId);
+    }
 
     if (!result.sent && !result.skipped) {
       return NextResponse.json(
@@ -84,6 +106,16 @@ export async function POST(req: NextRequest) {
         success: false,
         skipped: true,
         message: result.error || "Selected recipients are already notified",
+        ...result,
+      });
+    }
+
+    if (result.sent && result.persisted === false) {
+      return NextResponse.json({
+        success: true,
+        warning:
+          result.persistError ||
+          "Email was sent but delivery status could not be saved to the database",
         ...result,
       });
     }

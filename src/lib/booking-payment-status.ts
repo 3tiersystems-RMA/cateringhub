@@ -1,4 +1,10 @@
 /** PayFast failure recorded in bookings history — no customer reference assigned. */
+import type { ConfirmationEmailRecipientsMap } from "@/lib/confirmation-email-recipients";
+import {
+  isCustomerConfirmationDelivered,
+  isDeliveryLoggingFailedError,
+} from "@/lib/confirmation-email-recipients";
+
 export const FAILED_PAYMENT_TRANSACTION_STATUS = "failed_payment_transaction";
 
 export const FAILED_PAYMENT_TRANSACTION_LABEL = "Failed Payment Transactions";
@@ -124,20 +130,25 @@ export type PayfastConfirmationEmailStatus =
   | "not_applicable"
   | "pending"
   | "sent"
-  | "failed";
+  | "failed"
+  | "sync_pending";
 
 export function getPayfastConfirmationEmailStatus(
   paymentMethod: string | null | undefined,
   paymentStatus: string | null | undefined,
   sentAt: string | null | undefined,
   error: string | null | undefined,
-  payfastPaymentId?: string | null
+  payfastPaymentId?: string | null,
+  recipientsMap?: ConfirmationEmailRecipientsMap | null
 ): PayfastConfirmationEmailStatus {
   const method = resolveBookingPaymentMethod(paymentMethod, payfastPaymentId);
   if (method !== "payfast" || paymentStatus !== "paid") {
     return "not_applicable";
   }
   if (sentAt) return "sent";
+  if (isCustomerConfirmationDelivered(recipientsMap)) return "sent";
+  if (isDeliveryLoggingFailedError(error)) return "sync_pending";
+  if (recipientsMap?.customer?.error) return "failed";
   if (error) return "failed";
   return "pending";
 }
@@ -148,6 +159,8 @@ export function formatPayfastConfirmationEmailStatus(
   switch (status) {
     case "sent":
       return "Email sent";
+    case "sync_pending":
+      return "Sent (sync pending)";
     case "pending":
       return "Email pending";
     case "failed":
@@ -163,6 +176,8 @@ export function getPayfastConfirmationEmailBadgeClass(
   switch (status) {
     case "sent":
       return "bg-green-50 text-green-700 border-green-200";
+    case "sync_pending":
+      return "bg-blue-50 text-blue-800 border-blue-200";
     case "pending":
       return "bg-amber-50 text-amber-800 border-amber-200";
     case "failed":

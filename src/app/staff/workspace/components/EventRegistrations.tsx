@@ -11,7 +11,7 @@ import {
   defaultSelectedRecipientKeys,
 } from '@/app/staff/workspace/components/ConfirmationEmailRecipientStatus';
 import type { ConfirmationEmailRecipientsMap, ConfirmationRecipientKey } from '@/lib/confirmation-email-recipients';
-import { resolveConfirmationRecipients } from '@/lib/confirmation-email-recipients';
+import { resolveConfirmationRecipients, isCustomerConfirmationDelivered } from '@/lib/confirmation-email-recipients';
 
 const STAFF_RECEIPT_ROLES = ['admin', 'super_admin', 'staff'] as const;
 
@@ -588,6 +588,7 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
       recipients?: ConfirmationEmailRecipientsMap;
       resendId?: string;
       results?: Partial<Record<ConfirmationRecipientKey, { sent?: boolean }>>;
+      partial?: boolean;
     }
   ) => {
     const sentAt = new Date().toISOString();
@@ -618,11 +619,16 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
           if (Object.keys(base).length > 0) recipients = base;
         }
 
+        const customerSent =
+          isCustomerConfirmationDelivered(recipients) || Boolean(data.results?.customer?.sent);
+
         return {
           ...r,
           confirmation_email_recipients: recipients,
-          payfast_confirmation_email_sent_at: sentAt,
-          payfast_confirmation_email_error: null,
+          payfast_confirmation_email_sent_at: customerSent
+            ? recipients?.customer?.sent_at || sentAt
+            : r.payfast_confirmation_email_sent_at,
+          payfast_confirmation_email_error: customerSent ? null : r.payfast_confirmation_email_error,
           payfast_confirmation_email_resend_id: data.resendId ?? r.payfast_confirmation_email_resend_id,
         };
       })
@@ -687,11 +693,17 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
       closeSendModal();
       patchRegistrationAfterSend(registrationId, data);
 
+      const persistNote =
+        data.persisted === false
+          ? ` Warning: ${data.persistError || 'delivery status could not be saved'}.`
+          : '';
+
       showToast(
         'success',
-        data.partial
+        (data.partial
           ? 'Email sent with some failures. Check Confirm Email status for details.'
-          : `Confirmation email sent to ${sentLabels.join(', ') || 'selected recipients'}.`
+          : `Confirmation email sent to ${sentLabels.join(', ') || 'selected recipients'}.`) +
+          persistNote
       );
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to send confirmation email';
@@ -1606,9 +1618,6 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
                                 <div className="space-y-0.5">
                                   {sessions.slice(0, 2).map((s, i) => (
                                     <div key={i} className="text-xs text-[#5C5347]">
-                                      {s.event_name && (
-                                        <span className="block text-[10px] font-semibold text-[#C4622D] leading-tight mb-0.5">{s.event_name}</span>
-                                      )}
                                       {formatDate(s.event_date)}
                                     </div>
                                   ))}

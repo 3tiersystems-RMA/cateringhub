@@ -7,6 +7,11 @@ import {
   mergeRecipientDeliveryResults,
   resolveConfirmationRecipients,
   isConfirmationRecipientsColumnError,
+  persistConfirmationRecipientStatus,
+  isCustomerConfirmationDelivered,
+  markDeliveryLoggingFailed,
+  synthesizeEdgeResultsFromLegacyResponse,
+  alignBatchRecipientsWithCustomer,
 } from "@/lib/confirmation-email-recipients";
 
 export interface CookingClassConfirmationSendResult {
@@ -15,6 +20,8 @@ export interface CookingClassConfirmationSendResult {
   partial?: boolean;
   error?: string;
   resendId?: string;
+  persisted?: boolean;
+  persistError?: string;
   results?: Partial<Record<ConfirmationRecipientKey, EdgeRecipientResult>>;
   recipients?: ConfirmationEmailRecipientsMap;
 }
@@ -123,70 +130,8 @@ async function loadRegistration(
   return { reg: null, recipientsColumnEnabled: false, error: regErr?.message || "Registration not found" };
 }
 
-async function persistRecipientStatus(
-  supabaseAdmin: SupabaseClient,
-  registrationId: string,
-  recipientsMap: ConfirmationEmailRecipientsMap,
-  allSent: boolean,
-  recipientsColumnEnabled: boolean,
-  anySent: boolean,
-  primaryResendId?: string | null,
-  aggregateError?: string | null
-): Promise<void> {
-  const legacyUpdate: Record<string, unknown> = {};
-  if (allSent || (anySent && !recipientsColumnEnabled)) {
-    legacyUpdate.payfast_confirmation_email_sent_at = new Date().toISOString();
-    legacyUpdate.payfast_confirmation_email_error = null;
-    legacyUpdate.payfast_confirmation_email_resend_id = primaryResendId || null;
-  } else if (aggregateError) {
-    legacyUpdate.payfast_confirmation_email_error = aggregateError;
-  }
-
-  if (!recipientsColumnEnabled) {
-    if (Object.keys(legacyUpdate).length === 0) return;
-    const { error } = await supabaseAdmin
-      .from("cooking_class_registrations")
-      .update(legacyUpdate)
-      .eq("id", registrationId);
-    if (error) {
-      console.warn(
-        `[cooking-class-confirmation-send] Legacy persist failed for ${registrationId}:`,
-        error.message
-      );
-    }
-    return;
-  }
-
-  const update: Record<string, unknown> = {
-    confirmation_email_recipients: recipientsMap,
-    ...legacyUpdate,
-  };
-
-  const { error } = await supabaseAdmin
-    .from("cooking_class_registrations")
-    .update(update)
-    .eq("id", registrationId);
-
-  if (error) {
-    if (isConfirmationRecipientsColumnError(error.message) && Object.keys(legacyUpdate).length > 0) {
-      const fallback = await supabaseAdmin
-        .from("cooking_class_registrations")
-        .update(legacyUpdate)
-        .eq("id", registrationId);
-      if (fallback.error) {
-        console.warn(
-          `[cooking-class-confirmation-send] Could not persist status for ${registrationId}:`,
-          fallback.error.message
-        );
-      }
-      return;
-    }
-    console.warn(
-      `[cooking-class-confirmation-send] Could not persist status for ${registrationId}:`,
-      error.message
-    );
-  }
-}
+// Legacy inline persist — replaced by persistConfirmationRecipientStatus in confirmation-email-recipients.ts
+// async function persistRecipientStatus(...) { ... }
 
 export async function sendCookingClassConfirmationEmail(
   supabaseAdmin: SupabaseClient,
@@ -314,20 +259,26 @@ export async function sendCookingClassConfirmationEmail(
     Object.keys(edgeResults).length === 0 &&
     (responseData.emailId || responseData.success)
   ) {
-    edgeResults = {};
-    for (const t of targetsToSend) {
-      edgeResults[t.key] = { sent: true, emailId: responseData.emailId };
-    }
+    edgeResults = synthesizeEdgeResultsFromLegacyResponse(
+      recipientTargets,
+      responseData.emailId
+    );
   }
   const emailByKey: Partial<Record<ConfirmationRecipientKey, string>> = {};
   for (const t of targetsToSend) {
     emailByKey[t.key] = t.email as string;
   }
 
-  const merged = mergeRecipientDeliveryResults(
+  let merged = mergeRecipientDeliveryResults(
     (reg as { confirmation_email_recipients?: ConfirmationEmailRecipientsMap | null })
       .confirmation_email_recipients ?? null,
     edgeResults,
+    emailByKey
+  );
+
+  merged = alignBatchRecipientsWithCustomer(
+    merged,
+    targetsToSend.map((t) => t.key),
     emailByKey
   );
 
@@ -347,16 +298,29 @@ export async function sendCookingClassConfirmationEmail(
         .join("; ")
     : null;
 
-  await persistRecipientStatus(
-    supabaseAdmin,
+  const customerDelivered = isCustomerConfirmationDelivered(merged);
+
+  const persistResult = await persistConfirmationRecipientStatus(supabaseAdmin, {
+    tableName: "cooking_class_registrations",
     registrationId,
-    merged,
+    recipientsMap: merged,
     allSent,
-    loaded.recipientsColumnEnabled,
+    recipientsColumnEnabled: loaded.recipientsColumnEnabled,
     anySent,
-    responseData.emailId,
-    aggregateError
-  );
+    customerDelivered,
+    primaryResendId: responseData.emailId,
+    aggregateError,
+    logPrefix: "[cooking-class-confirmation-send]",
+  });
+
+  if (!persistResult.ok && customerDelivered) {
+    await markDeliveryLoggingFailed(
+      supabaseAdmin,
+      "cooking_class_registrations",
+      registrationId,
+      persistResult.error
+    );
+  }
 
   if (!anySent) {
     return {
@@ -364,6 +328,8 @@ export async function sendCookingClassConfirmationEmail(
       error: aggregateError || "Failed to send confirmation email",
       results: edgeResults,
       recipients: merged,
+      persisted: persistResult.ok,
+      persistError: persistResult.error,
     };
   }
 
@@ -373,5 +339,10 @@ export async function sendCookingClassConfirmationEmail(
     resendId: responseData.emailId,
     results: edgeResults,
     recipients: merged,
+    persisted: persistResult.ok,
+    persistError: persistResult.ok
+      ? undefined
+      : persistResult.error ||
+        "Email was sent but delivery status could not be saved to the database",
   };
 }
