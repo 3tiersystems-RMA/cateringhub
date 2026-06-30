@@ -138,10 +138,38 @@ interface ParticipantBookingRow {
   participantIndex: number; // original index in r.children array
 }
 
+// Participants by Session view: macro view grouped by session → registrant → participants
+interface ParticipantsBySessionGroup {
+  sessionKey: string; // unique key for the session
+  eventName: string;
+  eventDate: string | null;
+  timeslot: string;
+  location: string;
+  registrants: {
+    registrationId: string;
+    registrantName: string;
+    registrantEmail: string;
+    registrantPhone: string;
+    paymentStatus: string;
+    participants: {
+      originalIndex: number;
+      fullName: string;
+      age: string;
+      ticketNumber: string;
+      dob: string | null;
+      gender: string;
+      grade: string;
+      allergies: string;
+      picturesTaken: string;
+      indemnityConsent: string;
+    }[];
+  }[];
+}
+
 type ParticipantSortKey = 'dob' | 'age' | 'gender' | 'allergies' | 'datetime';
 type SortDir = 'asc' | 'desc';
 
-type FilterTab = 'event' | 'registrant' | 'venue' | 'sessions_booked' | 'participant_bookings' | 'participants_by_location';
+type FilterTab = 'event' | 'registrant' | 'venue' | 'sessions_booked' | 'participant_bookings' | 'participants_by_location' | 'participants_by_session';
 
 const PAGE_SIZE = 10;
 
@@ -317,6 +345,9 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
   const [locationParticipantSortKey, setLocationParticipantSortKey] = useState<ParticipantSortKey | null>(null);
   const [locationParticipantSortDir, setLocationParticipantSortDir] = useState<SortDir>('asc');
   const [locationParticipantFilter, setLocationParticipantFilter] = useState<string>('all');
+
+  // Participants by Session filter state
+  const [sessionParticipantFilter, setSessionParticipantFilter] = useState<string>('all');
 
   // Delete state
   const [deleteTarget, setDeleteTarget] = useState<RegistrationRow | null>(null);
@@ -922,6 +953,94 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
     return rows;
   })();
 
+  // Build Participants by Session grouped data (macro view)
+  const participantsBySessionGroups: ParticipantsBySessionGroup[] = (() => {
+    // Map: sessionKey → group
+    const sessionMap: Record<string, ParticipantsBySessionGroup> = {};
+
+    registrations.forEach(r => {
+      const allChildren = Array.isArray(r.children) ? r.children : [];
+      const filledChildren: { child: ChildParticipant; originalIndex: number }[] = allChildren
+        .map((child, idx) => ({ child, originalIndex: idx }))
+        .filter(({ child }) => (child.fullName || child.full_name || child.name || '').trim().length > 0);
+
+      if (filledChildren.length === 0) return;
+
+      const registrantName = `${r.title ? r.title + ' ' : ''}${r.first_name} ${r.surname}`.trim();
+      const sessionDates = r.session_dates || [];
+
+      const buildParticipants = () => filledChildren.map(({ child, originalIndex }) => {
+        const ageStr = child.age != null && child.age !== '' ? String(child.age) : calcAge(child.dob);
+        const childAllergies = (child.allergies || child.dietaryRestrictions || '').trim();
+        const childName = (child.fullName || child.full_name || child.name || '').trim();
+        const picturesTaken = (child as Record<string, unknown>).picturesTaken;
+        const indemnityConsent = (child as Record<string, unknown>).indemnityConsent;
+        return {
+          originalIndex,
+          fullName: childName,
+          age: ageStr,
+          ticketNumber: (child.ticket_number || '').trim(),
+          dob: child.dob || null,
+          gender: (child.gender || '').trim(),
+          grade: (child.grade || '').trim(),
+          allergies: childAllergies,
+          picturesTaken: picturesTaken != null && picturesTaken !== '' ? String(picturesTaken) : '',
+          indemnityConsent: indemnityConsent === true || indemnityConsent === 'true' ? 'Yes' : indemnityConsent === false || indemnityConsent === 'false' ? 'No' : indemnityConsent != null && indemnityConsent !== '' ? String(indemnityConsent) : '',
+        };
+      });
+
+      const addRegistrantToSession = (sessionKey: string, eventName: string, eventDate: string | null, timeslot: string, location: string) => {
+        if (!sessionMap[sessionKey]) {
+          sessionMap[sessionKey] = {
+            sessionKey,
+            eventName,
+            eventDate,
+            timeslot,
+            location,
+            registrants: [],
+          };
+        }
+        // Check if this registrant already exists in this session
+        const existing = sessionMap[sessionKey].registrants.find(reg => reg.registrationId === r.id);
+        if (!existing) {
+          sessionMap[sessionKey].registrants.push({
+            registrationId: r.id,
+            registrantName,
+            registrantEmail: r.email,
+            registrantPhone: r.cellphone,
+            paymentStatus: r.payment_status,
+            participants: buildParticipants(),
+          });
+        }
+      };
+
+      if (sessionDates.length === 0) {
+        const sessionKey = 'no-session';
+        addRegistrantToSession(sessionKey, 'No Session Assigned', null, '—', '');
+      } else {
+        sessionDates.forEach(sd => {
+          const evName = sd.event_name || 'Unknown Class';
+          const timeslot = sd.start_time && sd.end_time
+            ? `${sd.start_time} – ${sd.end_time}`
+            : sd.start_time || 'Time TBC';
+          const sessionKey = `${evName}__${sd.event_date || ''}__${timeslot}`;
+          addRegistrantToSession(sessionKey, evName, sd.event_date, timeslot, (sd.location || '').trim());
+        });
+      }
+    });
+
+    return Object.values(sessionMap).sort((a, b) => {
+      // Sort by event name, then date
+      const nameCmp = a.eventName.localeCompare(b.eventName);
+      if (nameCmp !== 0) return nameCmp;
+      return (a.eventDate || '').localeCompare(b.eventDate || '');
+    });
+  })();
+
+  const filteredParticipantsBySession = sessionParticipantFilter === 'all'
+    ? participantsBySessionGroups
+    : participantsBySessionGroups.filter(g => g.eventName === sessionParticipantFilter);
+
   const handleParticipantSort = (key: ParticipantSortKey) => {
     if (participantSortKey === key) {
       setParticipantSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -1069,6 +1188,7 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
     { key: 'sessions_booked', label: 'Registrant Bookings', icon: '📅' },
     { key: 'participant_bookings', label: 'Participant Bookings', icon: '👧' },
     { key: 'participants_by_location', label: 'Participants by Location', icon: '📌' },
+    { key: 'participants_by_session', label: 'Participants by Session', icon: '🗂️' },
   ];
 
   if (loading) {
@@ -1335,6 +1455,200 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
                     </table>
                   </div>
                 </>
+              )}
+            </>
+          )
+
+        ) : filterTab === 'participants_by_session' ? (
+          error ? (
+            <div className="p-6 text-center text-red-600 text-sm">{error}</div>
+          ) : (
+            <>
+              {/* Filter bar */}
+              <div className="px-5 py-3 bg-[#FAF5EE] border-b border-[#E8DDD0] flex items-center gap-3 flex-wrap">
+                <label className="text-sm font-medium text-[#5C5347] whitespace-nowrap">Filter by Class:</label>
+                <select
+                  value={sessionParticipantFilter}
+                  onChange={e => setSessionParticipantFilter(e.target.value)}
+                  className="flex-1 max-w-xs px-3 py-1.5 text-sm border border-[#E8DDD0] rounded-lg bg-white text-[#2C2420] focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30"
+                >
+                  <option value="all">All Classes</option>
+                  {activeClassOptions.map(ev => <option key={ev} value={ev}>{ev}</option>)}
+                </select>
+                {sessionParticipantFilter !== 'all' && (
+                  <button onClick={() => setSessionParticipantFilter('all')} className="text-xs text-[#C4622D] hover:underline">Clear</button>
+                )}
+                <div className="ml-auto flex items-center gap-2">
+                  <span className="text-xs text-[#8C7B6B]">
+                    <span className="font-semibold text-[#2C2420]">{filteredParticipantsBySession.length}</span> session{filteredParticipantsBySession.length !== 1 ? 's' : ''}
+                    {' · '}
+                    <span className="font-semibold text-[#2C2420]">
+                      {filteredParticipantsBySession.reduce((s, g) => s + g.registrants.reduce((rs, r) => rs + r.participants.length, 0), 0)}
+                    </span> participants
+                  </span>
+                </div>
+              </div>
+
+              {filteredParticipantsBySession.length === 0 ? (
+                <div className="p-12 text-center">
+                  <p className="text-3xl mb-2">🗂️</p>
+                  <p className="text-[#5C5347] font-medium">No participants found for this class</p>
+                  <p className="text-sm text-[#8C7B6B] mt-1">Try selecting a different class or &quot;All Classes&quot;</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-[#F0E8DE]">
+                  {filteredParticipantsBySession.map(group => {
+                    const totalParticipantsInSession = group.registrants.reduce((s, r) => s + r.participants.length, 0);
+                    return (
+                      <div key={group.sessionKey} className="p-5">
+                        {/* Session Header */}
+                        <div className="flex items-start gap-3 mb-4">
+                          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#C4622D] to-[#E8845A] flex items-center justify-center text-white text-xs font-bold shadow-sm flex-shrink-0 mt-0.5">
+                            {group.eventName.charAt(0)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-base font-bold text-[#2C2420]">{group.eventName}</h3>
+                            <div className="flex flex-wrap items-center gap-2 mt-1">
+                              {group.eventDate && (
+                                <span className="text-xs bg-[#F5EFE8] border border-[#E8DDD0] text-[#5C5347] px-2.5 py-0.5 rounded-full font-medium">
+                                  📆 {formatDate(group.eventDate)}
+                                </span>
+                              )}
+                              {group.timeslot && group.timeslot !== '—' && (
+                                <span className="text-xs bg-[#F5EFE8] border border-[#E8DDD0] text-[#5C5347] px-2.5 py-0.5 rounded-full font-medium">
+                                  🕐 {group.timeslot}
+                                </span>
+                              )}
+                              {group.location && (
+                                <span className="text-xs bg-[#F5EFE8] border border-[#E8DDD0] text-[#5C5347] px-2.5 py-0.5 rounded-full font-medium">
+                                  📍 {group.location}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <span className="text-xs bg-white border border-[#E8DDD0] text-[#8C7B6B] px-2.5 py-1 rounded-full font-medium">
+                              {group.registrants.length} registrant{group.registrants.length !== 1 ? 's' : ''}
+                            </span>
+                            <span className="text-xs bg-[#FDF6EE] border border-[#E8C9B0] text-[#C4622D] px-2.5 py-1 rounded-full font-semibold">
+                              {totalParticipantsInSession} participant{totalParticipantsInSession !== 1 ? 's' : ''}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Registrants */}
+                        <div className="space-y-4 pl-12">
+                          {group.registrants.map((registrant, rIdx) => (
+                            <div key={registrant.registrationId} className="border border-[#E8DDD0] rounded-xl overflow-hidden">
+                              {/* Registrant Header */}
+                              <div className="bg-[#1A1612] px-4 py-3 flex items-center gap-3 flex-wrap">
+                                <div className="w-8 h-8 rounded-full bg-[#C4622D] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                                  {registrant.registrantName.charAt(0)}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-bold text-white">{registrant.registrantName}</p>
+                                  <div className="flex flex-wrap items-center gap-3 mt-0.5">
+                                    <span className="text-xs text-gray-300 flex items-center gap-1">
+                                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                      </svg>
+                                      {registrant.registrantEmail}
+                                    </span>
+                                    <span className="text-xs text-gray-300 flex items-center gap-1">
+                                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                                      </svg>
+                                      {registrant.registrantPhone}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2 flex-shrink-0">
+                                  <span className={`text-xs font-medium px-2.5 py-1 rounded-full border ${PAYMENT_STATUS_COLORS[registrant.paymentStatus] || 'bg-gray-100 text-gray-600 border-gray-200'}`}>
+                                    {registrant.paymentStatus.replace(/_/g, ' ')}
+                                  </span>
+                                  <span className="text-xs bg-[#2C2420] border border-[#3C3430] text-gray-300 px-2.5 py-1 rounded-full font-medium">
+                                    {registrant.participants.length} participant{registrant.participants.length !== 1 ? 's' : ''}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Participants */}
+                              <div className="divide-y divide-[#F0E8DE]">
+                                {registrant.participants.map((participant, pIdx) => (
+                                  <div key={pIdx} className="p-4 bg-white">
+                                    {/* Participant sub-header */}
+                                    <div className="flex items-center gap-2 mb-3">
+                                      <span className="w-6 h-6 rounded-full bg-[#C4622D] text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
+                                        {pIdx + 1}
+                                      </span>
+                                      <span className="text-sm font-semibold text-[#1A1612]">{participant.fullName || '—'}</span>
+                                      {participant.age && participant.age !== '—' && (
+                                        <span className="text-xs bg-white border border-[#DDD5C8] text-[#5C5347] px-2 py-0.5 rounded-full">Age {participant.age}</span>
+                                      )}
+                                      {participant.ticketNumber && (
+                                        <span className="text-xs font-mono font-semibold bg-[#FDF6EE] border border-[#C4622D]/30 text-[#C4622D] px-2 py-0.5 rounded-full">{participant.ticketNumber}</span>
+                                      )}
+                                      <span className="ml-auto text-xs text-[#8C7B6B]">Child Participant</span>
+                                    </div>
+                                    {/* Participant detail grid */}
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pl-8">
+                                      <div>
+                                        <p className="text-xs text-[#8C8278] mb-0.5">Full Name</p>
+                                        <p className="text-sm font-medium text-[#1A1612]">{participant.fullName || '—'}</p>
+                                      </div>
+                                      {participant.ticketNumber && (
+                                        <div>
+                                          <p className="text-xs text-[#8C8278] mb-0.5">Ticket Number</p>
+                                          <p className="text-sm font-medium text-green-700">{participant.ticketNumber}</p>
+                                        </div>
+                                      )}
+                                      <div>
+                                        <p className="text-xs text-[#8C8278] mb-0.5">Date of Birth</p>
+                                        <p className="text-sm font-medium text-[#1A1612]">{participant.dob ? formatDate(participant.dob) : '—'}</p>
+                                      </div>
+                                      <div>
+                                        <p className="text-xs text-[#8C8278] mb-0.5">Age</p>
+                                        <p className="text-sm font-medium text-[#1A1612]">{participant.age || '—'}</p>
+                                      </div>
+                                      {participant.gender && (
+                                        <div>
+                                          <p className="text-xs text-[#8C8278] mb-0.5">Gender</p>
+                                          <p className="text-sm font-medium text-[#1A1612] capitalize">{participant.gender}</p>
+                                        </div>
+                                      )}
+                                      {participant.grade && (
+                                        <div>
+                                          <p className="text-xs text-[#8C8278] mb-0.5">Grade</p>
+                                          <p className="text-sm font-medium text-[#1A1612]">{participant.grade}</p>
+                                        </div>
+                                      )}
+                                      <div>
+                                        <p className="text-xs text-[#8C8278] mb-0.5">Allergies / Dietary</p>
+                                        <p className="text-sm font-medium text-[#1A1612]">{participant.allergies || 'None'}</p>
+                                      </div>
+                                      {participant.picturesTaken && (
+                                        <div>
+                                          <p className="text-xs text-[#8C8278] mb-0.5">Pictures Taken</p>
+                                          <p className="text-sm font-medium text-[#1A1612] capitalize">{participant.picturesTaken}</p>
+                                        </div>
+                                      )}
+                                      {participant.indemnityConsent && (
+                                        <div>
+                                          <p className="text-xs text-[#8C8278] mb-0.5">Indemnity Consent</p>
+                                          <p className="text-sm font-medium text-[#1A1612]">{participant.indemnityConsent}</p>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               )}
             </>
           )
