@@ -107,6 +107,7 @@ interface SessionDate {
   location: string | null;
   event_name: string | null;
   class_fee: number | null;
+  session_name: string | null;
 }
 
 // Registrant Bookings view: grouped by event → date → timeslot → registrants
@@ -142,6 +143,7 @@ interface ParticipantBookingRow {
 interface ParticipantsBySessionGroup {
   sessionKey: string; // unique key for the session
   eventName: string;
+  sessionName: string | null;
   eventDate: string | null;
   timeslot: string;
   location: string;
@@ -405,7 +407,7 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
       if (eventDateIds.length > 0) {
         const { data: dates } = await supabase
           .from('cooking_class_sessions')
-          .select('id, event_date, start_time, end_time, location, class_fee, class_id')
+          .select('id, event_date, start_time, end_time, location, class_fee, class_id, session_name')
           .in('id', eventDateIds);
 
         if (dates && dates.length > 0) {
@@ -418,7 +420,7 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
               .in('id', eventIds);
             (events || []).forEach((e: { id: string; name: string }) => { eventsMap[e.id] = e.name; });
           }
-          dates.forEach((d: { id: string; event_date: string | null; start_time: string | null; end_time: string | null; location: string | null; class_fee: number | null; class_id: string }) => {
+          dates.forEach((d: { id: string; event_date: string | null; start_time: string | null; end_time: string | null; location: string | null; class_fee: number | null; class_id: string; session_name: string | null }) => {
             eventDatesMap[d.id] = {
               id: d.id,
               event_date: d.event_date,
@@ -427,6 +429,7 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
               location: d.location,
               class_fee: d.class_fee,
               event_name: eventsMap[d.class_id] || null,
+              session_name: d.session_name || null,
             };
           });
         }
@@ -471,6 +474,7 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
               location: classNameToLocation[name] || null,
               class_fee: null,
               event_name: name,
+              session_name: null,
             })
           ));
         } else if (names.length > 0) {
@@ -482,6 +486,7 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
             location: classNameToLocation[name] || null,
             class_fee: null,
             event_name: name,
+            session_name: null,
           }));
         }
         return { ...r, session_dates: synthetic };
@@ -989,11 +994,12 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
         };
       });
 
-      const addRegistrantToSession = (sessionKey: string, eventName: string, eventDate: string | null, timeslot: string, location: string) => {
+      const addRegistrantToSession = (sessionKey: string, eventName: string, sessionName: string | null, eventDate: string | null, timeslot: string, location: string) => {
         if (!sessionMap[sessionKey]) {
           sessionMap[sessionKey] = {
             sessionKey,
             eventName,
+            sessionName,
             eventDate,
             timeslot,
             location,
@@ -1016,7 +1022,7 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
 
       if (sessionDates.length === 0) {
         const sessionKey = 'no-session';
-        addRegistrantToSession(sessionKey, 'No Session Assigned', null, '—', '');
+        addRegistrantToSession(sessionKey, 'No Session Assigned', null, null, '—', '');
       } else {
         sessionDates.forEach(sd => {
           const evName = sd.event_name || 'Unknown Class';
@@ -1024,7 +1030,7 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
             ? `${sd.start_time} – ${sd.end_time}`
             : sd.start_time || 'Time TBC';
           const sessionKey = `${evName}__${sd.event_date || ''}__${timeslot}`;
-          addRegistrantToSession(sessionKey, evName, sd.event_date, timeslot, (sd.location || '').trim());
+          addRegistrantToSession(sessionKey, evName, sd.session_name || null, sd.event_date, timeslot, (sd.location || '').trim());
         });
       }
     });
@@ -1205,8 +1211,8 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
               <div style="background:#2c2420;color:#fff;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;margin-top:4px">
                 <div>
                   <span style="font-size:12px;font-weight:700">${reg.registrantName}</span>
-                  ${reg.email ? `<span style="font-size:11px;color:#c4a882;margin-left:12px">✉ ${reg.email}</span>` : ''}
-                  ${reg.phone ? `<span style="font-size:11px;color:#c4a882;margin-left:12px">📞 ${reg.phone}</span>` : ''}
+                  ${reg.registrantEmail ? `<span style="font-size:11px;color:#c4a882;margin-left:12px">✉ ${reg.registrantEmail}</span>` : ''}
+                  ${reg.registrantPhone ? `<span style="font-size:11px;color:#c4a882;margin-left:12px">📞 ${reg.registrantPhone}</span>` : ''}
                 </div>
                 <span style="font-size:10px;font-weight:600;color:${paymentBadgeColor};text-transform:uppercase;background:rgba(255,255,255,0.1);padding:2px 8px;border-radius:4px">${reg.paymentStatus || '—'}</span>
               </div>
@@ -1219,7 +1225,7 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
       return `
         <div style="margin-bottom:24px;border:1px solid #e8ddd0;border-radius:8px;overflow:hidden">
           <div style="background:#f5efe8;padding:10px 14px;border-bottom:2px solid #c4622d">
-            <div style="font-size:13px;font-weight:700;color:#c4622d">${group.eventName}</div>
+            <div style="font-size:13px;font-weight:700;color:#c4622d">${group.eventName}${group.sessionName ? ` <span style="font-size:12px;color:#5c5347;font-weight:600">— ${group.sessionName}</span>` : ''}</div>
             <div style="font-size:11px;color:#5c5347;margin-top:2px">📅 ${dateStr} &nbsp;·&nbsp; 🕐 ${group.timeslot || '—'} &nbsp;·&nbsp; 📍 ${group.location || '—'}</div>
           </div>
           <table style="width:100%;border-collapse:collapse">
@@ -1583,7 +1589,12 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
                             {group.eventName.charAt(0)}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <h3 className="text-base font-bold text-[#2C2420]">{group.eventName}</h3>
+                            <h3 className="text-base font-bold text-[#2C2420]">
+                              {group.eventName}
+                              {group.sessionName && (
+                                <span className="ml-2 text-sm font-semibold text-[#C4622D]">— {group.sessionName}</span>
+                              )}
+                            </h3>
                             <div className="flex flex-wrap items-center gap-2 mt-1">
                               {group.eventDate && (
                                 <span className="text-xs bg-[#F5EFE8] border border-[#E8DDD0] text-[#5C5347] px-2.5 py-0.5 rounded-full font-medium">
