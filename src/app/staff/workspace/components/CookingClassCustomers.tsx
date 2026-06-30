@@ -3,8 +3,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { filterFilledChildren, getChildDisplayName } from '@/lib/cooking-class-participants';
-import { matchesPaymentStatusFilter, formatBookingPaymentStatus } from '@/lib/booking-payment-status';
+import { matchesPaymentStatusFilter, formatBookingPaymentStatus, getEftConfirmationEmailStatus, formatEftConfirmationEmailStatus, getEftConfirmationEmailBadgeClass } from '@/lib/booking-payment-status';
 import BookingPaymentMethodBadge from '@/app/staff/workspace/components/BookingPaymentMethodBadge';
+import { ConfirmationEmailRecipientStatus } from '@/app/staff/workspace/components/ConfirmationEmailRecipientStatus';
+import type { ConfirmationEmailRecipientsMap } from '@/lib/confirmation-email-recipients';
 
 interface ChildParticipant {
   fullName?: string;
@@ -59,6 +61,11 @@ interface Registration {
   indemnity_file_url: string | null;
   notes: string | null;
   registration_code?: string | null;
+  // EFT / PayFast email delivery tracking
+  confirmation_email_recipients?: ConfirmationEmailRecipientsMap | null;
+  payfast_confirmation_email_sent_at?: string | null;
+  payfast_confirmation_email_error?: string | null;
+  payfast_confirmation_email_resend_id?: string | null;
   // joined
   session_dates?: SessionDate[];
 }
@@ -75,6 +82,11 @@ interface SessionDate {
 
 interface CookingClassCustomersProps {
   isSuperAdmin?: boolean;
+}
+
+interface CorrespondenceSettings {
+  info_email: string | null;
+  admin_email: string | null;
 }
 
 const PAYMENT_STATUS_COLORS: Record<string, string> = {
@@ -133,6 +145,7 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
   const [timeFilter, setTimeFilter] = useState<'all' | 'past' | 'current'>('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<Record<string, 'registrant' | 'participants' | 'sessions' | 'medical'>>({});
+  const [correspondenceSettings, setCorrespondenceSettings] = useState<CorrespondenceSettings | null>(null);
 
   // Delete state
   const [deleteTarget, setDeleteTarget] = useState<Registration | null>(null);
@@ -281,6 +294,14 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
       const dbStatuses = [...new Set(cleanedRegs.map((r: Registration) => r.payment_status).filter(Boolean))] as string[];
       const merged = [...new Set([...FALLBACK_STATUSES, ...dbStatuses])].sort();
       setPaymentStatusOptions(merged);
+
+      // 7. Fetch correspondence settings for email recipient display
+      const { data: corrData } = await supabase
+        .from('correspondence_settings')
+        .select('info_email, admin_email')
+        .limit(1)
+        .maybeSingle();
+      if (corrData) setCorrespondenceSettings(corrData);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to load registrations');
     } finally {
@@ -621,6 +642,23 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
                         payfastPaymentId={reg.payfast_payment_id}
                         size="sm"
                       />
+                      {/* EFT email delivery status badge — mirrors PayFast email status for EFT paid registrations */}
+                      {(() => {
+                        const eftStatus = getEftConfirmationEmailStatus(
+                          reg.payment_method,
+                          reg.payment_status,
+                          reg.payfast_confirmation_email_sent_at,
+                          reg.payfast_confirmation_email_error,
+                          reg.payfast_payment_id,
+                          reg.confirmation_email_recipients
+                        );
+                        if (eftStatus === 'not_applicable') return null;
+                        return (
+                          <span className={`inline-flex w-fit shrink-0 text-xs font-medium px-2.5 py-1 rounded-full border ${getEftConfirmationEmailBadgeClass(eftStatus)}`}>
+                            {formatEftConfirmationEmailStatus(eftStatus)}
+                          </span>
+                        );
+                      })()}
                     </div>
 
                     {/* EDIT button — visible to all admin staff, only when expanded */}
@@ -782,6 +820,40 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
 
                           <Field label="Registered On" value={formatDate(reg.created_at)} />
                           {reg.notes && <Field label="Notes" value={reg.notes} span2 />}
+
+                          {/* EFT Confirmation Email Status — synced from Resend via confirmation_email_recipients */}
+                          {(() => {
+                            const eftStatus = getEftConfirmationEmailStatus(
+                              reg.payment_method,
+                              reg.payment_status,
+                              reg.payfast_confirmation_email_sent_at,
+                              reg.payfast_confirmation_email_error,
+                              reg.payfast_payment_id,
+                              reg.confirmation_email_recipients
+                            );
+                            if (eftStatus === 'not_applicable') return null;
+                            return (
+                              <div className="col-span-2 sm:col-span-3">
+                                <div className="bg-[#FAF5EE] border border-[#EDE7DA] rounded-xl p-3">
+                                  <p className="text-xs font-semibold text-[#8C8278] uppercase tracking-wide mb-2">EFT Confirmation Email Status (Resend)</p>
+                                  <div className="flex items-center gap-3 flex-wrap">
+                                    <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full border ${getEftConfirmationEmailBadgeClass(eftStatus)}`}>
+                                      {formatEftConfirmationEmailStatus(eftStatus)}
+                                    </span>
+                                    <ConfirmationEmailRecipientStatus
+                                      customerEmail={reg.email}
+                                      infoEmail={correspondenceSettings?.info_email ?? null}
+                                      mainAdminEmail={correspondenceSettings?.admin_email ?? null}
+                                      storedRecipients={reg.confirmation_email_recipients}
+                                      legacySentAt={reg.payfast_confirmation_email_sent_at}
+                                      legacyResendId={reg.payfast_confirmation_email_resend_id}
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })()}
+
                           {/* Emergency Contacts */}
                           {reg.emergency_contact1 && Object.keys(reg.emergency_contact1).length > 0 && (
                             <div className="col-span-2 sm:col-span-3">
