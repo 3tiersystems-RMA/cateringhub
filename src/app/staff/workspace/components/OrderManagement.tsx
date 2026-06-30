@@ -90,26 +90,18 @@ export default function OrderManagement({ userRole = '' }: OrderManagementProps)
   const loadOrders = useCallback(async () => {
     setLoading(true);
     setError('');
+    const { data, error: fetchError } = await supabase
+      .from('orders')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-    try {
-      // Fetch via server-side API (service role) to bypass RLS and ensure
-      // ALL orders placed on the website are always returned.
-      const res = await fetch('/api/orders/create', { method: 'GET' });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        setError('Failed to load orders: ' + (body.error || res.statusText));
-        setOrders([]);
-        return;
-      }
-      const body = await res.json();
-      setOrders((body.orders as Order[]) || []);
-    } catch (err: unknown) {
-      setError('Failed to load orders: ' + (err instanceof Error ? err.message : 'Network error'));
-      setOrders([]);
-    } finally {
-      setLoading(false);
+    if (fetchError) {
+      setError('Failed to load orders: ' + fetchError.message);
+    } else {
+      setOrders((data as Order[]) || []);
     }
-  }, []);
+    setLoading(false);
+  }, [supabase]);
 
   useEffect(() => {
     loadOrders();

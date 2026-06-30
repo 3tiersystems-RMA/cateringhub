@@ -126,11 +126,7 @@ export function getBookingPaymentMethodBadgeClass(
 
 /** PayFast auto-confirmation email status (not manual EFT staff sends). */
 export type PayfastConfirmationEmailStatus =
-  | "not_applicable"
-  | "pending"
-  | "sent"
-  | "failed"
-  | "sync_pending";
+  | "not_applicable" |"pending" |"sent" |"failed" |"sync_pending";
 
 export function getPayfastConfirmationEmailStatus(
   paymentMethod: string | null | undefined,
@@ -192,11 +188,7 @@ export function getPayfastConfirmationEmailBadgeClass(
 // send-staff-confirmation route — the same sync pipeline PayFast uses.
 
 export type EftConfirmationEmailStatus =
-  | "not_applicable"
-  | "pending"
-  | "sent"
-  | "failed"
-  | "sync_pending";
+  | "not_applicable" |"pending" |"sent" |"failed" |"sync_pending";
 
 /**
  * Derive the EFT confirmation email delivery status from DB columns.

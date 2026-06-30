@@ -107,6 +107,7 @@ interface SessionDate {
   location: string | null;
   event_name: string | null;
   class_fee: number | null;
+  session_name: string | null;
 }
 
 // Registrant Bookings view: grouped by event → date → timeslot → registrants
@@ -142,6 +143,7 @@ interface ParticipantBookingRow {
 interface ParticipantsBySessionGroup {
   sessionKey: string; // unique key for the session
   eventName: string;
+  sessionName: string | null;
   eventDate: string | null;
   timeslot: string;
   location: string;
@@ -405,7 +407,7 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
       if (eventDateIds.length > 0) {
         const { data: dates } = await supabase
           .from('cooking_class_sessions')
-          .select('id, event_date, start_time, end_time, location, class_fee, class_id')
+          .select('id, event_date, start_time, end_time, location, class_fee, class_id, session_name')
           .in('id', eventDateIds);
 
         if (dates && dates.length > 0) {
@@ -418,7 +420,7 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
               .in('id', eventIds);
             (events || []).forEach((e: { id: string; name: string }) => { eventsMap[e.id] = e.name; });
           }
-          dates.forEach((d: { id: string; event_date: string | null; start_time: string | null; end_time: string | null; location: string | null; class_fee: number | null; class_id: string }) => {
+          dates.forEach((d: { id: string; event_date: string | null; start_time: string | null; end_time: string | null; location: string | null; class_fee: number | null; class_id: string; session_name: string | null }) => {
             eventDatesMap[d.id] = {
               id: d.id,
               event_date: d.event_date,
@@ -427,6 +429,7 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
               location: d.location,
               class_fee: d.class_fee,
               event_name: eventsMap[d.class_id] || null,
+              session_name: d.session_name || null,
             };
           });
         }
@@ -471,6 +474,7 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
               location: classNameToLocation[name] || null,
               class_fee: null,
               event_name: name,
+              session_name: null,
             })
           ));
         } else if (names.length > 0) {
@@ -482,6 +486,7 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
             location: classNameToLocation[name] || null,
             class_fee: null,
             event_name: name,
+            session_name: null,
           }));
         }
         return { ...r, session_dates: synthetic };
@@ -989,11 +994,12 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
         };
       });
 
-      const addRegistrantToSession = (sessionKey: string, eventName: string, eventDate: string | null, timeslot: string, location: string) => {
+      const addRegistrantToSession = (sessionKey: string, eventName: string, sessionName: string | null, eventDate: string | null, timeslot: string, location: string) => {
         if (!sessionMap[sessionKey]) {
           sessionMap[sessionKey] = {
             sessionKey,
             eventName,
+            sessionName,
             eventDate,
             timeslot,
             location,
@@ -1016,7 +1022,7 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
 
       if (sessionDates.length === 0) {
         const sessionKey = 'no-session';
-        addRegistrantToSession(sessionKey, 'No Session Assigned', null, '—', '');
+        addRegistrantToSession(sessionKey, 'No Session Assigned', null, null, '—', '');
       } else {
         sessionDates.forEach(sd => {
           const evName = sd.event_name || 'Unknown Class';
@@ -1024,7 +1030,7 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
             ? `${sd.start_time} – ${sd.end_time}`
             : sd.start_time || 'Time TBC';
           const sessionKey = `${evName}__${sd.event_date || ''}__${timeslot}`;
-          addRegistrantToSession(sessionKey, evName, sd.event_date, timeslot, (sd.location || '').trim());
+          addRegistrantToSession(sessionKey, evName, sd.session_name || null, sd.event_date, timeslot, (sd.location || '').trim());
         });
       }
     });
@@ -1178,6 +1184,74 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
     <div class="footer">Cardamom Kitchen — Event Bookings · Participants by Location Report</div>
     <script>window.onload=function(){window.print();}<\/script></body></html>`;
     const w = window.open('', '_blank', 'width=1100,height=700');
+    if (w) { w.document.write(html); w.document.close(); }
+  };
+
+  const handleCreateParticipantsBySessionPDF = () => {
+    const groups = filteredParticipantsBySession;
+    const classLabel = sessionParticipantFilter !== 'all' ? sessionParticipantFilter : 'All Classes';
+    const generatedAt = new Date().toLocaleString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const totalParticipantCount = groups.reduce((s, g) => s + g.registrants.reduce((rs, r) => rs + r.participants.length, 0), 0);
+
+    const sessionBlocks = groups.map(group => {
+      const dateStr = group.eventDate ? new Date(group.eventDate).toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+      const registrantRows = group.registrants.map(reg => {
+        const participantRows = reg.participants.map((p, pIdx) => `
+          <tr style="background:${pIdx % 2 === 0 ? '#ffffff' : '#faf5ee'}">
+            <td style="padding:7px 12px 7px 28px;border-bottom:1px solid #f0e8de;color:#8c7b6b;font-size:11px">${pIdx + 1}</td>
+            <td style="padding:7px 12px;border-bottom:1px solid #f0e8de;font-size:12px;font-weight:500;color:#2c2420">${p.fullName || '—'}</td>
+            <td style="padding:7px 12px;border-bottom:1px solid #f0e8de;font-size:12px;color:#5c5347;text-transform:capitalize">${p.gender || '—'}</td>
+            <td style="padding:7px 12px;border-bottom:1px solid #f0e8de;font-size:12px;color:#5c5347">${p.allergies || 'None'}</td>
+          </tr>
+        `).join('');
+        const paymentBadgeColor = reg.paymentStatus === 'paid' ? '#16a34a' : reg.paymentStatus === 'pending' ? '#d97706' : '#6b7280';
+        return `
+          <tr>
+            <td colspan="4" style="padding:0">
+              <div style="background:#2c2420;color:#fff;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;margin-top:4px">
+                <div>
+                  <span style="font-size:12px;font-weight:700">${reg.registrantName}</span>
+                  ${reg.registrantEmail ? `<span style="font-size:11px;color:#c4a882;margin-left:12px">✉ ${reg.registrantEmail}</span>` : ''}
+                  ${reg.registrantPhone ? `<span style="font-size:11px;color:#c4a882;margin-left:12px">📞 ${reg.registrantPhone}</span>` : ''}
+                </div>
+                <span style="font-size:10px;font-weight:600;color:${paymentBadgeColor};text-transform:uppercase;background:rgba(255,255,255,0.1);padding:2px 8px;border-radius:4px">${reg.paymentStatus || '—'}</span>
+              </div>
+            </td>
+          </tr>
+          ${participantRows}
+        `;
+      }).join('');
+
+      return `
+        <div style="margin-bottom:24px;border:1px solid #e8ddd0;border-radius:8px;overflow:hidden">
+          <div style="background:#f5efe8;padding:10px 14px;border-bottom:2px solid #c4622d">
+            <div style="font-size:13px;font-weight:700;color:#c4622d">${group.eventName}${group.sessionName ? ` <span style="font-size:12px;color:#5c5347;font-weight:600">— ${group.sessionName}</span>` : ''}</div>
+            <div style="font-size:11px;color:#5c5347;margin-top:2px">📅 ${dateStr} &nbsp;·&nbsp; 🕐 ${group.timeslot || '—'} &nbsp;·&nbsp; 📍 ${group.location || '—'}</div>
+          </div>
+          <table style="width:100%;border-collapse:collapse">
+            <thead>
+              <tr style="background:#faf5ee">
+                <th style="padding:8px 12px 8px 28px;text-align:left;font-size:10px;font-weight:700;color:#5c5347;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #e8ddd0">#</th>
+                <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;color:#5c5347;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #e8ddd0">Full Name</th>
+                <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;color:#5c5347;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #e8ddd0">Gender</th>
+                <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;color:#5c5347;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #e8ddd0">Allergies / Dietary</th>
+              </tr>
+            </thead>
+            <tbody>${registrantRows}</tbody>
+          </table>
+        </div>
+      `;
+    }).join('');
+
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>Participants by Session — ${classLabel}</title>
+    <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#2c2420;background:#fff;padding:24px}.header{border-bottom:2px solid #c4622d;padding-bottom:16px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:flex-end}.header-left h1{font-size:20px;font-weight:700;color:#1a1612}.header-left p{font-size:12px;color:#8c7b6b;margin-top:4px}.meta{display:flex;gap:24px;margin-bottom:20px}.meta-item{background:#faf5ee;border:1px solid #e8ddd0;border-radius:8px;padding:8px 14px}.meta-item .label{font-size:10px;color:#8c7b6b;text-transform:uppercase;letter-spacing:.05em;font-weight:600}.meta-item .value{font-size:14px;font-weight:700;color:#c4622d;margin-top:2px}.footer{margin-top:20px;padding-top:12px;border-top:1px solid #e8ddd0;font-size:10px;color:#8c7b6b;text-align:center}@media print{body{padding:16px}@page{margin:1cm;size:A4 portrait}}</style>
+    </head><body>
+    <div class="header"><div class="header-left"><h1>Participants by Session</h1><p>Class: ${classLabel}</p></div><div style="text-align:right;font-size:11px;color:#8c7b6b">Generated: ${generatedAt}</div></div>
+    <div class="meta"><div class="meta-item"><div class="label">Total Sessions</div><div class="value">${groups.length}</div></div><div class="meta-item"><div class="label">Total Participants</div><div class="value">${totalParticipantCount}</div></div><div class="meta-item"><div class="label">Class Filter</div><div class="value" style="font-size:12px;color:#5c5347">${classLabel}</div></div></div>
+    ${sessionBlocks}
+    <div class="footer">Cardamom Kitchen — Class Registrations · Participants by Session Report</div>
+    <script>window.onload=function(){window.print();}<\/script></body></html>`;
+    const w = window.open('', '_blank', 'width=900,height=700');
     if (w) { w.document.write(html); w.document.close(); }
   };
 
@@ -1486,6 +1560,14 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
                       {filteredParticipantsBySession.reduce((s, g) => s + g.registrants.reduce((rs, r) => rs + r.participants.length, 0), 0)}
                     </span> participants
                   </span>
+                  {filteredParticipantsBySession.length > 0 && (
+                    <button onClick={handleCreateParticipantsBySessionPDF} className="flex items-center gap-1.5 bg-[#C4622D] text-white px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-[#A04E22] transition-colors">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
+                        <path fillRule="evenodd" d="M4.5 2A1.5 1.5 0 0 0 3 3.5v13A1.5 1.5 0 0 0 4.5 18h11a1.5 1.5 0 0 0 1.5-1.5V7.621a1.5 1.5 0 0 0-.44-1.06l-4.12-4.122A1.5 1.5 0 0 0 11.378 2H4.5Zm4.75 6.75a.75.75 0 0 1 1.5 0v2.546l.943-1.048a.75.75 0 1 1 1.114 1.004l-2.25 2.5a.75.75 0 0 1-1.114 0l-2.25-2.5a.75.75 0 1 1 1.114-1.004l.943 1.048V8.75Z" clipRule="evenodd" />
+                      </svg>
+                      Create PDF
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -1507,7 +1589,12 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
                             {group.eventName.charAt(0)}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <h3 className="text-base font-bold text-[#2C2420]">{group.eventName}</h3>
+                            <h3 className="text-base font-bold text-[#2C2420]">
+                              {group.eventName}
+                              {group.sessionName && (
+                                <span className="ml-2 text-sm font-semibold text-[#C4622D]">— {group.sessionName}</span>
+                              )}
+                            </h3>
                             <div className="flex flex-wrap items-center gap-2 mt-1">
                               {group.eventDate && (
                                 <span className="text-xs bg-[#F5EFE8] border border-[#E8DDD0] text-[#5C5347] px-2.5 py-0.5 rounded-full font-medium">

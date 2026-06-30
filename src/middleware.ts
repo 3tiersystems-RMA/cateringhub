@@ -70,18 +70,13 @@ function redirect(request: NextRequest, pathname: string): NextResponse {
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
-  // Inject the Supabase auth token from the x-sb-token header into request cookies
-  // for ALL routes. This ensures API endpoints (e.g. /api/orders/create) that call
-  // requireStaffMember() can authenticate even when browser cookies are unavailable
-  // (the client.ts singleton falls back to localStorage and passes the token as a header).
-  injectTokenFromHeader(request);
-
-  // Only run full auth/role logic for staff/dashboard routes — skip DB queries for
-  // public pages and API routes to prevent unnecessary latency.
+  // Only run auth logic for staff/dashboard routes — skip DB queries for all other routes
+  // to prevent edge function crashes on public pages
   if (!isStaffRelatedRoute(pathname)) {
     return NextResponse.next({ request });
   }
 
+  injectTokenFromHeader(request);
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
