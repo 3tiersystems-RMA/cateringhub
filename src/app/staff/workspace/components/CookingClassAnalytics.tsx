@@ -227,9 +227,31 @@ export default function CookingClassAnalytics() {
           }
 
           // Build per-session capacity vs bookings
+          // Fetch registrations with children to count all participants (adult + children)
+          const bookingRegIds = [...new Set((soccerBookings || []).map((b: { registration_id: string }) => b.registration_id))];
+          let participantMap: Record<string, number> = {};
+          if (bookingRegIds.length > 0) {
+            const { data: participantRegs } = await supabase
+              .from('cooking_class_registrations')
+              .select('id, children')
+              .in('id', bookingRegIds);
+            (participantRegs || []).forEach((reg: { id: string; children: unknown[] | null }) => {
+              const kids = Array.isArray(reg.children)
+                ? reg.children.filter((c: unknown) => {
+                    if (!c || typeof c !== 'object') return false;
+                    const child = c as Record<string, unknown>;
+                    const name = (child.fullName || child.full_name || child.name || '') as string;
+                    return name.trim().length > 0;
+                  }).length
+                : 0;
+              participantMap[reg.id] = kids + 1; // +1 for the adult registrant
+            });
+          }
+
           const bookingsBySession: Record<string, number> = {};
           (soccerBookings || []).forEach((b: { registration_id: string; event_date_id: string }) => {
-            bookingsBySession[b.event_date_id] = (bookingsBySession[b.event_date_id] || 0) + 1;
+            const participants = participantMap[b.registration_id] ?? 1;
+            bookingsBySession[b.event_date_id] = (bookingsBySession[b.event_date_id] || 0) + participants;
           });
 
           const sessionStats = (soccerSessions || [])
@@ -459,7 +481,7 @@ export default function CookingClassAnalytics() {
         const reg = registrations.find(r => r.id === b.registration_id);
         if (!reg) return sum;
         const kids = Array.isArray(reg.children) ? filterFilledChildren(reg.children).length : 0;
-        return sum + kids;
+        return sum + kids + 1; // +1 for the adult registrant
       }, 0);
       return {
         label: formatDate(d.event_date!),

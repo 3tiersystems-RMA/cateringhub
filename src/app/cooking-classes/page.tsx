@@ -426,7 +426,7 @@ export default function CookingClassesPage() {
               return name.trim().length > 0;
             }).length :
             0;
-            regParticipantMap[reg.id] = kids;
+            regParticipantMap[reg.id] = kids + 1; // +1 for the adult registrant
           });
         }
         // Only count registrations that are paid (those in regParticipantMap)
