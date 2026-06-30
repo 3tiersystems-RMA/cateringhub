@@ -612,7 +612,7 @@ export default function CookingClassAnalytics() {
           )}
         </div>
 
-        {/* School Holiday Attendance */}
+        {/* School Holiday Program Attendance */}
         <div className="bg-white border border-[#EDE7DA] rounded-2xl p-5">
           <h3 className="text-sm font-bold text-[#1A1612] mb-1">School Holiday Attendance</h3>
           <p className="text-xs text-[#8C8278] mb-4">{soccerHolidayClassName} — all-time registrations</p>
