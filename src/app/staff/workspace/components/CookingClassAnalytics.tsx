@@ -145,8 +145,11 @@ export default function CookingClassAnalytics() {
   const [eventDates, setEventDates] = useState<EventDateRow[]>([]);
   const [events, setEvents] = useState<EventRow[]>([]);
 
-  // All-time registrations that have attend_school_holiday answered (yes or no)
-  const [holidayAttendanceRegs, setHolidayAttendanceRegs] = useState<RegistrationRow[]>([]);
+  // Soccer School Holiday Program registrations (all-time, via class name join)
+  const [soccerHolidayTotal, setSoccerHolidayTotal] = useState<number>(0);
+  const [soccerHolidayPaid, setSoccerHolidayPaid] = useState<number>(0);
+  const [soccerHolidayPending, setSoccerHolidayPending] = useState<number>(0);
+  const [soccerHolidayClassName, setSoccerHolidayClassName] = useState<string>('Soccer School Holiday Program');
 
   const loadData = useCallback(async (bucket: TimeBucket = timeBucket) => {
     setLoading(true);
@@ -165,19 +168,66 @@ export default function CookingClassAnalytics() {
         supabase.from('cooking_class_booking_counts').select('registration_id, event_date_id'),
         supabase.from('cooking_class_sessions').select('id, event_date, class_fee, class_id, seating, session_name'),
         supabase.from('cooking_class_name').select('id, name, is_active'),
-        // Fetch ALL registrations with attend_school_holiday answered (all-time, no date filter)
+        // Fetch Soccer School Holiday Program registrations via class name join (all-time)
         supabase
-          .from('cooking_class_registrations')
-          .select('id, first_name, surname, email, payment_status, payment_method, amount, created_at, children, attend_school_holiday')
-          .not('attend_school_holiday', 'is', null)
-          .neq('attend_school_holiday', ''),
+          .from('cooking_class_name')
+          .select('id, name')
+          .ilike('name', '%soccer%holiday%'),
       ]);
       if (regsRes.error) throw regsRes.error;
       setRegistrations(regsRes.data || []);
       setBookings(bookingsRes.data || []);
       setEventDates(datesRes.data || []);
       setEvents(eventsRes.data || []);
-      setHolidayAttendanceRegs(holidayRes.data || []);
+
+      // Build Soccer School Holiday Program stats from the class name lookup
+      const soccerClasses: { id: string; name: string }[] = holidayRes.data || [];
+      if (soccerClasses.length > 0) {
+        const soccerClassIds = soccerClasses.map((c) => c.id);
+        setSoccerHolidayClassName(soccerClasses[0].name);
+
+        // Get all sessions for these classes
+        const { data: soccerSessions } = await supabase
+          .from('cooking_class_sessions')
+          .select('id')
+          .in('class_id', soccerClassIds);
+
+        const soccerSessionIds = (soccerSessions || []).map((s: { id: string }) => s.id);
+
+        if (soccerSessionIds.length > 0) {
+          // Get all booking_counts for these sessions
+          const { data: soccerBookings } = await supabase
+            .from('cooking_class_booking_counts')
+            .select('registration_id')
+            .in('event_date_id', soccerSessionIds);
+
+          const uniqueRegIds = [...new Set((soccerBookings || []).map((b: { registration_id: string }) => b.registration_id))];
+
+          if (uniqueRegIds.length > 0) {
+            const { data: soccerRegs } = await supabase
+              .from('cooking_class_registrations')
+              .select('id, payment_status')
+              .in('id', uniqueRegIds);
+
+            const allRegs = soccerRegs || [];
+            setSoccerHolidayTotal(allRegs.length);
+            setSoccerHolidayPaid(allRegs.filter((r: { id: string; payment_status: string }) => r.payment_status === 'paid').length);
+            setSoccerHolidayPending(allRegs.filter((r: { id: string; payment_status: string }) => r.payment_status !== 'paid' && r.payment_status !== 'failed' && r.payment_status !== 'failed_payment_transaction').length);
+          } else {
+            setSoccerHolidayTotal(0);
+            setSoccerHolidayPaid(0);
+            setSoccerHolidayPending(0);
+          }
+        } else {
+          setSoccerHolidayTotal(0);
+          setSoccerHolidayPaid(0);
+          setSoccerHolidayPending(0);
+        }
+      } else {
+        setSoccerHolidayTotal(0);
+        setSoccerHolidayPaid(0);
+        setSoccerHolidayPending(0);
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to load analytics data');
     } finally {
@@ -393,14 +443,13 @@ export default function CookingClassAnalytics() {
     });
 
   // ── School holiday attendance ─────────────────────────────────────────────────
-  // Direct all-time query: registrations where attend_school_holiday is answered (yes/no)
-  const holidayYes = holidayAttendanceRegs.filter(r => r.attend_school_holiday?.toLowerCase() === 'yes').length;
-  const holidayNo = holidayAttendanceRegs.filter(r => r.attend_school_holiday?.toLowerCase() === 'no').length;
-  const holidayTotal = holidayAttendanceRegs.length;
-  const holidayData = [
-    { name: 'School Holiday', value: holidayYes },
-    { name: 'Regular Session', value: holidayNo },
-  ].filter(d => d.value > 0);
+  // Registrations linked to the Soccer School Holiday Program class (all-time)
+  const holidayData = soccerHolidayTotal > 0
+    ? [
+        { name: 'Paid', value: soccerHolidayPaid, color: BRAND },
+        { name: 'Pending / Other', value: soccerHolidayPending, color: '#DDD5C8' },
+      ].filter(d => d.value > 0)
+    : [];
 
   // ── Top registrants by spend ──────────────────────────────────────────────────
   const topSpenders = [...registrations]
@@ -566,31 +615,38 @@ export default function CookingClassAnalytics() {
         {/* School Holiday Attendance */}
         <div className="bg-white border border-[#EDE7DA] rounded-2xl p-5">
           <h3 className="text-sm font-bold text-[#1A1612] mb-1">School Holiday Attendance</h3>
-          <p className="text-xs text-[#8C8278] mb-4">Registrants attending school holiday sessions</p>
-          {holidayData.length === 0 ? (
-            <div className="flex items-center justify-center h-40 text-sm text-[#8C8278]">No data yet</div>
+          <p className="text-xs text-[#8C8278] mb-4">{soccerHolidayClassName} — all-time registrations</p>
+          {soccerHolidayTotal === 0 ? (
+            <div className="flex items-center justify-center h-40 text-sm text-[#8C8278]">No registrations found</div>
           ) : (
             <div className="flex items-center gap-4">
               <ResponsiveContainer width="55%" height={180}>
                 <PieChart>
                   <Pie data={holidayData} cx="50%" cy="50%" outerRadius={75} paddingAngle={4} dataKey="value">
-                    {holidayData.map((_, i) => (
-                      <Cell key={i} fill={i === 0 ? BRAND : '#DDD5C8'} />
+                    {holidayData.map((d, i) => (
+                      <Cell key={i} fill={d.color} />
                     ))}
                   </Pie>
                   <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #EDE7DA', fontSize: 12 }} />
                 </PieChart>
               </ResponsiveContainer>
               <div className="flex-1 space-y-3">
-                {holidayData.map((d, i) => (
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#5C5347' }} />
+                    <p className="text-xs font-medium text-[#1A1612]">Total Registrations</p>
+                  </div>
+                  <p className="text-xl font-bold text-[#1A1612] ml-5">{soccerHolidayTotal}</p>
+                </div>
+                {holidayData.map((d) => (
                   <div key={d.name}>
                     <div className="flex items-center gap-2 mb-1">
-                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: i === 0 ? BRAND : '#DDD5C8' }} />
+                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: d.color }} />
                       <p className="text-xs font-medium text-[#1A1612]">{d.name}</p>
                     </div>
                     <p className="text-xl font-bold text-[#1A1612] ml-5">{d.value}</p>
                     <p className="text-xs text-[#8C8278] ml-5">
-                      {holidayTotal > 0 ? Math.round((d.value / holidayTotal) * 100) : 0}% of total
+                      {soccerHolidayTotal > 0 ? Math.round((d.value / soccerHolidayTotal) * 100) : 0}% of total
                     </p>
                   </div>
                 ))}
