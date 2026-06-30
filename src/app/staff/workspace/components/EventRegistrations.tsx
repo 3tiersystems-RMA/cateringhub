@@ -1181,6 +1181,87 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
     if (w) { w.document.write(html); w.document.close(); }
   };
 
+  const handleCreateParticipantsBySessionPDF = () => {
+    const groups = filteredParticipantsBySession;
+    const classLabel = sessionParticipantFilter !== 'all' ? sessionParticipantFilter : 'All Classes';
+    const generatedAt = new Date().toLocaleString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const totalParticipants = groups.reduce((s, g) => s + g.registrants.reduce((rs, r) => rs + r.participants.length, 0), 0);
+
+    const sessionBlocks = groups.map(group => {
+      const totalInSession = group.registrants.reduce((s, r) => s + r.participants.length, 0);
+      const sessionDateStr = group.eventDate ? new Date(group.eventDate).toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+      const registrantRows = group.registrants.map((registrant, rIdx) => {
+        const participantRows = registrant.participants.map((p, pIdx) => `
+          <tr style="background:${pIdx % 2 === 0 ? '#ffffff' : '#faf5ee'}">
+            <td style="padding:7px 12px;border-bottom:1px solid #f0e8de;color:#8c7b6b;font-size:11px;text-align:center">${pIdx + 1}</td>
+            <td style="padding:7px 12px;border-bottom:1px solid #f0e8de;font-size:12px;font-weight:500;color:#2c2420">${p.fullName || '—'}</td>
+            <td style="padding:7px 12px;border-bottom:1px solid #f0e8de;font-size:12px;color:#5c5347;text-transform:capitalize">${p.gender || '—'}</td>
+            <td style="padding:7px 12px;border-bottom:1px solid #f0e8de;font-size:12px;color:#5c5347">${p.allergies || 'None'}</td>
+          </tr>
+        `).join('');
+        const paymentBadgeColor = registrant.paymentStatus === 'paid' ? '#16a34a' : registrant.paymentStatus === 'pending' ? '#d97706' : registrant.paymentStatus === 'failed' ? '#dc2626' : '#2563eb';
+        return `
+          <div style="margin-bottom:16px;border:1px solid #e8ddd0;border-radius:10px;overflow:hidden">
+            <div style="background:#1a1612;padding:10px 14px;display:flex;align-items:center;gap:12px">
+              <div style="width:30px;height:30px;border-radius:50%;background:#c4622d;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:700;flex-shrink:0">${registrant.registrantName.charAt(0)}</div>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:13px;font-weight:700;color:#fff">${registrant.registrantName}</div>
+                <div style="font-size:11px;color:#9ca3af;margin-top:2px">${registrant.registrantEmail} · ${registrant.registrantPhone}</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+                <span style="font-size:11px;font-weight:600;color:${paymentBadgeColor};background:${paymentBadgeColor}18;border:1px solid ${paymentBadgeColor}40;padding:2px 8px;border-radius:20px;text-transform:capitalize">${registrant.paymentStatus.replace(/_/g, ' ')}</span>
+                <span style="font-size:11px;color:#9ca3af;background:#2c2420;border:1px solid #3c3430;padding:2px 8px;border-radius:20px">${registrant.participants.length} participant${registrant.participants.length !== 1 ? 's' : ''}</span>
+              </div>
+            </div>
+            <table style="width:100%;border-collapse:collapse">
+              <thead>
+                <tr style="background:#f5efe8">
+                  <th style="padding:7px 12px;text-align:center;font-size:10px;font-weight:700;color:#5c5347;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #e8ddd0;width:40px">#</th>
+                  <th style="padding:7px 12px;text-align:left;font-size:10px;font-weight:700;color:#5c5347;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #e8ddd0">Full Name</th>
+                  <th style="padding:7px 12px;text-align:left;font-size:10px;font-weight:700;color:#5c5347;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #e8ddd0">Gender</th>
+                  <th style="padding:7px 12px;text-align:left;font-size:10px;font-weight:700;color:#5c5347;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #e8ddd0">Allergies / Dietary</th>
+                </tr>
+              </thead>
+              <tbody>${participantRows}</tbody>
+            </table>
+          </div>
+        `;
+      }).join('');
+
+      return `
+        <div style="margin-bottom:28px;page-break-inside:avoid">
+          <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid #e8ddd0">
+            <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#c4622d,#e8845a);display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;font-weight:700;flex-shrink:0">${group.eventName.charAt(0)}</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:15px;font-weight:700;color:#1a1612">${group.eventName}</div>
+              <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:5px">
+                ${group.eventDate ? `<span style="font-size:11px;background:#f5efe8;border:1px solid #e8ddd0;color:#5c5347;padding:2px 8px;border-radius:20px;font-weight:500">📆 ${sessionDateStr}</span>` : ''}
+                ${group.timeslot && group.timeslot !== '—' ? `<span style="font-size:11px;background:#f5efe8;border:1px solid #e8ddd0;color:#5c5347;padding:2px 8px;border-radius:20px;font-weight:500">🕐 ${group.timeslot}</span>` : ''}
+                ${group.location ? `<span style="font-size:11px;background:#f5efe8;border:1px solid #e8ddd0;color:#5c5347;padding:2px 8px;border-radius:20px;font-weight:500">📍 ${group.location}</span>` : ''}
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+              <span style="font-size:11px;background:#fff;border:1px solid #e8ddd0;color:#8c7b6b;padding:3px 10px;border-radius:20px;font-weight:500">${group.registrants.length} registrant${group.registrants.length !== 1 ? 's' : ''}</span>
+              <span style="font-size:11px;background:#fdf6ee;border:1px solid #e8c9b0;color:#c4622d;padding:3px 10px;border-radius:20px;font-weight:600">${totalInSession} participant${totalInSession !== 1 ? 's' : ''}</span>
+            </div>
+          </div>
+          <div style="padding-left:48px">${registrantRows}</div>
+        </div>
+      `;
+    }).join('');
+
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>Participants by Session — ${classLabel}</title>
+    <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#2c2420;background:#fff;padding:24px}.header{border-bottom:2px solid #c4622d;padding-bottom:16px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:flex-end}.header-left h1{font-size:20px;font-weight:700;color:#1a1612}.header-left p{font-size:12px;color:#8c7b6b;margin-top:4px}.meta{display:flex;gap:24px;margin-bottom:20px}.meta-item{background:#faf5ee;border:1px solid #e8ddd0;border-radius:8px;padding:8px 14px}.meta-item .label{font-size:10px;color:#8c7b6b;text-transform:uppercase;letter-spacing:.05em;font-weight:600}.meta-item .value{font-size:14px;font-weight:700;color:#c4622d;margin-top:2px}.footer{margin-top:20px;padding-top:12px;border-top:1px solid #e8ddd0;font-size:10px;color:#8c7b6b;text-align:center}@media print{body{padding:16px}@page{margin:1cm;size:A4 portrait}}</style>
+    </head><body>
+    <div class="header"><div class="header-left"><h1>Participants by Session</h1><p>Class: ${classLabel}</p></div><div style="text-align:right;font-size:11px;color:#8c7b6b">Generated: ${generatedAt}</div></div>
+    <div class="meta"><div class="meta-item"><div class="label">Total Sessions</div><div class="value">${groups.length}</div></div><div class="meta-item"><div class="label">Total Participants</div><div class="value">${totalParticipants}</div></div><div class="meta-item"><div class="label">Class Filter</div><div class="value" style="font-size:12px;color:#5c5347">${classLabel}</div></div></div>
+    ${sessionBlocks}
+    <div class="footer">Cardamom Kitchen — Event Bookings · Participants by Session Report</div>
+    <script>window.onload=function(){window.print();}<\/script></body></html>`;
+    const w = window.open('', '_blank', 'width=1100,height=800');
+    if (w) { w.document.write(html); w.document.close(); }
+  };
+
   const filterTabConfig: { key: FilterTab; label: string; icon: string }[] = [
     { key: 'event', label: 'By Class', icon: '\uD83C\uDF9F' },
     { key: 'registrant', label: 'By Registrant', icon: '👤' },
@@ -1478,7 +1559,7 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
                 {sessionParticipantFilter !== 'all' && (
                   <button onClick={() => setSessionParticipantFilter('all')} className="text-xs text-[#C4622D] hover:underline">Clear</button>
                 )}
-                <div className="ml-auto flex items-center gap-2">
+                <div className="ml-auto flex items-center gap-3">
                   <span className="text-xs text-[#8C7B6B]">
                     <span className="font-semibold text-[#2C2420]">{filteredParticipantsBySession.length}</span> session{filteredParticipantsBySession.length !== 1 ? 's' : ''}
                     {' · '}
@@ -1486,6 +1567,14 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
                       {filteredParticipantsBySession.reduce((s, g) => s + g.registrants.reduce((rs, r) => rs + r.participants.length, 0), 0)}
                     </span> participants
                   </span>
+                  {filteredParticipantsBySession.length > 0 && (
+                    <button onClick={handleCreateParticipantsBySessionPDF} className="flex items-center gap-1.5 bg-[#C4622D] text-white px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-[#A04E22] transition-colors">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
+                        <path fillRule="evenodd" d="M4.5 2A1.5 1.5 0 0 0 3 3.5v13A1.5 1.5 0 0 0 4.5 18h11a1.5 1.5 0 0 0 1.5-1.5V7.621a1.5 1.5 0 0 0-.44-1.06l-4.12-4.122A1.5 1.5 0 0 0 11.378 2H4.5Zm4.75 6.75a.75.75 0 0 1 1.5 0v2.546l.943-1.048a.75.75 0 1 1 1.114 1.004l-2.25 2.5a.75.75 0 0 1-1.114 0l-2.25-2.5a.75.75 0 1 1 1.114-1.004l.943 1.048V8.75Z" clipRule="evenodd" />
+                      </svg>
+                      Create PDF
+                    </button>
+                  )}
                 </div>
               </div>
 
