@@ -211,12 +211,16 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
         if (dates && dates.length > 0) {
           const eventIds = [...new Set(dates.map((d: { class_id: string }) => d.class_id).filter(Boolean))];
           let eventsMap: Record<string, string> = {};
+          const classIsActiveMap: Record<string, boolean> = {};
           if (eventIds.length > 0) {
             const { data: events } = await supabase
-              .from('cooking_classes')
-              .select('id, name')
+              .from('cooking_class_name')
+              .select('id, name, is_active')
               .in('id', eventIds);
-            (events || []).forEach((e: { id: string; name: string }) => { eventsMap[e.id] = e.name; });
+            (events || []).forEach((e: { id: string; name: string; is_active: boolean }) => {
+              eventsMap[e.id] = e.name;
+              classIsActiveMap[e.id] = e.is_active;
+            });
           }
 
           // Fetch session status labels
@@ -228,18 +232,6 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
               .select('id, label')
               .in('id', statusIds);
             (statuses || []).forEach((s: { id: string; label: string }) => { statusLabelsMap[s.id] = s.label; });
-          }
-
-          // Fetch class is_active flags
-          const classIsActiveMap: Record<string, boolean> = {};
-          if (eventIds.length > 0) {
-            const { data: classDetails } = await supabase
-              .from('cooking_class_name')
-              .select('id, is_active')
-              .in('id', eventIds);
-            (classDetails || []).forEach((c: { id: string; is_active: boolean }) => {
-              classIsActiveMap[c.id] = c.is_active;
-            });
           }
 
           dates.forEach((d: { id: string; event_date: string | null; start_time: string | null; end_time: string | null; location: string | null; class_fee: number | null; class_id: string; status_id: string | null }) => {
