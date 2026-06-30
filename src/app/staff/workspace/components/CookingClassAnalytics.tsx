@@ -705,6 +705,9 @@ export default function CookingClassAnalytics() {
                               )}
                             </div>
                             <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                              <span className="text-xs font-semibold px-2 py-0.5 rounded-full border bg-blue-100 text-blue-700 border-blue-200 whitespace-nowrap">
+                                {s.capacity > 0 ? `${Math.round((s.booked / s.capacity) * 100)}%` : '—'}
+                              </span>
                               <span className="text-xs text-[#8C8278] whitespace-nowrap">
                                 {s.booked} / {s.capacity > 0 ? s.capacity : '—'}
                               </span>
