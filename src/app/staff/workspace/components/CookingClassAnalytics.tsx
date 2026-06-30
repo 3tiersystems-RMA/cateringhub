@@ -614,8 +614,8 @@ export default function CookingClassAnalytics() {
 
         {/* School Holiday Program Attendance */}
         <div className="bg-white border border-[#EDE7DA] rounded-2xl p-5">
-          <h3 className="text-sm font-bold text-[#1A1612] mb-1">School Holiday Attendance</h3>
-          <p className="text-xs text-[#8C8278] mb-4">{soccerHolidayClassName} — all-time registrations</p>
+          <h3 className="text-sm font-bold text-[#1A1612] mb-1">School Holiday Program Attendance</h3>
+          <p className="text-xs text-[#8C8278] mb-4">All registrations for the upcoming School Holiday Program</p>
           {soccerHolidayTotal === 0 ? (
             <div className="flex items-center justify-center h-40 text-sm text-[#8C8278]">No registrations found</div>
           ) : (
