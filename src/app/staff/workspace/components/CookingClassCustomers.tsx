@@ -78,6 +78,7 @@ interface SessionDate {
   location: string | null;
   event_name: string | null;
   class_fee: number | null;
+  status_label?: string | null;
 }
 
 interface CookingClassCustomersProps {
@@ -203,7 +204,7 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
       if (eventDateIds.length > 0) {
         const { data: dates } = await supabase
           .from('cooking_class_sessions')
-          .select('id, event_date, start_time, end_time, location, class_fee, class_id')
+          .select('id, event_date, start_time, end_time, location, class_fee, class_id, status_id')
           .in('id', eventDateIds);
 
         if (dates && dates.length > 0) {
@@ -216,7 +217,19 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
               .in('id', eventIds);
             (events || []).forEach((e: { id: string; name: string }) => { eventsMap[e.id] = e.name; });
           }
-          dates.forEach((d: { id: string; event_date: string | null; start_time: string | null; end_time: string | null; location: string | null; class_fee: number | null; class_id: string }) => {
+
+          // Fetch session status labels
+          const statusIds = [...new Set(dates.map((d: { status_id: string | null }) => d.status_id).filter(Boolean))] as string[];
+          let statusLabelsMap: Record<string, string> = {};
+          if (statusIds.length > 0) {
+            const { data: statuses } = await supabase
+              .from('cooking_class_session_statuses')
+              .select('id, label')
+              .in('id', statusIds);
+            (statuses || []).forEach((s: { id: string; label: string }) => { statusLabelsMap[s.id] = s.label; });
+          }
+
+          dates.forEach((d: { id: string; event_date: string | null; start_time: string | null; end_time: string | null; location: string | null; class_fee: number | null; class_id: string; status_id: string | null }) => {
             eventDatesMap[d.id] = {
               id: d.id,
               event_date: d.event_date,
@@ -225,6 +238,7 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
               location: d.location,
               class_fee: d.class_fee,
               event_name: eventsMap[d.class_id] || null,
+              status_label: d.status_id ? (statusLabelsMap[d.status_id] || null) : null,
             };
           });
         }
@@ -329,10 +343,17 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
         // No session dates — treat as current
         matchTime = timeFilter === 'current';
       } else {
+        // A session is considered "active/current" if it has a non-terminal status
+        // (Active, Fully Booked, Bookings Closed) regardless of its date.
+        // Terminal statuses: Cancelled, or no status with a past date.
+        const ACTIVE_STATUSES = ['Active', 'Fully Booked', 'Bookings Closed'];
         const hasUpcoming = sessions.some(s => s.event_date && new Date(s.event_date) >= now);
-        const allPast = sessions.every(s => s.event_date && new Date(s.event_date) < now);
+        const hasActiveStatus = sessions.some(s => s.status_label && ACTIVE_STATUSES.includes(s.status_label));
+        const allPast = sessions.length > 0 &&
+          !hasActiveStatus &&
+          sessions.every(s => s.event_date !== null && s.event_date !== undefined && new Date(s.event_date) < now);
         if (timeFilter === 'past') matchTime = allPast;
-        if (timeFilter === 'current') matchTime = hasUpcoming;
+        if (timeFilter === 'current') matchTime = hasUpcoming || hasActiveStatus || sessions.some(s => !s.event_date);
       }
     }
 
