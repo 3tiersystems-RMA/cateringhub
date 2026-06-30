@@ -1591,53 +1591,19 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
                                       <span className="ml-auto text-xs text-[#8C7B6B]">Child Participant</span>
                                     </div>
                                     {/* Participant detail grid */}
-                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pl-8">
+                                    <div className="flex gap-8 pl-8">
                                       <div>
                                         <p className="text-xs text-[#8C8278] mb-0.5">Full Name</p>
                                         <p className="text-sm font-medium text-[#1A1612]">{participant.fullName || '—'}</p>
                                       </div>
-                                      {participant.ticketNumber && (
-                                        <div>
-                                          <p className="text-xs text-[#8C8278] mb-0.5">Ticket Number</p>
-                                          <p className="text-sm font-medium text-green-700">{participant.ticketNumber}</p>
-                                        </div>
-                                      )}
                                       <div>
-                                        <p className="text-xs text-[#8C8278] mb-0.5">Date of Birth</p>
-                                        <p className="text-sm font-medium text-[#1A1612]">{participant.dob ? formatDate(participant.dob) : '—'}</p>
+                                        <p className="text-xs text-[#8C8278] mb-0.5">Gender</p>
+                                        <p className="text-sm font-medium text-[#1A1612] capitalize">{participant.gender || '—'}</p>
                                       </div>
-                                      <div>
-                                        <p className="text-xs text-[#8C8278] mb-0.5">Age</p>
-                                        <p className="text-sm font-medium text-[#1A1612]">{participant.age || '—'}</p>
-                                      </div>
-                                      {participant.gender && (
-                                        <div>
-                                          <p className="text-xs text-[#8C8278] mb-0.5">Gender</p>
-                                          <p className="text-sm font-medium text-[#1A1612] capitalize">{participant.gender}</p>
-                                        </div>
-                                      )}
-                                      {participant.grade && (
-                                        <div>
-                                          <p className="text-xs text-[#8C8278] mb-0.5">Grade</p>
-                                          <p className="text-sm font-medium text-[#1A1612]">{participant.grade}</p>
-                                        </div>
-                                      )}
                                       <div>
                                         <p className="text-xs text-[#8C8278] mb-0.5">Allergies / Dietary</p>
                                         <p className="text-sm font-medium text-[#1A1612]">{participant.allergies || 'None'}</p>
                                       </div>
-                                      {participant.picturesTaken && (
-                                        <div>
-                                          <p className="text-xs text-[#8C8278] mb-0.5">Pictures Taken</p>
-                                          <p className="text-sm font-medium text-[#1A1612] capitalize">{participant.picturesTaken}</p>
-                                        </div>
-                                      )}
-                                      {participant.indemnityConsent && (
-                                        <div>
-                                          <p className="text-xs text-[#8C8278] mb-0.5">Indemnity Consent</p>
-                                          <p className="text-sm font-medium text-[#1A1612]">{participant.indemnityConsent}</p>
-                                        </div>
-                                      )}
                                     </div>
                                   </div>
                                 ))}
