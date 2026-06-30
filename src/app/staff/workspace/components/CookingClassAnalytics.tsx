@@ -244,7 +244,7 @@ export default function CookingClassAnalytics() {
                     return name.trim().length > 0;
                   }).length
                 : 0;
-              participantMap[reg.id] = kids + 1; // +1 for the adult registrant
+              participantMap[reg.id] = kids; // participants only — exclude registrant
             });
           }
 
@@ -481,7 +481,7 @@ export default function CookingClassAnalytics() {
         const reg = registrations.find(r => r.id === b.registration_id);
         if (!reg) return sum;
         const kids = Array.isArray(reg.children) ? filterFilledChildren(reg.children).length : 0;
-        return sum + kids + 1; // +1 for the adult registrant
+        return sum + kids; // participants only — exclude registrant
       }, 0);
       return {
         label: formatDate(d.event_date!),
