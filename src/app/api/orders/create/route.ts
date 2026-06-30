@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
+import { requireStaffMember } from "@/lib/api/staff-auth";
 
 export async function POST(req: NextRequest) {
   try {
@@ -114,4 +115,32 @@ export async function POST(req: NextRequest) {
     const message = err instanceof Error ? err.message : "Unexpected server error";
     return NextResponse.json({ error: message }, { status: 500 });
   }
+}
+
+/**
+ * GET /api/orders/create
+ * Returns ALL orders newest-first using the service role key (bypasses RLS).
+ * Only accessible by authenticated staff members (admin / staff / super_admin).
+ */
+export async function GET(_req: NextRequest) {
+  const auth = await requireStaffMember();
+  if ("error" in auth) return auth.error;
+
+  const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false } }
+  );
+
+  const { data, error } = await supabaseAdmin
+    .from("orders")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("[api/orders/create GET]", error.message);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ orders: data ?? [] });
 }

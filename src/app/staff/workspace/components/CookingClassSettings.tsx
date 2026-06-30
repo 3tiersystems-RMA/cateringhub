@@ -188,9 +188,12 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
   useEffect(() => {
     loadSettings();
     loadEvents();
-    loadSessionStatuses();
-    loadAllDateRows();
     loadDefaultLocation();
+    (async () => {
+      await loadSessionStatuses();
+      await loadAllDateRows();
+      await autoCloseExpiredSessions();
+    })();
   }, []);
 
   useEffect(() => {
@@ -262,6 +265,53 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
         .select('*')
         .order('sort_order', { ascending: true });
       if (data) setSessionStatuses(data);
+      return data || [];
+    } catch {
+      return [];
+    }
+  }
+
+  async function autoCloseExpiredSessions() {
+    try {
+      // Fetch the 'Bookings Closed' status id
+      const { data: statuses } = await supabase
+        .from(COOKING_CLASS_TABLES.sessionStatuses)
+        .select('id, label');
+      if (!statuses) return;
+      const closedStatus = statuses.find((s: { id: string; label: string }) => s.label === 'Bookings Closed');
+      if (!closedStatus) return;
+
+      // Fetch all sessions that have an event_date and end_time
+      const { data: sessions } = await supabase
+        .from(COOKING_CLASS_TABLES.sessions)
+        .select('id, event_date, end_time, status_id')
+        .not('event_date', 'is', null)
+        .not('end_time', 'is', null);
+      if (!sessions || sessions.length === 0) return;
+
+      const now = new Date();
+      const expiredIds: string[] = [];
+
+      for (const session of sessions) {
+        if (session.status_id === closedStatus.id) continue; // already closed
+        if (!session.event_date || !session.end_time) continue;
+        // Combine date + end_time into a comparable datetime
+        const endDateTime = new Date(`${session.event_date}T${session.end_time}`);
+        if (endDateTime < now) {
+          expiredIds.push(session.id);
+        }
+      }
+
+      if (expiredIds.length === 0) return;
+
+      // Batch update all expired sessions to 'Bookings Closed'
+      await supabase
+        .from(COOKING_CLASS_TABLES.sessions)
+        .update({ status_id: closedStatus.id })
+        .in('id', expiredIds);
+
+      // Reload date rows to reflect updated statuses in the UI
+      await loadAllDateRows();
     } catch {
       // ignore
     }
