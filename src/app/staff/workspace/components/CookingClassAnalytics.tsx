@@ -150,6 +150,13 @@ export default function CookingClassAnalytics() {
   const [soccerHolidayPaid, setSoccerHolidayPaid] = useState<number>(0);
   const [soccerHolidayPending, setSoccerHolidayPending] = useState<number>(0);
   const [soccerHolidayClassName, setSoccerHolidayClassName] = useState<string>('Soccer School Holiday Program');
+  const [soccerSessionStats, setSoccerSessionStats] = useState<{
+    sessionId: string;
+    sessionName: string | null;
+    eventDate: string | null;
+    capacity: number;
+    booked: number;
+  }[]>([]);
 
   const loadData = useCallback(async (bucket: TimeBucket = timeBucket) => {
     setLoading(true);
@@ -189,7 +196,7 @@ export default function CookingClassAnalytics() {
         // Get all sessions for these classes
         const { data: soccerSessions } = await supabase
           .from('cooking_class_sessions')
-          .select('id')
+          .select('id, session_name, event_date, seating')
           .in('class_id', soccerClassIds);
 
         const soccerSessionIds = (soccerSessions || []).map((s: { id: string }) => s.id);
@@ -198,7 +205,7 @@ export default function CookingClassAnalytics() {
           // Get all booking_counts for these sessions
           const { data: soccerBookings } = await supabase
             .from('cooking_class_booking_counts')
-            .select('registration_id')
+            .select('registration_id, event_date_id')
             .in('event_date_id', soccerSessionIds);
 
           const uniqueRegIds = [...new Set((soccerBookings || []).map((b: { registration_id: string }) => b.registration_id))];
@@ -218,15 +225,38 @@ export default function CookingClassAnalytics() {
             setSoccerHolidayPaid(0);
             setSoccerHolidayPending(0);
           }
+
+          // Build per-session capacity vs bookings
+          const bookingsBySession: Record<string, number> = {};
+          (soccerBookings || []).forEach((b: { registration_id: string; event_date_id: string }) => {
+            bookingsBySession[b.event_date_id] = (bookingsBySession[b.event_date_id] || 0) + 1;
+          });
+
+          const sessionStats = (soccerSessions || [])
+            .sort((a: { event_date: string | null }, b: { event_date: string | null }) => {
+              if (!a.event_date) return 1;
+              if (!b.event_date) return -1;
+              return new Date(a.event_date).getTime() - new Date(b.event_date).getTime();
+            })
+            .map((s: { id: string; session_name: string | null; event_date: string | null; seating: number | null }) => ({
+              sessionId: s.id,
+              sessionName: s.session_name,
+              eventDate: s.event_date,
+              capacity: s.seating || 0,
+              booked: bookingsBySession[s.id] || 0,
+            }));
+          setSoccerSessionStats(sessionStats);
         } else {
           setSoccerHolidayTotal(0);
           setSoccerHolidayPaid(0);
           setSoccerHolidayPending(0);
+          setSoccerSessionStats([]);
         }
       } else {
         setSoccerHolidayTotal(0);
         setSoccerHolidayPaid(0);
         setSoccerHolidayPending(0);
+        setSoccerSessionStats([]);
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to load analytics data');
@@ -619,38 +649,92 @@ export default function CookingClassAnalytics() {
           {soccerHolidayTotal === 0 ? (
             <div className="flex items-center justify-center h-40 text-sm text-[#8C8278]">No registrations found</div>
           ) : (
-            <div className="flex items-center gap-4">
-              <ResponsiveContainer width="55%" height={180}>
-                <PieChart>
-                  <Pie data={holidayData} cx="50%" cy="50%" outerRadius={75} paddingAngle={4} dataKey="value">
-                    {holidayData.map((d, i) => (
-                      <Cell key={i} fill={d.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #EDE7DA', fontSize: 12 }} />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="flex-1 space-y-3">
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#5C5347' }} />
-                    <p className="text-xs font-medium text-[#1A1612]">Total Registrations</p>
-                  </div>
-                  <p className="text-xl font-bold text-[#1A1612] ml-5">{soccerHolidayTotal}</p>
-                </div>
-                {holidayData.map((d) => (
-                  <div key={d.name}>
+            <div className="space-y-4">
+              {/* Pie chart + summary stats */}
+              <div className="flex items-center gap-4">
+                <ResponsiveContainer width="55%" height={180}>
+                  <PieChart>
+                    <Pie data={holidayData} cx="50%" cy="50%" outerRadius={75} paddingAngle={4} dataKey="value">
+                      {holidayData.map((d, i) => (
+                        <Cell key={i} fill={d.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #EDE7DA', fontSize: 12 }} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="flex-1 space-y-3">
+                  <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: d.color }} />
-                      <p className="text-xs font-medium text-[#1A1612]">{d.name}</p>
+                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#5C5347' }} />
+                      <p className="text-xs font-medium text-[#1A1612]">Total Registrations</p>
                     </div>
-                    <p className="text-xl font-bold text-[#1A1612] ml-5">{d.value}</p>
-                    <p className="text-xs text-[#8C8278] ml-5">
-                      {soccerHolidayTotal > 0 ? Math.round((d.value / soccerHolidayTotal) * 100) : 0}% of total
-                    </p>
+                    <p className="text-xl font-bold text-[#1A1612] ml-5">{soccerHolidayTotal}</p>
                   </div>
-                ))}
+                  {holidayData.map((d) => (
+                    <div key={d.name}>
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: d.color }} />
+                        <p className="text-xs font-medium text-[#1A1612]">{d.name}</p>
+                      </div>
+                      <p className="text-xl font-bold text-[#1A1612] ml-5">{d.value}</p>
+                      <p className="text-xs text-[#8C8278] ml-5">
+                        {soccerHolidayTotal > 0 ? Math.round((d.value / soccerHolidayTotal) * 100) : 0}% of total
+                      </p>
+                    </div>
+                  ))}
+                </div>
               </div>
+
+              {/* Per-session capacity vs bookings */}
+              {soccerSessionStats.length > 0 && (
+                <div className="border-t border-[#EDE7DA] pt-4">
+                  <p className="text-xs font-semibold text-[#1A1612] mb-3">Seat Capacity vs Bookings — All Sessions</p>
+                  <div className="space-y-3">
+                    {soccerSessionStats.map((s) => {
+                      const fillPct = s.capacity > 0 ? Math.round((s.booked / s.capacity) * 100) : 0;
+                      const available = Math.max(0, s.capacity - s.booked);
+                      return (
+                        <div key={s.sessionId}>
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-semibold text-[#1A1612] leading-tight truncate">
+                                {s.sessionName || (s.eventDate ? formatDate(s.eventDate) : 'Session')}
+                              </p>
+                              {s.sessionName && s.eventDate && (
+                                <p className="text-xs text-[#8C8278] leading-tight">{formatDate(s.eventDate)}</p>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                              <span className="text-xs text-[#8C8278] whitespace-nowrap">
+                                {s.booked} / {s.capacity > 0 ? s.capacity : '—'}
+                              </span>
+                              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
+                                available === 0
+                                  ? 'bg-red-100 text-red-700 border-red-200'
+                                  : available <= 3
+                                  ? 'bg-amber-100 text-amber-700 border-amber-200' :'bg-green-100 text-green-700 border-green-200'
+                              }`}>
+                                {s.capacity === 0 ? '—' : available === 0 ? 'Full' : `${available} left`}
+                              </span>
+                            </div>
+                          </div>
+                          {s.capacity > 0 && (
+                            <div className="h-2 bg-[#e9e0cf] rounded-full overflow-hidden">
+                              <div
+                                className="h-full rounded-full transition-all"
+                                style={{
+                                  width: `${Math.min(fillPct, 100)}%`,
+                                  backgroundColor: fillPct >= 90 ? '#DC2626' : fillPct >= 70 ? '#D97706' : BRAND,
+                                }}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
