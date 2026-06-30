@@ -80,6 +80,18 @@ interface SessionDate {
   class_fee: number | null;
 }
 
+/** Returns true only if the session's end datetime has passed.
+ *  Falls back to end-of-day (23:59:59) when end_time is absent,
+ *  so a session with no end_time is not considered past until the
+ *  calendar day itself has fully elapsed. */
+function isSessionEnded(s: SessionDate): boolean {
+  if (!s.event_date) return false;
+  const datePart = s.event_date.slice(0, 10); // "YYYY-MM-DD"
+  const timePart = s.end_time ? s.end_time.slice(0, 5) : '23:59'; // "HH:MM"
+  const endDt = new Date(`${datePart}T${timePart}:00`);
+  return endDt < new Date();
+}
+
 interface CookingClassCustomersProps {
   isSuperAdmin?: boolean;
 }
@@ -324,13 +336,12 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
     let matchTime = true;
     if (timeFilter !== 'all') {
       const sessions = r.session_dates || [];
-      const now = new Date();
       if (sessions.length === 0) {
         // No session dates — treat as current
         matchTime = timeFilter === 'current';
       } else {
-        const hasUpcoming = sessions.some(s => s.event_date && new Date(s.event_date) >= now);
-        const allPast = sessions.every(s => s.event_date && new Date(s.event_date) < now);
+        const hasUpcoming = sessions.some(s => !isSessionEnded(s));
+        const allPast = sessions.every(s => isSessionEnded(s));
         if (timeFilter === 'past') matchTime = allPast;
         if (timeFilter === 'current') matchTime = hasUpcoming;
       }
@@ -577,8 +588,8 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
             const filledChildren = filterFilledChildren(reg.children) as ChildParticipant[];
             const participantCount = filledChildren.length;
             const sessions = reg.session_dates || [];
-            const isPast = sessions.length > 0 && sessions.every(s => s.event_date && new Date(s.event_date) < new Date());
-            const isUpcoming = sessions.some(s => s.event_date && new Date(s.event_date) >= new Date());
+            const isPast = sessions.length > 0 && sessions.every(s => isSessionEnded(s));
+            const isUpcoming = sessions.some(s => !isSessionEnded(s));
             const isEditing = editingId === reg.id;
 
             return (
@@ -1039,8 +1050,7 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
                                 return new Date(a.event_date).getTime() - new Date(b.event_date).getTime();
                               })
                               .map((session, idx) => {
-                                const sessionDate = session.event_date ? new Date(session.event_date) : null;
-                                const isPastSession = sessionDate && sessionDate < new Date();
+                                const isPastSession = isSessionEnded(session);
                                 return (
                                   <div key={session.id} className="border border-[#EDE7DA] rounded-xl p-4">
                                     <div className="flex items-start justify-between gap-3">
