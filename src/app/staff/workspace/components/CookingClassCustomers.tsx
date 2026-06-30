@@ -577,7 +577,7 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
             const filledChildren = filterFilledChildren(reg.children) as ChildParticipant[];
             const participantCount = filledChildren.length;
             const sessions = reg.session_dates || [];
-            const isPast = sessions.some(s => s.event_date && new Date(s.event_date) < new Date());
+            const isPast = sessions.length > 0 && sessions.every(s => s.event_date && new Date(s.event_date) < new Date());
             const isUpcoming = sessions.some(s => s.event_date && new Date(s.event_date) >= new Date());
             const isEditing = editingId === reg.id;
 
