@@ -79,6 +79,7 @@ interface SessionDate {
   event_name: string | null;
   class_fee: number | null;
   status_label?: string | null;
+  class_is_active?: boolean | null;
 }
 
 interface CookingClassCustomersProps {
@@ -229,6 +230,18 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
             (statuses || []).forEach((s: { id: string; label: string }) => { statusLabelsMap[s.id] = s.label; });
           }
 
+          // Fetch class is_active flags
+          const classIsActiveMap: Record<string, boolean> = {};
+          if (eventIds.length > 0) {
+            const { data: classDetails } = await supabase
+              .from('cooking_class_name')
+              .select('id, is_active')
+              .in('id', eventIds);
+            (classDetails || []).forEach((c: { id: string; is_active: boolean }) => {
+              classIsActiveMap[c.id] = c.is_active;
+            });
+          }
+
           dates.forEach((d: { id: string; event_date: string | null; start_time: string | null; end_time: string | null; location: string | null; class_fee: number | null; class_id: string; status_id: string | null }) => {
             eventDatesMap[d.id] = {
               id: d.id,
@@ -239,6 +252,7 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
               class_fee: d.class_fee,
               event_name: eventsMap[d.class_id] || null,
               status_label: d.status_id ? (statusLabelsMap[d.status_id] || null) : null,
+              class_is_active: classIsActiveMap[d.class_id] ?? null,
             };
           });
         }
@@ -339,21 +353,39 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
     if (timeFilter !== 'all') {
       const sessions = r.session_dates || [];
       const now = new Date();
+      now.setHours(0, 0, 0, 0); // compare date-only to avoid timezone edge cases
       if (sessions.length === 0) {
         // No session dates — treat as current
         matchTime = timeFilter === 'current';
       } else {
-        // A session is considered "active/current" if it has a non-terminal status
-        // (Active, Fully Booked, Bookings Closed) regardless of its date.
-        // Terminal statuses: Cancelled, or no status with a past date.
+        // PRIMARY signal: if ANY session belongs to an active class, registration is current
+        const hasActiveClass = sessions.some(s => s.class_is_active === true);
+
+        // SECONDARY signal: upcoming dates
+        const hasUpcoming = sessions.some(s => {
+          if (!s.event_date) return false;
+          const d = new Date(s.event_date);
+          d.setHours(0, 0, 0, 0);
+          return d >= now;
+        });
+
+        // TERTIARY signal: active status label (belt-and-suspenders)
         const ACTIVE_STATUSES = ['Active', 'Fully Booked', 'Bookings Closed'];
-        const hasUpcoming = sessions.some(s => s.event_date && new Date(s.event_date) >= now);
         const hasActiveStatus = sessions.some(s => s.status_label && ACTIVE_STATUSES.includes(s.status_label));
-        const allPast = sessions.length > 0 &&
-          !hasActiveStatus &&
-          sessions.every(s => s.event_date !== null && s.event_date !== undefined && new Date(s.event_date) < now);
-        if (timeFilter === 'past') matchTime = allPast;
-        if (timeFilter === 'current') matchTime = hasUpcoming || hasActiveStatus || sessions.some(s => !s.event_date);
+
+        // A registration is "past" only when the class is NOT active AND all dates are in the past
+        const allDatesInPast = sessions.every(s => {
+          if (!s.event_date) return false; // unknown date → not conclusively past
+          const d = new Date(s.event_date);
+          d.setHours(0, 0, 0, 0);
+          return d < now;
+        });
+
+        const isCurrent = hasActiveClass || hasUpcoming || hasActiveStatus || sessions.some(s => !s.event_date);
+        const isPast = !isCurrent && allDatesInPast;
+
+        if (timeFilter === 'past') matchTime = isPast;
+        if (timeFilter === 'current') matchTime = !isPast;
       }
     }
 
