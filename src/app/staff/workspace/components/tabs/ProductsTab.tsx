@@ -53,7 +53,8 @@ export default function ProductsTab({ can }: ProductsTabProps) {
   const [productSearchQuery, setProductSearchQuery] = useState('');
   const [staffProductCategory, setStaffProductCategory] = useState<string>('All');
   const [availabilityFilter, setAvailabilityFilter] = useState<'All' | 'Available' | 'Unavailable'>('All');
-  const [oldPriceErrorModal, setOldPriceErrorModal] = useState(false);
+  // Legacy separate old-price modal — kept for reference; validation now uses inline formError.
+  // const [oldPriceErrorModal, setOldPriceErrorModal] = useState(false);
   const [globalError, setGlobalError] = useState('');
   const [globalErrorTitle, setGlobalErrorTitle] = useState('');
   const [deleteModal, setDeleteModal] = useState<{ open: boolean; title: string; message: string; onConfirm: () => void }>({
@@ -138,11 +139,20 @@ export default function ProductsTab({ can }: ProductsTabProps) {
   };
 
   const handleSaveProduct = async () => {
-    if (!form.name.trim()) { showGlobalError('Product name is required.'); return; }
+    setFormError('');
+    setFormSuccess('');
+
+    if (!form.name.trim()) {
+      setFormError('Product name is required.');
+      return;
+    }
     const isPackageType = form.package_type && form.package_type.toLowerCase().includes('package');
-    if (!isPackageType && (!form.price || isNaN(Number(form.price)))) { showGlobalError('Valid price is required.'); return; }
+    if (!isPackageType && (!form.price || isNaN(Number(form.price)))) {
+      setFormError('Valid price is required.');
+      return;
+    }
     if (form.old_price && Number(form.old_price) <= Number(form.price)) {
-      setOldPriceErrorModal(true);
+      setFormError('Old price must be greater than the current price.');
       return;
     }
     setSaving(true);
@@ -152,7 +162,12 @@ export default function ProductsTab({ can }: ProductsTabProps) {
       const ext = pendingImageFile.name.split('.').pop();
       const path = `${Date.now()}.${ext}`;
       const { error: uploadErr } = await supabase.storage.from('product-images').upload(path, pendingImageFile);
-      if (uploadErr) { showGlobalError(uploadErr.message); setSaving(false); setUploadingImage(false); return; }
+      if (uploadErr) {
+        setFormError(uploadErr.message);
+        setSaving(false);
+        setUploadingImage(false);
+        return;
+      }
       image_path = path;
       setUploadingImage(false);
     }
@@ -191,7 +206,9 @@ export default function ProductsTab({ can }: ProductsTabProps) {
       saveError = error;
       if (!error && (!ins || ins.length === 0)) saveError = { message: 'Could not create the product. Please try again.' };
     }
-    if (saveError) { showGlobalError(saveError.message); }
+    if (saveError) {
+      setFormError(saveError.message);
+    }
     else {
       setFormSuccess(editingProduct ? 'Product updated!' : 'Product added!');
       setShowForm(false);
@@ -253,6 +270,7 @@ export default function ProductsTab({ can }: ProductsTabProps) {
         onConfirm={deleteModal.onConfirm}
         onCancel={() => setDeleteModal(prev => ({ ...prev, open: false }))}
       />
+      {/* Legacy old-price error modal — disabled; same z-index as edit form caused errors to appear behind the form.
       {oldPriceErrorModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full mx-4">
@@ -264,6 +282,7 @@ export default function ProductsTab({ can }: ProductsTabProps) {
           </div>
         </div>
       )}
+      */}
 
       <div className="p-6">
         <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
@@ -440,10 +459,15 @@ export default function ProductsTab({ can }: ProductsTabProps) {
                     <span className="text-xs font-semibold text-[#5C5347]">Featured</span>
                   </label>
                 </div>
-                {formError && <p className="text-sm text-red-600">{formError}</p>}
                 {formSuccess && <p className="text-sm text-green-600">{formSuccess}</p>}
               </div>
-              <div className="p-5 border-t border-[#EDE7DA] flex gap-3">
+              <div className="p-5 border-t border-[#EDE7DA] flex flex-col gap-3">
+                {formError && (
+                  <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2" role="alert">
+                    {formError}
+                  </p>
+                )}
+                <div className="flex gap-3">
                 <button
                   onClick={handleSaveProduct}
                   disabled={saving || uploadingImage}
@@ -454,6 +478,7 @@ export default function ProductsTab({ can }: ProductsTabProps) {
                 <button onClick={closeForm} className="px-6 py-2.5 rounded-xl text-sm font-semibold border border-[#DDD5C8] text-[#5C5347] hover:bg-[#FAF5EE] transition-colors">
                   Cancel
                 </button>
+                </div>
               </div>
             </div>
           </div>

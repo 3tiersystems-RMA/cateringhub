@@ -361,6 +361,11 @@ export default function CartSidebar() {
       }
 
       // Step 4: Build and auto-submit form to PayFast gateway
+      try {
+        sessionStorage.setItem("order_pending_m_payment_id", orderRef);
+      } catch {
+        // Non-blocking
+      }
       clearCart();
 
       submitPayFastForm(initiateResult.gatewayUrl, initiateResult.fields);

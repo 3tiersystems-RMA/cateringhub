@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
+import { sendEftOrderReceivedEmail } from "@/lib/order-confirmation-email";
 
 export async function POST(req: NextRequest) {
   try {
@@ -37,9 +38,15 @@ export async function POST(req: NextRequest) {
 
     // ── Auto-notify staff/admin when a new order is placed ──
     // Fire-and-forget: do not block the order creation response
-    // NOTE: PayFast orders are notified via /checkout/success (send-checkout-success-notification).
-    //       Only fire this notification for EFT and voucher orders to avoid duplicate emails.
+    // NOTE: PayFast orders are finalized via ITN + /checkout/success complete-pending-payment
+    //       (auto confirmation email). Staff new-order alert only for EFT and voucher here.
     const paymentMethodForNotify = (body.payment_method || "").toLowerCase();
+    if (paymentMethodForNotify === "eft") {
+      // Customer "order received — please pay via EFT" email (aligned with class booking receipts)
+      sendEftOrderReceivedEmail(supabaseAdmin, data.id).catch((err) => {
+        console.error("[orders/create] EFT order received email failed:", err);
+      });
+    }
     if (paymentMethodForNotify !== "payfast") {
       try {
         // Fetch correspondence settings for info_email and admin_email

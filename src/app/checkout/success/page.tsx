@@ -11,20 +11,105 @@ import {
   parseCheckoutReturnParams,
 } from "@/lib/checkout-return";
 
+const PENDING_ORDER_REF_KEY = "order_pending_m_payment_id";
+
 function SuccessContent() {
   const searchParams = useSearchParams();
   const { orderId, isPayFastReturn, paymentStatus } =
     parseCheckoutReturnParams(searchParams);
 
+  const [pendingOrderRef, setPendingOrderRef] = useState(orderId);
   const [paymentMethodLabel, setPaymentMethodLabel] = useState<string | null>(
     null
   );
+  const [confirmState, setConfirmState] = useState<
+    "idle" | "loading" | "done" | "error"
+  >("idle");
+  const [confirmMessage, setConfirmMessage] = useState<string | null>(null);
 
-  // Track whether the notification email has already been sent for this page load
+  const completionAttemptedRef = useRef(false);
+  // Legacy notify-success path — kept for non-PayFast edge cases; PayFast uses complete-pending-payment
   const notificationSentRef = useRef(false);
 
+  // Resolve order ref from URL or sessionStorage (PayFast may omit m_payment_id on return)
   useEffect(() => {
-    if (isPayFastReturn) {
+    if (orderId) {
+      setPendingOrderRef(orderId);
+      return;
+    }
+    try {
+      const stored = sessionStorage.getItem(PENDING_ORDER_REF_KEY)?.trim() || "";
+      if (stored) setPendingOrderRef(stored);
+    } catch {
+      // non-blocking
+    }
+  }, [orderId]);
+
+  // PayFast return: finalize pending order + auto confirmation email (class/event booking pattern)
+  useEffect(() => {
+    const mPaymentId = pendingOrderRef?.trim();
+    if (!mPaymentId) return;
+    if (completionAttemptedRef.current) return;
+
+    // Match event-bookings payment-return: do not require isPayFastReturn when we have a pending ref
+    const fromPayfast = searchParams?.get("from") === "payfast";
+    const shouldComplete =
+      isPayFastReturn || fromPayfast || Boolean(mPaymentId);
+    if (!shouldComplete) return;
+
+    completionAttemptedRef.current = true;
+    setConfirmState("loading");
+
+    fetch("/api/orders/complete-pending-payment", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        mPaymentId,
+        paymentStatus: paymentStatus || "COMPLETE",
+        pf_payment_id: searchParams?.get("pf_payment_id") || null,
+      }),
+    })
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok && res.status !== 404) {
+          throw new Error(data.error || "Failed to confirm order");
+        }
+        setConfirmState("done");
+        if (data.emailSent) {
+          setConfirmMessage(
+            "Your order has been confirmed. A confirmation email has been sent."
+          );
+        } else if (data.outcome === "created" || data.outcome === "updated") {
+          setConfirmMessage(
+            "Your order has been confirmed. A confirmation email is on its way."
+          );
+        } else if (data.outcome === "already_paid") {
+          setConfirmMessage("Your payment has been recorded.");
+        } else if (res.status === 404) {
+          setConfirmMessage(
+            "Your payment was received. If you do not receive a confirmation email shortly, please contact us with your order reference."
+          );
+        } else if (data.emailError) {
+          setConfirmMessage(
+            "Your payment was received. Confirmation email is being processed — please check your inbox shortly."
+          );
+        }
+        try {
+          sessionStorage.removeItem(PENDING_ORDER_REF_KEY);
+        } catch {
+          // non-blocking
+        }
+      })
+      .catch((err) => {
+        setConfirmState("error");
+        setConfirmMessage(
+          err instanceof Error ? err.message : "Failed to confirm order"
+        );
+      });
+  }, [pendingOrderRef, isPayFastReturn, paymentStatus, searchParams]);
+
+  useEffect(() => {
+    if (isPayFastReturn || pendingOrderRef) {
       setPaymentMethodLabel("PayFast");
       return;
     }
@@ -52,16 +137,19 @@ function SuccessContent() {
     return () => {
       cancelled = true;
     };
-  }, [orderId, isPayFastReturn]);
+  }, [orderId, isPayFastReturn, pendingOrderRef]);
 
   const displayMethod =
     paymentMethodLabel ?? (isPayFastReturn ? "PayFast" : "EFT");
-  const showPayFastNote = isPayFastReturn || displayMethod === "PayFast";
+  const showPayFastNote =
+    (isPayFastReturn || Boolean(pendingOrderRef)) &&
+    confirmState === "loading";
 
-  // Send notification email once paymentMethodLabel is resolved
+  // Legacy checkout notify — skipped for PayFast (complete-pending-payment handles email)
   useEffect(() => {
-    if (paymentMethodLabel === null) return; // wait until method is resolved
-    if (notificationSentRef?.current) return; // already sent
+    if (isPayFastReturn || pendingOrderRef) return;
+    if (paymentMethodLabel === null) return;
+    if (notificationSentRef?.current) return;
     notificationSentRef.current = true;
 
     const resolvedMethod =
@@ -80,7 +168,9 @@ function SuccessContent() {
     })?.catch((err) => {
       console.error("[checkout/success] Failed to send notification email:", err);
     });
-  }, [paymentMethodLabel, orderId, paymentStatus, isPayFastReturn]);
+  }, [paymentMethodLabel, orderId, paymentStatus, isPayFastReturn, pendingOrderRef]);
+
+  const displayOrderRef = pendingOrderRef || orderId;
 
   return (
     <main className="pt-20 min-h-screen bg-[#e9e0cf] flex items-center justify-center px-4">
@@ -95,17 +185,20 @@ function SuccessContent() {
               Payment Successful!
             </h1>
             <p className="text-[#8C8278] text-sm leading-relaxed">
-              Your booking has been confirmed. We&apos;ll send a confirmation
-              email with your order details shortly.
+              {confirmMessage ||
+                "Your booking has been confirmed. We'll send a confirmation email with your order details shortly."}
             </p>
+            {confirmState === "loading" && (
+              <p className="text-xs text-[#8C8278] mt-2">Confirming your order…</p>
+            )}
           </div>
 
           <div className="bg-[#F5F0E8] rounded-2xl p-5 text-left space-y-3">
-            {orderId && (
+            {displayOrderRef && (
               <div className="flex justify-between items-center">
                 <span className="text-sm text-[#8C8278]">Order Reference</span>
                 <span className="font-mono font-semibold text-[#1A1612] text-sm">
-                  {orderId}
+                  {displayOrderRef}
                 </span>
               </div>
             )}

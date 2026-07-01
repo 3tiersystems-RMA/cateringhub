@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { recordFailedBookingPayment } from "@/lib/booking-payfast-failed";
+import { recordFailedOrderPayment } from "@/lib/order-payfast-failed";
 
 export const dynamic = "force-dynamic";
 
 /**
  * POST /api/bookings/record-failed-payment
- * Records a failed/cancelled PayFast booking in history (events + classes).
+ * Records a failed/cancelled PayFast booking in history (events + classes + food orders).
  * Safe to call multiple times (idempotent).
  */
 export async function POST(req: NextRequest) {
@@ -15,7 +16,13 @@ export async function POST(req: NextRequest) {
     const mPaymentId = String(
       body?.mPaymentId || body?.m_payment_id || body?.registrationCode || ""
     ).trim();
-    const bookingType = body?.bookingType === "event" ? "event" : "cooking_class";
+    const bookingTypeRaw = body?.bookingType;
+    const bookingType =
+      bookingTypeRaw === "event"
+        ? "event"
+        : bookingTypeRaw === "order"
+          ? "order"
+          : "cooking_class";
     const payfastPaymentId =
       body?.payfastPaymentId || body?.pf_payment_id || null;
 
@@ -28,6 +35,32 @@ export async function POST(req: NextRequest) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
       { auth: { persistSession: false } }
     );
+
+    if (bookingType === "order") {
+      const result = await recordFailedOrderPayment(supabaseAdmin, {
+        mPaymentId,
+        payfastPaymentId,
+        testSource: "record-failed-payment",
+      });
+
+      if (result.status === "error") {
+        return NextResponse.json({ error: result.message, mPaymentId }, { status: 500 });
+      }
+
+      if (result.status === "not_found") {
+        return NextResponse.json(
+          { success: false, outcome: "not_found", mPaymentId },
+          { status: 404 }
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+        outcome: result.status,
+        orderId: "orderId" in result ? result.orderId : undefined,
+        mPaymentId,
+      });
+    }
 
     const result = await recordFailedBookingPayment(supabaseAdmin, {
       bookingType,

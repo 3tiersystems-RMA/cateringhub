@@ -6,6 +6,9 @@ import {
   PAYFAST_IPS,
   IS_TEST,
 } from "@/lib/payfast";
+import { completeOrderPayfast } from "@/lib/order-payfast-complete";
+import { recordFailedOrderPayment } from "@/lib/order-payfast-failed";
+import { maybeSendPayfastOrderConfirmationEmail } from "@/lib/order-confirmation-email";
 
 export async function POST(req: NextRequest) {
   const responseOk = new NextResponse("OK", { status: 200 });
@@ -55,8 +58,9 @@ export async function POST(req: NextRequest) {
     }
 
     const paymentStatus = pfData.payment_status;
+    const payfastPaymentId = pfData.pf_payment_id || null;
 
-    // ── Check if this is a pending (pre-creation) PayFast order ──────────────
+    // ── Pending (pre-creation) PayFast order — aligned with class/event ITN flow ──
     const { data: pendingRow } = await supabaseAdmin
       .from("payfast_pending_payments")
       .select("payload")
@@ -65,7 +69,6 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (pendingRow) {
-      // Order has NOT been created yet — create it now based on payment outcome
       if (paymentStatus === "COMPLETE") {
         const p = pendingRow.payload as Record<string, unknown>;
 
@@ -84,51 +87,49 @@ export async function POST(req: NextRequest) {
           return responseOk;
         }
 
-        const { error: insertErr } = await supabaseAdmin.from("orders").insert({
-          m_payment_id: paymentId,
-          customer_name: p.customer_name,
-          customer_email: p.customer_email,
-          customer_phone: p.customer_phone,
-          items: p.items,
-          subtotal: p.subtotal,
-          delivery_fee: p.delivery_fee,
-          total: p.total,
-          payment_status: "awaiting_confirmation",
-          payment_method: "payfast",
-          payfast_transaction_id: pfData.pf_payment_id || null,
-          event_date: p.event_date ?? null,
-          delivery_address: p.delivery_address,
-          notes: `PayFast payment received. Awaiting confirmation. PF ID: ${pfData.pf_payment_id || ""}${p.notes ? ` | ${p.notes}` : ""}`,
-        });
+        const result = await completeOrderPayfast(
+          supabaseAdmin,
+          paymentId,
+          "payfast-itn",
+          payfastPaymentId
+        );
 
-        if (insertErr) {
-          console.error("[PayFast ITN] Failed to create order from pending:", insertErr.message);
+        if (result.status === "error") {
+          console.error("[PayFast ITN] Failed to create order from pending:", result.message);
           return responseOk;
         }
 
-        // Clean up pending record
-        await supabaseAdmin
-          .from("payfast_pending_payments")
-          .delete()
-          .eq("m_payment_id", paymentId);
-
-        console.log("[PayFast ITN] Order created from pending payment:", paymentId);
+        if (result.status !== "not_found") {
+          const emailResult = await maybeSendPayfastOrderConfirmationEmail(
+            supabaseAdmin,
+            result,
+            "payfast-itn"
+          );
+          if (!emailResult.sent && !emailResult.skipped) {
+            console.error(
+              "[PayFast ITN] Order created but confirmation email failed:",
+              paymentId,
+              emailResult.error
+            );
+          }
+          console.log("[PayFast ITN] Order finalized from pending payment:", paymentId);
+        }
       } else if (paymentStatus === "FAILED") {
-        // Just remove the pending record — no order to create
-        await supabaseAdmin
-          .from("payfast_pending_payments")
-          .delete()
-          .eq("m_payment_id", paymentId);
-        console.log("[PayFast ITN] Pending order payment failed, pending record removed:", paymentId);
+        await recordFailedOrderPayment(supabaseAdmin, {
+          mPaymentId: paymentId,
+          payfastPaymentId,
+          testSource: "payfast-itn",
+        });
+        console.log("[PayFast ITN] Pending order payment failed, recorded:", paymentId);
       }
-      // PENDING status: do nothing, keep the pending record
+      // PENDING status: keep pending record
       return responseOk;
     }
 
     // ── Legacy path: order already exists in DB (EFT orders or old PayFast orders) ──
     const { data: orderRow, error: orderErr } = await supabaseAdmin
       .from("orders")
-      .select("total, payment_status")
+      .select("id, total, payment_status")
       .eq("m_payment_id", paymentId)
       .single();
 
@@ -158,23 +159,36 @@ export async function POST(req: NextRequest) {
     }
 
     switch (paymentStatus) {
-      case "COMPLETE":
-        await supabaseAdmin
-          .from("orders")
-          .update({
-            payment_status: "awaiting_confirmation",
-            payment_method: "payfast",
-            payfast_transaction_id: pfData.pf_payment_id || null,
-            notes: `PayFast payment received. Awaiting confirmation. PF ID: ${pfData.pf_payment_id || ""}`,
-          })
-          .eq("m_payment_id", paymentId);
+      case "COMPLETE": {
+        const result = await completeOrderPayfast(
+          supabaseAdmin,
+          paymentId,
+          "payfast-itn",
+          payfastPaymentId
+        );
+        if (result.status !== "not_found" && result.status !== "error") {
+          const emailResult = await maybeSendPayfastOrderConfirmationEmail(
+            supabaseAdmin,
+            result,
+            "payfast-itn"
+          );
+          if (!emailResult.sent && !emailResult.skipped) {
+            console.error(
+              "[PayFast ITN] Legacy order updated but confirmation email failed:",
+              paymentId,
+              emailResult.error
+            );
+          }
+        }
         break;
+      }
 
       case "FAILED":
-        await supabaseAdmin
-          .from("orders")
-          .update({ payment_status: "failed" })
-          .eq("m_payment_id", paymentId);
+        await recordFailedOrderPayment(supabaseAdmin, {
+          mPaymentId: paymentId,
+          payfastPaymentId,
+          testSource: "payfast-itn",
+        });
         break;
 
       case "PENDING":

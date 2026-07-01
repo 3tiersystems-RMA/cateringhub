@@ -366,7 +366,7 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
         // SECONDARY signal: upcoming dates
         const hasUpcoming = sessions.some(s => {
           if (!s.event_date) return false;
-          const d = new Date(s.event_date);
+          const d = new Date(s.event_date.includes('T') ? s.event_date : s.event_date + 'T00:00:00');
           d.setHours(0, 0, 0, 0);
           return d >= now;
         });
@@ -378,7 +378,7 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
         // A registration is "past" only when the class is NOT active AND all dates are in the past
         const allDatesInPast = sessions.every(s => {
           if (!s.event_date) return false; // unknown date → not conclusively past
-          const d = new Date(s.event_date);
+          const d = new Date(s.event_date.includes('T') ? s.event_date : s.event_date + 'T00:00:00');
           d.setHours(0, 0, 0, 0);
           return d < now;
         });
@@ -632,8 +632,8 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
             const filledChildren = filterFilledChildren(reg.children) as ChildParticipant[];
             const participantCount = filledChildren.length;
             const sessions = reg.session_dates || [];
-            const isPast = sessions.some(s => s.event_date && new Date(s.event_date) < new Date());
-            const isUpcoming = sessions.some(s => s.event_date && new Date(s.event_date) >= new Date());
+            const isPast = sessions.some(s => s.event_date && new Date(s.event_date.includes('T') ? s.event_date : s.event_date + 'T00:00:00') < new Date());
+            const isUpcoming = sessions.some(s => s.event_date && new Date(s.event_date.includes('T') ? s.event_date : s.event_date + 'T00:00:00') >= new Date());
             const isEditing = editingId === reg.id;
 
             return (
@@ -1094,7 +1094,7 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
                                 return new Date(a.event_date).getTime() - new Date(b.event_date).getTime();
                               })
                               .map((session, idx) => {
-                                const sessionDate = session.event_date ? new Date(session.event_date) : null;
+                                const sessionDate = session.event_date ? new Date(session.event_date.includes('T') ? session.event_date : session.event_date + 'T00:00:00') : null;
                                 const isPastSession = sessionDate && sessionDate < new Date();
                                 return (
                                   <div key={session.id} className="border border-[#EDE7DA] rounded-xl p-4">

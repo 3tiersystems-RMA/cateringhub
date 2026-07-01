@@ -1,17 +1,48 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { Suspense } from "react";
+import { Suspense, useEffect, useRef } from "react";
 import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import Icon from "@/components/ui/AppIcon";
 import { parseCheckoutReturnParams } from "@/lib/checkout-return";
 
+const PENDING_ORDER_REF_KEY = "order_pending_m_payment_id";
+
 function CancelContent() {
   const searchParams = useSearchParams();
   const { orderId, isPayFastReturn: isPayFast } =
     parseCheckoutReturnParams(searchParams);
+
+  const failedRecordedRef = useRef(false);
+
+  useEffect(() => {
+    const mPaymentId =
+      orderId ||
+      (() => {
+        try {
+          return sessionStorage.getItem(PENDING_ORDER_REF_KEY)?.trim() || "";
+        } catch {
+          return "";
+        }
+      })();
+
+    if (!isPayFast || !mPaymentId || failedRecordedRef.current) return;
+    failedRecordedRef.current = true;
+
+    fetch("/api/bookings/record-failed-payment", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        bookingType: "order",
+        mPaymentId,
+        paymentStatus: searchParams?.get("payment_status") || "CANCELLED",
+      }),
+    }).catch(() => {
+      // Non-blocking — ITN may still record the failure
+    });
+  }, [isPayFast, orderId, searchParams]);
 
   return (
     <main className="pt-20 min-h-screen bg-[#e9e0cf] flex items-center justify-center px-4">

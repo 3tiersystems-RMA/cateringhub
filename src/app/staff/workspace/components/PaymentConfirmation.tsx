@@ -28,11 +28,14 @@ interface AwaitingOrder {
   notes: string;
   created_at: string;
   m_payment_id: string | null;
+  payment_method: string | null;
 }
 
 interface CorrespondenceSettings {
   form_header_title: string | null;
   logo_url: string | null;
+  info_email: string | null;
+  admin_email: string | null;
 }
 
 interface PaymentConfirmationProps {
@@ -75,7 +78,7 @@ export default function PaymentConfirmation({ userRole }: PaymentConfirmationPro
         .order('created_at', { ascending: false }),
       supabase
         .from('correspondence_settings')
-        .select('form_header_title, logo_url')
+        .select('form_header_title, logo_url, info_email, admin_email')
         .limit(1)
         .maybeSingle(),
     ]);
@@ -112,6 +115,19 @@ export default function PaymentConfirmation({ userRole }: PaymentConfirmationPro
       const { data: { session } } = await supabase.auth.getSession();
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
+      const adminEmailsRaw = [
+        correspondenceSettings?.info_email,
+        correspondenceSettings?.admin_email,
+      ].filter((e): e is string => typeof e === 'string' && e.trim().length > 0);
+      const adminEmails = [...new Set(adminEmailsRaw.map((e) => e.trim()))];
+
+      const paymentMethodLabel =
+        (previewOrder.payment_method || '').toLowerCase() === 'payfast'
+          ? 'PayFast'
+          : (previewOrder.payment_method || '').toLowerCase() === 'voucher'
+            ? 'Meal Voucher'
+            : 'EFT';
+
       const res = await fetch(`${supabaseUrl}/functions/v1/send-payment-confirmation`, {
         method: 'POST',
         headers: {
@@ -119,7 +135,7 @@ export default function PaymentConfirmation({ userRole }: PaymentConfirmationPro
           'Authorization': `Bearer ${session?.access_token}`,
         },
         body: JSON.stringify({
-          orderId: previewOrder.id,
+          orderId: previewOrder.m_payment_id || previewOrder.id,
           customerName: previewOrder.customer_name,
           customerEmail: previewOrder.customer_email,
           customerPhone: previewOrder.customer_phone,
@@ -130,10 +146,11 @@ export default function PaymentConfirmation({ userRole }: PaymentConfirmationPro
           eventDate: previewOrder.event_date,
           deliveryAddress: previewOrder.delivery_address,
           notes: previewOrder.notes,
-          paymentMethod: previewOrder.m_payment_id ? 'PayFast' : 'EFT',
+          paymentMethod: paymentMethodLabel,
           createdAt: previewOrder.created_at,
           formHeaderTitle: correspondenceSettings?.form_header_title || 'Cardamom Kitchen',
           logoUrl: correspondenceSettings?.logo_url || null,
+          adminEmails,
         }),
       });
 
@@ -143,10 +160,24 @@ export default function PaymentConfirmation({ userRole }: PaymentConfirmationPro
         throw new Error(result.error || 'Failed to send confirmation email');
       }
 
-      // Update payment_status to 'paid'
+      // Update payment_status to 'paid' (+ track manual send for PayFast fallback)
+      const isPayfastOrder =
+        (previewOrder.payment_method || '').toLowerCase() === 'payfast';
+      const updatePayload: Record<string, unknown> = {
+        payment_status: 'paid',
+        updated_at: new Date().toISOString(),
+      };
+      if (isPayfastOrder) {
+        updatePayload.payfast_confirmation_email_sent_at = new Date().toISOString();
+        updatePayload.payfast_confirmation_email_error = null;
+        if (result.emailId) {
+          updatePayload.payfast_confirmation_email_resend_id = result.emailId;
+        }
+      }
+
       const { error: updateError } = await supabase
         .from('orders')
-        .update({ payment_status: 'paid' })
+        .update(updatePayload)
         .eq('id', previewOrder.id);
 
       if (updateError) {
