@@ -1,7 +1,72 @@
+'use client';
+
 import AppLogo from '@/components/ui/AppLogo';
 import Link from 'next/link';
 import { APP_NAME } from '@/lib/constants';
 import AppImage from '@/components/ui/AppImage';
+
+function exportGuideAsHTML() {
+  const mainEl = document.getElementById('guide-main-content');
+  if (!mainEl) return;
+
+  const htmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${APP_NAME} — Admin Guide</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #e9e0cf; color: #1A1612; padding: 0; }
+    .page-header { background: #fff; border-bottom: 1px solid #DDD5C8; padding: 16px 32px; display: flex; align-items: center; justify-content: space-between; }
+    .page-header h1 { font-size: 18px; font-weight: 700; color: #1A1612; }
+    .page-header p { font-size: 12px; color: #8C8278; margin-top: 2px; }
+    .role-badge { display: inline-flex; align-items: center; gap: 6px; background: #2563eb22; color: #2563eb; font-size: 11px; font-weight: 700; padding: 4px 12px; border-radius: 999px; }
+    main { max-width: 900px; margin: 0 auto; padding: 40px 32px; }
+    section { background: #fff; border-radius: 16px; border: 1px solid #DDD5C8; padding: 32px; margin-bottom: 24px; }
+    h2 { font-size: 18px; font-weight: 700; color: #1A1612; margin-bottom: 16px; }
+    h3 { font-size: 14px; font-weight: 600; color: #1A1612; margin-bottom: 12px; }
+    p { font-size: 14px; color: #5C5347; line-height: 1.6; margin-bottom: 12px; }
+    ul, ol { padding-left: 20px; margin-bottom: 16px; }
+    li { font-size: 13px; color: #5C5347; line-height: 1.6; margin-bottom: 6px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { background: #e9e0cf; padding: 10px 16px; text-align: left; font-size: 11px; font-weight: 700; color: #8C8278; text-transform: uppercase; letter-spacing: 0.05em; }
+    th:not(:first-child) { text-align: center; }
+    td { padding: 10px 16px; border-bottom: 1px solid #EDE7DA; color: #3D3530; }
+    td:not(:first-child) { text-align: center; }
+    tr.group-row td { background: #F5F0E8; font-size: 11px; font-weight: 700; color: #8C8278; text-transform: uppercase; letter-spacing: 0.05em; padding: 8px 16px; }
+    .check-yes { color: #16a34a; font-weight: 700; }
+    .check-no { color: #DDD5C8; font-weight: 700; }
+    .check-partial { color: #d97706; font-weight: 600; font-size: 12px; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .card { border-radius: 12px; padding: 16px; border: 1px solid #EDE7DA; background: #FAFAF8; }
+    .export-note { font-size: 11px; color: #8C8278; text-align: center; padding: 16px 32px 32px; }
+    @media print { body { background: #fff; } }
+  </style>
+</head>
+<body>
+  <div class="page-header">
+    <div>
+      <h1>${APP_NAME} — Admin Guide</h1>
+      <p>Exported on ${new Date().toLocaleDateString('en-ZA', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+    </div>
+    <div class="role-badge">🛡️ Admin</div>
+  </div>
+  ${mainEl.innerHTML}
+  <p class="export-note">${APP_NAME} Staff Portal — Confidential. For internal use only.</p>
+</body>
+</html>`;
+
+  const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${APP_NAME.replace(/\s+/g, '-')}-Admin-Guide.html`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
 
 export default function AdminGuidePage() {
   return (
@@ -22,6 +87,16 @@ export default function AdminGuidePage() {
               height={40}
               className="object-contain h-10 w-auto"
             />
+            <button
+              onClick={exportGuideAsHTML}
+              className="text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors px-3 py-1.5 rounded-lg flex items-center gap-1.5"
+              title="Export as HTML file"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+              </svg>
+              Export HTML
+            </button>
             <Link
               href="/staff/workspace"
               className="text-sm font-medium text-[#C4622D] hover:text-[#A04E22] transition-colors px-3 py-1.5 rounded-lg hover:bg-[#e9e0cf]"
@@ -31,7 +106,7 @@ export default function AdminGuidePage() {
           </div>
         </div>
       </header>
-      <main className="max-w-4xl mx-auto px-4 md:px-8 py-10">
+      <main id="guide-main-content" className="max-w-4xl mx-auto px-4 md:px-8 py-10">
         {/* Title */}
         <div className="mb-10">
           <div className="inline-flex items-center gap-2 bg-blue-100 text-blue-700 text-xs font-semibold px-3 py-1.5 rounded-full mb-4">

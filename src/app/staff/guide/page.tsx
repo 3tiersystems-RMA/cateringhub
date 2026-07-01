@@ -1,7 +1,100 @@
+'use client';
+
 import AppLogo from '@/components/ui/AppLogo';
 import Link from 'next/link';
 import { APP_NAME } from '@/lib/constants';
 import AppImage from '@/components/ui/AppImage';
+
+function exportGuideAsHTML(title: string, role: string, accentColor: string) {
+  const mainEl = document.getElementById('guide-main-content');
+  if (!mainEl) return;
+
+  const htmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${title}</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #e9e0cf; color: #1A1612; padding: 0; }
+    .page-header { background: #fff; border-bottom: 1px solid #DDD5C8; padding: 16px 32px; display: flex; align-items: center; justify-content: space-between; }
+    .page-header h1 { font-size: 18px; font-weight: 700; color: #1A1612; }
+    .page-header p { font-size: 12px; color: #8C8278; margin-top: 2px; }
+    .role-badge { display: inline-flex; align-items: center; gap: 6px; background: ${accentColor}22; color: ${accentColor}; font-size: 11px; font-weight: 700; padding: 4px 12px; border-radius: 999px; }
+    main { max-width: 900px; margin: 0 auto; padding: 40px 32px; }
+    section { background: #fff; border-radius: 16px; border: 1px solid #DDD5C8; padding: 32px; margin-bottom: 24px; }
+    h2 { font-size: 18px; font-weight: 700; color: #1A1612; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+    h3 { font-size: 14px; font-weight: 600; color: #1A1612; margin-bottom: 12px; }
+    p { font-size: 14px; color: #5C5347; line-height: 1.6; margin-bottom: 12px; }
+    ul, ol { padding-left: 20px; margin-bottom: 16px; }
+    li { font-size: 13px; color: #5C5347; line-height: 1.6; margin-bottom: 6px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { background: #e9e0cf; padding: 10px 16px; text-align: left; font-size: 11px; font-weight: 700; color: #8C8278; text-transform: uppercase; letter-spacing: 0.05em; }
+    th:not(:first-child) { text-align: center; }
+    td { padding: 10px 16px; border-bottom: 1px solid #EDE7DA; color: #3D3530; }
+    td:not(:first-child) { text-align: center; }
+    tr.group-row td { background: #F5F0E8; font-size: 11px; font-weight: 700; color: #8C8278; text-transform: uppercase; letter-spacing: 0.05em; padding: 8px 16px; }
+    .check-yes { color: #16a34a; font-weight: 700; }
+    .check-admin { color: ${accentColor}; font-weight: 700; }
+    .check-no { color: #DDD5C8; font-weight: 700; }
+    .check-partial { color: #d97706; font-weight: 600; font-size: 12px; }
+    .info-box { border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+    .info-box.amber { background: #fffbeb; border: 1px solid #fde68a; }
+    .info-box.blue { background: #eff6ff; border: 1px solid #bfdbfe; }
+    .info-box.purple { background: #f5f3ff; border: 1px solid #ddd6fe; }
+    .info-box.neutral { background: #e9e0cf; border: 1px solid #DDD5C8; }
+    .info-box p { margin-bottom: 4px; }
+    .info-box .title { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+    .card { border-radius: 12px; padding: 16px; border: 1px solid #EDE7DA; }
+    .card.purple { background: #f5f3ff; border-color: #ddd6fe; }
+    .card.blue { background: #eff6ff; border-color: #bfdbfe; }
+    .card.neutral { background: #e9e0cf; border-color: #DDD5C8; }
+    .card .icon { font-size: 24px; margin-bottom: 8px; }
+    .card .card-title { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+    .card .card-desc { font-size: 12px; line-height: 1.5; }
+    .step-list { list-style: none; padding: 0; }
+    .step-list li { display: flex; gap: 12px; margin-bottom: 12px; align-items: flex-start; }
+    .step-badge { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #fff; flex-shrink: 0; margin-top: 2px; }
+    .step-badge.purple { background: #7c3aed; }
+    .step-badge.red { background: #ef4444; }
+    .step-badge.green { background: #16a34a; }
+    .code-block { background: #1A1612; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+    .code-block .label { font-size: 11px; font-weight: 600; color: #C4622D; margin-bottom: 8px; }
+    .code-block pre { font-size: 12px; color: #4ade80; font-family: monospace; line-height: 1.6; white-space: pre-wrap; }
+    .legend { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 16px; font-size: 12px; color: #8C8278; }
+    .footer { background: #f5f3ff; border: 1px solid #ddd6fe; border-radius: 16px; padding: 24px; text-align: center; margin-top: 24px; }
+    .footer p { font-size: 13px; font-weight: 600; color: #5b21b6; margin-bottom: 4px; }
+    .footer small { font-size: 12px; color: #7c3aed; }
+    .export-note { font-size: 11px; color: #8C8278; text-align: center; margin-top: 8px; }
+    @media print { body { background: #fff; } .page-header { position: static; } }
+  </style>
+</head>
+<body>
+  <div class="page-header">
+    <div>
+      <h1>${APP_NAME} — ${title}</h1>
+      <p>Exported on ${new Date().toLocaleDateString('en-ZA', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+    </div>
+    <div class="role-badge">${role}</div>
+  </div>
+  ${mainEl.innerHTML}
+  <p class="export-note" style="padding: 16px 32px 32px;">${APP_NAME} Staff Portal — Confidential. For internal use only.</p>
+</body>
+</html>`;
+
+  const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${APP_NAME.replace(/\s+/g, '-')}-Super-Admin-Guide.html`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
 
 export default function SuperAdminGuidePage() {
   return (
@@ -22,6 +115,16 @@ export default function SuperAdminGuidePage() {
               height={40}
               className="object-contain h-10 w-auto"
             />
+            <button
+              onClick={() => exportGuideAsHTML('Super Admin Guide', '👑 Super Admin', '#7c3aed')}
+              className="text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 transition-colors px-3 py-1.5 rounded-lg flex items-center gap-1.5"
+              title="Export as HTML file"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+              </svg>
+              Export HTML
+            </button>
             <Link
               href="/staff/workspace"
               className="text-sm font-medium text-[#C4622D] hover:text-[#A04E22] transition-colors px-3 py-1.5 rounded-lg hover:bg-[#e9e0cf]"
@@ -31,7 +134,7 @@ export default function SuperAdminGuidePage() {
           </div>
         </div>
       </header>
-      <main className="max-w-4xl mx-auto px-4 md:px-8 py-10">
+      <main id="guide-main-content" className="max-w-4xl mx-auto px-4 md:px-8 py-10">
         {/* Title */}
         <div className="mb-10">
           <div className="inline-flex items-center gap-2 bg-purple-100 text-purple-700 text-xs font-semibold px-3 py-1.5 rounded-full mb-4">
