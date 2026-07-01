@@ -1,4 +1,4 @@
-export type WorkspaceTab = 'products' | 'media' | 'media_events' | 'media_products' | 'orders' | 'staff' | 'homepage_cards' | 'categories' | 'weekly_menu' | 'vouchers' | 'discount_vouchers' | 'testimonials' | 'reporting' | 'analytics' | 'social_media' | 'gallery' | 'section_visibility' | 'customer_order_history' | 'correspondence_settings' | 'abandoned_carts' | 'package_visibility' | 'cooking_classes' | 'cooking_class_customers' | 'cooking_class_analytics' | 'cooking_class_confirmation' | 'event_registrations' | 'organisation_details' | 'payment_confirmation' | 'collection_notification' | 'global_settings' | 'event_management' | 'event_management_customers' | 'event_management_registrations' | 'event_management_analytics' | 'event_booking_confirmation' | 'bookings_credit' | 'customer_registrations' | 'event_booking_registrations' | 'failed_transactions';
+export type WorkspaceTab = 'products' | 'media' | 'media_events' | 'media_products' | 'orders' | 'staff' | 'homepage_cards' | 'categories' | 'weekly_menu' | 'vouchers' | 'discount_vouchers' | 'testimonials' | 'reporting' | 'analytics' | 'social_media' | 'gallery' | 'section_visibility' | 'customer_order_history' | 'correspondence_settings' | 'abandoned_carts' | 'package_visibility' | 'cooking_classes' | 'cooking_class_customers' | 'cooking_class_analytics' | 'cooking_class_confirmation' | 'event_registrations' | 'organisation_details' | 'payment_confirmation' | 'collection_notification' | 'global_settings' | 'event_management' | 'event_management_customers' | 'event_management_registrations' | 'event_management_analytics' | 'event_booking_confirmation' | 'bookings_credit' | 'customer_registrations' | 'event_booking_registrations' | 'failed_transactions' | 'database_schema';
 
 export type StaffRole = 'admin' | 'staff' | 'super_admin';
 
@@ -53,6 +53,7 @@ export const TAB_ACCESS: Record<WorkspaceTab, StaffRole[]> = {
   payment_confirmation: ['super_admin', 'admin'],
   collection_notification: ['super_admin', 'admin'],
   global_settings: ['super_admin', 'admin'],
+  database_schema: ['super_admin'],
 };
 
 // Action-level permission model. super_admin = everything; admin = full CRUD on

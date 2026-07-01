@@ -58,6 +58,7 @@ import EventBookingConfirmation from '@/app/staff/workspace/components/EventBook
 import CookingClassConfirmation from '@/app/staff/workspace/components/CookingClassConfirmation';
 import BookingsCredit from '@/app/staff/workspace/components/BookingsCredit';
 import CustomerRegistrations from '@/app/staff/workspace/components/CustomerRegistrations';
+import DatabaseSchema from '@/app/staff/workspace/components/DatabaseSchema';
 
 
 
@@ -658,6 +659,13 @@ export default function StaffWorkspacePage() {
                 </button>
               )}
 
+              {/* ── Database Schema ── */}
+              {canTab('database_schema') && (
+                <button onClick={() => { handleTabChange('database_schema'); }} className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left w-full ${activeTab === 'database_schema' ? 'bg-[#FDF6EE] text-[#C4622D] border-r-2 border-[#C4622D]' : 'text-[#5C5347] hover:text-[#C4622D] hover:bg-[#FAF5EE]'}`}>
+                  <span className="text-base">🗄️</span><span>Database Schema</span>
+                </button>
+              )}
+
             </nav>
           </aside>
 
@@ -808,6 +816,13 @@ export default function StaffWorkspacePage() {
             {/* ── CUSTOMER REGISTRATIONS TAB ── */}
             {activeTab === 'customer_registrations' && (
               <CustomerRegistrations isSuperAdmin={userProfile?.role === 'super_admin'} />
+            )}
+
+            {/* ── DATABASE SCHEMA TAB ── */}
+            {activeTab === 'database_schema' && (
+              <div className="p-6">
+                <DatabaseSchema />
+              </div>
             )}
           </main>
         </div>
