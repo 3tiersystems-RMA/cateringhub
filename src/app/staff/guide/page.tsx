@@ -56,20 +56,20 @@ export default function SuperAdminGuidePage() {
             for controlling who has access to the staff workspace.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
+            <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 ring-2 ring-purple-400">
               <div className="text-2xl mb-2">👑</div>
-              <h3 className="font-semibold text-purple-800 text-sm mb-1">Super Admin</h3>
-              <p className="text-xs text-purple-700">Everything — staff management and system settings, plus all Admin and Staff capabilities.</p>
+              <h3 className="font-semibold text-purple-800 text-sm mb-1">Super Admin ← You are here</h3>
+              <p className="text-xs text-purple-700">Everything — staff management, social media, database schema, system settings, plus all Admin &amp; Staff capabilities.</p>
             </div>
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
               <div className="text-2xl mb-2">🛡️</div>
               <h3 className="font-semibold text-blue-800 text-sm mb-1">Admin</h3>
-              <p className="text-xs text-blue-700">All business &amp; content management (products, menu, vouchers, media, reporting) plus everything Staff can do. No staff management or system settings.</p>
+              <p className="text-xs text-blue-700">All business &amp; content management (products, menu, vouchers, media, events, cooking classes, reporting, confirmations, organisation details) plus everything Staff can do. No staff management, social media, or database schema.</p>
             </div>
             <div className="bg-[#e9e0cf] border border-[#DDD5C8] rounded-xl p-4">
               <div className="text-2xl mb-2">👤</div>
               <h3 className="font-semibold text-[#5C5347] text-sm mb-1">Staff</h3>
-              <p className="text-xs text-[#8C8278]">Daily operations: Orders, Customer Order History, Meal Voucher Scanner, Weekly Menu, and viewing Documents &amp; Cooking Classes — plus edit-only access to Products, Media Products and Events. No add/delete on catalog items, and no settings.</p>
+              <p className="text-xs text-[#8C8278]">Daily operations: Orders, Customer Order History, Meal Voucher Scanner, Weekly Menu, Documents, Cooking Classes, Events &amp; Event Management (view only) — plus edit-only access to Products, Media Products and Events. No add/delete on catalog items, and no settings.</p>
             </div>
           </div>
         </section>
@@ -121,7 +121,7 @@ export default function SuperAdminGuidePage() {
           </div>
         </section>
 
-        {/* Section 3: Role Permissions */}
+        {/* Section 3: Role Permissions Matrix */}
         <section className="bg-white rounded-2xl border border-[#DDD5C8] p-6 md:p-8 mb-6">
           <h2 className="text-xl font-bold text-[#1A1612] mb-4 flex items-center gap-2">
             <span className="w-7 h-7 bg-purple-100 text-purple-700 rounded-full flex items-center justify-center text-sm font-bold">3</span>
@@ -131,7 +131,7 @@ export default function SuperAdminGuidePage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-[#e9e0cf]">
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider rounded-tl-xl">Feature</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider rounded-tl-xl">Feature / Tab</th>
                   <th className="text-center px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider">Staff</th>
                   <th className="text-center px-4 py-3 text-xs font-semibold text-[#8C8278] uppercase tracking-wider">Admin</th>
                   <th className="text-center px-4 py-3 text-xs font-semibold text-purple-600 uppercase tracking-wider rounded-tr-xl">Super Admin</th>
@@ -139,34 +139,65 @@ export default function SuperAdminGuidePage() {
               </thead>
               <tbody className="divide-y divide-[#EDE7DA]">
                 {([
-                  { feature: 'Log in to Staff Portal', staff: true, admin: true, superAdmin: true },
+                  { group: 'Operations' },
                   { feature: 'Order Management — view orders', staff: true, admin: true, superAdmin: true },
                   { feature: 'Order Management — update fulfilment status', staff: true, admin: true, superAdmin: true },
                   { feature: 'Order Management — update payment status', staff: false, admin: true, superAdmin: true },
                   { feature: 'Delete Orders', staff: false, admin: false, superAdmin: true },
                   { feature: 'Customer Order History (lookup)', staff: true, admin: true, superAdmin: true },
                   { feature: 'Meal Voucher Scanner (redeem meals)', staff: true, admin: true, superAdmin: true },
-                  { feature: 'View Documents', staff: true, admin: true, superAdmin: true },
-                  { feature: 'Add / Edit / Remove Documents', staff: false, admin: true, superAdmin: true },
                   { feature: 'Weekly Menu (add, edit, close & delete)', staff: true, admin: true, superAdmin: true },
+                  { group: 'Products & Media' },
                   { feature: 'Products & Menu Pricing', staff: 'Edit', admin: true, superAdmin: true },
                   { feature: 'Media → Products', staff: 'Edit', admin: true, superAdmin: true },
                   { feature: 'Events (Media Library)', staff: 'Edit', admin: true, superAdmin: true },
-                  { feature: 'Cooking & Baking Classes — Settings', staff: 'View', admin: true, superAdmin: true },
-                  { feature: 'Cooking & Baking Classes — Class Customers', staff: 'View', admin: true, superAdmin: true },
-                  { feature: 'Cooking & Baking Classes — Event Registrations', staff: 'View', admin: true, superAdmin: true },
-                  { feature: 'Cooking & Baking Classes — Analytics', staff: 'View', admin: true, superAdmin: true },
+                  { group: 'Documents' },
+                  { feature: 'View Documents', staff: true, admin: true, superAdmin: true },
+                  { feature: 'Add / Edit / Remove Documents', staff: false, admin: true, superAdmin: true },
+                  { group: 'Cooking & Baking Classes' },
+                  { feature: 'Class Settings', staff: 'View', admin: true, superAdmin: true },
+                  { feature: 'Class Customers', staff: 'View', admin: true, superAdmin: true },
+                  { feature: 'Class Analytics', staff: 'View', admin: true, superAdmin: true },
+                  { feature: 'Class Confirmation Emails', staff: false, admin: true, superAdmin: true },
+                  { group: 'Event Management' },
+                  { feature: 'Event Management — Settings & Overview', staff: 'View', admin: true, superAdmin: true },
+                  { feature: 'Event Management — Customers', staff: 'View', admin: true, superAdmin: true },
+                  { feature: 'Event Management — Registrations', staff: 'View', admin: true, superAdmin: true },
+                  { feature: 'Event Management — Analytics', staff: 'View', admin: true, superAdmin: true },
+                  { feature: 'Event Booking Registrations', staff: 'View', admin: true, superAdmin: true },
+                  { feature: 'Event Booking Confirmation Emails', staff: false, admin: true, superAdmin: true },
+                  { feature: 'Event Registrations (legacy)', staff: 'View', admin: true, superAdmin: true },
+                  { group: 'Customer Relations' },
+                  { feature: 'Customer Registrations', staff: 'View', admin: true, superAdmin: true },
+                  { feature: 'Bookings Credit', staff: false, admin: true, superAdmin: true },
+                  { feature: 'Failed Transactions', staff: false, admin: true, superAdmin: true },
+                  { group: 'Business & Content' },
                   { feature: 'Categories', staff: false, admin: true, superAdmin: true },
                   { feature: 'Gallery, Homepage Cards & Testimonials', staff: false, admin: true, superAdmin: true },
                   { feature: 'Discount Vouchers', staff: false, admin: true, superAdmin: true },
                   { feature: 'Abandoned Carts', staff: false, admin: true, superAdmin: true },
                   { feature: 'Reports Dashboard & Analytics', staff: false, admin: true, superAdmin: true },
                   { feature: 'Package & Section Visibility', staff: false, admin: true, superAdmin: true },
-                  { feature: 'Correspondence Settings', staff: false, admin: 'View', superAdmin: true },
+                  { group: 'Settings & Notifications' },
+                  { feature: 'Global Settings', staff: false, admin: true, superAdmin: true },
                   { feature: 'Organisation Details', staff: false, admin: true, superAdmin: true },
+                  { feature: 'Payment Confirmation Settings', staff: false, admin: true, superAdmin: true },
+                  { feature: 'Collection Notification Settings', staff: false, admin: true, superAdmin: true },
+                  { feature: 'Correspondence Settings (view)', staff: false, admin: 'View', superAdmin: true },
+                  { feature: 'Correspondence Settings (edit)', staff: false, admin: false, superAdmin: true },
+                  { group: 'Super Admin Only' },
                   { feature: 'Social Media Settings', staff: false, admin: false, superAdmin: true },
                   { feature: 'Staff Management (invite, edit, deactivate)', staff: false, admin: false, superAdmin: true },
-                ] as { feature: string; staff: boolean | string; admin: boolean | string; superAdmin: boolean }[])?.map(({ feature, staff, admin, superAdmin }) => {
+                  { feature: 'Database Schema', staff: false, admin: false, superAdmin: true },
+                ] as ({ group: string } | { group?: undefined; feature: string; staff: boolean | string; admin: boolean | string; superAdmin: boolean })[])?.map((row, idx) => {
+                  if ('group' in row && row.group) {
+                    return (
+                      <tr key={`group-${idx}`} className="bg-[#F5F0E8]">
+                        <td colSpan={4} className="px-4 py-2 text-xs font-bold text-[#8C8278] uppercase tracking-wider">{row.group}</td>
+                      </tr>
+                    );
+                  }
+                  const { feature, staff, admin, superAdmin } = row as { feature: string; staff: boolean | string; admin: boolean | string; superAdmin: boolean };
                   const cell = (val: boolean | string, isSuper = false) => {
                     if (typeof val === 'string') {
                       return <span className="text-amber-600 font-semibold text-xs">{val}</span>;
@@ -196,7 +227,7 @@ export default function SuperAdminGuidePage() {
           </div>
         </section>
 
-        {/* Section 4: Suspending Access */}
+        {/* Section 4: Deactivating Staff Access */}
         <section className="bg-white rounded-2xl border border-[#DDD5C8] p-6 md:p-8 mb-6">
           <h2 className="text-xl font-bold text-[#1A1612] mb-4 flex items-center gap-2">
             <span className="w-7 h-7 bg-purple-100 text-purple-700 rounded-full flex items-center justify-center text-sm font-bold">4</span>
@@ -234,7 +265,7 @@ export default function SuperAdminGuidePage() {
           </div>
         </section>
 
-        {/* Section 5: Reinstating Access */}
+        {/* Section 5: Reactivating Staff */}
         <section className="bg-white rounded-2xl border border-[#DDD5C8] p-6 md:p-8 mb-6">
           <h2 className="text-xl font-bold text-[#1A1612] mb-4 flex items-center gap-2">
             <span className="w-7 h-7 bg-purple-100 text-purple-700 rounded-full flex items-center justify-center text-sm font-bold">5</span>
@@ -291,10 +322,34 @@ WHERE email = 'your-email@example.com';`}</pre>
           </div>
         </section>
 
-        {/* Section 7: Security Best Practices */}
+        {/* Section 7: Super Admin Exclusive Features */}
         <section className="bg-white rounded-2xl border border-[#DDD5C8] p-6 md:p-8 mb-6">
           <h2 className="text-xl font-bold text-[#1A1612] mb-4 flex items-center gap-2">
             <span className="w-7 h-7 bg-purple-100 text-purple-700 rounded-full flex items-center justify-center text-sm font-bold">7</span>
+            Super Admin Exclusive Features
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {[
+              { icon: '👥', title: 'Staff Management', desc: 'Invite, promote, edit, deactivate, reactivate, reset passwords, and delete staff accounts. Only Super Admin can manage who has access to the portal.' },
+              { icon: '📱', title: 'Social Media Settings', desc: 'Manage the social media links displayed on the public website (Facebook, Instagram, WhatsApp, etc.).' },
+              { icon: '🗄️', title: 'Database Schema', desc: 'View the complete database schema for all tables, with search and category filters. Download as SQL or JSON for documentation or backup purposes.' },
+              { icon: '✉️', title: 'Correspondence Settings (Full Edit)', desc: 'Full read and write access to all correspondence settings including email templates, banking details, and notification preferences. Admins can only view.' },
+            ]?.map(({ icon, title, desc }) => (
+              <div key={title} className="flex gap-3 p-3 bg-purple-50 rounded-xl border border-purple-100">
+                <span className="text-xl flex-shrink-0">{icon}</span>
+                <div>
+                  <p className="text-sm font-semibold text-purple-900">{title}</p>
+                  <p className="text-xs text-purple-700 leading-relaxed mt-0.5">{desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Section 8: Security Best Practices */}
+        <section className="bg-white rounded-2xl border border-[#DDD5C8] p-6 md:p-8 mb-6">
+          <h2 className="text-xl font-bold text-[#1A1612] mb-4 flex items-center gap-2">
+            <span className="w-7 h-7 bg-purple-100 text-purple-700 rounded-full flex items-center justify-center text-sm font-bold">8</span>
             Security Best Practices
           </h2>
           <ul className="space-y-3">
