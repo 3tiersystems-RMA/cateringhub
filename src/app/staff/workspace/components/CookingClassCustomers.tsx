@@ -201,6 +201,7 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
       // 3. Fetch event dates with event names
       const eventDateIds = [...new Set((bookings || []).map((b: { event_date_id: string }) => b.event_date_id))];
       let eventDatesMap: Record<string, SessionDate> = {};
+      const classNameToIsActive: Record<string, boolean> = {};
 
       if (eventDateIds.length > 0) {
         const { data: dates } = await supabase
@@ -222,6 +223,13 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
               classIsActiveMap[e.id] = e.is_active;
             });
           }
+
+          // Build a map: class name → is_active (for enriching legacy synthetic sessions)
+          Object.entries(eventsMap).forEach(([id, name]) => {
+            if (classIsActiveMap[id] !== undefined) {
+              classNameToIsActive[name] = classIsActiveMap[id];
+            }
+          });
 
           // Fetch session status labels
           const statusIds = [...new Set(dates.map((d: { status_id: string | null }) => d.status_id).filter(Boolean))] as string[];
@@ -292,6 +300,7 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
               location: classNameToLocation[name] || null,
               class_fee: null,
               event_name: name,
+              class_is_active: classNameToIsActive[name] ?? null,
             })
           ));
         } else if (names.length > 0) {
@@ -303,6 +312,7 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
             location: classNameToLocation[name] || null,
             class_fee: null,
             event_name: name,
+            class_is_active: classNameToIsActive[name] ?? null,
           }));
         }
         return { ...r, session_dates: synthetic };
