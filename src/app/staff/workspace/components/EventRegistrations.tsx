@@ -350,6 +350,7 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
 
   // Participants by Session filter state
   const [sessionParticipantFilter, setSessionParticipantFilter] = useState<string>('all');
+  const [collapsedSessions, setCollapsedSessions] = useState<Set<string>>(new Set());
 
   // Delete state
   const [deleteTarget, setDeleteTarget] = useState<RegistrationRow | null>(null);
@@ -1581,123 +1582,147 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
                 <div className="divide-y divide-[#F0E8DE]">
                   {filteredParticipantsBySession.map(group => {
                     const totalParticipantsInSession = group.registrants.reduce((s, r) => s + r.participants.length, 0);
+                    const isSessionExpanded = !collapsedSessions.has(group.sessionKey);
+                    const toggleSessionCollapse = () => {
+                      setCollapsedSessions(prev => {
+                        const next = new Set(prev);
+                        if (next.has(group.sessionKey)) {
+                          next.delete(group.sessionKey);
+                        } else {
+                          next.add(group.sessionKey);
+                        }
+                        return next;
+                      });
+                    };
                     return (
                       <div key={group.sessionKey} className="p-5">
-                        {/* Session Header */}
-                        <div className="flex items-start gap-3 mb-4">
+                        {/* Session Header — clickable to collapse/expand */}
+                        <div
+                          className={`flex items-start gap-3 mb-4 cursor-pointer rounded-xl px-4 py-3 -mx-4 -mt-3 transition-colors ${isSessionExpanded ? 'bg-black' : 'hover:bg-[#FAF5EE]'}`}
+                          onClick={toggleSessionCollapse}
+                        >
                           <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#C4622D] to-[#E8845A] flex items-center justify-center text-white text-xs font-bold shadow-sm flex-shrink-0 mt-0.5">
                             {group.eventName.charAt(0)}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <h3 className="text-base font-bold text-[#2C2420]">
+                            <h3 className={`text-base font-bold ${isSessionExpanded ? 'text-white' : 'text-[#2C2420]'}`}>
                               {group.eventName}
                               {group.sessionName && (
-                                <span className="ml-2 text-sm font-semibold text-[#C4622D]">— {group.sessionName}</span>
+                                <span className={`ml-2 text-sm font-semibold ${isSessionExpanded ? 'text-orange-300' : 'text-[#C4622D]'}`}>— {group.sessionName}</span>
                               )}
                             </h3>
                             <div className="flex flex-wrap items-center gap-2 mt-1">
                               {group.eventDate && (
-                                <span className="text-xs bg-[#F5EFE8] border border-[#E8DDD0] text-[#5C5347] px-2.5 py-0.5 rounded-full font-medium">
+                                <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${isSessionExpanded ? 'bg-[#2C2420] border border-[#3C3430] text-gray-300' : 'bg-[#F5EFE8] border border-[#E8DDD0] text-[#5C5347]'}`}>
                                   📆 {formatDate(group.eventDate)}
                                 </span>
                               )}
                               {group.timeslot && group.timeslot !== '—' && (
-                                <span className="text-xs bg-[#F5EFE8] border border-[#E8DDD0] text-[#5C5347] px-2.5 py-0.5 rounded-full font-medium">
+                                <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${isSessionExpanded ? 'bg-[#2C2420] border border-[#3C3430] text-gray-300' : 'bg-[#F5EFE8] border border-[#E8DDD0] text-[#5C5347]'}`}>
                                   🕐 {group.timeslot}
                                 </span>
                               )}
                               {group.location && (
-                                <span className="text-xs bg-[#F5EFE8] border border-[#E8DDD0] text-[#5C5347] px-2.5 py-0.5 rounded-full font-medium">
+                                <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${isSessionExpanded ? 'bg-[#2C2420] border border-[#3C3430] text-gray-300' : 'bg-[#F5EFE8] border border-[#E8DDD0] text-[#5C5347]'}`}>
                                   📍 {group.location}
                                 </span>
                               )}
                             </div>
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0">
-                            <span className="text-xs bg-white border border-[#E8DDD0] text-[#8C7B6B] px-2.5 py-1 rounded-full font-medium">
+                            <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${isSessionExpanded ? 'bg-[#2C2420] border border-[#3C3430] text-gray-300' : 'bg-white border border-[#E8DDD0] text-[#8C7B6B]'}`}>
                               {group.registrants.length} registrant{group.registrants.length !== 1 ? 's' : ''}
                             </span>
-                            <span className="text-xs bg-[#FDF6EE] border border-[#E8C9B0] text-[#C4622D] px-2.5 py-1 rounded-full font-semibold">
+                            <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${isSessionExpanded ? 'bg-[#2C2420] border border-[#C4622D]/40 text-orange-300' : 'bg-[#FDF6EE] border border-[#E8C9B0] text-[#C4622D]'}`}>
                               {totalParticipantsInSession} participant{totalParticipantsInSession !== 1 ? 's' : ''}
                             </span>
+                            {/* Chevron */}
+                            <svg
+                              className={`w-4 h-4 flex-shrink-0 transition-transform duration-200 ${isSessionExpanded ? 'rotate-180 text-gray-400' : 'text-[#8C7B6B]'}`}
+                              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                            </svg>
                           </div>
                         </div>
 
-                        {/* Registrants */}
-                        <div className="space-y-4 pl-12">
-                          {group.registrants.map((registrant, rIdx) => (
-                            <div key={registrant.registrationId} className="border border-[#E8DDD0] rounded-xl overflow-hidden">
-                              {/* Registrant Header */}
-                              <div className="bg-[#1A1612] px-4 py-3 flex items-center gap-3 flex-wrap">
-                                <div className="w-8 h-8 rounded-full bg-[#C4622D] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                                  {registrant.registrantName.charAt(0)}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-bold text-white">{registrant.registrantName}</p>
-                                  <div className="flex flex-wrap items-center gap-3 mt-0.5">
-                                    <span className="text-xs text-gray-300 flex items-center gap-1">
-                                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                                      </svg>
-                                      {registrant.registrantEmail}
-                                    </span>
-                                    <span className="text-xs text-gray-300 flex items-center gap-1">
-                                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                                      </svg>
-                                      {registrant.registrantPhone}
-                                    </span>
+                        {/* Registrants — only shown when expanded */}
+                        {isSessionExpanded && (
+                          <div className="space-y-4 pl-12">
+                            {group.registrants.map((registrant, rIdx) => (
+                              <div key={registrant.registrationId} className="border border-[#E8DDD0] rounded-xl overflow-hidden">
+                                {/* Registrant Header */}
+                                <div className="bg-[#1A1612] px-4 py-3 flex items-center gap-3 flex-wrap">
+                                  <div className="w-8 h-8 rounded-full bg-[#C4622D] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                                    {registrant.registrantName.charAt(0)}
                                   </div>
-                                </div>
-                                <div className="flex items-center gap-2 flex-shrink-0">
-                                  <span className={`text-xs font-medium px-2.5 py-1 rounded-full border ${PAYMENT_STATUS_COLORS[registrant.paymentStatus] || 'bg-gray-100 text-gray-600 border-gray-200'}`}>
-                                    {registrant.paymentStatus.replace(/_/g, ' ')}
-                                  </span>
-                                  <span className="text-xs bg-[#2C2420] border border-[#3C3430] text-gray-300 px-2.5 py-1 rounded-full font-medium">
-                                    {registrant.participants.length} participant{registrant.participants.length !== 1 ? 's' : ''}
-                                  </span>
-                                </div>
-                              </div>
-
-                              {/* Participants */}
-                              <div className="divide-y divide-[#F0E8DE]">
-                                {registrant.participants.map((participant, pIdx) => (
-                                  <div key={pIdx} className="p-4 bg-white">
-                                    {/* Participant sub-header */}
-                                    <div className="flex items-center gap-2 mb-3">
-                                      <span className="w-6 h-6 rounded-full bg-[#C4622D] text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
-                                        {pIdx + 1}
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-bold text-white">{registrant.registrantName}</p>
+                                    <div className="flex flex-wrap items-center gap-3 mt-0.5">
+                                      <span className="text-xs text-gray-300 flex items-center gap-1">
+                                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                        </svg>
+                                        {registrant.registrantEmail}
                                       </span>
-                                      <span className="text-sm font-semibold text-[#1A1612]">{participant.fullName || '—'}</span>
-                                      {participant.age && participant.age !== '—' && (
-                                        <span className="text-xs bg-white border border-[#DDD5C8] text-[#5C5347] px-2 py-0.5 rounded-full">Age {participant.age}</span>
-                                      )}
-                                      {participant.ticketNumber && (
-                                        <span className="text-xs font-mono font-semibold bg-[#FDF6EE] border border-[#C4622D]/30 text-[#C4622D] px-2 py-0.5 rounded-full">{participant.ticketNumber}</span>
-                                      )}
-                                      <span className="ml-auto text-xs text-[#8C7B6B]">Child Participant</span>
-                                    </div>
-                                    {/* Participant detail grid */}
-                                    <div className="flex gap-8 pl-8">
-                                      <div>
-                                        <p className="text-xs text-[#8C8278] mb-0.5">Full Name</p>
-                                        <p className="text-sm font-medium text-[#1A1612]">{participant.fullName || '—'}</p>
-                                      </div>
-                                      <div>
-                                        <p className="text-xs text-[#8C8278] mb-0.5">Gender</p>
-                                        <p className="text-sm font-medium text-[#1A1612] capitalize">{participant.gender || '—'}</p>
-                                      </div>
-                                      <div>
-                                        <p className="text-xs text-[#8C8278] mb-0.5">Allergies / Dietary</p>
-                                        <p className="text-sm font-medium text-[#1A1612]">{participant.allergies || 'None'}</p>
-                                      </div>
+                                      <span className="text-xs text-gray-300 flex items-center gap-1">
+                                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                                        </svg>
+                                        {registrant.registrantPhone}
+                                      </span>
                                     </div>
                                   </div>
-                                ))}
+                                  <div className="flex items-center gap-2 flex-shrink-0">
+                                    <span className={`text-xs font-medium px-2.5 py-1 rounded-full border ${PAYMENT_STATUS_COLORS[registrant.paymentStatus] || 'bg-gray-100 text-gray-600 border-gray-200'}`}>
+                                      {registrant.paymentStatus.replace(/_/g, ' ')}
+                                    </span>
+                                    <span className="text-xs bg-[#2C2420] border border-[#3C3430] text-gray-300 px-2.5 py-1 rounded-full font-medium">
+                                      {registrant.participants.length} participant{registrant.participants.length !== 1 ? 's' : ''}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* Participants */}
+                                <div className="divide-y divide-[#F0E8DE]">
+                                  {registrant.participants.map((participant, pIdx) => (
+                                    <div key={pIdx} className="p-4 bg-white">
+                                      {/* Participant sub-header */}
+                                      <div className="flex items-center gap-2 mb-3">
+                                        <span className="w-6 h-6 rounded-full bg-[#C4622D] text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
+                                          {pIdx + 1}
+                                        </span>
+                                        <span className="text-sm font-semibold text-[#1A1612]">{participant.fullName || '—'}</span>
+                                        {participant.age && participant.age !== '—' && (
+                                          <span className="text-xs bg-white border border-[#DDD5C8] text-[#5C5347] px-2 py-0.5 rounded-full">Age {participant.age}</span>
+                                        )}
+                                        {participant.ticketNumber && (
+                                          <span className="text-xs font-mono font-semibold bg-[#FDF6EE] border border-[#C4622D]/30 text-[#C4622D] px-2 py-0.5 rounded-full">{participant.ticketNumber}</span>
+                                        )}
+                                        <span className="ml-auto text-xs text-[#8C7B6B]">Child Participant</span>
+                                      </div>
+                                      {/* Participant detail grid */}
+                                      <div className="flex gap-8 pl-8">
+                                        <div>
+                                          <p className="text-xs text-[#8C8278] mb-0.5">Full Name</p>
+                                          <p className="text-sm font-medium text-[#1A1612]">{participant.fullName || '—'}</p>
+                                        </div>
+                                        <div>
+                                          <p className="text-xs text-[#8C8278] mb-0.5">Gender</p>
+                                          <p className="text-sm font-medium text-[#1A1612] capitalize">{participant.gender || '—'}</p>
+                                        </div>
+                                        <div>
+                                          <p className="text-xs text-[#8C8278] mb-0.5">Allergies / Dietary</p>
+                                          <p className="text-sm font-medium text-[#1A1612]">{participant.allergies || 'None'}</p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
                               </div>
-                            </div>
-                          ))}
-                        </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
