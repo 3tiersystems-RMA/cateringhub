@@ -947,6 +947,7 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
     if (row.start_time && row.end_time) summaryParts.push(`${row.start_time} – ${row.end_time}`);
     else if (row.start_time) summaryParts.push(row.start_time);
     const statusLabel = sessionStatuses.find(s => s.id === row.status_id)?.label || '';
+    const isBookingsClosed = statusLabel === 'Bookings Closed';
 
     return (
       <div key={index} className="bg-[#FAF5EE] rounded-xl border border-[#EDE7DA] overflow-hidden">
@@ -960,7 +961,7 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
           </div>
           <div className="flex items-center gap-1 flex-shrink-0">
             {/* Edit button */}
-            {!readOnly && (
+            {!readOnly && (!isBookingsClosed || isSuperAdmin) && (
               <button
                 type="button"
                 onClick={() => setEditingSessionKey(isEditing ? null : key)}
@@ -988,7 +989,7 @@ export default function CookingClassSettings({ isSuperAdmin = false, readOnly = 
                 )}
               </button>
             )}
-            {!isFirst && onRemove && (
+            {!isFirst && onRemove && (!isBookingsClosed || isSuperAdmin) && (
               <button
                 type="button"
                 onClick={onRemove}
