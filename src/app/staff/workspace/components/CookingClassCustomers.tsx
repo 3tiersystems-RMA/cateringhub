@@ -273,6 +273,15 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
         });
       }
 
+      // Build a map: class name → status_label (for enriching legacy synthetic sessions)
+      const classNameToStatusLabel: Record<string, string | null> = {};
+      Object.values(eventDatesMap).forEach(sd => {
+        const name = (sd as any).event_name || '';
+        if (name && (sd as any).status_label) {
+          classNameToStatusLabel[name] = (sd as any).status_label;
+        }
+      });
+
       // 4. Build registration → session_dates map
       const regSessionMap: Record<string, SessionDate[]> = {};
       (bookings || []).forEach((b: { registration_id: string; event_date_id: string }) => {
@@ -315,6 +324,7 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
               location: classNameToLocation[name] || null,
               class_fee: null,
               event_name: name,
+              status_label: classNameToStatusLabel[name] ?? null,
               class_is_active: classNameToIsActive[name] ?? null,
             })
           ));
@@ -327,6 +337,7 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
             location: classNameToLocation[name] || null,
             class_fee: null,
             event_name: name,
+            status_label: classNameToStatusLabel[name] ?? null,
             class_is_active: classNameToIsActive[name] ?? null,
           }));
         }
