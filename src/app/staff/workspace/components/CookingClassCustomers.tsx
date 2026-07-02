@@ -258,6 +258,21 @@ export default function CookingClassCustomers({ isSuperAdmin = false }: CookingC
         }
       }
 
+      // 3b. Direct lookup: populate classNameToIsActive for all class names in selected_events
+      // (covers registrations that have no booking_counts entries)
+      const allSyntheticNames = [...new Set(
+        cleanedRegs.flatMap((r: Registration) => Array.isArray(r.selected_events) ? r.selected_events.filter(Boolean) : [])
+      )];
+      if (allSyntheticNames.length > 0) {
+        const { data: nameRows } = await supabase
+          .from('cooking_class_name')
+          .select('name, is_active')
+          .in('name', allSyntheticNames);
+        (nameRows || []).forEach((row: { name: string; is_active: boolean }) => {
+          classNameToIsActive[row.name] = row.is_active;
+        });
+      }
+
       // 4. Build registration → session_dates map
       const regSessionMap: Record<string, SessionDate[]> = {};
       (bookings || []).forEach((b: { registration_id: string; event_date_id: string }) => {
