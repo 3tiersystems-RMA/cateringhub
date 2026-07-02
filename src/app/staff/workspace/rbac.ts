@@ -15,7 +15,7 @@ export const TAB_ACCESS: Record<WorkspaceTab, StaffRole[]> = {
   orders: ['super_admin', 'admin', 'staff'],            // staff: view + status update
   customer_order_history: ['super_admin', 'admin', 'staff'], // staff: read-only
   media: ['super_admin', 'admin', 'staff'],             // Document Mgmt — staff: view only
-  weekly_menu: ['super_admin', 'admin', 'staff'],       // staff: full CRUD
+  weekly_menu: ['super_admin'],                          // super_admin only
   products: ['super_admin', 'admin', 'staff'],          // staff: view + edit only
   media_products: ['super_admin', 'admin', 'staff'],    // staff: view + edit only
   vouchers: ['super_admin', 'admin', 'staff'],          // Meal Vouchers — staff: view + redeem
@@ -65,7 +65,7 @@ export const STAFF_TAB_ACTIONS: Partial<Record<WorkspaceTab, PermAction[]>> = {
   orders: ['view', 'status'],
   customer_order_history: ['view'],
   media: ['view'],
-  weekly_menu: ['view', 'create', 'edit', 'delete'],
+  // weekly_menu: super_admin only — no staff/admin actions needed
   products: ['view', 'edit'],
   media_products: ['view', 'edit'],
   vouchers: ['view', 'redeem'],
