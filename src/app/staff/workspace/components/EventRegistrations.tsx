@@ -1685,8 +1685,8 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
                               <div key={registrant.registrationId} className="border border-[#E8DDD0] rounded-xl overflow-hidden">
                                 {/* Registrant Header */}
                                 <div className="bg-[#F0EBE4] border-b border-[#E8DDD0] px-4 py-3 flex items-center gap-3 flex-wrap">
-                                  <div className="w-8 h-8 rounded-full bg-[#C4622D] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                                    {registrant.registrantName.charAt(0)}
+                                  <div className="w-8 h-8 rounded-full bg-black flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                                    R
                                   </div>
                                   <div className="flex-1 min-w-0">
                                     <p className="text-sm font-bold text-[#2C2420]">{registrant.registrantName}</p>
