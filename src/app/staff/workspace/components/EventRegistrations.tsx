@@ -108,6 +108,7 @@ interface SessionDate {
   event_name: string | null;
   class_fee: number | null;
   session_name: string | null;
+  statusLabel: string | null;
 }
 
 // Registrant Bookings view: grouped by event → date → timeslot → registrants
@@ -144,6 +145,7 @@ interface ParticipantsBySessionGroup {
   sessionKey: string; // unique key for the session
   eventName: string;
   sessionName: string | null;
+  statusLabel: string | null;
   eventDate: string | null;
   timeslot: string;
   location: string;
@@ -408,7 +410,7 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
       if (eventDateIds.length > 0) {
         const { data: dates } = await supabase
           .from('cooking_class_sessions')
-          .select('id, event_date, start_time, end_time, location, class_fee, class_id, session_name')
+          .select('id, event_date, start_time, end_time, location, class_fee, class_id, session_name, status_id')
           .in('id', eventDateIds);
 
         if (dates && dates.length > 0) {
@@ -421,7 +423,30 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
               .in('id', eventIds);
             (events || []).forEach((e: { id: string; name: string }) => { eventsMap[e.id] = e.name; });
           }
-          dates.forEach((d: { id: string; event_date: string | null; start_time: string | null; end_time: string | null; location: string | null; class_fee: number | null; class_id: string; session_name: string | null }) => {
+          // Fetch session status labels
+          const statusIds = [...new Set(dates.map((d: { status_id: string | null }) => d.status_id).filter(Boolean))];
+          let statusLabelMap: Record<string, string> = {};
+          if (statusIds.length > 0) {
+            const { data: statuses } = await supabase
+              .from('cooking_class_session_statuses')
+              .select('id, label')
+              .in('id', statusIds);
+            (statuses || []).forEach((s: { id: string; label: string | null }) => {
+              if (s.label) statusLabelMap[s.id] = s.label;
+            });
+          }
+          dates.forEach((d: { id: string; event_date: string | null; start_time: string | null; end_time: string | null; location: string | null; class_fee: number | null; class_id: string; session_name: string | null; status_id: string | null }) => {
+            const dbLabel = d.status_id ? (statusLabelMap[d.status_id] || null) : null;
+            // Use effectiveSessionStatusLabel logic: if session has ended, show 'Bookings Closed'
+            const now = new Date();
+            let statusLabel: string | null = null;
+            if (d.event_date) {
+              const endTime = d.end_time || '23:59';
+              const sessionEnd = new Date(`${d.event_date}T${endTime}`);
+              statusLabel = sessionEnd < now ? 'Bookings Closed' : (dbLabel || 'Active');
+            } else {
+              statusLabel = dbLabel || null;
+            }
             eventDatesMap[d.id] = {
               id: d.id,
               event_date: d.event_date,
@@ -431,6 +456,7 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
               class_fee: d.class_fee,
               event_name: eventsMap[d.class_id] || null,
               session_name: d.session_name || null,
+              statusLabel,
             };
           });
         }
@@ -476,6 +502,7 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
               class_fee: null,
               event_name: name,
               session_name: null,
+              statusLabel: null,
             })
           ));
         } else if (names.length > 0) {
@@ -488,6 +515,7 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
             class_fee: null,
             event_name: name,
             session_name: null,
+            statusLabel: null,
           }));
         }
         return { ...r, session_dates: synthetic };
@@ -995,12 +1023,13 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
         };
       });
 
-      const addRegistrantToSession = (sessionKey: string, eventName: string, sessionName: string | null, eventDate: string | null, timeslot: string, location: string) => {
+      const addRegistrantToSession = (sessionKey: string, eventName: string, sessionName: string | null, statusLabel: string | null, eventDate: string | null, timeslot: string, location: string) => {
         if (!sessionMap[sessionKey]) {
           sessionMap[sessionKey] = {
             sessionKey,
             eventName,
             sessionName,
+            statusLabel,
             eventDate,
             timeslot,
             location,
@@ -1023,7 +1052,7 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
 
       if (sessionDates.length === 0) {
         const sessionKey = 'no-session';
-        addRegistrantToSession(sessionKey, 'No Session Assigned', null, null, '—', '');
+        addRegistrantToSession(sessionKey, 'No Session Assigned', null, null, null, '—', '');
       } else {
         sessionDates.forEach(sd => {
           const evName = sd.event_name || 'Unknown Class';
@@ -1031,7 +1060,7 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
             ? `${sd.start_time} – ${sd.end_time}`
             : sd.start_time || 'Time TBC';
           const sessionKey = `${evName}__${sd.event_date || ''}__${timeslot}`;
-          addRegistrantToSession(sessionKey, evName, sd.session_name || null, sd.event_date, timeslot, (sd.location || '').trim());
+          addRegistrantToSession(sessionKey, evName, sd.session_name || null, sd.statusLabel || null, sd.event_date, timeslot, (sd.location || '').trim());
         });
       }
     });
@@ -1609,6 +1638,9 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
                               {group.eventName}
                               {group.sessionName && (
                                 <span className={`ml-2 text-sm font-semibold ${isSessionExpanded ? 'text-orange-300' : 'text-[#C4622D]'}`}>— {group.sessionName}</span>
+                              )}
+                              {group.statusLabel && (
+                                <span className={`ml-2 text-xs font-medium ${isSessionExpanded ? 'text-gray-400' : 'text-[#8C7B6B]'}`}>({group.statusLabel})</span>
                               )}
                             </h3>
                             <div className="flex flex-wrap items-center gap-2 mt-1">
