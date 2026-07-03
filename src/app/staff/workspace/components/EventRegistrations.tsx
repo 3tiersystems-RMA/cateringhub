@@ -350,7 +350,7 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
 
   // Participants by Session filter state
   const [sessionParticipantFilter, setSessionParticipantFilter] = useState<string>('all');
-  const [collapsedSessions, setCollapsedSessions] = useState<Set<string>>(new Set());
+  const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set());
 
   // Delete state
   const [deleteTarget, setDeleteTarget] = useState<RegistrationRow | null>(null);
@@ -1582,9 +1582,9 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
                 <div className="divide-y divide-[#F0E8DE]">
                   {filteredParticipantsBySession.map(group => {
                     const totalParticipantsInSession = group.registrants.reduce((s, r) => s + r.participants.length, 0);
-                    const isSessionExpanded = !collapsedSessions.has(group.sessionKey);
+                    const isSessionExpanded = expandedSessions.has(group.sessionKey);
                     const toggleSessionCollapse = () => {
-                      setCollapsedSessions(prev => {
+                      setExpandedSessions(prev => {
                         const next = new Set(prev);
                         if (next.has(group.sessionKey)) {
                           next.delete(group.sessionKey);
@@ -1652,20 +1652,20 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
                             {group.registrants.map((registrant, rIdx) => (
                               <div key={registrant.registrationId} className="border border-[#E8DDD0] rounded-xl overflow-hidden">
                                 {/* Registrant Header */}
-                                <div className="bg-[#1A1612] px-4 py-3 flex items-center gap-3 flex-wrap">
+                                <div className="bg-[#F0EBE4] border-b border-[#E8DDD0] px-4 py-3 flex items-center gap-3 flex-wrap">
                                   <div className="w-8 h-8 rounded-full bg-[#C4622D] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
                                     {registrant.registrantName.charAt(0)}
                                   </div>
                                   <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-bold text-white">{registrant.registrantName}</p>
+                                    <p className="text-sm font-bold text-[#2C2420]">{registrant.registrantName}</p>
                                     <div className="flex flex-wrap items-center gap-3 mt-0.5">
-                                      <span className="text-xs text-gray-300 flex items-center gap-1">
+                                      <span className="text-xs text-[#5C5347] flex items-center gap-1">
                                         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                           <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                                         </svg>
                                         {registrant.registrantEmail}
                                       </span>
-                                      <span className="text-xs text-gray-300 flex items-center gap-1">
+                                      <span className="text-xs text-[#5C5347] flex items-center gap-1">
                                         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                           <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                                         </svg>
@@ -1677,7 +1677,7 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
                                     <span className={`text-xs font-medium px-2.5 py-1 rounded-full border ${PAYMENT_STATUS_COLORS[registrant.paymentStatus] || 'bg-gray-100 text-gray-600 border-gray-200'}`}>
                                       {registrant.paymentStatus.replace(/_/g, ' ')}
                                     </span>
-                                    <span className="text-xs bg-[#2C2420] border border-[#3C3430] text-gray-300 px-2.5 py-1 rounded-full font-medium">
+                                    <span className="text-xs bg-[#E8DDD0] border border-[#D4C4B0] text-[#5C5347] px-2.5 py-1 rounded-full font-medium">
                                       {registrant.participants.length} participant{registrant.participants.length !== 1 ? 's' : ''}
                                     </span>
                                   </div>

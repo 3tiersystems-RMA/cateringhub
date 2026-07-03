@@ -8,6 +8,12 @@ import { validateSAMobileForPayFast } from '@/lib/payfast-validation';
 import { submitPayFastForm } from '@/lib/payfast-form';
 import { getClassIdFromSearchParams, getClassNameFromSearchParams } from '@/lib/cooking-class-params';
 import { COOKING_CLASS_TABLES } from '@/lib/cooking-class-db';
+import {
+  PAID_BOOKING_STATUSES,
+  buildParticipantCountMap,
+  isSessionBookable,
+  sessionAvailabilityDisplay,
+} from '@/lib/cooking-class-sessions';
 
 
 interface FormPage1 {
@@ -379,6 +385,7 @@ export default function CookingClassesPage() {
     }}
   async function loadEventDates() {
     try {
+      await fetch('/api/cooking-classes/sync-session-statuses', { method: 'POST' }).catch(() => undefined);
       const { data } = await supabase.
       from(COOKING_CLASS_TABLES.sessions).
       select('*').
@@ -408,36 +415,22 @@ export default function CookingClassesPage() {
       select('event_date_id, registration_id').
       in('event_date_id', dateIds);
       if (data) {
-        // For each booking row, fetch ONLY PAID registrations to count total participants
         const regIds = [...new Set(data.map((row: {registration_id: string;}) => row.registration_id))];
-        let regParticipantMap: Record<string, number> = {};
+        let regs: Array<{ id: string; children: unknown }> = [];
         if (regIds.length > 0) {
-          const { data: regs } = await supabase.
+          const { data: regRows } = await supabase.
           from(COOKING_CLASS_TABLES.registrations).
           select('id, children').
           in('id', regIds).
-          in('payment_status', ['paid', 'awaiting_confirmation', 'awaiting_payment']);
-          (regs || []).forEach((reg: {id: string;children: unknown[] | null;}) => {
-            const kids = Array.isArray(reg.children) ?
-            reg.children.filter((c: unknown) => {
-              if (!c || typeof c !== 'object') return false;
-              const child = c as Record<string, unknown>;
-              const name = (child.fullName || child.full_name || child.name || '') as string;
-              return name.trim().length > 0;
-            }).length :
-            0;
-            regParticipantMap[reg.id] = kids; // participants only — exclude registrant
-          });
+          in('payment_status', [...PAID_BOOKING_STATUSES]);
+          regs = (regRows ?? []) as Array<{ id: string; children: unknown }>;
         }
-        // Only count registrations that are paid (those in regParticipantMap)
-        const counts: Record<string, number> = {};
-        data.forEach((row: {event_date_id: string;registration_id: string;}) => {
-          if (!(row.registration_id in regParticipantMap)) return;
-          const participants = regParticipantMap[row.registration_id] || 1;
-          counts[row.event_date_id] = (counts[row.event_date_id] || 0) + participants;
-        });
+        const counts = buildParticipantCountMap(
+          data as Array<{ event_date_id: string; registration_id: string }>,
+          regs
+        );
         setBookingCounts(
-          Object.entries(counts).map(([event_date_id, count]) => ({ event_date_id, count }))
+          [...counts.entries()].map(([event_date_id, count]) => ({ event_date_id, count }))
         );
       }
     } catch {
@@ -456,43 +449,11 @@ export default function CookingClassesPage() {
   }
 
   function getAvailabilityText(row: EventDateRow): {text: string;color: string;} {
-    const statusLabel = getStatusLabel(row.status_id);
-    if (statusLabel && statusLabel.toLowerCase() !== 'active') {
-      const colorMap: Record<string, string> = {
-        'fully booked': 'text-red-600',
-        'cancelled': 'text-red-500',
-        'venue change': 'text-amber-600'
-      };
-      const color = colorMap[statusLabel.toLowerCase()] || 'text-[#8C8278]';
-      return { text: statusLabel, color };
-    }
-    const seating = row.seating || 0;
-    if (seating > 0) {
-      const booked = getBookingCount(row.id);
-      const available = Math.max(0, seating - booked);
-      if (available === 0) {
-        return { text: 'Fully Booked', color: 'text-red-600' };
-      }
-      return { text: `${available} seat${available === 1 ? '' : 's'} available`, color: 'text-green-700' };
-    }
-    if (statusLabel) {
-      return { text: statusLabel, color: 'text-[#5C5347]' };
-    }
-    return { text: '', color: '' };
+    return sessionAvailabilityDisplay(row, getStatusLabel(row.status_id), getBookingCount(row.id));
   }
 
   function isDateSelectable(row: EventDateRow): boolean {
-    const statusLabel = getStatusLabel(row.status_id);
-    if (statusLabel) {
-      const lower = statusLabel.toLowerCase();
-      if (lower !== 'active') return false;
-    }
-    const seating = row.seating || 0;
-    if (seating > 0) {
-      const booked = getBookingCount(row.id);
-      if (booked >= seating) return false;
-    }
-    return true;
+    return isSessionBookable(row, getStatusLabel(row.status_id), getBookingCount(row.id));
   }
 
   function getFlyerUrl(): string | null {

@@ -8,6 +8,16 @@ import Footer from '@/components/Footer';
 import { resolveEnrollmentUrl, resolveCheckoutFee } from '@/lib/event-management-sync';
 import { buildCookingClassEnrollmentUrl } from '@/lib/cooking-class-params';
 import { COOKING_CLASS_TABLES } from '@/lib/cooking-class-db';
+import {
+  PAID_BOOKING_STATUSES,
+  buildParticipantCountMap,
+  effectiveSessionStatusLabel,
+  isClassProgramPast,
+  isSessionBookable,
+  isSessionFullyBooked,
+  pickNextOpenSession,
+  sessionHasEnded,
+} from '@/lib/cooking-class-sessions';
 import { DEFAULT_REGISTERED_EVENT_BADGE } from '@/lib/marketing-events-db';
 
 type OfferingType = 'event' | 'class';
@@ -57,8 +67,124 @@ interface Event {
   splash_banner_text?: string | null;
   /** True when seating capacity is reached (auto-computed from booking counts). */
   isFullyBooked?: boolean;
-  /** True when the session status is 'Bookings Close'. */
+  /** True when the session status is 'Bookings Closed' or the session/event has ended. */
   isBookingsClose?: boolean;
+  /** True when every session for this offering has ended — drives Current/Past tab. */
+  isOfferingPast?: boolean;
+}
+
+function startOfToday(now: Date): Date {
+  const d = new Date(now);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+/** Calendar start date for an offering (local midnight on the entry date). */
+function getOfferingStart(ev: Event): Date {
+  const datePart = ev.event_date.slice(0, 10);
+  return new Date(`${datePart}T00:00:00`);
+}
+
+/** When an offering is considered finished — uses end time, or end of entry day if unset. */
+function getOfferingEffectiveEnd(ev: Event): Date {
+  if (ev.event_date_to) {
+    const end = new Date(ev.event_date_to);
+    if (!Number.isNaN(end.getTime())) return end;
+  }
+  const datePart = ev.event_date.slice(0, 10);
+  return new Date(`${datePart}T23:59:59`);
+}
+
+/**
+ * Current tab: today + upcoming offerings that have not yet passed their end date/time.
+ * Past tab: everything whose entry/end date is over (or all class sessions have ended).
+ */
+function isOfferingCurrent(ev: Event, now: Date): boolean {
+  if (ev.isOfferingPast === true) return false;
+  if (ev.offering_type === 'class' && ev.isOfferingPast === false) return true;
+
+  if (getOfferingEffectiveEnd(ev).getTime() < now.getTime()) return false;
+
+  const todayStart = startOfToday(now);
+  return getOfferingStart(ev).getTime() >= todayStart.getTime();
+}
+
+function applyPastOfferingFlags(ev: Event, now: Date): Event {
+  if (isOfferingCurrent(ev, now)) return ev;
+  return {
+    ...ev,
+    isOfferingPast: true,
+    isBookingsClose: true,
+  };
+}
+
+function isOfferingBookingsClosed(ev: Event, now: Date): boolean {
+  if (ev.isOfferingPast === true) return true;
+  if (ev.isBookingsClose) return true;
+  return getOfferingEffectiveEnd(ev).getTime() < now.getTime();
+}
+
+function EventCardImageOverlays({
+  ev,
+  activeTab,
+  now,
+}: {
+  ev: Event;
+  activeTab: 'current' | 'past';
+  now: Date;
+}) {
+  const bookingsClosed =
+    activeTab === 'past'
+      ? !ev.isFullyBooked
+      : !ev.isFullyBooked && isOfferingBookingsClosed(ev, now);
+
+  return (
+    <>
+      {activeTab === 'past' && (
+        <div className="absolute top-3 right-3 z-[1]">
+          <span className={`${CARD_BADGE_PILL} bg-gray-800/90 text-white text-xs px-2.5 py-1`}>
+            Past Event
+          </span>
+        </div>
+      )}
+      {ev.isFullyBooked && (
+        <div className="absolute inset-0 overflow-hidden pointer-events-none z-[2]">
+          <div
+            className="absolute bg-red-600 text-white text-xs font-extrabold tracking-widest uppercase shadow-lg"
+            style={{
+              width: '160%',
+              textAlign: 'center',
+              padding: '6px 0',
+              top: '38%',
+              left: '-30%',
+              transform: 'rotate(-35deg)',
+              transformOrigin: 'center',
+            }}
+          >
+            Fully Booked
+          </div>
+        </div>
+      )}
+      {bookingsClosed && (
+        <div className="absolute inset-0 overflow-hidden pointer-events-none z-[2]">
+          <div
+            className="absolute bg-amber-600 text-white text-xs font-extrabold tracking-widest uppercase shadow-lg"
+            style={{
+              width: '160%',
+              textAlign: 'center',
+              padding: '6px 0',
+              top: '38%',
+              left: '-30%',
+              transform: 'rotate(-35deg)',
+              transformOrigin: 'center',
+            }}
+          >
+            Bookings Closed
+          </div>
+        </div>
+      )}
+    </>
+  );
 }
 
 function EventsContent() {
@@ -87,6 +213,8 @@ function EventsContent() {
   // mirroring how Events are surfaced, but without a separate marketing table.
   const loadClassCards = async (): Promise<Event[]> => {
     try {
+      await fetch('/api/cooking-classes/sync-session-statuses', { method: 'POST' }).catch(() => undefined);
+
       const results = await Promise.all([
         supabase.from(COOKING_CLASS_TABLES.classes).select('*').eq('is_active', true).order('sort_order', { ascending: true }),
         supabase.from(COOKING_CLASS_TABLES.sessions).select('*'),
@@ -112,14 +240,27 @@ function EventsContent() {
           ? supabase.storage.from('cooking-class-flyers').getPublicUrl(classSettings.flyer_image_path).data?.publicUrl
           : null) ||
         undefined;
-      const today = new Date().toISOString().slice(0, 10);
+      const now = new Date();
 
-      // Build a map: session_id → count of unique paid registrations
-      // We count distinct registration_id per event_date_id as a proxy for participant count
-      const sessionBookingMap = new Map<string, number>();
-      for (const row of rawBookingCounts as Array<{ event_date_id: string; registration_id: string }>) {
-        sessionBookingMap.set(row.event_date_id, (sessionBookingMap.get(row.event_date_id) ?? 0) + 1);
+      const rawBookingRows = rawBookingCounts as Array<{ event_date_id: string; registration_id: string }>;
+      const regIds = [...new Set(rawBookingRows.map(r => r.registration_id))];
+      let sessionBookingMap = new Map<string, number>();
+      if (regIds.length > 0) {
+        const { data: regs } = await supabase
+          .from(COOKING_CLASS_TABLES.registrations)
+          .select('id, children')
+          .in('id', regIds)
+          .in('payment_status', [...PAID_BOOKING_STATUSES]);
+        sessionBookingMap = buildParticipantCountMap(
+          rawBookingRows,
+          (regs ?? []) as Array<{ id: string; children: unknown }>
+        );
       }
+
+      const labelForSession = (statusId: string | null | undefined) =>
+        statusLabelById.get(statusId ?? '') ?? '';
+
+      // Build a map: session_id → participant count (paid registrations only)
 
       const cards: Event[] = [];
       for (const ce of classEvents as Array<{ id: string; name: string; instructor?: string | null; image_url?: string | null; image_path?: string | null; menu_items?: string[] | null; menu_note?: string | null }>) {
@@ -130,10 +271,35 @@ function EventsContent() {
           .sort((a: { event_date: string }, b: { event_date: string }) => (a.event_date < b.event_date ? -1 : 1));
         if (sessions.length === 0) continue;
 
-        const upcoming = sessions.filter((s: { event_date: string }) => s.event_date >= today);
-        const chosen = (upcoming[0] ?? sessions[sessions.length - 1]) as {
-          id: string; event_date: string; start_time: string | null; end_time: string | null; location: string | null; class_fee: number | null; child_fee: number | null;
+        type ClassSession = {
+          id: string;
+          event_date: string;
+          start_time: string | null;
+          end_time: string | null;
+          location: string | null;
+          class_fee: number | null;
+          child_fee: number | null;
+          status_id?: string | null;
+          seating?: number | null;
         };
+
+        const notEndedSessions = (sessions as ClassSession[]).filter(s => !sessionHasEnded(s, now));
+        const isClassPast = isClassProgramPast(sessions as ClassSession[], now);
+
+        const isBookable = (s: ClassSession) =>
+          isSessionBookable(
+            s,
+            labelForSession(s.status_id),
+            sessionBookingMap.get(s.id) ?? 0,
+            now
+          );
+
+        const chosen =
+          pickNextOpenSession(sessions as ClassSession[], isBookable, now) ??
+          (notEndedSessions[0] ?? (sessions[sessions.length - 1] as ClassSession));
+
+        const enrollSession = pickNextOpenSession(sessions as ClassSession[], isBookable, now);
+
         const start = (chosen.start_time ?? '00:00').slice(0, 5);
         const end = (chosen.end_time ?? chosen.start_time ?? '00:00').slice(0, 5);
         const fee = resolveCheckoutFee(defaultFee, chosen.class_fee != null ? Number(chosen.class_fee) : null);
@@ -145,14 +311,15 @@ function EventsContent() {
           : null;
         const instructor = ce.instructor && ce.instructor.trim() ? ce.instructor.trim() : null;
 
-        // Determine if the chosen (next upcoming) session is fully booked
-        const sessionSeating = (chosen as { seating?: number | null }).seating ?? 0;
+        const sessionSeating = chosen.seating ?? 0;
         const sessionBooked = sessionBookingMap.get(chosen.id) ?? 0;
-        const statusLabel = statusLabelById.get((chosen as { status_id?: string | null }).status_id ?? '') ?? '';
-        const isFullyBooked =
-          statusLabel === 'fully booked' ||
-          (sessionSeating > 0 && sessionBooked >= sessionSeating);
-        const isBookingsClose = statusLabel.toLowerCase() === 'bookings closed';
+        const statusLabel = labelForSession(chosen.status_id);
+        const isFullyBooked = isSessionFullyBooked(chosen, sessionBooked, statusLabel);
+        const isBookingsClose =
+          isClassPast ||
+          effectiveSessionStatusLabel(chosen, statusLabel, now).toLowerCase() === 'bookings closed';
+
+        const openSessionCount = (sessions as ClassSession[]).filter(s => isBookable(s)).length;
 
         // Resolve image: per-event image takes priority over global flyer
         const eventImageUrl =
@@ -165,7 +332,9 @@ function EventsContent() {
 
         const descParts: string[] = [];
         if (instructor) descParts.push(`With ${instructor}.`);
-        if (upcoming.length > 1) descParts.push(`${upcoming.length} sessions available — choose your dates when registering.`);
+        if (openSessionCount > 1) {
+          descParts.push(`${openSessionCount} sessions available — choose your dates when registering.`);
+        }
 
         cards.push({
           id: `class-${ce.id}`,
@@ -179,7 +348,9 @@ function EventsContent() {
           is_published: true,
           is_registered: true,
           cost: fee > 0 ? fee : null,
-          enrollment_url: buildCookingClassEnrollmentUrl(ce.id, chosen.id),
+          enrollment_url: isClassPast
+            ? null
+            : buildCookingClassEnrollmentUrl(ce.id, (enrollSession ?? chosen).id),
           event_menu: null,
           event_management_event_id: null,
           event_management_session_id: null,
@@ -194,6 +365,7 @@ function EventsContent() {
           tags: (ce as { tags?: string[] | null }).tags ?? null,
           isFullyBooked,
           isBookingsClose,
+          isOfferingPast: isClassPast,
         });
       }
       return cards;
@@ -294,16 +466,21 @@ function EventsContent() {
             const isFullyBooked = ev.event_management_session_id
               ? eventMgmtFullyBookedIds.has(ev.event_management_session_id)
               : false;
-            const isBookingsClose = !isFullyBooked && ev.event_management_session_id
+            let isBookingsClose = !isFullyBooked && ev.event_management_session_id
               ? eventMgmtBookingsClosedIds.has(ev.event_management_session_id)
               : false;
-            if (ev.image_path && signedUrlMap[ev.image_path]) {
-              return { ...ev, imageUrl: signedUrlMap[ev.image_path], offering_type: 'event' as const, isFullyBooked, isBookingsClose };
-            }
-            if (ev.image_url) {
-              return { ...ev, imageUrl: ev.image_url, offering_type: 'event' as const, isFullyBooked, isBookingsClose };
-            }
-            return { ...ev, offering_type: 'event' as const, isFullyBooked, isBookingsClose };
+            const base = {
+              ...ev,
+              offering_type: 'event' as const,
+              isFullyBooked,
+              isBookingsClose,
+            };
+            const withImage = ev.image_path && signedUrlMap[ev.image_path]
+              ? { ...base, imageUrl: signedUrlMap[ev.image_path] }
+              : ev.image_url
+              ? { ...base, imageUrl: ev.image_url }
+              : base;
+            return applyPastOfferingFlags(withImage, new Date());
           });
 
           setEvents([...withUrls, ...classCards]);
@@ -311,14 +488,17 @@ function EventsContent() {
           console.error('Failed to fetch event management booking counts:', e);
           // Fall back: map without status
           const withUrls = data.map((ev: Event) => {
-            const isFullyBooked = false;
-            if (ev.image_path && signedUrlMap[ev.image_path]) {
-              return { ...ev, imageUrl: signedUrlMap[ev.image_path], offering_type: 'event' as const, isFullyBooked };
-            }
-            if (ev.image_url) {
-              return { ...ev, imageUrl: ev.image_url, offering_type: 'event' as const, isFullyBooked };
-            }
-            return { ...ev, offering_type: 'event' as const, isFullyBooked };
+            const base = {
+              ...ev,
+              offering_type: 'event' as const,
+              isFullyBooked: false,
+            };
+            const withImage = ev.image_path && signedUrlMap[ev.image_path]
+              ? { ...base, imageUrl: signedUrlMap[ev.image_path] }
+              : ev.image_url
+              ? { ...base, imageUrl: ev.image_url }
+              : base;
+            return applyPastOfferingFlags(withImage, new Date());
           });
           setEvents([...withUrls, ...classCards]);
         }
@@ -330,13 +510,17 @@ function EventsContent() {
         const isFullyBooked = ev.event_management_session_id
           ? eventMgmtFullyBookedIds.has(ev.event_management_session_id)
           : false;
-        if (ev.image_path && signedUrlMap[ev.image_path]) {
-          return { ...ev, imageUrl: signedUrlMap[ev.image_path], offering_type: 'event' as const, isFullyBooked };
-        }
-        if (ev.image_url) {
-          return { ...ev, imageUrl: ev.image_url, offering_type: 'event' as const, isFullyBooked };
-        }
-        return { ...ev, offering_type: 'event' as const, isFullyBooked };
+        const base = {
+          ...ev,
+          offering_type: 'event' as const,
+          isFullyBooked,
+        };
+        const withImage = ev.image_path && signedUrlMap[ev.image_path]
+          ? { ...base, imageUrl: signedUrlMap[ev.image_path] }
+          : ev.image_url
+          ? { ...base, imageUrl: ev.image_url }
+          : base;
+        return applyPastOfferingFlags(withImage, new Date());
       });
 
       setEvents([...withUrls, ...classCards]);
@@ -353,8 +537,8 @@ function EventsContent() {
       : offeringFilter === 'classes'
       ? e.offering_type === 'class'
       : e.offering_type !== 'class';
-  const currentEvents = events.filter((e) => new Date(e.event_date) >= now);
-  const pastEvents = events.filter((e) => new Date(e.event_date) < now);
+  const currentEvents = events.filter((e) => isOfferingCurrent(e, now));
+  const pastEvents = events.filter((e) => !isOfferingCurrent(e, now));
   const displayedEvents = (activeTab === 'current' ? currentEvents : pastEvents).filter(matchesOffering);
 
   const formatDateOnly = (from: string) => {
@@ -617,51 +801,7 @@ function EventsContent() {
                         </>
                       )}
                     </div>
-                    {activeTab === 'past' && (
-                      <div className="absolute top-3 right-3 z-[1]">
-                        <span className={`${CARD_BADGE_PILL} bg-gray-800/90 text-white text-xs px-2.5 py-1`}>
-                          Past Event
-                        </span>
-                      </div>
-                    )}
-                    {/* Fully Booked diagonal badge */}
-                    {ev.isFullyBooked && (
-                      <div className="absolute inset-0 overflow-hidden pointer-events-none z-[2]">
-                        <div
-                          className="absolute bg-red-600 text-white text-xs font-extrabold tracking-widest uppercase shadow-lg"
-                          style={{
-                            width: '160%',
-                            textAlign: 'center',
-                            padding: '6px 0',
-                            top: '38%',
-                            left: '-30%',
-                            transform: 'rotate(-35deg)',
-                            transformOrigin: 'center',
-                          }}
-                        >
-                          Fully Booked
-                        </div>
-                      </div>
-                    )}
-                    {/* Bookings Closed diagonal badge */}
-                    {!ev.isFullyBooked && ev.isBookingsClose && (
-                      <div className="absolute inset-0 overflow-hidden pointer-events-none z-[2]">
-                        <div
-                          className="absolute bg-amber-600 text-white text-xs font-extrabold tracking-widest uppercase shadow-lg"
-                          style={{
-                            width: '160%',
-                            textAlign: 'center',
-                            padding: '6px 0',
-                            top: '38%',
-                            left: '-30%',
-                            transform: 'rotate(-35deg)',
-                            transformOrigin: 'center',
-                          }}
-                        >
-                          Bookings Closed
-                        </div>
-                      </div>
-                    )}
+                    <EventCardImageOverlays ev={ev} activeTab={activeTab} now={now} />
                   </div>
 
                   {/* Content */}
@@ -783,21 +923,17 @@ function EventsContent() {
                   className="bg-white rounded-2xl border border-[#EDE7DA] overflow-hidden shadow-sm hover:shadow-md transition-shadow"
                 >
                   {/* Image */}
-                  <div className="h-48 bg-[#F5F0E8] flex items-center justify-center overflow-hidden">
+                  <div className="relative h-48 bg-[#F5F0E8] flex items-center justify-center overflow-hidden">
                     {ev.imageUrl ? (
                       <img src={ev.imageUrl} alt={ev.title} className="w-full h-full object-cover" />
                     ) : (
                       <span className="text-5xl">🗓️</span>
                     )}
+                    <EventCardImageOverlays ev={ev} activeTab={activeTab} now={now} />
                   </div>
 
                   {/* Content */}
                   <div className="p-5">
-                    {activeTab === 'past' && (
-                      <span className="inline-block text-xs px-2.5 py-1 rounded-full bg-gray-100 text-gray-500 border border-gray-200 mb-3">
-                        Past Event
-                      </span>
-                    )}
                     <h3 className="text-lg font-bold font-display text-[#1A1612] mb-2">{ev.title}</h3>
                     {ev.description && (
                       <p className="text-sm text-[#5C5347] mb-4 line-clamp-3">{ev.description}</p>
