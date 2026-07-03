@@ -15,9 +15,9 @@ export type SessionRow = SessionDateTimeFields & {
   seating?: number | null;
 };
 
-/** Each registration occupies at least one seat (adult) plus one per child participant. */
+/** Each registration occupies seats equal to the number of child participants only (registrant excluded). */
 export function participantsPerRegistration(children: unknown): number {
-  return filterFilledChildren(children).length + 1;
+  return filterFilledChildren(children).length;
 }
 
 export function normalizeStatusLabel(label: string | null | undefined): string {
