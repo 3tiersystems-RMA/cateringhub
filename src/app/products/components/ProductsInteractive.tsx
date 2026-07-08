@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
+
 import Icon from "@/components/ui/AppIcon";
 import ProductCard from "./ProductCard";
 import CartSidebar from "./CartSidebar";
@@ -586,13 +586,13 @@ function ProductsContent({ initialCatalog }: ProductsContentProps) {
               <Icon name="AdjustmentsHorizontalIcon" size={15} />
               Customize Meal Package
             </button>
-            <Link
-              href="/vouchers"
-              className="flex items-center gap-2 bg-white border border-[#C4622D]/40 text-[#C4622D] px-4 py-2.5 rounded-full text-sm font-semibold hover:bg-[#F5EDE6] transition-all"
+            <span
+              className="flex items-center gap-2 bg-white border border-gray-300 text-gray-400 px-4 py-2.5 rounded-full text-sm font-semibold cursor-not-allowed opacity-60 select-none"
+              title="Meal Vouchers (currently unavailable)"
             >
               <Icon name="TicketIcon" size={15} />
               Meal Vouchers
-            </Link>
+            </span>
             <CartButton />
           </div>
         </div>
