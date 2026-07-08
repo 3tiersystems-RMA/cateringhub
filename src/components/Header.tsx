@@ -9,7 +9,6 @@ import Icon from "@/components/ui/AppIcon";
 const navLinks = [
   { label: "Home", href: "/homepage" },
   { label: "Menu & Order", href: "/products" },
-  { label: "Meal Vouchers", href: "/vouchers" },
 ];
 
 const eventsSubLinks = [
