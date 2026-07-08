@@ -820,7 +820,7 @@ export default function EventManagementSettings({ isSuperAdmin = false, readOnly
       {/* Per-event Session Details */}
       {events.map(ev => {
         const rows = eventDateRows[ev.id] || [];
-        const isCollapsed = collapsedEventBlocks[ev.id] ?? false;
+        const isCollapsed = collapsedEventBlocks[ev.id] ?? !ev.is_active;
         return (
           <div key={ev.id} className="bg-white border border-[#EDE7DA] rounded-2xl overflow-hidden">
             <button
