@@ -335,8 +335,14 @@ export default function EventBookingsPage() {
 
     const datesForEvent = eventDates.filter(row => row.event_id === mgmt.id);
     let targetRow = sessionId ? datesForEvent.find(row => row.id === sessionId) : undefined;
-    if (!targetRow || !isDateSelectable(targetRow)) {
-      targetRow = datesForEvent.find(row => isDateSelectable(row));
+    if (targetRow && !isDateSelectable(targetRow)) {
+      targetRow = undefined;
+    }
+    // Only auto-select if a specific sessionId was provided and is selectable,
+    // OR if there is exactly one session for this event.
+    const selectableDates = datesForEvent.filter(row => isDateSelectable(row));
+    if (!targetRow && selectableDates.length === 1) {
+      targetRow = selectableDates[0];
     }
 
     preselectApplied.current = true;
@@ -1056,7 +1062,7 @@ export default function EventBookingsPage() {
 
               {/* Select Attendance */}
               <div className="mb-5">
-                {enrollPreselected && page1.selectedDates.length === 1 ? (
+                {enrollPreselected && page1.selectedDates.length === 1 && filteredDates.length === 1 ? (
                   <div className="bg-[#FDF6EE] border border-[#EDE7DA] rounded-xl p-4">
                     <p className="text-xs font-semibold text-[#8C8278] uppercase tracking-wide mb-1">Session</p>
                     <p className="text-sm font-medium text-[#1A1612]">{page1.selectedDates[0]}</p>
