@@ -81,9 +81,7 @@ export default function CartStepCart({
     setVoucherLoading(true);
     try {
       const { data, error } = await supabase
-        .from("vouchers")
-        .select("voucher_code, customer_name, customer_email, customer_phone, total_meals, meals_remaining, status, package_type")
-        .eq("voucher_code", code)
+        .rpc("lookup_voucher_by_code", { p_voucher_code: code })
         .single();
 
       if (error || !data) { setVoucherError("Voucher code not found. Please check and try again."); return; }
@@ -139,9 +137,7 @@ export default function CartStepCart({
     setDvLoading(true);
     try {
       const { data, error } = await supabase
-        .from("discount_vouchers")
-        .select("id, dv_code, dv_amount, status, expiry_date, times_used")
-        .eq("dv_code", code)
+        .rpc("lookup_discount_voucher_by_code", { p_dv_code: code })
         .single();
 
       if (error || !data) { setDvError("Discount voucher code not found. Please check and try again."); return; }

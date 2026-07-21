@@ -96,9 +96,7 @@ function ApplyVoucherBanner() {
     setLoading(true);
     try {
       const { data, error: dbErr } = await supabase
-        .from("vouchers")
-        .select("voucher_code, customer_name, customer_email, customer_phone, total_meals, meals_remaining, status, package_type")
-        .eq("voucher_code", code)
+        .rpc("lookup_voucher_by_code", { p_voucher_code: code })
         .single();
 
       if (dbErr || !data) { setVoucherErrorModal({ open: true, message: "Voucher code not found. Please check and try again." }); return; }

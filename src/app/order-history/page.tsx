@@ -143,10 +143,7 @@ export default function OrderHistoryPage() {
 
   const fetchOrdersByEmail = async (email: string) => {
     const { data, error: fetchError } = await supabase
-      .from("orders")
-      .select("*")
-      .eq("customer_email", email.toLowerCase().trim())
-      .order("created_at", { ascending: false });
+      .rpc("get_orders_by_email", { p_email: email.toLowerCase().trim() });
 
     if (fetchError) throw fetchError;
     return data as Order[];
