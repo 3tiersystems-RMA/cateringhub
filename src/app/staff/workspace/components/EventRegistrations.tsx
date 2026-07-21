@@ -2279,7 +2279,7 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
                                                 <td className="px-3 py-2 text-[#5C5347]">{child.age != null ? String(child.age) : calcAge(child.dob)}</td>
                                                 <td className="px-3 py-2 text-[#5C5347] capitalize">{child.gender || '—'}</td>
                                                 <td className="px-3 py-2 text-[#5C5347]">{child.grade || '—'}</td>
-                                                <td className="px-3 py-2 text-[#5C5347]">{child.allergies || '—'}</td>
+                                                <td className="px-3 py-2 text-[#5C5347]">{child.allergies || child.dietaryRestrictions || '—'}</td>
                                               </tr>
                                             ))}
                                           </tbody>
