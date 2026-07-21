@@ -125,7 +125,6 @@ interface BookingCount {
 const TITLE_OPTIONS = ['Dr', 'Ms', 'Mr', 'Mrs'];
 const RELATIONSHIP_OPTIONS = ['Father', 'Mother', 'Grandparent', 'Guardian', 'Au pair'];
 const RELATIONSHIP_TO_CHILD_OPTIONS = ['Father', 'Mother', 'Grandparent', 'Guardian', 'Au pair', 'Sibling', 'Friend'];
-const DIETARY_OPTIONS = ['None', 'Vegetarian', 'Vegan', 'Gluten-free', 'Lactose Intolerant', 'Peanut Allergy'];
 const SKILL_LEVEL_OPTIONS = ['Novice', 'Beginner', 'Intermediate', 'Advanced'];
 
 const EMPTY_CHILD: ChildRow = { fullName: '', dob: '', age: '', gender: '', grade: '', dietaryRestrictions: '', skillLevel: '', picturesTaken: '', indemnityConsent: false };
