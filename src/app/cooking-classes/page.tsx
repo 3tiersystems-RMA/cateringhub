@@ -2148,16 +2148,13 @@ export default function CookingClassesPage() {
                                 <label className="block text-xs font-medium text-[#5C5347] mb-1">
                                   Dietary Restrictions {hasName && <span className="text-red-500">*</span>}
                                 </label>
-                                <select
+                                <input
+                            type="text"
                             value={child.dietaryRestrictions}
                             onChange={(e) => updateChild(idx, 'dietaryRestrictions', e.target.value)}
-                            className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] bg-white ${page4Errors[`child_${idx}_dietary`] ? 'border-red-400' : 'border-[#DDD5C8]'}`}>
+                            placeholder="e.g. Peanut allergy, Vegan, Gluten-free"
+                            className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#C4622D] ${page4Errors[`child_${idx}_dietary`] ? 'border-red-400' : 'border-[#DDD5C8]'}`} />
 
-                                  <option value="">Select...</option>
-                                  {DIETARY_OPTIONS.map((opt) =>
-                            <option key={opt} value={opt}>{opt}</option>
-                            )}
-                                </select>
                                 {page4Errors[`child_${idx}_dietary`] &&
                           <p className="text-xs text-red-500 mt-0.5">{page4Errors[`child_${idx}_dietary`]}</p>
                           }
