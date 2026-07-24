@@ -256,6 +256,7 @@ export default function CookingClassesPage() {
   }>>([]);
   const [selectedCreditId, setSelectedCreditId] = useState<string | null>(null);
   const [creditCheckLoading, setCreditCheckLoading] = useState(false);
+  const [bankingDetails, setBankingDetails] = useState<string | null>(null);
 
   // ── Derived: is this an Adult event? ────────────────────────────────────────
   const isAdultEvent = page1.selectedEvents.some((name) =>
@@ -355,6 +356,10 @@ export default function CookingClassesPage() {
 
       // settings not found, use defaults
     } finally {setLoadingSettings(false);}
+    try {
+      const { data: corrData } = await supabase.from('correspondence_settings').select('banking_details').limit(1).single();
+      if (corrData?.banking_details) setBankingDetails(corrData.banking_details);
+    } catch { /* non-blocking */ }
   }
 
   async function loadClassEvents() {
@@ -2601,6 +2606,18 @@ export default function CookingClassesPage() {
             </div>);
 
           })()}
+
+            {/* EFT banking details panel */}
+            {page5.paymentMethod === 'eft' && bankingDetails && (
+              <div className="mb-5 rounded-xl border border-[#C4622D]/30 bg-[#FDF6EE] p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <svg className="w-4 h-4 text-[#C4622D] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
+                  <p className="text-sm font-semibold text-[#C4622D]">Banking Details</p>
+                </div>
+                <pre className="text-sm text-[#1A1612] whitespace-pre-wrap font-sans leading-relaxed">{bankingDetails}</pre>
+                <p className="text-xs text-[#8C8278] mt-2">Please use your name and booking reference as the payment reference.</p>
+              </div>
+            )}
 
             {/* EFT proof upload */}
             {(() => {
