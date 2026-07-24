@@ -243,6 +243,88 @@ function canAccessPayfastReceipt(userRole: string): boolean {
   );
 }
 
+// Payment Status Legend component
+const PAYMENT_STATUS_LEGEND = [
+  {
+    status: 'pending',
+    label: 'Pending',
+    colors: 'bg-amber-100 text-amber-700 border-amber-200',
+    description: 'Registration received but payment has not yet been made or confirmed. The spot is tentatively held.',
+  },
+  {
+    status: 'paid',
+    label: 'Paid',
+    colors: 'bg-green-100 text-green-700 border-green-200',
+    description: 'Payment has been successfully received and verified. The booking is fully confirmed.',
+  },
+  {
+    status: 'awaiting_confirmation',
+    label: 'Awaiting Confirmation',
+    colors: 'bg-blue-100 text-blue-700 border-blue-200',
+    description: 'Payment (e.g. EFT/bank transfer) has been submitted by the registrant but is still being verified by staff. Booking is on hold until confirmed.',
+  },
+  {
+    status: 'notified',
+    label: 'Notified',
+    colors: 'bg-purple-100 text-purple-700 border-purple-200',
+    description: 'A confirmation or payment notification email has been sent to the registrant. Appears in the Confirm Email column.',
+  },
+  {
+    status: 'failed',
+    label: 'Failed',
+    colors: 'bg-red-100 text-red-700 border-red-200',
+    description: 'The payment attempt was declined or failed. No funds were collected. The registrant should retry payment.',
+  },
+  {
+    status: 'awaiting_payment',
+    label: 'Awaiting Payment',
+    colors: 'bg-blue-100 text-blue-700 border-blue-200',
+    description: 'An invoice or payment request has been issued and staff are waiting for the registrant to complete payment.',
+  },
+];
+
+function PaymentStatusLegend() {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="bg-white border border-[#E8DDD0] rounded-xl overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center justify-between px-5 py-3 text-left hover:bg-[#FAF5EE] transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-base">🏷️</span>
+          <span className="text-sm font-semibold text-[#2C2420]">Payment Status Legend</span>
+          <span className="text-xs text-[#8C7B6B] font-normal">— what each status means</span>
+        </div>
+        <svg
+          className={`w-4 h-4 text-[#8C7B6B] transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {open && (
+        <div className="px-5 pb-5 pt-1 border-t border-[#F0E8DE]">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-3">
+            {PAYMENT_STATUS_LEGEND.map(item => (
+              <div key={item.status} className="flex items-start gap-3 p-3 bg-[#FAF5EE] border border-[#EDE5D8] rounded-lg">
+                <span className={`inline-flex shrink-0 px-2.5 py-0.5 text-xs font-semibold rounded-full border mt-0.5 ${item.colors}`}>
+                  {item.label}
+                </span>
+                <p className="text-xs text-[#5C5347] leading-relaxed">{item.description}</p>
+              </div>
+            ))}
+          </div>
+          <p className="mt-3 text-xs text-[#8C7B6B] italic">
+            * The <strong>Confirm Email</strong> column tracks whether a booking confirmation email has been sent to the registrant.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Elegant paginator component
 function Paginator({
   currentPage,
@@ -1338,6 +1420,9 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
           <p className="text-2xl font-bold text-[#C4622D] mt-1">{formatCurrency(totalAmount)}</p>
         </div>
       </div>
+
+      {/* Payment Status Legend */}
+      <PaymentStatusLegend />
 
       {/* Filter Tabs + Content */}
       <div className="bg-white border border-[#E8DDD0] rounded-xl overflow-hidden">

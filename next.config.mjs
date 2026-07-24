@@ -120,21 +120,6 @@ const nextConfig = {
       { module: /@supabase\/supabase-js/, message: /Edge Runtime/ },
       { module: /@supabase\/realtime-js/, message: /Edge Runtime/ },
     ];
-    // The component-tagger is a development-only visual-editor tool. Its
-    // nextLoader.js does require('chalk'), and chalk v5+ is ESM-only, which
-    // breaks the build (ERR_REQUIRE_ESM). Apply it only in dev AND only when
-    // chalk can be required, so an incompatible chalk can't crash compilation.
-    if (dev && componentTaggerIsSafe()) {
-      config.module.rules.push({
-        test: /\.(jsx|tsx)$/,
-        exclude: [/node_modules/],
-        use: [
-          {
-            loader: '@dhiwise/component-tagger/nextLoader',
-          },
-        ],
-      });
-    }
     if (dev) {
       const ignoredPaths = (process.env.WATCH_IGNORED_PATHS || '')
         .split(',')
@@ -145,6 +130,15 @@ const nextConfig = {
           ? ignoredPaths.map((p) => `**/${p.replace(/^\/+|\/+$/g, '')}/**`)
           : undefined,
       };
+    }
+    if (dev) {
+      config.module.rules.push({
+        test: /\.(jsx|tsx)$/,
+        exclude: [/node_modules/],
+        use: [{
+          loader: '@dhiwise/component-tagger/nextLoader',
+        }],
+      });
     }
     return config;
   },
