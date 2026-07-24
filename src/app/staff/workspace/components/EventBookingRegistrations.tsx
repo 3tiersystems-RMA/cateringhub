@@ -938,25 +938,56 @@ export default function EventBookingRegistrations({ isSuperAdmin = false, userRo
       {/* Payment Status Legend */}
       <div className="bg-white border border-[#EDE7DA] rounded-2xl p-4">
         <p className="text-xs font-semibold text-[#5C5347] uppercase tracking-wide mb-3">Payment Status Legend</p>
-        <div className="flex flex-wrap gap-3">
-          <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border bg-green-100 text-green-700 border-green-200">
-            <span className="w-2 h-2 rounded-full bg-green-500 inline-block" /> Paid
-          </span>
-          <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border bg-amber-100 text-amber-700 border-amber-200">
-            <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" /> Pending
-          </span>
-          <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border bg-blue-100 text-blue-700 border-blue-200">
-            <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" /> Awaiting Confirmation
-          </span>
-          <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border bg-blue-100 text-blue-700 border-blue-200">
-            <span className="w-2 h-2 rounded-full bg-blue-400 inline-block" /> Awaiting Payment
-          </span>
-          <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border bg-red-100 text-red-700 border-red-200">
-            <span className="w-2 h-2 rounded-full bg-red-500 inline-block" /> Failed
-          </span>
-          <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border bg-gray-100 text-gray-600 border-gray-300">
-            <span className="w-2 h-2 rounded-full bg-gray-400 inline-block" /> No-show
-          </span>
+        <div className="flex flex-col gap-2">
+
+          {/* Paid */}
+          <div className="flex items-start gap-3">
+            <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1 rounded-full border bg-green-100 text-green-700 border-green-200 whitespace-nowrap mt-0.5">
+              <span className="w-2 h-2 rounded-full bg-green-500 inline-block" /> Paid
+            </span>
+            <p className="text-xs text-[#6B5E52] leading-relaxed">Payment was received and confirmed. Applied when PayFast ITN reports a successful transaction or an EFT proof has been manually approved.</p>
+          </div>
+
+          {/* Pending */}
+          <div className="flex items-start gap-3">
+            <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1 rounded-full border bg-amber-100 text-amber-700 border-amber-200 whitespace-nowrap mt-0.5">
+              <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" /> Pending
+            </span>
+            <p className="text-xs text-[#6B5E52] leading-relaxed">Registration submitted but payment has not yet been received. Typically set at the point of booking when the customer has not yet paid.</p>
+          </div>
+
+          {/* Awaiting Confirmation */}
+          <div className="flex items-start gap-3">
+            <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1 rounded-full border bg-blue-100 text-blue-700 border-blue-200 whitespace-nowrap mt-0.5">
+              <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" /> Awaiting Confirmation
+            </span>
+            <p className="text-xs text-[#6B5E52] leading-relaxed">Payment has been made (e.g. EFT proof uploaded) but is still being verified by staff. Applied while the payment is under manual review before being marked Paid.</p>
+          </div>
+
+          {/* Awaiting Payment */}
+          <div className="flex items-start gap-3">
+            <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1 rounded-full border bg-blue-100 text-blue-700 border-blue-200 whitespace-nowrap mt-0.5">
+              <span className="w-2 h-2 rounded-full bg-blue-400 inline-block" /> Awaiting Payment
+            </span>
+            <p className="text-xs text-[#6B5E52] leading-relaxed">A payment link or invoice has been sent to the customer but payment has not yet been received. Applied after a reminder or payment request is issued.</p>
+          </div>
+
+          {/* Failed */}
+          <div className="flex items-start gap-3">
+            <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1 rounded-full border bg-red-100 text-red-700 border-red-200 whitespace-nowrap mt-0.5">
+              <span className="w-2 h-2 rounded-full bg-red-500 inline-block" /> Failed
+            </span>
+            <p className="text-xs text-[#6B5E52] leading-relaxed">The payment attempt was declined or cancelled. Applied when PayFast returns a failed or cancelled payment notification (ITN) for this registration.</p>
+          </div>
+
+          {/* No-show */}
+          <div className="flex items-start gap-3">
+            <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1 rounded-full border bg-gray-100 text-gray-600 border-gray-300 whitespace-nowrap mt-0.5">
+              <span className="w-2 h-2 rounded-full bg-gray-400 inline-block" /> No-show
+            </span>
+            <p className="text-xs text-[#6B5E52] leading-relaxed">The participant registered and paid but did not attend the event. Applied manually by staff after the event has taken place.</p>
+          </div>
+
         </div>
       </div>
 
