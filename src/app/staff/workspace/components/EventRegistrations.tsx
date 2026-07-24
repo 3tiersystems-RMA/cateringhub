@@ -1402,22 +1402,18 @@ export default function EventRegistrations({ isSuperAdmin = false, userRole = ''
       </div>
 
       {/* Summary stats */}
-      <div className="grid grid-cols-4 gap-4">
-        <div className="bg-white border border-[#E8DDD0] rounded-xl p-4">
-          <p className="text-xs text-[#8C7B6B] uppercase tracking-wide font-medium">Total Registrations</p>
-          <p className="text-2xl font-bold text-[#2C2420] mt-1">{filtered.length}</p>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
+        <div className="bg-white border border-[#EDE7DA] rounded-2xl p-5 flex flex-col gap-1">
+          <span className="text-2xl">🎟️</span>
+          <p className="text-xs text-[#8C8278] mt-1">Participants</p>
+          <p className="text-2xl font-bold text-[#1A1612]">{totalParticipants}</p>
+          <p className="text-xs text-[#8C8278]">{filtered.length} registrations</p>
         </div>
-        <div className="bg-white border border-[#E8DDD0] rounded-xl p-4">
-          <p className="text-xs text-[#8C7B6B] uppercase tracking-wide font-medium">Participants</p>
-          <p className="text-2xl font-bold text-[#C4622D] mt-1">{totalParticipants}</p>
-        </div>
-        <div className="bg-white border border-[#E8DDD0] rounded-xl p-4">
-          <p className="text-xs text-[#8C7B6B] uppercase tracking-wide font-medium">Paid</p>
-          <p className="text-2xl font-bold text-green-600 mt-1">{totalPaid}</p>
-        </div>
-        <div className="bg-white border border-[#E8DDD0] rounded-xl p-4">
-          <p className="text-xs text-[#8C7B6B] uppercase tracking-wide font-medium">Revenue Collected</p>
-          <p className="text-2xl font-bold text-[#C4622D] mt-1">{formatCurrency(totalAmount)}</p>
+        <div className="bg-white border border-[#EDE7DA] rounded-2xl p-5 flex flex-col gap-1">
+          <span className="text-2xl">💰</span>
+          <p className="text-xs text-[#8C8278] mt-1">Revenue Collected</p>
+          <p className="text-2xl font-bold text-green-700">{formatCurrency(totalAmount)}</p>
+          <p className="text-xs text-[#8C8278]">Confirmed paid</p>
         </div>
       </div>
 
