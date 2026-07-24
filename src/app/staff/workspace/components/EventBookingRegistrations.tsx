@@ -919,23 +919,44 @@ export default function EventBookingRegistrations({ isSuperAdmin = false, userRo
         </button>
       </div>
 
-      {/* Summary stats */}
-      <div className="grid grid-cols-4 gap-4">
-        <div className="bg-white border border-[#E8DDD0] rounded-xl p-4">
-          <p className="text-xs text-[#8C7B6B] uppercase tracking-wide font-medium">Total Registrations</p>
-          <p className="text-2xl font-bold text-[#2C2420] mt-1">{filtered.length}</p>
+      {/* Summary Cards — Analytics style */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="bg-white border border-[#EDE7DA] rounded-2xl p-5 flex flex-col gap-1">
+          <span className="text-2xl">🎟️</span>
+          <p className="text-xs text-[#8C8278] mt-1">Participants</p>
+          <p className="text-2xl font-bold text-[#1A1612]">{totalParticipants}</p>
+          <p className="text-xs text-[#8C8278]">{filtered.length} registrations</p>
         </div>
-        <div className="bg-white border border-[#E8DDD0] rounded-xl p-4">
-          <p className="text-xs text-[#8C7B6B] uppercase tracking-wide font-medium">Participants</p>
-          <p className="text-2xl font-bold text-[#C4622D] mt-1">{totalParticipants}</p>
+        <div className="bg-white border border-[#EDE7DA] rounded-2xl p-5 flex flex-col gap-1">
+          <span className="text-2xl">💰</span>
+          <p className="text-xs text-[#8C8278] mt-1">Revenue Collected</p>
+          <p className="text-2xl font-bold text-[#C4622D]">{formatCurrency(totalAmount)}</p>
+          <p className="text-xs text-[#8C8278]">{totalPaid} paid registration{totalPaid !== 1 ? 's' : ''}</p>
         </div>
-        <div className="bg-white border border-[#E8DDD0] rounded-xl p-4">
-          <p className="text-xs text-[#8C7B6B] uppercase tracking-wide font-medium">Paid</p>
-          <p className="text-2xl font-bold text-green-600 mt-1">{totalPaid}</p>
-        </div>
-        <div className="bg-white border border-[#E8DDD0] rounded-xl p-4">
-          <p className="text-xs text-[#8C7B6B] uppercase tracking-wide font-medium">Revenue Collected</p>
-          <p className="text-2xl font-bold text-[#C4622D] mt-1">{formatCurrency(totalAmount)}</p>
+      </div>
+
+      {/* Payment Status Legend */}
+      <div className="bg-white border border-[#EDE7DA] rounded-2xl p-4">
+        <p className="text-xs font-semibold text-[#5C5347] uppercase tracking-wide mb-3">Payment Status Legend</p>
+        <div className="flex flex-wrap gap-3">
+          <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border bg-green-100 text-green-700 border-green-200">
+            <span className="w-2 h-2 rounded-full bg-green-500 inline-block" /> Paid
+          </span>
+          <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border bg-amber-100 text-amber-700 border-amber-200">
+            <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" /> Pending
+          </span>
+          <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border bg-blue-100 text-blue-700 border-blue-200">
+            <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" /> Awaiting Confirmation
+          </span>
+          <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border bg-blue-100 text-blue-700 border-blue-200">
+            <span className="w-2 h-2 rounded-full bg-blue-400 inline-block" /> Awaiting Payment
+          </span>
+          <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border bg-red-100 text-red-700 border-red-200">
+            <span className="w-2 h-2 rounded-full bg-red-500 inline-block" /> Failed
+          </span>
+          <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border bg-gray-100 text-gray-600 border-gray-300">
+            <span className="w-2 h-2 rounded-full bg-gray-400 inline-block" /> No-show
+          </span>
         </div>
       </div>
 
