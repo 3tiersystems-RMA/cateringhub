@@ -416,12 +416,10 @@ export default function EventManagementAnalytics() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <KpiCard icon="📋" label="Total Registrations" value={String(totalRegs)} />
-        <KpiCard icon="✅" label="Paid Registrations" value={String(paidRegs.length)} color="text-green-700" />
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+        <KpiCard icon="🎟️" label="Participants" value={String(totalParticipants)} sub={`${totalRegs} registrations`} />
         <KpiCard icon="💰" label="Total Revenue" value={formatCurrency(totalRevenue)} color="text-green-700" sub="Confirmed paid" />
         <KpiCard icon="⏳" label="Pending Revenue" value={formatCurrency(pendingRevenue)} color="text-amber-600" sub="Awaiting payment" />
-        <KpiCard icon="🎟️" label="Participants" value={String(totalParticipants)} sub={`${totalRegs} registrations`} />
         <KpiCard icon="📈" label="Conversion Rate" value={`${conversionRate}%`} color={Number(conversionRate) >= 70 ? 'text-green-700' : 'text-amber-600'} sub="Paid / Total" />
       </div>
 

@@ -413,21 +413,21 @@ export default function EventManagementRegistrations({ isSuperAdmin = false }: E
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        <div className="bg-white border border-[#EDE7DA] rounded-xl p-4">
-          <p className="text-xs text-[#8C8278] mb-1">Total Registrations</p>
-          <p className="text-2xl font-bold text-[#1A1612]">{registrations.length}</p>
-        </div>
-        <div className="bg-white border border-[#EDE7DA] rounded-xl p-4">
-          <p className="text-xs text-[#8C8278] mb-1">Participants</p>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
+        <div className="bg-white border border-[#EDE7DA] rounded-2xl p-5 flex flex-col gap-1">
+          <span className="text-2xl">🎟️</span>
+          <p className="text-xs text-[#8C8278] mt-1">Participants</p>
           <p className="text-2xl font-bold text-[#1A1612]">{registrations.reduce((sum, r) => sum + filterFilledParticipants(r.children).length, 0)}</p>
+          <p className="text-xs text-[#8C8278]">{registrations.length} registrations</p>
         </div>
-        <div className="bg-white border border-[#EDE7DA] rounded-xl p-4">
-          <p className="text-xs text-[#8C8278] mb-1">Total Paid (filtered)</p>
+        <div className="bg-white border border-[#EDE7DA] rounded-2xl p-5 flex flex-col gap-1">
+          <span className="text-2xl">💰</span>
+          <p className="text-xs text-[#8C8278] mt-1">Total Paid (filtered)</p>
           <p className="text-2xl font-bold text-green-700">{formatCurrency(totalPaid)}</p>
         </div>
-        <div className="bg-white border border-[#EDE7DA] rounded-xl p-4">
-          <p className="text-xs text-[#8C8278] mb-1">Awaiting Payment</p>
+        <div className="bg-white border border-[#EDE7DA] rounded-2xl p-5 flex flex-col gap-1">
+          <span className="text-2xl">⏳</span>
+          <p className="text-xs text-[#8C8278] mt-1">Awaiting Payment</p>
           <p className="text-2xl font-bold text-amber-600">{totalPending}</p>
         </div>
       </div>
