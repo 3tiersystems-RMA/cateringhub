@@ -115,7 +115,7 @@ export async function middleware(request: NextRequest) {
           .from('user_profiles')
           .select('role')
           .eq('id', user.id)
-          .single();
+          .maybeSingle();
         if (profileError?.message?.toLowerCase().includes('schema cache') && attempt === 0) {
           // Wait briefly and retry
           await new Promise((r) => setTimeout(r, 1500));
