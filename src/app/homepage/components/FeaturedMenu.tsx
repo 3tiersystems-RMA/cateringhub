@@ -39,7 +39,7 @@ export default function FeaturedMenu() {
   const [loading, setLoading] = useState(true);
   const [sectionVisible, setSectionVisible] = useState<boolean | null>(null);
 
-  const loadFeatured = useCallback(async () => {
+  const loadFeatured = useCallback(async (attempt = 0) => {
     setLoading(true);
     try {
       const supabase = createClient();
@@ -49,7 +49,7 @@ export default function FeaturedMenu() {
           .from('products')
           .select('id, name, category, price, image_path, tags, badge')
           .eq('featured', true)
-          .eq('available', true)
+          .neq('available', false)
           .order('sort_order', { ascending: true })
           .limit(5),
       ]);
@@ -62,6 +62,11 @@ export default function FeaturedMenu() {
 
       const { data, error } = productsResult;
       if (error) {
+        // Retry once on schema cache errors (transient Supabase startup issue)
+        if (attempt === 0 && error.message?.toLowerCase().includes('schema cache')) {
+          setTimeout(() => loadFeatured(1), 2000);
+          return;
+        }
         console.error('FeaturedMenu fetch error:', error.message);
         setFeatured([]);
         return;
