@@ -15,15 +15,24 @@ export async function fetchProductsCatalog(): Promise<ProductsCatalog> {
     supabase
       .from('categories')
       .select('name')
-      .eq('active', true)
       .order('sort_order', { ascending: true }),
     supabase.from('package_visibility').select('package_name, is_visible'),
     supabase
       .from('products')
       .select(PRODUCT_LIST_COLUMNS)
-      .eq('available', true)
+      .neq('available', false)
       .order('sort_order', { ascending: true }),
   ]);
+
+  if (catResult.error) {
+    console.error('[fetchProductsCatalog] categories error:', catResult.error);
+  }
+  if (pvResult.error) {
+    console.error('[fetchProductsCatalog] package_visibility error:', pvResult.error);
+  }
+  if (productsResult.error) {
+    console.error('[fetchProductsCatalog] products error:', productsResult.error);
+  }
 
   const categories = (catResult.data || []).map((c) => c.name as string);
   const visiblePackages = (pvResult.data || [])
