@@ -57,18 +57,25 @@ export default function FeaturedMenu() {
       setSectionVisible(visible);
       if (!visible) {
         setFeatured([]);
+        setLoading(false);
         return;
       }
 
       const { data, error } = productsResult;
       if (error) {
-        // Retry up to 2 times on schema cache errors (transient Supabase cold-start issue)
-        if (attempt < 2 && error.message?.toLowerCase().includes('schema cache')) {
-          setTimeout(() => loadFeatured(attempt + 1), 2500);
-          return;
+        const msg = error.message?.toLowerCase() ?? '';
+        const isSchemaCache =
+          msg.includes('schema cache') ||
+          msg.includes('could not query the database') ||
+          msg.includes('retrying');
+        // Retry up to 3 times on schema cache errors (transient Supabase cold-start issue)
+        if (attempt < 3 && isSchemaCache) {
+          setTimeout(() => loadFeatured(attempt + 1), 3000);
+          return; // keep loading=true while retrying
         }
         console.error('FeaturedMenu fetch error:', error.message);
         setFeatured([]);
+        setLoading(false);
         return;
       }
 
@@ -92,9 +99,9 @@ export default function FeaturedMenu() {
         } as FeaturedItem;
       });
       setFeatured(items);
+      setLoading(false);
     } catch {
       setFeatured([]);
-    } finally {
       setLoading(false);
     }
   }, []);
