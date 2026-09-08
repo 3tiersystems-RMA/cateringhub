@@ -62,9 +62,9 @@ export default function FeaturedMenu() {
 
       const { data, error } = productsResult;
       if (error) {
-        // Retry once on schema cache errors (transient Supabase startup issue)
-        if (attempt === 0 && error.message?.toLowerCase().includes('schema cache')) {
-          setTimeout(() => loadFeatured(1), 2000);
+        // Retry up to 2 times on schema cache errors (transient Supabase cold-start issue)
+        if (attempt < 2 && error.message?.toLowerCase().includes('schema cache')) {
+          setTimeout(() => loadFeatured(attempt + 1), 2500);
           return;
         }
         console.error('FeaturedMenu fetch error:', error.message);

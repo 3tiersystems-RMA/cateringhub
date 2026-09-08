@@ -108,18 +108,28 @@ export async function middleware(request: NextRequest) {
 
   let userRole: StaffRole | null = null;
   if (user) {
-    try {
-      const { data: profile } = await supabase
-        .from('user_profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single();
-      if (profile?.role && ['admin', 'staff', 'super_admin'].includes(profile.role)) {
-        userRole = profile.role as StaffRole;
+    // Retry once on schema cache errors (transient Supabase cold-start issue)
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const { data: profile, error: profileError } = await supabase
+          .from('user_profiles')
+          .select('role')
+          .eq('id', user.id)
+          .single();
+        if (profileError?.message?.toLowerCase().includes('schema cache') && attempt === 0) {
+          // Wait briefly and retry
+          await new Promise((r) => setTimeout(r, 1500));
+          continue;
+        }
+        if (profile?.role && ['admin', 'staff', 'super_admin'].includes(profile.role)) {
+          userRole = profile.role as StaffRole;
+        }
+        break;
+      } catch {
+        // If profile fetch fails, treat as no role
+        userRole = null;
+        break;
       }
-    } catch {
-      // If profile fetch fails, treat as no role
-      userRole = null;
     }
   }
 

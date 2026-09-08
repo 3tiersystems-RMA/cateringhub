@@ -416,10 +416,14 @@ function ProductsContent({ initialCatalog }: ProductsContentProps) {
 
   // Client refresh only when server did not prefetch (e.g. client navigation edge cases)
   useEffect(() => {
-    if (isPrefetched) return;
+    // Also re-fetch client-side if server returned empty products (schema cache error on cold start)
+    const serverReturnedEmpty = isPrefetched && (initialCatalog?.products?.length ?? 0) === 0;
+    if (isPrefetched && !serverReturnedEmpty) return;
 
     let cancelled = false;
-    const fetchData = async () => {
+    let retryTimeout: ReturnType<typeof setTimeout> | null = null;
+
+    const fetchData = async (attempt = 0) => {
       setLoading(true);
       try {
         const supabase = createClient();
@@ -437,6 +441,16 @@ function ProductsContent({ initialCatalog }: ProductsContentProps) {
         ]);
 
         if (cancelled) return;
+
+        // Retry once on schema cache errors (transient Supabase cold-start issue)
+        if (
+          attempt === 0 &&
+          (productsResult.error?.message?.toLowerCase().includes('schema cache') ||
+            catResult.error?.message?.toLowerCase().includes('schema cache'))
+        ) {
+          retryTimeout = setTimeout(() => fetchData(1), 2500);
+          return;
+        }
 
         setCategories((catResult.data || []).map((c) => c.name as string));
         setVisiblePackages(
@@ -460,8 +474,11 @@ function ProductsContent({ initialCatalog }: ProductsContentProps) {
       }
     };
     fetchData();
-    return () => { cancelled = true; };
-  }, [isPrefetched]);
+    return () => {
+      cancelled = true;
+      if (retryTimeout) clearTimeout(retryTimeout);
+    };
+  }, [isPrefetched, initialCatalog]);
 
   const filtered = useMemo(() => {
     let result = products;
