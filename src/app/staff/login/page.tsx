@@ -59,11 +59,25 @@ function StaffLoginForm() {
 
       // Check account status + role in a single lookup
       if (authData?.user) {
-        const { data: profile } = await supabase
-          .from('user_profiles')
-          .select('is_active, role')
-          .eq('id', authData.user.id)
-          .single();
+        let profile: { is_active: boolean | null; role: string | null } | null = null;
+
+        // Retry once on schema cache errors (transient Supabase cold-start issue)
+        for (let attempt = 0; attempt < 2; attempt++) {
+          const { data, error: profileError } = await supabase
+            .from('user_profiles')
+            .select('is_active, role')
+            .eq('id', authData.user.id)
+            .maybeSingle();
+
+          if (profileError?.message?.toLowerCase().includes('schema cache') && attempt === 0) {
+            // Wait briefly and retry
+            await new Promise((r) => setTimeout(r, 1500));
+            continue;
+          }
+
+          profile = data;
+          break;
+        }
 
         if (profile && profile.is_active === false) {
           // Sign out immediately — suspended user should not have a session
