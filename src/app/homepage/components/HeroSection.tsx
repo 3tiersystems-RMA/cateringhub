@@ -231,7 +231,7 @@ function HeroSectionInner() {
             </div>
 
             <p className="reveal hidden-init hero-reveal max-w-lg text-base md:text-lg text-white/65 leading-relaxed font-light">
-              From intimate dinner parties to 500-person corporate galas — Cardamom Central Kitchen crafts memorable meals with locally sourced ingredients and a Master chef-driven menu that changes with the seasons.
+              From intimate dinner parties to 500-person corporate galas — Cardamom Kitchen crafts memorable meals with locally sourced ingredients and a Master chef-driven menu that changes with the seasons.
             </p>
 
             {/* Stats Row */}

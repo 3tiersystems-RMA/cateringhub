@@ -303,7 +303,7 @@ export default function CartSidebar() {
           order: {
             paymentId: orderRef,
             amount: discountedTotal,
-            itemName: `Central Kitchen Order ${orderRef}`,
+            itemName: `Cardamom Kitchen Order ${orderRef}`,
             itemDescription: items.map((i) => `${i.product.name} x${i.quantity}`).join(", "),
           },
           buyer: {

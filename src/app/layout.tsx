@@ -11,7 +11,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: 'Central Kitchen',
+  title: 'Cardamom Kitchen',
   description: 'Premium catering for weddings, corporate events, and everyday occasions. Weekly meal prep delivered to your door.',
   icons: {
     icon: [

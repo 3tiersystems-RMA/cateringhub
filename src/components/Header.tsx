@@ -74,6 +74,11 @@ export default function Header() {
         {/* Logo */}
         <Link href="/homepage" className="flex items-center gap-2 group">
           <AppLogo size={80} />
+          <img
+            src="/assets/images/SANHA_CK_Transparent-1774211701949.png"
+            alt="SANHA Halaal certified logo"
+            className="h-12 w-auto object-contain"
+          />
         </Link>
 
         {/* Desktop Nav */}
