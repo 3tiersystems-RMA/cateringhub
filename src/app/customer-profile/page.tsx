@@ -138,15 +138,24 @@ export default function CustomerProfilePage() {
   // ── POPIA: verify session on mount ────────────────────────────────────────
   useEffect(() => {
     const supabase = createClient();
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user?.email) {
-        setAuthEmail(session.user.email);
-        setIdentifier(session.user.email);
-        setViewState("lookup");
-      } else {
-        setViewState("unauthenticated");
+
+    // Subscribe to auth state changes — this fires immediately with the
+    // current session (INITIAL_SESSION event) and again on any change.
+    // Using onAuthStateChange avoids the race condition where getSession()
+    // returns null before the client has restored the session from cookies.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        if (session?.user?.email) {
+          setAuthEmail(session.user.email);
+          setIdentifier(session.user.email);
+          setViewState("lookup");
+        } else {
+          setViewState("unauthenticated");
+        }
       }
-    });
+    );
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const handleLookup = async (e: React.FormEvent) => {
@@ -274,7 +283,7 @@ export default function CustomerProfilePage() {
                 To protect your personal information in line with POPIA requirements, you must be signed in to view your profile and order history.
               </p>
               <Link
-                href="/auth/confirm"
+                href="/login"
                 className="w-full flex items-center justify-center gap-2 bg-[#C4622D] hover:bg-[#A04E22] text-white py-3.5 rounded-xl text-sm font-semibold transition-colors"
               >
                 <AppIcon name="ArrowRightOnRectangleIcon" size={16} />
