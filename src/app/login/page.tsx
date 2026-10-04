@@ -36,6 +36,11 @@ function CustomerLoginForm() {
         return;
       }
 
+      // Small delay to ensure the Supabase session is fully committed to
+      // storage (cookie / localStorage) before the next page mounts and
+      // AuthContext reads it. Without this, getSession() on the destination
+      // page can race against the setAll() write and return null.
+      await new Promise((resolve) => setTimeout(resolve, 150));
       router.push(redirectTo);
     } catch {
       setError("An unexpected error occurred. Please try again.");

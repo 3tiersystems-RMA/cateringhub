@@ -1,7 +1,6 @@
-
 'use client';
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
 const AuthContext = createContext<any>({});
@@ -19,21 +18,31 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const supabase = createClient();
+  // Track whether onAuthStateChange has fired at least once
+  const authSettled = useRef(false);
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
+    // Seed the session from storage immediately so the UI has something to
+    // work with, but do NOT set loading=false here — wait for the
+    // onAuthStateChange INITIAL_SESSION event which always fires on mount
+    // and reflects the true committed session state.
+    supabase.auth.getSession().then(({ data: { session: s } }) => {
+      // Only pre-populate if onAuthStateChange hasn't already settled
+      if (!authSettled.current) {
+        setSession(s);
+        setUser(s?.user ?? null);
+      }
     });
 
-    // Listen for auth changes
+    // onAuthStateChange fires INITIAL_SESSION synchronously on mount,
+    // then SIGNED_IN / SIGNED_OUT for live changes.
+    // This is the single source of truth for loading=false.
     const {
       data: { subscription }
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
+    } = supabase.auth.onAuthStateChange((_event, s) => {
+      authSettled.current = true;
+      setSession(s);
+      setUser(s?.user ?? null);
       setLoading(false);
     });
 
