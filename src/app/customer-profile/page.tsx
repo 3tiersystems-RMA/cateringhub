@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import AppIcon from "@/components/ui/AppIcon";
+import { createClient } from "@/lib/supabase/client";
 
 type PaymentStatus = "pending" | "paid" | "failed" | "awaiting_payment" | "refunded" | "discounted";
 type FulfillmentStatus = "new" | "confirmed" | "preparing" | "ready" | "delivered" | "cancelled";
@@ -113,13 +114,16 @@ function extractUniqueAddresses(orders: Order[]): string[] {
 }
 
 type ActiveTab = "profile" | "addresses" | "orders";
-type ViewState = "lookup" | "profile";
+type ViewState = "loading" | "unauthenticated" | "lookup" | "profile";
 
 export default function CustomerProfilePage() {
   const router = useRouter();
 
+  // Auth state
+  const [authEmail, setAuthEmail] = useState<string | null>(null);
+
   // Lookup state
-  const [viewState, setViewState] = useState<ViewState>("lookup");
+  const [viewState, setViewState] = useState<ViewState>("loading");
   const [identifier, setIdentifier] = useState("");
   const [lookupLoading, setLookupLoading] = useState(false);
   const [lookupError, setLookupError] = useState<string | null>(null);
@@ -130,6 +134,20 @@ export default function CustomerProfilePage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
   const [voucherAmounts, setVoucherAmounts] = useState<Record<string, number>>({});
+
+  // ── POPIA: verify session on mount ────────────────────────────────────────
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user?.email) {
+        setAuthEmail(session.user.email);
+        setIdentifier(session.user.email);
+        setViewState("lookup");
+      } else {
+        setViewState("unauthenticated");
+      }
+    });
+  }, []);
 
   const handleLookup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -155,7 +173,6 @@ export default function CustomerProfilePage() {
       setProfile(data.profile);
       setOrders(data.orders || []);
 
-      // Compute voucher amounts from order notes
       await computeVoucherAmounts(data.orders || []);
 
       setViewState("profile");
@@ -213,17 +230,66 @@ export default function CustomerProfilePage() {
     setViewState("lookup");
     setProfile(null);
     setOrders([]);
-    setIdentifier("");
+    setIdentifier(authEmail || "");
     setActiveTab("profile");
   };
 
   const tabs: { id: ActiveTab; label: string; icon: string }[] = [
-    { id: "profile", label: "My Profile", icon: "UserCircleIcon" },
-    { id: "addresses", label: "Saved Addresses", icon: "MapPinIcon" },
-    { id: "orders", label: "Order History", icon: "ClipboardDocumentListIcon" },
+    { id: "profile", label: "Profile", icon: "UserIcon" },
+    { id: "addresses", label: "Addresses", icon: "MapPinIcon" },
+    { id: "orders", label: "Order History", icon: "ShoppingBagIcon" },
   ];
 
-  const savedAddresses = profile ? extractUniqueAddresses(orders) : [];
+  // ── LOADING ───────────────────────────────────────────────────────────────
+  if (viewState === "loading") {
+    return (
+      <div className="min-h-screen bg-[#0A0A0A] text-white flex items-center justify-center">
+        <div className="w-6 h-6 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // ── UNAUTHENTICATED ───────────────────────────────────────────────────────
+  if (viewState === "unauthenticated") {
+    return (
+      <div className="min-h-screen bg-[#0A0A0A] text-white">
+        <Header />
+        <main className="pt-24 pb-20 flex items-center justify-center px-4">
+          <div className="w-full max-w-md">
+            <div className="mb-6">
+              <Link
+                href="/homepage"
+                className="text-[#A09890] hover:text-white transition-colors text-sm flex items-center gap-1"
+              >
+                <AppIcon name="ArrowLeftIcon" size={14} />
+                Back to Home
+              </Link>
+            </div>
+            <div className="bg-[#141414] border border-[#2A2A2A] rounded-2xl p-8 text-center">
+              <div className="w-14 h-14 rounded-2xl bg-[#C4622D]/15 border border-[#C4622D]/25 flex items-center justify-center mx-auto mb-5">
+                <AppIcon name="LockClosedIcon" size={24} className="text-[#C4622D]" />
+              </div>
+              <h1 className="text-2xl font-bold text-white mb-2">Sign In Required</h1>
+              <p className="text-[#A09890] text-sm mb-6 leading-relaxed">
+                To protect your personal information in line with POPIA requirements, you must be signed in to view your profile and order history.
+              </p>
+              <Link
+                href="/auth/confirm"
+                className="w-full flex items-center justify-center gap-2 bg-[#C4622D] hover:bg-[#A04E22] text-white py-3.5 rounded-xl text-sm font-semibold transition-colors"
+              >
+                <AppIcon name="ArrowRightOnRectangleIcon" size={16} />
+                Sign In to Continue
+              </Link>
+              <p className="text-xs text-[#555] mt-4">
+                Your data is protected under the Protection of Personal Information Act (POPIA).
+              </p>
+            </div>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   // ── LOOKUP SCREEN ──────────────────────────────────────────────────────────
   if (viewState === "lookup") {
@@ -254,35 +320,32 @@ export default function CustomerProfilePage() {
                 View Your Profile
               </h1>
               <p className="text-[#A09890] text-sm text-center mb-7 leading-relaxed">
-                Enter the email address or mobile number you used when placing your order(s) to access your profile and order history.
+                Your profile will be loaded using your registered email address.
               </p>
 
               <form onSubmit={handleLookup} className="space-y-4">
                 <div>
                   <label className="block text-xs font-semibold text-[#666] uppercase tracking-wider mb-2">
-                    Email Address or Mobile Number
+                    Email Address
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-3.5 flex items-center pointer-events-none">
-                      <AppIcon
-                        name={identifier.includes("@") ? "EnvelopeIcon" : "PhoneIcon"}
-                        size={16}
-                        className="text-[#555]"
-                      />
+                      <AppIcon name="EnvelopeIcon" size={16} className="text-[#555]" />
                     </div>
+                    {/* Email is locked to the authenticated account — read-only */}
                     <input
                       type="text"
                       value={identifier}
-                      onChange={(e) => {
-                        setIdentifier(e.target.value);
-                        setLookupError(null);
-                      }}
-                      placeholder="e.g. jane@example.com or 082 123 4567"
-                      className="w-full bg-[#1A1A1A] border border-[#333] rounded-xl pl-10 pr-4 py-3.5 text-sm text-white placeholder-[#555] focus:outline-none focus:border-[#C4622D] transition-colors"
-                      autoComplete="off"
-                      autoFocus
+                      readOnly
+                      className="w-full bg-[#111] border border-[#333] rounded-xl pl-10 pr-4 py-3.5 text-sm text-[#A09890] cursor-not-allowed focus:outline-none"
                     />
+                    <div className="absolute inset-y-0 right-3.5 flex items-center pointer-events-none">
+                      <AppIcon name="LockClosedIcon" size={14} className="text-[#555]" />
+                    </div>
                   </div>
+                  <p className="text-xs text-[#555] mt-1.5">
+                    Locked to your signed-in account for POPIA compliance.
+                  </p>
                 </div>
 
                 {lookupError && (
@@ -305,14 +368,14 @@ export default function CustomerProfilePage() {
                   ) : (
                     <>
                       <AppIcon name="MagnifyingGlassIcon" size={16} />
-                      Find My Profile
+                      View My Profile
                     </>
                   )}
                 </button>
               </form>
 
               <p className="text-xs text-[#555] text-center mt-5 leading-relaxed">
-                Your information is used only to retrieve your order history and is never stored in a new account.
+                Your information is protected under POPIA. Only your own account data is accessible.
               </p>
             </div>
           </div>
@@ -372,7 +435,7 @@ export default function CustomerProfilePage() {
                 <p className="text-xs text-[#666]">Orders</p>
               </div>
               <div className="text-center px-4 py-2 bg-[#1A1A1A] rounded-xl border border-[#2A2A2A]">
-                <p className="text-lg font-bold text-white">{savedAddresses.length}</p>
+                <p className="text-lg font-bold text-white">{extractUniqueAddresses(orders).length}</p>
                 <p className="text-xs text-[#666]">Addresses</p>
               </div>
             </div>
@@ -463,7 +526,7 @@ export default function CustomerProfilePage() {
                 </div>
               </div>
 
-              {savedAddresses.length === 0 ? (
+              {extractUniqueAddresses(orders).length === 0 ? (
                 <div className="text-center py-12">
                   <div className="w-14 h-14 rounded-2xl bg-[#1E1E1E] flex items-center justify-center mx-auto mb-4">
                     <AppIcon name="MapPinIcon" size={28} className="text-[#555]" />
@@ -482,7 +545,7 @@ export default function CustomerProfilePage() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {savedAddresses.map((address, idx) => (
+                  {extractUniqueAddresses(orders).map((address, idx) => (
                     <div
                       key={idx}
                       className="flex items-start gap-3 bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl px-4 py-4 hover:border-[#3A3A3A] transition-colors"

@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { createClient as createServerClient } from "@/lib/supabase/server";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
   { auth: { persistSession: false } }
 );
+
+const STAFF_ROLES = ["staff", "admin", "super_admin"];
 
 interface SessionDate {
   id: string;
@@ -186,6 +189,29 @@ async function fetchCreditsForEmails(emails: string[]): Promise<CustomerCredit[]
 }
 
 export async function GET(req: NextRequest) {
+  // ── POPIA: require authenticated session ──────────────────────────────────
+  const supabaseServer = await createServerClient();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabaseServer.auth.getUser();
+
+  if (authError || !user) {
+    return NextResponse.json(
+      { error: "You must be logged in to look up booking details." },
+      { status: 401 }
+    );
+  }
+
+  // Check if caller is a staff member (staff may look up any account)
+  const { data: staffProfile } = await supabase
+    .from("user_profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  const isStaff = staffProfile?.role && STAFF_ROLES.includes(staffProfile.role);
+
   const type = req.nextUrl.searchParams.get("type")?.trim();
   const value = req.nextUrl.searchParams.get("value")?.trim();
 
@@ -195,6 +221,22 @@ export async function GET(req: NextRequest) {
 
   if (!["reference", "email", "cellphone"].includes(type)) {
     return NextResponse.json({ error: "Invalid search type" }, { status: 400 });
+  }
+
+  // ── POPIA: non-staff users may only query their own email ─────────────────
+  if (!isStaff && type === "email" && value.toLowerCase().trim() !== user.email?.toLowerCase()) {
+    return NextResponse.json(
+      { error: "You are not authorised to view booking details for a different account." },
+      { status: 403 }
+    );
+  }
+
+  // Non-staff users may not search by cellphone (would expose other accounts)
+  if (!isStaff && type === "cellphone") {
+    return NextResponse.json(
+      { error: "Please use your registered email address or reference number to look up your bookings." },
+      { status: 403 }
+    );
   }
 
   // Build filter column
