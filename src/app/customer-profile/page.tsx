@@ -138,13 +138,28 @@ export default function CustomerProfilePage() {
   // ── POPIA: verify session on mount ────────────────────────────────────────
   useEffect(() => {
     const supabase = createClient();
+    let settled = false;
 
-    // Subscribe to auth state changes — this fires immediately with the
-    // current session (INITIAL_SESSION event) and again on any change.
-    // Using onAuthStateChange avoids the race condition where getSession()
-    // returns null before the client has restored the session from cookies.
+    // First, do an explicit getSession() call — this reads from the custom
+    // cookie/localStorage storage adapter synchronously and is the most
+    // reliable way to detect an existing session on page load.
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (settled) return; // already handled by onAuthStateChange
+      settled = true;
+      if (session?.user?.email) {
+        setAuthEmail(session.user.email);
+        setIdentifier(session.user.email);
+        setViewState("lookup");
+      } else {
+        setViewState("unauthenticated");
+      }
+    });
+
+    // Also subscribe to auth state changes so sign-in/sign-out events are
+    // reflected immediately without a page reload.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
+        settled = true;
         if (session?.user?.email) {
           setAuthEmail(session.user.email);
           setIdentifier(session.user.email);
