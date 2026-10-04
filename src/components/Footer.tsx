@@ -48,6 +48,7 @@ const SOCIAL_ICONS: { platform: string; label: string; Icon: React.FC }[] = [
 export default function Footer() {
   const [socialLinks, setSocialLinks] = useState<SocialLink[]>([]);
   const [currentYear, setCurrentYear] = useState<number>(2026);
+  const [isStaffMember, setIsStaffMember] = useState(false);
   const supabase = createClient();
   const pathname = usePathname();
 
@@ -64,6 +65,28 @@ export default function Footer() {
       if (data) setSocialLinks(data);
     };
     load();
+  }, []);
+
+  useEffect(() => {
+    const checkStaffAccess = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setIsStaffMember(false);
+        return;
+      }
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('role')
+        .eq('id', user.id)
+        .maybeSingle();
+      setIsStaffMember(!!profile?.role);
+    };
+    checkStaffAccess();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+      checkStaffAccess();
+    });
+    return () => subscription.unsubscribe();
   }, []);
 
   const getUrl = (platform: string) =>
@@ -98,9 +121,11 @@ export default function Footer() {
             <Link href="/contact" className="hover:text-[#C4622D] transition-colors">
               Contact
             </Link>
-            <Link href="/staff/login" className="hover:text-[#C4622D] transition-colors">
-              Admin Portal
-            </Link>
+            {isStaffMember && (
+              <Link href="/staff/login" className="hover:text-[#C4622D] transition-colors">
+                Admin Portal
+              </Link>
+            )}
           </nav>
 
           {/* Social + Copyright */}
