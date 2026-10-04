@@ -6,7 +6,7 @@ import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import AppIcon from "@/components/ui/AppIcon";
-import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 type PaymentStatus = "pending" | "paid" | "failed" | "awaiting_payment" | "refunded" | "discounted";
 type FulfillmentStatus = "new" | "confirmed" | "preparing" | "ready" | "delivered" | "cancelled";
@@ -118,6 +118,7 @@ type ViewState = "loading" | "unauthenticated" | "lookup" | "profile";
 
 export default function CustomerProfilePage() {
   const router = useRouter();
+  const { session, loading: authLoading } = useAuth();
 
   // Auth state
   const [authEmail, setAuthEmail] = useState<string | null>(null);
@@ -135,43 +136,21 @@ export default function CustomerProfilePage() {
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
   const [voucherAmounts, setVoucherAmounts] = useState<Record<string, number>>({});
 
-  // ── POPIA: verify session on mount ────────────────────────────────────────
+  // ── POPIA: derive view state from AuthContext (already settled at app level) ──
   useEffect(() => {
-    const supabase = createClient();
-    let settled = false;
-
-    // First, do an explicit getSession() call — this reads from the custom
-    // cookie/localStorage storage adapter synchronously and is the most
-    // reliable way to detect an existing session on page load.
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (settled) return; // already handled by onAuthStateChange
-      settled = true;
-      if (session?.user?.email) {
-        setAuthEmail(session.user.email);
-        setIdentifier(session.user.email);
-        setViewState("lookup");
-      } else {
-        setViewState("unauthenticated");
-      }
-    });
-
-    // Also subscribe to auth state changes so sign-in/sign-out events are
-    // reflected immediately without a page reload.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        settled = true;
-        if (session?.user?.email) {
-          setAuthEmail(session.user.email);
-          setIdentifier(session.user.email);
-          setViewState("lookup");
-        } else {
-          setViewState("unauthenticated");
-        }
-      }
-    );
-
-    return () => subscription.unsubscribe();
-  }, []);
+    if (authLoading) {
+      setViewState("loading");
+      return;
+    }
+    const email = session?.user?.email ?? null;
+    if (email) {
+      setAuthEmail(email);
+      setIdentifier(email);
+      setViewState("lookup");
+    } else {
+      setViewState("unauthenticated");
+    }
+  }, [authLoading, session]);
 
   const handleLookup = async (e: React.FormEvent) => {
     e.preventDefault();
