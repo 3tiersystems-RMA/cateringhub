@@ -1,10 +1,17 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 import AppImage from "@/components/ui/AppImage";
 import Icon from "@/components/ui/AppIcon";
 import { createClient } from "@/lib/supabase/client";
+import { cacheBustImageUrl } from "@/lib/image-cache-bust";
+import { getHomepageSectionVisibility, getTickerBannerSettings } from "@/lib/homepage-sections";
+import AnnouncementCard from "./AnnouncementCard";
+import { useCart } from "@/app/products/components/CartContext";
+import ProductModal from "@/app/products/components/ProductModal";
+
+import type { CartProduct } from "@/app/products/components/CartContext";
 
 
 interface HomepageCard {
@@ -16,6 +23,7 @@ interface HomepageCard {
   price: number | null;
   price_unit: string | null;
   badge_label: string | null;
+  product_link: string | null;
   event_date: string | null;
   guest_count: number | null;
   prep_percentage: number | null;
@@ -24,12 +32,21 @@ interface HomepageCard {
   rating: number | null;
   is_visible: boolean;
   display_order: number;
+  image_path: string | null;
+  updated_at: string | null;
+  imageUrl?: string | null;
 }
 
-export default function HeroSection() {
+function HeroSectionInner() {
   const scanRef = useRef<HTMLDivElement>(null);
   const [cards, setCards] = useState<HomepageCard[]>([]);
   const [cardsLoaded, setCardsLoaded] = useState(false);
+  const [showViewServices, setShowViewServices] = useState(false);
+  const [showHeroBadge, setShowHeroBadge] = useState(false);
+  const [heroBadgeText, setHeroBadgeText] = useState("Now Accepting 2026 Bookings");
+  const [modalProduct, setModalProduct] = useState<CartProduct | null>(null);
+  const [modalAdded, setModalAdded] = useState(false);
+  const { addItem, setIsOpen } = useCart();
 
   useEffect(() => {
     // Trigger reveal animations on mount
@@ -43,6 +60,14 @@ export default function HeroSection() {
   }, []);
 
   useEffect(() => {
+    getHomepageSectionVisibility('what_we_do', true).then(setShowViewServices);
+    getTickerBannerSettings().then(({ isVisible, bannerText }) => {
+      setShowHeroBadge(isVisible);
+      if (bannerText) setHeroBadgeText(bannerText);
+    });
+  }, []);
+
+  useEffect(() => {
     const fetchCards = async () => {
       const supabase = createClient();
       const { data, error } = await supabase.
@@ -52,21 +77,121 @@ export default function HeroSection() {
       order('display_order', { ascending: true });
 
       if (!error && data) {
-        setCards(data as HomepageCard[]);
+        const withUrls = (data as HomepageCard[]).map((card) => {
+          if (card.card_type === 'todays_special' && card.image_path) {
+            const { data: urlData } = supabase.storage.
+            from('homepage-card-images').
+            getPublicUrl(card.image_path);
+            const publicUrl = urlData?.publicUrl ?? null;
+            return {
+              ...card,
+              imageUrl: publicUrl ? cacheBustImageUrl(publicUrl, card.updated_at) : null
+            };
+          }
+          return { ...card, imageUrl: null };
+        });
+        setCards(withUrls);
       }
       setCardsLoaded(true);
     };
     fetchCards();
   }, []);
 
+  const handleSpecialCardClick = useCallback(async () => {
+    const specialCard = cards.find((c) => c.card_type === 'todays_special');
+    if (!specialCard) return;
+
+    // If there's a linked product, fetch full product details
+    if (specialCard.product_link) {
+      const supabase = createClient();
+      const { data: product } = await supabase.
+      from('products').
+      select('*').
+      eq('id', specialCard.product_link).
+      single();
+
+      if (product) {
+        let imageUrl = '';
+        if (product.image_path) {
+          // product-images is a public bucket — a signed URL 400s here. Use the public URL.
+          const { data: urlData } = supabase.storage.
+          from('product-images').
+          getPublicUrl(product.image_path);
+          imageUrl = urlData?.publicUrl ?? '';
+        }
+        const cartProduct: CartProduct = {
+          id: product.id,
+          name: product.name,
+          category: product.category,
+          price: Number(product.price),
+          unit: product.unit,
+          image: imageUrl,
+          imageAlt: product.name,
+          tags: product.tags ?? [],
+          rating: 4.8,
+          reviews: 0,
+          description: product.description ?? '',
+          minOrder: product.min_order ?? undefined,
+          badge: product.badge ?? undefined,
+          available: product.available,
+          packageType: product.package_type,
+          imageFit: product.image_fit,
+          oldPrice: product.old_price ? Number(product.old_price) : undefined,
+          savingPercent: product.saving_percent ? Number(product.saving_percent) : undefined
+        };
+        setModalAdded(false);
+        setModalProduct(cartProduct);
+        return;
+      }
+    }
+
+    // Fallback: build a CartProduct from the card's own data
+    const fallbackProduct: CartProduct = {
+      id: specialCard.id,
+      name: specialCard.title,
+      category: "Today's Special",
+      price: specialCard.price ?? 0,
+      unit: specialCard.price_unit ?? '',
+      image: specialCard.imageUrl ?? '',
+      imageAlt: `Today's Special: ${specialCard.title}`,
+      tags: specialCard.badge_label ? [specialCard.badge_label] : [],
+      rating: 4.8,
+      reviews: 0,
+      description: specialCard.description ?? specialCard.subtitle ?? '',
+      available: true,
+      packageType: undefined,
+      imageFit: undefined
+    };
+    setModalAdded(false);
+    setModalProduct(fallbackProduct);
+  }, [cards]);
+
+  const handleModalAdd = useCallback(() => {
+    if (!modalProduct) return;
+    addItem(modalProduct, 1);
+    setModalAdded(true);
+    setTimeout(() => {
+      setModalProduct(null);
+      setModalAdded(false);
+      setIsOpen(true);
+    }, 900);
+  }, [modalProduct, addItem, setIsOpen]);
+
+  const handleModalClose = useCallback(() => {
+    setModalProduct(null);
+    setModalAdded(false);
+  }, []);
+
   const specialCard = cards.find((c) => c.card_type === 'todays_special');
   const bookingCard = cards.find((c) => c.card_type === 'next_booking');
   const reviewCard = cards.find((c) => c.card_type === 'customer_review');
 
+  const isSpecialClickable = !!specialCard;
+
   return (
-    <section className="relative min-h-screen flex items-center overflow-hidden bg-[#1A1612]">
+    <section className="relative min-h-screen flex items-center overflow-hidden bg-[#1A1612]" suppressHydrationWarning>
       {/* Background Image — Ken Burns */}
-      <div className="absolute inset-0 z-0">
+      <div className="absolute inset-0 z-0" suppressHydrationWarning>
         <AppImage
           src="https://img.rocket.new/generatedImages/rocket_gen_img_16632d37b-1772253532353.png"
           alt="Elegant catering spread with beautifully plated dishes and garnishes on a long table"
@@ -81,17 +206,19 @@ export default function HeroSection() {
       <div ref={scanRef} className="hero-scan absolute inset-x-0 h-40 z-10 w-full" />
       {/* Grid overlay */}
       <div className="absolute inset-0 grid-warm opacity-30 z-0" />
-      <div className="relative z-20 max-w-7xl mx-auto px-4 md:px-8 pt-24 pb-16 w-full">
-        <div className="grid lg:grid-cols-12 gap-8 items-center">
+      <div className="relative z-20 max-w-7xl mx-auto px-4 md:px-8 pt-24 pb-16 w-full" suppressHydrationWarning>
+        <div className="grid lg:grid-cols-12 gap-8 items-center" suppressHydrationWarning>
           {/* Left: Content */}
           <div className="lg:col-span-7 space-y-8">
             {/* Badge */}
-            <div className="reveal hidden-init hero-reveal inline-flex items-center gap-2 px-4 py-2 bg-[#C4622D]/15 border border-[#C4622D]/30 rounded-full backdrop-blur-sm">
+            {showHeroBadge &&
+            <Link href="/events" className="inline-flex items-center gap-2 px-4 py-2 bg-[#C4622D]/15 border border-[#C4622D]/30 rounded-full backdrop-blur-sm cursor-pointer hover:bg-[#C4622D]/25 transition-all duration-300">
               <span className="w-1.5 h-1.5 rounded-full bg-[#C4622D] pulse-dot" />
               <span className="text-xs font-semibold tracking-widest uppercase text-[#D97B4A]">
-                Now Accepting 2026 Bookings
+                {heroBadgeText}
               </span>
-            </div>
+            </Link>
+            }
 
             {/* Headline */}
             <div className="reveal hidden-init hero-reveal space-y-2">
@@ -104,7 +231,7 @@ export default function HeroSection() {
             </div>
 
             <p className="reveal hidden-init hero-reveal max-w-lg text-base md:text-lg text-white/65 leading-relaxed font-light">
-              From intimate dinner parties to 500-person corporate galas — Cardamom Central Kitchen crafts memorable meals with locally sourced ingredients and a Master chef-driven menu that changes with the seasons.
+              From intimate dinner parties to 500-person corporate galas — Cardamom Kitchen crafts memorable meals with locally sourced ingredients and a Master chef-driven menu that changes with the seasons.
             </p>
 
             {/* Stats Row */}
@@ -132,35 +259,59 @@ export default function HeroSection() {
                 Explore Our Menu
                 <Icon name="ArrowRightIcon" size={16} />
               </Link>
+              {showViewServices &&
               <a
                 href="#services"
                 className="inline-flex items-center gap-2 border border-white/25 text-white/90 px-8 py-4 rounded-full text-sm font-semibold hover:bg-white/10 transition-all duration-300 backdrop-blur-sm">
-                
-                View Services
-              </a>
+                  
+                  View Services
+                </a>
+              }
             </div>
           </div>
 
-          {/* Right: Floating Cards — only render if at least one card is visible */}
-          {cardsLoaded && (specialCard || bookingCard || reviewCard) &&
+          {/* Right: Floating Cards */}
+          {cardsLoaded &&
           <div className="lg:col-span-5 hidden lg:flex flex-col gap-4 items-end">
 
               {/* Card 1 — Today's Special */}
               {specialCard &&
-            <div className="float-card w-72 bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-5 shadow-glass">
+            <div
+              className={`float-card w-72 bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-5 shadow-glass transition-all duration-300 group${isSpecialClickable ? ' cursor-pointer hover:border-white/40 hover:bg-white/15' : ''}`}
+              onClick={isSpecialClickable ? handleSpecialCardClick : undefined}
+              role={isSpecialClickable ? 'button' : undefined}
+              tabIndex={isSpecialClickable ? 0 : undefined}
+              onKeyDown={isSpecialClickable ? (e) => {if (e.key === 'Enter' || e.key === ' ') handleSpecialCardClick();} : undefined}
+              aria-label={isSpecialClickable ? `Open product: ${specialCard.title}` : undefined}>
+              
                   <div className="flex items-center gap-3 mb-3">
                     <div className="w-12 h-12 rounded-2xl overflow-hidden flex-shrink-0">
-                      <AppImage
+                      {specialCard.imageUrl ?
+                  <img
+                    src={specialCard.imageUrl}
+                    alt={`Today's Special: ${specialCard.title}`}
+                    width={48}
+                    height={48}
+                    className="object-cover w-full h-full" /> :
+
+
+                  <AppImage
                     src="https://img.rocket.new/generatedImages/rocket_gen_img_1017a97cd-1765873722883.png"
                     alt="Beautifully plated salmon dish with herbs and lemon"
                     width={48}
                     height={48}
                     className="object-cover w-full h-full" />
+                  }
                     </div>
-                    <div>
+                    <div className="flex-1 min-w-0">
                       <p className="text-xs font-mono text-[#D97B4A] uppercase tracking-wider">Today&apos;s Special</p>
                       <p className="text-sm font-semibold text-white">{specialCard.title}</p>
                     </div>
+                    {isSpecialClickable &&
+                <div className="ml-auto w-6 h-6 rounded-full bg-white/10 border border-white/20 flex items-center justify-center group-hover:bg-white/25 transition-all duration-300 flex-shrink-0">
+                        <Icon name="ArrowRightIcon" size={12} className="text-white" />
+                      </div>
+                }
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-lg font-display font-semibold text-white">
@@ -188,9 +339,9 @@ export default function HeroSection() {
                     <p className="text-xs font-mono text-white/70 uppercase tracking-wider">Next Booking</p>
                   </div>
                   <p className="text-white font-semibold text-sm">{bookingCard.title}</p>
-                  {(bookingCard.event_date || bookingCard.guest_count) &&
+                  {bookingCard.guest_count &&
               <p className="text-white/60 text-xs mt-1">
-                      {bookingCard.event_date}{bookingCard.event_date && bookingCard.guest_count ? ' · ' : ''}{bookingCard.guest_count ? `${bookingCard.guest_count} guests` : ''}
+                      {new Date().toISOString().split('T')[0]}{bookingCard.guest_count ? ' · ' : ''}{bookingCard.guest_count ? `${bookingCard.guest_count} guests` : ''}
                     </p>
               }
                   {bookingCard.prep_percentage !== null &&
@@ -201,7 +352,7 @@ export default function HeroSection() {
                     style={{ width: `${bookingCard.prep_percentage}%` }} />
                   
                       </div>
-                      <p className="text-white/50 text-xs mt-1.5">Prep: {bookingCard.prep_percentage}% complete</p>
+                      <p className="text-white/50 text-xs mt-1.5">{bookingCard.subtitle ?? `Prep: ${bookingCard.prep_percentage}% complete`}</p>
                     </>
               }
                 </div>
@@ -231,6 +382,9 @@ export default function HeroSection() {
                 </div>
             }
 
+              {/* Card 4 — Announcement */}
+              <AnnouncementCard />
+
             </div>
           }
         </div>
@@ -240,6 +394,18 @@ export default function HeroSection() {
         <p className="text-xs text-white/30 uppercase tracking-widest font-mono">Scroll</p>
         <div className="w-px h-12 bg-gradient-to-b from-white/30 to-transparent" />
       </div>
+
+      {/* Product Modal for Today's Special */}
+      <ProductModal
+        product={modalProduct}
+        onClose={handleModalClose}
+        added={modalAdded}
+        onAdd={handleModalAdd} />
+      
     </section>);
 
+}
+
+export default function HeroSection() {
+  return <HeroSectionInner />;
 }

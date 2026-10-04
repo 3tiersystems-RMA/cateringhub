@@ -232,7 +232,7 @@ export const products: Product[] = [
   category: "Frozen Meals",
   price: 11,
   unit: "per serving",
-  image: "https://images.unsplash.com/photo-1691501946447-34a08da5b930",
+  image: "https://img.rocket.new/generatedImages/rocket_gen_img_13d75fbfc-1767907266450.png",
   imageAlt: "Vibrant frozen vegetable curry with chickpeas and spinach in a rich tomato sauce",
   tags: ["Vegan", "Gluten-Free"],
   rating: 4.6,

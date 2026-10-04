@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useCallback } from "react";
-import AppImage from "@/components/ui/AppImage";
+
 import Icon from "@/components/ui/AppIcon";
 import type { CartProduct } from "./CartContext";
+import { shouldShowProductBadge } from "@/lib/product-badge";
 
 
 interface ProductModalProps {
@@ -63,16 +64,15 @@ export default function ProductModal({ product, onClose, added, onAdd }: Product
         </button>
 
         {/* Product Image — full colour */}
-        <div className="relative h-64 rounded-t-3xl overflow-hidden bg-[#EDE7DA]">
-          <AppImage
+        <div className="relative rounded-t-3xl overflow-hidden bg-[#EDE7DA]">
+          <img
             src={product.image}
             alt={product.imageAlt}
-            fill
-            className="object-cover"
+            className="w-full h-auto block"
           />
           {/* Badges */}
           <div className="absolute top-3 left-3 flex flex-col gap-1.5">
-            {product.badge && (
+            {shouldShowProductBadge(product.badge) && (
               <span className="text-xs font-semibold bg-[#C4622D] text-white px-2.5 py-0.5 rounded-full">
                 {product.badge}
               </span>
@@ -96,7 +96,7 @@ export default function ProductModal({ product, onClose, added, onAdd }: Product
           {/* Tags */}
           <div className="flex flex-wrap gap-1.5 mb-3">
             {product.tags.map((tag) => (
-              <span key={tag} className="text-xs text-[#8C8278] bg-[#EDE7DA] px-2 py-0.5 rounded-full border border-[#DDD5C8]">
+              <span key={tag} className="text-xs text-white bg-black px-2 py-0.5 rounded-full border border-black">
                 {tag}
               </span>
             ))}
@@ -136,8 +136,18 @@ export default function ProductModal({ product, onClose, added, onAdd }: Product
           {/* Price block */}
           <div className="flex items-end justify-between gap-4">
             <div>
-              {(product.price && product.price > 0) ? (
-                <p className="text-3xl font-semibold text-[#1A1612]">R{product.price}</p>
+              {product.savingPercent && product.savingPercent > 0 ? (
+                <span className="inline-block text-xs font-bold bg-[#1A1612] text-white px-2.5 py-0.5 rounded-md mb-1">
+                  Save {product.savingPercent}%
+                </span>
+              ) : null}
+{(product.price && product.price > 0 && !(product.packageType && product.packageType.toLowerCase().includes('package'))) ? (
+                <p className="text-3xl font-semibold text-[#1A1612]">
+                  R{product.price}
+                  {product.oldPrice && product.oldPrice > 0 ? (
+                    <span className="ml-2 text-lg font-normal text-[#8C8278] line-through">R{product.oldPrice}</span>
+                  ) : null}
+                </p>
               ) : null}
               <p className="text-xs text-[#B5ADA5] font-mono mt-0.5">{product.unit}</p>
               {product.minOrder && (
@@ -147,31 +157,35 @@ export default function ProductModal({ product, onClose, added, onAdd }: Product
               )}
             </div>
 
-            {/* Add to Cart */}
-            <button
-              onClick={onAdd}
-              disabled={!product.available}
-              className={`flex items-center gap-2 px-6 py-3 rounded-full text-sm font-semibold transition-all duration-300 ${
-                added
-                  ? "bg-green-500 text-white scale-95"
-                  : product.available
-                  ? "bg-[#C4622D] text-white hover:bg-[#A04E22] hover:shadow-lg"
-                  : "bg-[#EDE7DA] text-[#B5ADA5] cursor-not-allowed"
-              }`}
-              aria-label={`Add ${product.name} to cart`}
-            >
-              {added ? (
-                <>
-                  <Icon name="CheckIcon" size={16} />
-                  Added!
-                </>
-              ) : (
-                <>
-                  <Icon name="PlusIcon" size={16} />
-                  Add to Cart
-                </>
-              )}
-            </button>
+            {/* Add to Cart — hidden for Macro visual type */}
+            {product.visualType !== "Macro" ? (
+              <button
+                onClick={onAdd}
+                disabled={!product.available || product.badge === "Sold Out"}
+                className={`flex items-center gap-2 px-6 py-3 rounded-full text-sm font-semibold transition-all duration-300 ${
+                  added
+                    ? "bg-green-500 text-white scale-95"
+                    : !product.available || product.badge === "Sold Out" ?"bg-[#EDE7DA] text-[#B5ADA5] cursor-not-allowed" :"bg-[#C4622D] text-white hover:bg-[#A04E22] hover:shadow-lg"
+                }`}
+                aria-label={`Add ${product.name} to cart`}
+              >
+                {added ? (
+                  <>
+                    <Icon name="CheckIcon" size={16} />
+                    Added!
+                  </>
+                ) : (
+                  <>
+                    <Icon name="PlusIcon" size={16} />
+                    Add to Cart
+                  </>
+                )}
+              </button>
+            ) : (
+              <p className="text-xs text-[#8C8278] italic text-right max-w-[140px]">
+                Order sub-items of this package individually
+              </p>
+            )}
           </div>
         </div>
       </div>

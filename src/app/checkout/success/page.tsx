@@ -1,51 +1,204 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { Suspense } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import Icon from "@/components/ui/AppIcon";
+import {
+  formatPaymentMethodLabel,
+  parseCheckoutReturnParams,
+} from "@/lib/checkout-return";
+
+const PENDING_ORDER_REF_KEY = "order_pending_m_payment_id";
 
 function SuccessContent() {
   const searchParams = useSearchParams();
-  // PayFast returns m_payment_id; fallback to order_id for EFT
-  const orderId =
-    searchParams?.get("m_payment_id") ||
-    searchParams?.get("order_id") ||
-    "";
+  const { orderId, isPayFastReturn, paymentStatus } =
+    parseCheckoutReturnParams(searchParams);
 
-  // PayFast passes payment_status in the return URL query string
-  const paymentStatus = searchParams?.get("payment_status") || "";
-  const isPayFast = !!searchParams?.get("m_payment_id");
+  const [pendingOrderRef, setPendingOrderRef] = useState(orderId);
+  const [paymentMethodLabel, setPaymentMethodLabel] = useState<string | null>(
+    null
+  );
+  const [confirmState, setConfirmState] = useState<
+    "idle" | "loading" | "done" | "error"
+  >("idle");
+  const [confirmMessage, setConfirmMessage] = useState<string | null>(null);
+
+  const completionAttemptedRef = useRef(false);
+  // Legacy notify-success path — kept for non-PayFast edge cases; PayFast uses complete-pending-payment
+  const notificationSentRef = useRef(false);
+
+  // Resolve order ref from URL or sessionStorage (PayFast may omit m_payment_id on return)
+  useEffect(() => {
+    if (orderId) {
+      setPendingOrderRef(orderId);
+      return;
+    }
+    try {
+      const stored = sessionStorage.getItem(PENDING_ORDER_REF_KEY)?.trim() || "";
+      if (stored) setPendingOrderRef(stored);
+    } catch {
+      // non-blocking
+    }
+  }, [orderId]);
+
+  // PayFast return: finalize pending order + auto confirmation email (class/event booking pattern)
+  useEffect(() => {
+    const mPaymentId = pendingOrderRef?.trim();
+    if (!mPaymentId) return;
+    if (completionAttemptedRef.current) return;
+
+    // Match event-bookings payment-return: do not require isPayFastReturn when we have a pending ref
+    const fromPayfast = searchParams?.get("from") === "payfast";
+    const shouldComplete =
+      isPayFastReturn || fromPayfast || Boolean(mPaymentId);
+    if (!shouldComplete) return;
+
+    completionAttemptedRef.current = true;
+    setConfirmState("loading");
+
+    fetch("/api/orders/complete-pending-payment", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        mPaymentId,
+        paymentStatus: paymentStatus || "COMPLETE",
+        pf_payment_id: searchParams?.get("pf_payment_id") || null,
+      }),
+    })
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok && res.status !== 404) {
+          throw new Error(data.error || "Failed to confirm order");
+        }
+        setConfirmState("done");
+        if (data.emailSent) {
+          setConfirmMessage(
+            "Your order has been confirmed. A confirmation email has been sent."
+          );
+        } else if (data.outcome === "created" || data.outcome === "updated") {
+          setConfirmMessage(
+            "Your order has been confirmed. A confirmation email is on its way."
+          );
+        } else if (data.outcome === "already_paid") {
+          setConfirmMessage("Your payment has been recorded.");
+        } else if (res.status === 404) {
+          setConfirmMessage(
+            "Your payment was received. If you do not receive a confirmation email shortly, please contact us with your order reference."
+          );
+        } else if (data.emailError) {
+          setConfirmMessage(
+            "Your payment was received. Confirmation email is being processed — please check your inbox shortly."
+          );
+        }
+        try {
+          sessionStorage.removeItem(PENDING_ORDER_REF_KEY);
+        } catch {
+          // non-blocking
+        }
+      })
+      .catch((err) => {
+        setConfirmState("error");
+        setConfirmMessage(
+          err instanceof Error ? err.message : "Failed to confirm order"
+        );
+      });
+  }, [pendingOrderRef, isPayFastReturn, paymentStatus, searchParams]);
+
+  useEffect(() => {
+    if (isPayFastReturn || pendingOrderRef) {
+      setPaymentMethodLabel("PayFast");
+      return;
+    }
+
+    if (!orderId) {
+      setPaymentMethodLabel("EFT");
+      return;
+    }
+
+    let cancelled = false;
+    fetch(`/api/orders/by-reference?ref=${encodeURIComponent(orderId)}`)
+      ?.then((r) => (r?.ok ? r?.json() : null))
+      ?.then((data) => {
+        if (cancelled) return;
+        if (data?.payment_method) {
+          setPaymentMethodLabel(formatPaymentMethodLabel(data?.payment_method));
+        } else {
+          setPaymentMethodLabel("EFT");
+        }
+      })
+      ?.catch(() => {
+        if (!cancelled) setPaymentMethodLabel("EFT");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [orderId, isPayFastReturn, pendingOrderRef]);
+
+  const displayMethod =
+    paymentMethodLabel ?? (isPayFastReturn ? "PayFast" : "EFT");
+  const showPayFastNote =
+    (isPayFastReturn || Boolean(pendingOrderRef)) &&
+    confirmState === "loading";
+
+  // Legacy checkout notify — skipped for PayFast (complete-pending-payment handles email)
+  useEffect(() => {
+    if (isPayFastReturn || pendingOrderRef) return;
+    if (paymentMethodLabel === null) return;
+    if (notificationSentRef?.current) return;
+    notificationSentRef.current = true;
+
+    const resolvedMethod =
+      paymentMethodLabel ?? (isPayFastReturn ? "PayFast" : "EFT");
+
+    fetch("/api/checkout/notify-success", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        orderId: orderId || null,
+        paymentStatus: paymentStatus || "CONFIRMED",
+        paymentMethod: resolvedMethod,
+        isPayFastReturn,
+        triggeredAt: new Date()?.toISOString(),
+      }),
+    })?.catch((err) => {
+      console.error("[checkout/success] Failed to send notification email:", err);
+    });
+  }, [paymentMethodLabel, orderId, paymentStatus, isPayFastReturn, pendingOrderRef]);
+
+  const displayOrderRef = pendingOrderRef || orderId;
 
   return (
-    <main className="pt-20 min-h-screen bg-[#F5F0E8] flex items-center justify-center px-4">
+    <main className="pt-20 min-h-screen bg-[#e9e0cf] flex items-center justify-center px-4">
       <div className="max-w-md w-full">
         <div className="bg-white rounded-3xl shadow-xl p-8 text-center space-y-6">
-          {/* Success Icon */}
           <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mx-auto">
             <Icon name="CheckIcon" size={40} className="text-green-600" />
           </div>
 
-          {/* Heading */}
           <div>
             <h1 className="font-display text-2xl font-semibold text-[#1A1612] mb-2">
               Payment Successful!
             </h1>
             <p className="text-[#8C8278] text-sm leading-relaxed">
-              Your booking has been confirmed. We&apos;ll send a confirmation
-              email with your order details shortly.
+              {confirmMessage ||
+                "Your booking has been confirmed. We'll send a confirmation email with your order details shortly."}
             </p>
+            {confirmState === "loading" && (
+              <p className="text-xs text-[#8C8278] mt-2">Confirming your order…</p>
+            )}
           </div>
 
-          {/* Order Details */}
           <div className="bg-[#F5F0E8] rounded-2xl p-5 text-left space-y-3">
-            {orderId && (
+            {displayOrderRef && (
               <div className="flex justify-between items-center">
                 <span className="text-sm text-[#8C8278]">Order Reference</span>
                 <span className="font-mono font-semibold text-[#1A1612] text-sm">
-                  {orderId}
+                  {displayOrderRef}
                 </span>
               </div>
             )}
@@ -59,28 +212,30 @@ function SuccessContent() {
             <div className="flex justify-between items-center">
               <span className="text-sm text-[#8C8278]">Payment Method</span>
               <span className="text-sm font-semibold text-[#1A1612]">
-                {isPayFast ? "PayFast" : "EFT"}
+                {displayMethod}
               </span>
             </div>
           </div>
 
-          {/* PayFast note */}
-          {isPayFast && (
+          {showPayFastNote && (
             <div className="flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-xl p-4 text-left">
-              <Icon name="InformationCircleIcon" size={16} className="text-blue-500 flex-shrink-0 mt-0.5" />
+              <Icon
+                name="InformationCircleIcon"
+                size={16}
+                className="text-blue-500 flex-shrink-0 mt-0.5"
+              />
               <p className="text-xs text-blue-700 leading-relaxed">
-                Your payment is being processed by PayFast. You will receive a confirmation email once the payment is verified.
+                Your payment is being processed by PayFast. You will receive a
+                confirmation email once the payment is verified.
               </p>
             </div>
           )}
 
-          {/* Security Badge */}
           <div className="flex items-center justify-center gap-2 text-xs text-[#B5ADA5]">
             <Icon name="ShieldCheckIcon" size={14} className="text-green-500" />
             <span>Secure Payment · PCI DSS Compliant</span>
           </div>
 
-          {/* Actions */}
           <div className="space-y-3">
             <Link
               href="/products"
@@ -107,7 +262,7 @@ export default function CheckoutSuccessPage() {
       <Header />
       <Suspense
         fallback={
-          <main className="pt-20 min-h-screen bg-[#F5F0E8] flex items-center justify-center">
+          <main className="pt-20 min-h-screen bg-[#e9e0cf] flex items-center justify-center">
             <div className="animate-spin w-8 h-8 border-4 border-[#C4622D] border-t-transparent rounded-full" />
           </main>
         }

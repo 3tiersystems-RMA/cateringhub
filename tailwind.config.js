@@ -11,7 +11,7 @@ module.exports = {
         cream: {
           50: '#FDFAF5',
           100: '#FAF7F2',
-          200: '#F5F0E8',
+          200: '#e9e0cf',
           300: '#EDE7DA',
           400: '#E0D8CC',
           500: '#DDD5C8',
@@ -62,7 +62,7 @@ module.exports = {
       backgroundImage: {
         'terra-gradient': 'linear-gradient(135deg, #C4622D 0%, #D97B4A 50%, #D4A853 100%)',
         'dark-gradient': 'linear-gradient(135deg, #1A1612 0%, #2C2520 100%)',
-        'cream-gradient': 'linear-gradient(180deg, #F5F0E8 0%, #EDE7DA 100%)',
+        'cream-gradient': 'linear-gradient(180deg, #e9e0cf 0%, #EDE7DA 100%)',
       },
       animation: {
         'spin-slow': 'spin 8s linear infinite',

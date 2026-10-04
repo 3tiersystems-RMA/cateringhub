@@ -1,40 +1,131 @@
+// old file:-  /home/ubuntu/app/cateringhub/src/lib/payfast.ts
+
 import crypto from "crypto";
+import { formatPayFastCellNumber } from "./payfast-validation";
 
-// ─── Environment Switch ────────────────────────────────────────────────────
-// Set PAYFAST_ENV=live in .env to go LIVE. Default is 'test' (sandbox).
-const PAYFAST_ENV = (process.env.PAYFAST_ENV || "test").toLowerCase();
-export const IS_TEST = PAYFAST_ENV !== "live";
+export { formatPayFastCellNumber, validateSAMobileForPayFast } from "./payfast-validation";
 
-const CONFIG = {
-  test: {
-    merchantId:   process.env.PF_TEST_MERCHANT_ID  || process.env.PAYFAST_MERCHANT_ID  || "10000100",
-    merchantKey:  process.env.PF_TEST_MERCHANT_KEY || process.env.PAYFAST_MERCHANT_KEY || "46f0cd694581a",
-    passphrase:   process.env.PF_TEST_PASSPHRASE   || process.env.PAYFAST_PASSPHRASE   || "jt7NOE43FZPn",
-    gatewayHost:  "sandbox.payfast.co.za",
-    gatewayPath:  "/eng/process",
-    validateHost: "sandbox.payfast.co.za",
-  },
-  live: {
-    merchantId:   process.env.PF_LIVE_MERCHANT_ID  || process.env.PAYFAST_MERCHANT_ID  || "",
-    merchantKey:  process.env.PF_LIVE_MERCHANT_KEY || process.env.PAYFAST_MERCHANT_KEY || "",
-    passphrase:   process.env.PF_LIVE_PASSPHRASE   || process.env.PAYFAST_PASSPHRASE   || "",
-    gatewayHost:  "www.payfast.co.za",
-    gatewayPath:  "/eng/process",
+/**
+ * PayFast Custom Integration (once-off payments).
+ * @see https://developers.payfast.co.za/docs#step_1_form_fields
+ * @see https://github.com/PayFast/payfast-php-sdk/blob/master/lib/Auth.php
+ *
+ * Environment (server-only secrets):
+ *   PAYFAST_ENV=test|live          — single switch for gateway + credentials
+ *   PAYFAST_SANDBOX_*              — sandbox.payfast.co.za
+ *   PAYFAST_LIVE_*                 — www.payfast.co.za
+ *   PAYFAST_MERCHANT_EMAIL         — blocked buyer emails (merchant login)
+ *   PAYFAST_ITN_TUNNEL_URL         — optional public HTTPS URL for ITN in local sandbox dev
+ *   NEXT_PUBLIC_SITE_URL           — return/cancel URLs (required in production)
+ */
+
+export type PayFastMode = "test" | "live";
+
+function trimEnv(value: string | undefined): string {
+  return (value ?? "").trim();
+}
+
+/** Primary switch: `test` = sandbox, `live` = production. */
+export function getPayFastMode(): PayFastMode {
+  const raw = (process.env.PAYFAST_ENV || "test").toLowerCase();
+  if (raw === "live" || raw === "production") return "live";
+  return "test";
+}
+
+export const PAYFAST_MODE = getPayFastMode();
+export const IS_TEST = PAYFAST_MODE === "test";
+
+function firstNonEmpty(...values: (string | undefined)[]): string {
+  for (const v of values) {
+    const t = trimEnv(v);
+    if (t) return t;
+  }
+  return "";
+}
+
+function sandboxCredentials() {
+  const merchantId = firstNonEmpty(
+    process.env.PAYFAST_SANDBOX_MERCHANT_ID,
+    process.env.PF_TEST_MERCHANT_ID,
+    process.env.PAYFAST_MERCHANT_ID
+  );
+  const merchantKey = firstNonEmpty(
+    process.env.PAYFAST_SANDBOX_MERCHANT_KEY,
+    process.env.PF_TEST_MERCHANT_KEY,
+    process.env.PAYFAST_MERCHANT_KEY
+  );
+  const passphrase = firstNonEmpty(
+    process.env.PAYFAST_SANDBOX_PASSPHRASE,
+    process.env.PF_TEST_PASSPHRASE,
+    process.env.PAYFAST_PASSPHRASE
+  );
+
+  if (!merchantId || !merchantKey) {
+    throw new Error(
+      "PayFast sandbox: set PAYFAST_SANDBOX_MERCHANT_ID and PAYFAST_SANDBOX_MERCHANT_KEY " + "(from https://sandbox.payfast.co.za → Settings → Integration)."
+    );
+  }
+  return { merchantId, merchantKey, passphrase };
+}
+
+function liveCredentials() {
+  const merchantId = firstNonEmpty(
+    process.env.PAYFAST_LIVE_MERCHANT_ID,
+    process.env.PF_LIVE_MERCHANT_ID,
+    process.env.PAYFAST_MERCHANT_ID
+  );
+  const merchantKey = firstNonEmpty(
+    process.env.PAYFAST_LIVE_MERCHANT_KEY,
+    process.env.PF_LIVE_MERCHANT_KEY,
+    process.env.PAYFAST_MERCHANT_KEY
+  );
+  const passphrase = firstNonEmpty(
+    process.env.PAYFAST_LIVE_PASSPHRASE,
+    process.env.PF_LIVE_PASSPHRASE,
+    process.env.PAYFAST_PASSPHRASE
+  );
+
+  if (!merchantId || !merchantKey) {
+    throw new Error(
+      "PayFast live: set PAYFAST_LIVE_MERCHANT_ID and PAYFAST_LIVE_MERCHANT_KEY " + "(from https://www.payfast.co.za → Settings → Integration)."
+    );
+  }
+  return { merchantId, merchantKey, passphrase };
+}
+
+function envCredentials(mode: PayFastMode) {
+  return mode === "test" ? sandboxCredentials() : liveCredentials();
+}
+
+function buildActiveConfig() {
+  if (PAYFAST_MODE === "test") {
+    return {
+      ...envCredentials("test"),
+      gatewayHost: "sandbox.payfast.co.za",
+      gatewayPath: "/eng/process",
+      validateHost: "sandbox.payfast.co.za",
+    } as const;
+  }
+  return {
+    ...envCredentials("live"),
+    gatewayHost: "www.payfast.co.za",
+    gatewayPath: "/eng/process",
     validateHost: "www.payfast.co.za",
-  },
-};
+  } as const;
+}
 
-export const pfConfig = CONFIG[IS_TEST ? "test" : "live"];
+export const pfConfig = buildActiveConfig();
 
 export const PAYFAST_GATEWAY_URL = `https://${pfConfig.gatewayHost}${pfConfig.gatewayPath}`;
 
-// ─── Parameter Order (as required by PayFast docs) ─────────────────────────
-const PARAM_ORDER = [
+/** Fields allowed in payment signature (order from PayFast PHP SDK Auth::generateSignature). */
+const PAYMENT_SIGNATURE_FIELDS = [
   "merchant_id",
   "merchant_key",
   "return_url",
   "cancel_url",
   "notify_url",
+  "notify_method",
   "name_first",
   "name_last",
   "email_address",
@@ -43,8 +134,29 @@ const PARAM_ORDER = [
   "amount",
   "item_name",
   "item_description",
-  // Add custom_str1–5, payment_method etc. here if needed
-];
+  "custom_int1",
+  "custom_int2",
+  "custom_int3",
+  "custom_int4",
+  "custom_int5",
+  "custom_str1",
+  "custom_str2",
+  "custom_str3",
+  "custom_str4",
+  "custom_str5",
+  "email_confirmation",
+  "confirmation_address",
+  "currency",
+  "payment_method",
+  "subscription_type",
+  "billing_date",
+  "recurring_amount",
+  "frequency",
+  "cycles",
+  "subscription_notify_email",
+  "subscription_notify_webhook",
+  "subscription_notify_buyer",
+] as const;
 
 export interface PayFastParams {
   merchant_id: string;
@@ -60,42 +172,143 @@ export interface PayFastParams {
   amount: string;
   item_name: string;
   item_description?: string;
-  signature?: string;
+  signature: string;
 }
 
-// ─── Helpers ───────────────────────────────────────────────────────────────
+export function getPayFastBaseUrl(req?: { proto: string; host: string }): string {
+  if (req?.host) {
+    const hostname = req.host.split(":")[0];
+    if (hostname === "localhost" || hostname === "127.0.0.1") {
+      const scheme = req.proto || "http";
+      return `${scheme}://${req.host}`.replace(/\/$/, "");
+    }
+  }
+
+  const fromEnv = trimEnv(process.env.NEXT_PUBLIC_SITE_URL).replace(/\/$/, "");
+  if (fromEnv) return fromEnv;
+  if (req?.host) return `${req.proto}://${req.host}`;
+  return "http://localhost:4028";
+}
+
+/** Public HTTPS base used for ITN when testing locally (ngrok, cloudflared, etc.). */
+export function getPayFastItnBaseUrl(siteBase: string): string {
+  const tunnel = firstNonEmpty(
+    process.env.PAYFAST_ITN_TUNNEL_URL,
+    process.env.NGROK_URL
+  ).replace(/\/$/, "");
+
+  if (IS_TEST && tunnel) return tunnel;
+  return siteBase.replace(/\/$/, "");
+}
+
+/** PayFast login email(s) — buyer must use a different address (PayFast policy). */
+export function getMerchantBlockedEmails(): string[] {
+  const raw = trimEnv(process.env.PAYFAST_MERCHANT_EMAIL);
+  if (!raw) return [];
+  return raw
+    .split(/[,;]/)
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+export function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
 
 /**
- * Build the ordered parameter string for MD5 signature.
- * PayFast requires parameters in a specific order, URL-encoded with spaces as +.
+ * PayFast rejects checkout when email_address matches the merchant account email.
+ * @see https://developers.payfast.co.za/docs#step_1_form_fields
  */
-export function buildSignatureString(
-  params: Record<string, string | undefined>,
-  withPassphrase = true
-): string {
-  const parts = PARAM_ORDER
-    .filter((k) => params[k] !== undefined && params[k] !== "")
-    .map((k) => `${k}=${encodeURIComponent(String(params[k])).replace(/%20/g, "+")}`);
+export function validateBuyerEmailForPayFast(buyerEmail: string): string | null {
+  const buyer = normalizeEmail(buyerEmail);
+  if (!buyer || !buyer.includes("@")) {
+    return "A valid buyer email is required for PayFast checkout.";
+  }
 
-  if (withPassphrase && pfConfig.passphrase) {
-    parts.push(
-      `passphrase=${encodeURIComponent(pfConfig.passphrase).replace(/%20/g, "+")}`
+  const blocked = getMerchantBlockedEmails();
+  if (blocked.length === 0) {
+    return null;
+  }
+
+  if (blocked.includes(buyer)) {
+    return (
+      "PayFast cannot process a payment when the customer email is the same as your PayFast merchant account. " + "Use a different email in Event Details (e.g. a personal or test address), then try again."
     );
   }
 
-  return parts.join("&");
+  return null;
 }
 
 /**
- * Compute MD5 hash of the signature string.
+ * PHP-compatible urlencode (matches PHP's urlencode(), which is what PayFast uses
+ * to build/verify signatures). encodeURIComponent leaves `! ' ( ) * ~` unescaped,
+ * but PHP urlencode escapes them — so without this, any item_name/item_description/
+ * name containing those characters (very common in event & class names, e.g.
+ * "Kids' Baking (Evening)") produces a signature PayFast can't reproduce, failing
+ * with "Generated signature does not match submitted signature".
  */
+export function phpUrlencode(value: string): string {
+  return encodeURIComponent(String(value).trim())
+    .replace(/%20/g, "+")
+    .replace(/!/g, "%21")
+    .replace(/'/g, "%27")
+    .replace(/\(/g, "%28")
+    .replace(/\)/g, "%29")
+    .replace(/\*/g, "%2A")
+    .replace(/~/g, "%7E");
+}
+
+function isNonEmpty(value: string | undefined): boolean {
+  return value !== undefined && value !== null && String(value).trim() !== "";
+}
+
+/**
+ * Payment redirect signature — mirrors PayFast\Auth::generateSignature().
+ * Only non-empty whitelisted fields; passphrase double-encoded per SDK.
+ */
+export function generatePaymentSignature(
+  data: Record<string, string>,
+  passPhrase: string | null
+): string {
+  const parts: string[] = [];
+
+  for (const field of PAYMENT_SIGNATURE_FIELDS) {
+    const value = data[field];
+    if (isNonEmpty(value)) {
+      parts.push(`${field}=${phpUrlencode(String(value))}`);
+    }
+  }
+
+  if (passPhrase !== null && passPhrase.trim() !== "") {
+    // Single URL-encode, matching PayFast\Auth::generateSignature (urlencode(trim($pass))).
+    parts.push(`passphrase=${phpUrlencode(passPhrase.trim())}`);
+  }
+
+  const sigString = parts.join("&");
+  return computeMD5(sigString);
+}
+
+/** Drop empty values so form POST matches signature (PayFast rejects mismatches). */
+export function stripEmptyPayFastFields(
+  data: Record<string, string>
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (isNonEmpty(value)) {
+      out[key] = String(value).trim();
+    }
+  }
+  return out;
+}
+
 export function computeMD5(sigString: string): string {
   return crypto.createHash("md5").update(sigString).digest("hex");
 }
 
-/**
- * Build a fully-signed PayFast payment payload ready for form submission.
- */
+export function formatPayFastAmount(amount: number): string {
+  return Number(amount).toFixed(2);
+}
+
 export function buildPaymentPayload(
   order: {
     paymentId: string;
@@ -109,88 +322,140 @@ export function buildPaymentPayload(
     email: string;
     cell?: string;
   },
-  baseUrl: string
-): { params: PayFastParams; gatewayUrl: string } {
+  baseUrl: string,
+  urlOverrides?: {
+    returnUrl?: string;
+    cancelUrl?: string;
+    notifyUrl?: string;
+  }
+): { params: PayFastParams; fields: { name: string; value: string }[]; gatewayUrl: string } {
   if (!pfConfig.merchantId || !pfConfig.merchantKey) {
     throw new Error(
-      `Missing PayFast ${PAYFAST_ENV} credentials. Check .env (PF_${PAYFAST_ENV.toUpperCase()}_MERCHANT_ID / PF_${PAYFAST_ENV.toUpperCase()}_MERCHANT_KEY)`
+      `Missing PayFast ${PAYFAST_MODE} credentials. Set PAYFAST_${PAYFAST_MODE === "live" ? "LIVE" : "SANDBOX"}_MERCHANT_ID and PAYFAST_${PAYFAST_MODE === "live" ? "LIVE" : "SANDBOX"}_MERCHANT_KEY in .env`
     );
   }
 
-  // For ITN (notify_url): use NGROK_URL in sandbox/test mode so PayFast can POST
-  // callbacks to a locally-running server exposed via ngrok.
-  // In production (IS_TEST=false) or when NGROK_URL is not set, fall back to baseUrl.
-  const ngrokUrl = process.env.NGROK_URL?.replace(/\/$/, "");
-  const itnBase = IS_TEST && ngrokUrl ? ngrokUrl : baseUrl;
+  const siteBase = baseUrl.replace(/\/$/, "");
+  const itnBase = getPayFastItnBaseUrl(siteBase);
 
-  const params: Record<string, string> = {
-    merchant_id:      pfConfig.merchantId,
-    merchant_key:     pfConfig.merchantKey,
-    return_url:       `${baseUrl}/checkout/success`,
-    cancel_url:       `${baseUrl}/checkout/cancel`,
-    notify_url:       `${itnBase}/api/payfast/itn`,
-    name_first:       buyer.firstName,
-    name_last:        buyer.lastName,
-    email_address:    buyer.email,
-    cell_number:      buyer.cell || "",
-    m_payment_id:     order.paymentId,
-    amount:           order.amount.toFixed(2),
-    item_name:        order.itemName,
-    item_description: order.itemDescription || "",
+  const raw: Record<string, string> = {
+    merchant_id: pfConfig.merchantId,
+    merchant_key: pfConfig.merchantKey,
+    return_url: urlOverrides?.returnUrl || `${siteBase}/checkout/success?from=payfast`,
+    cancel_url: urlOverrides?.cancelUrl || `${siteBase}/checkout/cancel?from=payfast`,
+    notify_url: urlOverrides?.notifyUrl || `${itnBase}/api/payfast/itn`,
+    name_first: buyer.firstName.trim(),
+    name_last: buyer.lastName.trim(),
+    email_address: buyer.email.trim(),
+    m_payment_id: order.paymentId.trim(),
+    amount: formatPayFastAmount(order.amount),
+    item_name: order.itemName.trim().slice(0, 100),
   };
 
-  const sigString = buildSignatureString(params, true);
-  const signature = computeMD5(sigString);
+  if (isNonEmpty(buyer.cell)) {
+    const formattedCell = formatPayFastCellNumber(buyer.cell!);
+    if (formattedCell) {
+      raw.cell_number = formattedCell;
+    }
+  }
+  if (isNonEmpty(order.itemDescription)) {
+    raw.item_description = order.itemDescription!.trim().slice(0, 255);
+  }
+
+  const passPhrase = pfConfig.passphrase || null;
+  const signature = generatePaymentSignature(raw, passPhrase);
+
+  // CRITICAL: the POSTed fields must be in the SAME order used to build the
+  // signature (the canonical PAYMENT_SIGNATURE_FIELDS order), with `signature`
+  // appended LAST. PayFast reconstructs the signature from the posted fields in
+  // the order received; if the order differs (e.g. cell_number posted after the
+  // signature instead of between email_address and m_payment_id), it fails with
+  // "Generated signature does not match submitted signature".
+  const ordered: Record<string, string> = {};
+  for (const field of PAYMENT_SIGNATURE_FIELDS) {
+    if (isNonEmpty(raw[field])) {
+      ordered[field] = String(raw[field]).trim();
+    }
+  }
+  ordered.signature = signature;
+
+  const params = ordered as unknown as PayFastParams;
 
   return {
-    params: { ...params, signature } as PayFastParams,
+    params,
+    fields: payfastParamsToFields(ordered),
     gatewayUrl: PAYFAST_GATEWAY_URL,
   };
 }
 
+/** Ordered field list for HTML form POST — must match signature field order with signature last. */
+export function payfastParamsToFields(
+  params: Record<string, string>
+): { name: string; value: string }[] {
+  const fields: { name: string; value: string }[] = [];
+  for (const key of PAYMENT_SIGNATURE_FIELDS) {
+    if (isNonEmpty(params[key])) {
+      fields.push({ name: key, value: String(params[key]).trim() });
+    }
+  }
+  if (isNonEmpty(params.signature)) {
+    fields.push({ name: "signature", value: String(params.signature).trim() });
+  }
+  return fields;
+}
+
 /**
- * Validate ITN signature from PayFast POST data.
- * The signature field must already be removed from pfData before calling this.
+ * Build the ITN param string EXACTLY as PayFast reconstructs it: the posted fields
+ * in the ORDER RECEIVED (NOT alphabetical), URL-encoded, joined by '&', stopping at
+ * `signature` (PayFast always posts `signature` last). No empty-filtering — the string
+ * must mirror precisely what PayFast posted.
+ * @see PayFast docs → Confirm payment → "Convert posted variables to a string"
+ *      (foreach $pfData ... if key !== 'signature' ... else break)
+ */
+function buildItnParamString(pfData: Record<string, string>): string {
+  const parts: string[] = [];
+  for (const [key, value] of Object.entries(pfData)) {
+    if (key === "signature") break;
+    parts.push(`${key}=${phpUrlencode(String(value ?? ""))}`);
+  }
+  return parts.join("&");
+}
+
+/**
+ * ITN signature: received order + passphrase appended last (PayFast pfValidSignature).
+ * CRITICAL: PayFast's redirect/payment signature uses the fixed attribute order, but the
+ * ITN signature must use the ORDER THE FIELDS WERE POSTED — never alphabetical. Sorting
+ * here caused every ITN to fail validation, so paid orders never updated to "paid".
  */
 export function validateITNSignature(
   pfData: Record<string, string>,
   receivedSig: string
 ): boolean {
-  const paramKeys = Object.keys(pfData);
-  const parts = paramKeys
-    .filter((k) => pfData[k] !== "")
-    .map((k) => `${k}=${encodeURIComponent(pfData[k]).replace(/%20/g, "+")}`);
+  let pfParamString = buildItnParamString(pfData);
 
-  if (pfConfig.passphrase) {
-    parts.push(
-      `passphrase=${encodeURIComponent(pfConfig.passphrase).replace(/%20/g, "+")}`
-    );
+  const passPhrase = pfConfig.passphrase || null;
+  if (passPhrase) {
+    pfParamString += `&passphrase=${phpUrlencode(passPhrase)}`;
   }
 
-  const sigString = parts.join("&");
-  const computed = computeMD5(sigString);
-  return computed === receivedSig;
+  return computeMD5(pfParamString) === receivedSig;
 }
 
-/**
- * Validate the ITN with PayFast's own /eng/query/validate endpoint.
- * Returns true if PayFast responds with 'VALID'.
- */
 export function validateWithPayFast(pfData: Record<string, string>): Promise<boolean> {
   return new Promise((resolve) => {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const https = require("https");
-    const body = Object.keys(pfData)
-      .map((k) => `${k}=${encodeURIComponent(pfData[k]).replace(/%20/g, "+")}`)
-      .join("&");
+    // Server confirmation posts the same received-order param string PayFast sent
+    // (no passphrase, no signature) — PayFast\pfValidServerConfirmation.
+    const body = buildItnParamString(pfData);
 
     const options = {
-      host:   pfConfig.validateHost,
-      port:   443,
-      path:   "/eng/query/validate",
+      host: pfConfig.validateHost,
+      port: 443,
+      path: "/eng/query/validate",
       method: "POST",
       headers: {
-        "Content-Type":   "application/x-www-form-urlencoded",
+        "Content-Type": "application/x-www-form-urlencoded",
         "Content-Length": Buffer.byteLength(body),
       },
     };
@@ -199,13 +464,13 @@ export function validateWithPayFast(pfData: Record<string, string>): Promise<boo
       options,
       (res: { on: (event: string, cb: (chunk?: string) => void) => void }) => {
         let data = "";
-        res.on("data", (chunk: string) => (data += chunk));
+        res.on("data", (chunk?: string) => (data += chunk ?? ""));
         res.on("end", () => resolve(data.trim() === "VALID"));
       }
     );
 
     req.on("error", (e: Error) => {
-      console.error("[validateWithPayFast] Request error:", e);
+      console.error("[validateWithPayFast] Request error:", e.message);
       resolve(false);
     });
 
@@ -214,13 +479,12 @@ export function validateWithPayFast(pfData: Record<string, string>): Promise<boo
   });
 }
 
-// PayFast published IP ranges for ITN validation
+/** PayFast server IPs for ITN validation (live only). */
 export const PAYFAST_IPS = [
   "197.97.145.144",
   "41.74.179.194",
   "41.74.179.195",
   "41.74.179.196",
-  // Sandbox / local
   "127.0.0.1",
   "::1",
 ];

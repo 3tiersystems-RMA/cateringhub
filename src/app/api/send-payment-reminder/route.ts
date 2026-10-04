@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { calculateOrderTotal } from '@/lib/order-totals';
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,14 +15,57 @@ export async function POST(req: NextRequest) {
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
+    // Fetch correspondence settings — non-fatal: if table missing or empty, proceed without settings
+    let corrSettings: {
+      form_header_title?: string | null;
+      logo_url?: string | null;
+      terms_and_conditions?: string | null;
+      sales_representative?: string | null;
+      office_number?: string | null;
+      comments?: string | null;
+      info_email?: string | null;
+      admin_email?: string | null;
+      banking_details?: string | null;
+    } | null = null;
+
+    try {
+      const { data } = await supabase
+        .from('correspondence_settings')
+        .select('form_header_title, logo_url, terms_and_conditions, sales_representative, office_number, comments, info_email, admin_email, banking_details')
+        .limit(1)
+        .maybeSingle();
+      corrSettings = data;
+    } catch {
+      // Table may not exist yet — continue without correspondence settings
+      corrSettings = null;
+    }
+
+    // Normalize: treat empty strings as null so the template skips empty fields
+    const normalize = (val: string | null | undefined): string | null => {
+      if (!val || val.trim() === '') return null;
+      return val.trim();
+    };
+
+    const formHeaderTitle = normalize(corrSettings?.form_header_title) ?? null;
+    const logoUrl = normalize(corrSettings?.logo_url) ?? null;
+    const termsAndConditions = normalize(corrSettings?.terms_and_conditions) ?? null;
+    const salesRepresentative = normalize(corrSettings?.sales_representative) ?? null;
+    const officeNumber = normalize(corrSettings?.office_number) ?? null;
+    const comments = normalize(corrSettings?.comments) ?? null;
+    const infoEmail = normalize(corrSettings?.info_email) ?? null;
+    const bankingDetails = normalize(corrSettings?.banking_details) ?? null;
+
     // Fetch the specific order or all outstanding orders
     let query = supabase
       .from('orders')
-      .select('id, customer_name, customer_email, total, created_at, items, payment_status')
-      .eq('payment_status', 'awaiting_payment');
+      .select('id, customer_name, customer_email, total, created_at, items, payment_status');
 
     if (orderId) {
+      // Single order: fetch by ID only — no payment_status filter so any order can receive a reminder
       query = query.eq('id', orderId);
+    } else {
+      // Bulk send: only target unpaid orders
+      query = query.eq('payment_status', 'unpaid');
     }
 
     const { data: orders, error: fetchError } = await query;
@@ -62,9 +106,19 @@ export async function POST(req: NextRequest) {
             customerName: order.customer_name || 'Valued Customer',
             customerEmail: order.customer_email,
             orderId: order.id,
-            orderTotal: order.total,
+            orderTotal: calculateOrderTotal(order),
             orderDate,
             items: order.items || [],
+            // Correspondence settings — null means field is empty and will be hidden on the email
+            formHeaderTitle,
+            logoUrl,
+            termsAndConditions,
+            salesRepresentative,
+            officeNumber,
+            comments,
+            bankingDetails,
+            // CC info_email on payment reminders if set
+            ccEmails: infoEmail ? [infoEmail] : [],
           }),
         });
 
@@ -74,6 +128,11 @@ export async function POST(req: NextRequest) {
           results.push({ orderId: order.id, email: order.customer_email, success: false, error: data.error });
         } else {
           results.push({ orderId: order.id, email: order.customer_email, success: true });
+          // Record the date this reminder was sent on the order
+          await supabase
+            .from('orders')
+            .update({ last_reminder_sent_at: new Date().toISOString() })
+            .eq('id', order.id);
         }
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Unknown error';

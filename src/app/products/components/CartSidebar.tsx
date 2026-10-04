@@ -1,32 +1,46 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import Icon from "@/components/ui/AppIcon";
 import { useCart } from "./CartContext";
 import type { VoucherData, DiscountVoucherData } from "./CartContext";
 
 import { createClient } from "@/lib/supabase/client";
+import { submitPayFastForm } from "@/lib/payfast-form";
 import CartStepCart from "./CartStepCart";
 import CartStepDetails from "./CartStepDetails";
 import CartStepPayment from "./CartStepPayment";
 import CartStepSuccess from "./CartStepSuccess";
 import VoucherErrorModal from "@/components/ui/VoucherErrorModal";
+import DespatchModal from "./DespatchModal";
+import DeliveryCalculator from "./DeliveryCalculator";
 
 type CheckoutStep = "cart" | "details" | "payment" | "eft-success" | "confirmation";
 type PaymentMethod = "eft" | "voucher" | "payfast";
+type DespatchPhase = "idle" | "choosing" | "calculating";
+type DespatchMethod = "collection" | "delivery";
+
+const INITIAL_FORM = { name: "", email: "", phone: "", date: "", address: "", notes: "" };
 
 export default function CartSidebar() {
   const { items, subtotal, totalItems, isOpen, setIsOpen, clearCart } = useCart();
   const supabase = createClient();
 
   const [step, setStep] = useState<CheckoutStep>("cart");
-  const [form, setForm] = useState({ name: "", email: "", phone: "", date: "", address: "", notes: "" });
+  const [form, setForm] = useState(INITIAL_FORM);
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>("payfast");
   const [processing, setProcessing] = useState(false);
   const [payError, setPayErrorState] = useState("");
   const [phoneError, setPhoneErrorState] = useState("");
   const [orderRef, setOrderRef] = useState("");
+  const [savedOrderTotal, setSavedOrderTotal] = useState(0);
   const voucherOrderInProgress = useRef(false);
+
+  // Despatch state
+  const [despatchPhase, setDespatchPhase] = useState<DespatchPhase>("idle");
+  const [despatchMethod, setDespatchMethod] = useState<DespatchMethod | null>(null);
+  const [deliveryFee, setDeliveryFee] = useState(0);
+  const [despatchConfirmed, setDespatchConfirmed] = useState(false);
 
   // Global error modal
   const [errorModal, setErrorModal] = useState<{ open: boolean; message: string; title: string }>({ open: false, message: "", title: "Error" });
@@ -56,11 +70,83 @@ export default function CartSidebar() {
   const [showDvSection, setShowDvSection] = useState(false);
 
   const tax = subtotal * 0;
-  const delivery = subtotal > 0 ? 15 : 0;
+  const delivery = subtotal > 0 ? deliveryFee : 0;
   const total = subtotal + tax + delivery;
   const discountedTotal = dvApplied && dvData ? Math.max(0, total - dvData.dv_amount) : total;
 
-  const handleDetailsSubmit = (e: React.FormEvent) => {
+  const getDetailsForm = useCallback(() => {
+    if (voucherApplied && voucherData) {
+      return {
+        ...INITIAL_FORM,
+        name: voucherData.customer_name || "",
+        email: voucherData.customer_email || "",
+        phone: voucherData.customer_phone || "",
+      };
+    }
+    return { ...INITIAL_FORM };
+  }, [voucherApplied, voucherData]);
+
+  const resetCheckoutState = useCallback(() => {
+    setStep("cart");
+    setForm({ ...INITIAL_FORM });
+    setOrderRef("");
+    setSavedOrderTotal(0);
+    setPayErrorState("");
+    setPhoneErrorState("");
+    setProcessing(false);
+    setSelectedMethod("payfast");
+    setDespatchPhase("idle");
+    setDespatchMethod(null);
+    setDeliveryFee(0);
+    setDespatchConfirmed(false);
+  }, []);
+
+  const prevIsOpen = useRef(isOpen);
+  useEffect(() => {
+    if (isOpen && !prevIsOpen.current) {
+      resetCheckoutState();
+    }
+    prevIsOpen.current = isOpen;
+  }, [isOpen, resetCheckoutState]);
+
+  // Despatch handlers
+  const handleEnterDetails = () => {
+    setDespatchPhase("choosing");
+  };
+
+  const handleDespatchChoice = (choice: DespatchMethod) => {
+    setDespatchMethod(choice);
+    setDespatchPhase("calculating");
+  };
+
+  const handleDespatchConfirm = (result: { deliveryCost: number; total: number; distanceKm?: number; distanceText?: string; durationText?: string; deliveryAddress?: string }) => {
+    setDeliveryFee(result.deliveryCost);
+    setDespatchConfirmed(true);
+    setDespatchPhase("idle");
+    // Now proceed to details step
+    const baseForm = getDetailsForm();
+    setForm({
+      ...baseForm,
+      address: despatchMethod === "delivery" ? (result.deliveryAddress || "") : "",
+    });
+    setPhoneErrorState("");
+    setPayErrorState("");
+    setStep("details");
+  };
+
+  const handleDespatchCancel = () => {
+    setDespatchMethod(null);
+    setDespatchPhase("choosing");
+    setDespatchConfirmed(false);
+  };
+
+  const handleDespatchBackToIdle = () => {
+    setDespatchPhase("idle");
+    setDespatchMethod(null);
+    setDespatchConfirmed(false);
+  };
+
+  const handleDetailsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const stripped = form.phone.replace(/\D/g, "");
     if (stripped.length !== 10) { setPhoneError("Mobile number must be exactly 10 digits"); return; }
@@ -107,6 +193,7 @@ export default function CartSidebar() {
           items: items.map((i) => ({
             id: i.product.id, name: i.product.name, quantity: i.quantity,
             price: i.product.price, unit: i.product.unit, category: i.product.category,
+            package_type: i.product.packageType || 'none',
           })),
           subtotal, delivery_fee: delivery, total: 0,
           payment_status: "paid", payment_method: "voucher",
@@ -153,6 +240,8 @@ export default function CartSidebar() {
 
   const handleEFTConfirm = async () => {
     setProcessing(true);
+    // Capture the total immediately before any async operations or state changes
+    const capturedTotal = discountedTotal;
     try {
       const orderNotes = dvApplied && dvData
         ? `Discount Voucher: ${dvData.dv_code} (R${dvData.dv_amount.toFixed(2)} credit). ${form.notes}`.trim()
@@ -167,8 +256,9 @@ export default function CartSidebar() {
           items: items.map((i) => ({
             id: i.product.id, name: i.product.name, quantity: i.quantity,
             price: i.product.price, unit: i.product.unit, category: i.product.category,
+            package_type: i.product.packageType || 'none',
           })),
-          subtotal, delivery_fee: delivery, total: discountedTotal,
+          subtotal, delivery_fee: delivery, total: capturedTotal,
           payment_status: "awaiting_payment", payment_method: "eft",
           event_date: form.date || null, delivery_address: form.address, notes: orderNotes,
         }),
@@ -183,6 +273,7 @@ export default function CartSidebar() {
           .eq("dv_code", dvData.dv_code);
       }
 
+      setSavedOrderTotal(capturedTotal);
       setOrderRef(result.reference ?? orderRef);
       clearCart();
       setStep("eft-success");
@@ -196,40 +287,11 @@ export default function CartSidebar() {
   const handlePayFastCheckout = async () => {
     setProcessing(true);
     try {
-      // Step 1: Create the order in DB with awaiting_payment status
       const orderNotes = dvApplied && dvData
         ? `Discount Voucher: ${dvData.dv_code} (R${dvData.dv_amount.toFixed(2)} credit). ${form.notes}`.trim()
         : form.notes;
 
-      const createRes = await fetch("/api/orders/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          m_payment_id: orderRef,
-          customer_name: form.name,
-          customer_email: form.email,
-          customer_phone: form.phone,
-          items: items.map((i) => ({
-            id: i.product.id, name: i.product.name, quantity: i.quantity,
-            price: i.product.price, unit: i.product.unit, category: i.product.category,
-          })),
-          subtotal,
-          delivery_fee: delivery,
-          total: discountedTotal,
-          payment_status: "awaiting_payment",
-          payment_method: "payfast",
-          event_date: form.date || null,
-          delivery_address: form.address,
-          notes: orderNotes,
-        }),
-      });
-
-      const createResult = await createRes.json();
-      if (!createRes.ok) throw new Error(createResult.error || "Failed to create order.");
-
-      const finalRef = createResult.reference ?? orderRef;
-
-      // Step 2: Get signed PayFast payload from server
+      // Step 1: Get signed PayFast payload from server
       const nameParts = form.name.trim().split(" ");
       const firstName = nameParts[0] || form.name;
       const lastName = nameParts.slice(1).join(" ") || "-";
@@ -239,9 +301,9 @@ export default function CartSidebar() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           order: {
-            paymentId: finalRef,
+            paymentId: orderRef,
             amount: discountedTotal,
-            itemName: `Central Kitchen Order ${finalRef}`,
+            itemName: `Cardamom Kitchen Order ${orderRef}`,
             itemDescription: items.map((i) => `${i.product.name} x${i.quantity}`).join(", "),
           },
           buyer: {
@@ -256,6 +318,40 @@ export default function CartSidebar() {
       const initiateResult = await initiateRes.json();
       if (!initiateRes.ok) throw new Error(initiateResult.error || "Failed to initiate PayFast payment.");
 
+      // Step 2: Store the full order payload as a pending payment record.
+      // The actual order row will only be created by the ITN handler once
+      // PayFast confirms COMPLETE — no DB record is created here.
+      const pendingRes = await fetch("/api/payfast/pending", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          m_payment_id: orderRef,
+          payment_type: "order",
+          payload: {
+            m_payment_id: orderRef,
+            customer_name: form.name,
+            customer_email: form.email,
+            customer_phone: form.phone,
+            items: items.map((i) => ({
+              id: i.product.id, name: i.product.name, quantity: i.quantity,
+              price: i.product.price, unit: i.product.unit, category: i.product.category,
+              package_type: i.product.packageType || 'none',
+            })),
+            subtotal,
+            delivery_fee: delivery,
+            total: discountedTotal,
+            event_date: form.date || null,
+            delivery_address: form.address,
+            notes: orderNotes,
+          },
+        }),
+      });
+
+      if (!pendingRes.ok) {
+        const pendingErr = await pendingRes.json();
+        throw new Error(pendingErr.error || "Failed to prepare payment.");
+      }
+
       // Step 3: Apply discount voucher usage if applicable
       if (dvApplied && dvData) {
         await supabase
@@ -265,29 +361,24 @@ export default function CartSidebar() {
       }
 
       // Step 4: Build and auto-submit form to PayFast gateway
+      try {
+        sessionStorage.setItem("order_pending_m_payment_id", orderRef);
+      } catch {
+        // Non-blocking
+      }
       clearCart();
 
-      const form_el = document.createElement("form");
-      form_el.method = "POST";
-      form_el.action = initiateResult.gatewayUrl;
-
-      Object.entries(initiateResult.params as Record<string, string>).forEach(([key, value]) => {
-        const input = document.createElement("input");
-        input.type = "hidden";
-        input.name = key;
-        input.value = value;
-        form_el.appendChild(input);
-      });
-
-      document.body.appendChild(form_el);
-      form_el.submit();
+      submitPayFastForm(initiateResult.gatewayUrl, initiateResult.fields);
     } catch (err) {
       setPayError(err instanceof Error ? err.message : "Failed to initiate PayFast payment.");
       setProcessing(false);
     }
   };
 
-  const handleClose = () => { setIsOpen(false); setStep("cart"); };
+  const handleClose = () => {
+    setIsOpen(false);
+    resetCheckoutState();
+  };
 
   if (!isOpen) return null;
 
@@ -313,9 +404,20 @@ export default function CartSidebar() {
                 <Icon name="ArrowLeftIcon" size={16} className="text-[#5C5347]" />
               </button>
             )}
+            {step === "cart" && despatchPhase !== "idle" && (
+              <button
+                onClick={handleDespatchBackToIdle}
+                className="p-1.5 rounded-lg hover:bg-[#EDE7DA] transition-colors mr-1"
+                aria-label="Go back"
+              >
+                <Icon name="ArrowLeftIcon" size={16} className="text-[#5C5347]" />
+              </button>
+            )}
             <h2 className="font-display text-lg font-semibold text-[#1A1612]">
-              {step === "cart" && `Order Summary (${totalItems})`}
-              {step === "details" && "Event Details"}
+              {step === "cart" && despatchPhase === "idle" && `Order Summary (${totalItems})`}
+              {step === "cart" && despatchPhase === "choosing" && "Despatch Method"}
+              {step === "cart" && despatchPhase === "calculating" && (despatchMethod === "collection" ? "Collection" : "Delivery")}
+              {step === "details" && "Your Details"}
               {step === "payment" && "Secure Payment"}
               {step === "eft-success" && "Order Placed!"}
               {step === "confirmation" && "Order Confirmed!"}
@@ -327,7 +429,7 @@ export default function CartSidebar() {
         </div>
 
         {/* Progress Steps */}
-        {step !== "confirmation" && step !== "eft-success" && (
+        {step !== "confirmation" && step !== "eft-success" && despatchPhase === "idle" && (
           <div className="px-6 py-3 border-b border-[#DDD5C8] flex items-center gap-2">
             {(["cart", "details", "payment"] as CheckoutStep[]).map((s, i) => (
               <div key={s} className="flex items-center gap-2">
@@ -352,7 +454,7 @@ export default function CartSidebar() {
         )}
 
         {/* Steps */}
-        {step === "cart" && (
+        {step === "cart" && despatchPhase === "idle" && (
           <CartStepCart
             voucherCode={voucherCode}
             setVoucherCode={setVoucherCode}
@@ -378,21 +480,25 @@ export default function CartSidebar() {
             setDvApplied={setDvApplied}
             showDvSection={showDvSection}
             setShowDvSection={setShowDvSection}
-            onProceed={() => {
-              if (voucherApplied && voucherData) {
-                setForm((prev) => ({
-                  ...prev,
-                  name: prev.name || voucherData.customer_name || "",
-                  email: prev.email || voucherData.customer_email || "",
-                  phone: prev.phone || voucherData.customer_phone || "",
-                }));
-              }
-              setStep("details");
-            }}
+            onProceed={handleEnterDetails}
             subtotal={subtotal}
             tax={tax}
             delivery={delivery}
             total={total}
+          />
+        )}
+
+        {step === "cart" && despatchPhase === "choosing" && (
+          <DespatchModal onChoice={handleDespatchChoice} />
+        )}
+
+        {step === "cart" && despatchPhase === "calculating" && despatchMethod && (
+          <DeliveryCalculator
+            despatchMethod={despatchMethod}
+            orderSubtotal={subtotal}
+            minimumFee={0}
+            onConfirm={handleDespatchConfirm}
+            onCancel={handleDespatchCancel}
           />
         )}
 
@@ -407,6 +513,7 @@ export default function CartSidebar() {
             voucherData={voucherData}
             processing={processing}
             totalItems={totalItems}
+            despatchMethod={despatchMethod}
             onSubmit={voucherApplied ? handleVoucherDetailsConfirm : handleDetailsSubmit}
           />
         )}
@@ -420,6 +527,8 @@ export default function CartSidebar() {
             selectedMethod={selectedMethod}
             setSelectedMethod={setSelectedMethod}
             orderRef={orderRef}
+            subtotal={subtotal}
+            delivery={delivery}
             total={total}
             discountedTotal={discountedTotal}
             totalItems={totalItems}
@@ -439,6 +548,7 @@ export default function CartSidebar() {
         {step === "eft-success" && (
           <CartStepSuccess
             orderRef={orderRef}
+            orderTotal={savedOrderTotal}
             form={form}
             voucherApplied={voucherApplied}
             voucherData={voucherData}

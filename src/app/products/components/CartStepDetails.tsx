@@ -2,6 +2,7 @@
 
 import Icon from "@/components/ui/AppIcon";
 import type { VoucherData } from "./CartContext";
+import { useCart } from "./CartContext";
 
 interface CartStepDetailsProps {
   form: { name: string; email: string; phone: string; date: string; address: string; notes: string };
@@ -13,6 +14,7 @@ interface CartStepDetailsProps {
   voucherData: VoucherData | null;
   processing: boolean;
   totalItems: number;
+  despatchMethod?: "collection" | "delivery" | null;
   onSubmit: (e: React.FormEvent) => void;
 }
 
@@ -26,8 +28,23 @@ export default function CartStepDetails({
   voucherData,
   processing,
   totalItems,
+  despatchMethod,
   onSubmit,
 }: CartStepDetailsProps) {
+  const { captureCustomerInfo } = useCart();
+
+  const handleEmailBlur = () => {
+    if (form.email && form.name) {
+      captureCustomerInfo(form.email, form.name);
+    }
+  };
+
+  const handleNameBlur = () => {
+    if (form.email && form.name) {
+      captureCustomerInfo(form.email, form.name);
+    }
+  };
+
   return (
     <form onSubmit={onSubmit} className="flex-1 flex flex-col overflow-hidden">
       <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
@@ -39,6 +56,7 @@ export default function CartStepDetails({
               required
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
+              onBlur={handleNameBlur}
               placeholder="Jennifer Martinez"
               className="w-full bg-white border border-[#DDD5C8] rounded-xl px-4 py-3 text-sm text-[#1A1612] placeholder-[#B5ADA5] focus:outline-none focus:border-[#C4622D] transition-colors"
             />
@@ -50,6 +68,7 @@ export default function CartStepDetails({
               required
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
+              onBlur={handleEmailBlur}
               placeholder="jennifer@email.com"
               className="w-full bg-white border border-[#DDD5C8] rounded-xl px-4 py-3 text-sm text-[#1A1612] placeholder-[#B5ADA5] focus:outline-none focus:border-[#C4622D] transition-colors"
             />
@@ -87,15 +106,28 @@ export default function CartStepDetails({
             />
           </div>
           <div className="col-span-2">
-            <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">Delivery Address *</label>
+            <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">
+              Delivery Address {despatchMethod !== "collection" && "*"}
+            </label>
             <input
               type="text"
-              required
-              value={form.address}
-              onChange={(e) => setForm({ ...form, address: e.target.value })}
+              required={despatchMethod !== "collection"}
+              disabled={despatchMethod === "collection"}
+              readOnly={despatchMethod === "delivery"}
+              value={despatchMethod === "collection" ? "I will collect" : form.address}
+              onChange={(e) => despatchMethod !== "delivery" && setForm({ ...form, address: e.target.value })}
               placeholder="123 Main St, Johannesburg, 2000"
-              className="w-full bg-white border border-[#DDD5C8] rounded-xl px-4 py-3 text-sm text-[#1A1612] placeholder-[#B5ADA5] focus:outline-none focus:border-[#C4622D] transition-colors"
+              className={`w-full border rounded-xl px-4 py-3 text-sm transition-colors ${
+                despatchMethod === "collection" ?"bg-[#EDE7DA] border-[#DDD5C8] text-[#B5ADA5] cursor-not-allowed"
+                  : despatchMethod === "delivery" ?"bg-[#EDE7DA] border-[#DDD5C8] text-[#1A1612] cursor-default select-none focus:outline-none" :"bg-white border-[#DDD5C8] text-[#1A1612] placeholder-[#B5ADA5] focus:outline-none focus:border-[#C4622D]"
+              }`}
             />
+            {despatchMethod === "collection" && (
+              <p className="mt-1 text-xs text-[#B5ADA5]">Not required — you selected collection</p>
+            )}
+            {despatchMethod === "delivery" && (
+              <p className="mt-1 text-xs text-[#B5ADA5]">Auto-filled from your delivery address</p>
+            )}
           </div>
           <div className="col-span-2">
             <label className="block text-xs font-semibold text-[#5C5347] uppercase tracking-wider mb-1.5">Special Requests / Dietary Notes</label>

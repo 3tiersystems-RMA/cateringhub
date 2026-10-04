@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Icon from "@/components/ui/AppIcon";
 import type { VoucherData } from "./CartContext";
 import { APP_NAME } from "@/lib/constants";
@@ -13,6 +14,7 @@ const BANK_DETAILS = {
 
 interface CartStepSuccessProps {
   orderRef: string;
+  orderTotal?: number;
   form: { name: string; email: string; date: string };
   voucherApplied: boolean;
   voucherData: VoucherData | null;
@@ -21,8 +23,30 @@ interface CartStepSuccessProps {
   onClose: () => void;
 }
 
+function CopyButton({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(value).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  return (
+    <button
+      onClick={handleCopy}
+      className="flex items-center gap-1 px-2.5 py-1 rounded-full border border-[#DDD5C8] bg-[#F7F4F0] text-[#5C5347] text-xs hover:bg-[#EDE8E1] transition-colors ml-3 shrink-0"
+    >
+      <Icon name={copied ? "CheckIcon" : "ClipboardDocumentIcon"} size={12} />
+      <span>{copied ? "Copied!" : "Copy"}</span>
+    </button>
+  );
+}
+
 export default function CartStepSuccess({
   orderRef,
+  orderTotal,
   form,
   voucherApplied,
   voucherData,
@@ -56,26 +80,38 @@ export default function CartStepSuccess({
 
       {/* Bank Details — EFT only */}
       {!voucherApplied && (
-        <div className="bg-white border border-[#DDD5C8] rounded-2xl p-4 space-y-3">
-          <div className="flex items-center gap-2 mb-1">
-            <Icon name="BuildingLibraryIcon" size={15} className="text-[#C4622D]" />
-            <p className="text-xs font-semibold text-[#5C5347] uppercase tracking-wider">Bank Details</p>
+        <>
+          {orderTotal !== undefined && (
+            <div className="bg-[#C4622D]/10 border border-[#C4622D]/30 rounded-2xl p-4 text-center">
+              <p className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-1">Order Amount</p>
+              <p className="text-2xl font-bold text-[#C4622D]">R {orderTotal.toFixed(2)}</p>
+              <p className="text-xs text-[#8C8278] mt-1">Please use this amount for your EFT payment</p>
+            </div>
+          )}
+          <div className="bg-white border border-[#DDD5C8] rounded-2xl p-4 space-y-3">
+            <div className="flex items-center gap-2 mb-1">
+              <Icon name="BuildingLibraryIcon" size={15} className="text-[#C4622D]" />
+              <p className="text-xs font-semibold text-[#5C5347] uppercase tracking-wider">Bank Details</p>
+            </div>
+            <div className="space-y-2">
+              {[
+                { label: "Bank", value: BANK_DETAILS.bank },
+                { label: "Account Name", value: BANK_DETAILS.accountName },
+                { label: "Account Number", value: BANK_DETAILS.accountNumber },
+                { label: "Branch Code", value: BANK_DETAILS.branchCode },
+                { label: "Reference", value: orderRef },
+              ].map(({ label, value }) => (
+                <div key={label} className="flex justify-between items-center py-1.5 border-b border-[#F0EBE3] last:border-0">
+                  <span className="text-[#8C8278] text-xs">{label}</span>
+                  <div className="flex items-center">
+                    <span className="font-semibold text-[#1A1612] font-mono text-xs">{value}</span>
+                    <CopyButton value={value} />
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
-          <div className="space-y-2">
-            {[
-              { label: "Bank", value: BANK_DETAILS.bank },
-              { label: "Account Name", value: BANK_DETAILS.accountName },
-              { label: "Account Number", value: BANK_DETAILS.accountNumber },
-              { label: "Branch Code", value: BANK_DETAILS.branchCode },
-              { label: "Reference", value: orderRef },
-            ].map(({ label, value }) => (
-              <div key={label} className="flex justify-between items-center py-1.5 border-b border-[#F0EBE3] last:border-0">
-                <span className="text-[#8C8278] text-xs">{label}</span>
-                <span className="font-semibold text-[#1A1612] font-mono text-xs">{value}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+        </>
       )}
 
       {/* Voucher balance update */}

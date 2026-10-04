@@ -6,9 +6,11 @@ import {
   PAYFAST_IPS,
   IS_TEST,
 } from "@/lib/payfast";
+import { completeOrderPayfast } from "@/lib/order-payfast-complete";
+import { recordFailedOrderPayment } from "@/lib/order-payfast-failed";
+import { maybeSendPayfastOrderConfirmationEmail } from "@/lib/order-confirmation-email";
 
 export async function POST(req: NextRequest) {
-  // Step 0: Acknowledge immediately — PayFast expects 200 quickly
   const responseOk = new NextResponse("OK", { status: 200 });
 
   try {
@@ -18,23 +20,18 @@ export async function POST(req: NextRequest) {
       pfData[key] = String(value);
     });
 
-    console.log("[PayFast ITN] Received:", pfData);
-
-    // ── Step 1: Validate signature ──────────────────────────────────────────
     const receivedSig = pfData.signature;
     if (!receivedSig) {
-      console.error("[PayFast ITN] ❌ No signature in payload");
+      console.error("[PayFast ITN] No signature in payload");
       return responseOk;
     }
-    delete pfData.signature; // Remove before rebuilding string
+    delete pfData.signature;
 
     if (!validateITNSignature(pfData, receivedSig)) {
-      console.error("[PayFast ITN] ❌ Signature mismatch. Possible tampering.");
+      console.error("[PayFast ITN] Signature mismatch for", pfData.m_payment_id);
       return responseOk;
     }
-    console.log("[PayFast ITN] ✅ Signature valid");
 
-    // ── Step 2: Validate source IP (skip in test/sandbox mode) ─────────────
     const clientIp = (
       req.headers.get("x-forwarded-for") ||
       req.headers.get("x-real-ip") ||
@@ -44,12 +41,10 @@ export async function POST(req: NextRequest) {
       .trim();
 
     if (!IS_TEST && !PAYFAST_IPS.includes(clientIp)) {
-      console.error("[PayFast ITN] ❌ Untrusted IP:", clientIp);
+      console.error("[PayFast ITN] Untrusted IP:", clientIp);
       return responseOk;
     }
-    console.log("[PayFast ITN] ✅ IP validated:", clientIp);
 
-    // ── Step 3: Confirm amount matches order in DB ──────────────────────────
     const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -57,67 +52,153 @@ export async function POST(req: NextRequest) {
     );
 
     const paymentId = pfData.m_payment_id;
+    if (!paymentId) {
+      console.error("[PayFast ITN] Missing m_payment_id");
+      return responseOk;
+    }
+
+    const paymentStatus = pfData.payment_status;
+    const payfastPaymentId = pfData.pf_payment_id || null;
+
+    // ── Pending (pre-creation) PayFast order — aligned with class/event ITN flow ──
+    const { data: pendingRow } = await supabaseAdmin
+      .from("payfast_pending_payments")
+      .select("payload")
+      .eq("m_payment_id", paymentId)
+      .eq("payment_type", "order")
+      .maybeSingle();
+
+    if (pendingRow) {
+      if (paymentStatus === "COMPLETE") {
+        const p = pendingRow.payload as Record<string, unknown>;
+
+        const receivedAmount = parseFloat(pfData.amount_gross);
+        const expectedAmount = parseFloat(String(p.total));
+        if (Number.isNaN(receivedAmount) || Math.abs(receivedAmount - expectedAmount) > 0.01) {
+          console.error(
+            `[PayFast ITN] Amount mismatch for pending order ${paymentId}. Expected: ${expectedAmount}, Got: ${receivedAmount}`
+          );
+          return responseOk;
+        }
+
+        const valid = await validateWithPayFast({ ...pfData });
+        if (!valid) {
+          console.error("[PayFast ITN] PayFast validation failed for pending order:", paymentId);
+          return responseOk;
+        }
+
+        const result = await completeOrderPayfast(
+          supabaseAdmin,
+          paymentId,
+          "payfast-itn",
+          payfastPaymentId
+        );
+
+        if (result.status === "error") {
+          console.error("[PayFast ITN] Failed to create order from pending:", result.message);
+          return responseOk;
+        }
+
+        if (result.status !== "not_found") {
+          const emailResult = await maybeSendPayfastOrderConfirmationEmail(
+            supabaseAdmin,
+            result,
+            "payfast-itn"
+          );
+          if (!emailResult.sent && !emailResult.skipped) {
+            console.error(
+              "[PayFast ITN] Order created but confirmation email failed:",
+              paymentId,
+              emailResult.error
+            );
+          }
+          console.log("[PayFast ITN] Order finalized from pending payment:", paymentId);
+        }
+      } else if (paymentStatus === "FAILED") {
+        await recordFailedOrderPayment(supabaseAdmin, {
+          mPaymentId: paymentId,
+          payfastPaymentId,
+          testSource: "payfast-itn",
+        });
+        console.log("[PayFast ITN] Pending order payment failed, recorded:", paymentId);
+      }
+      // PENDING status: keep pending record
+      return responseOk;
+    }
+
+    // ── Legacy path: order already exists in DB (EFT orders or old PayFast orders) ──
     const { data: orderRow, error: orderErr } = await supabaseAdmin
       .from("orders")
-      .select("total, payment_status")
+      .select("id, total, payment_status")
       .eq("m_payment_id", paymentId)
       .single();
 
     if (orderErr || !orderRow) {
-      console.error("[PayFast ITN] ❌ Order not found:", paymentId);
+      console.error("[PayFast ITN] Order not found:", paymentId);
+      return responseOk;
+    }
+
+    if (orderRow.payment_status === "paid") {
       return responseOk;
     }
 
     const receivedAmount = parseFloat(pfData.amount_gross);
-    const expectedAmount = parseFloat(orderRow.total);
+    const expectedAmount = parseFloat(String(orderRow.total));
 
-    if (Math.abs(receivedAmount - expectedAmount) > 0.01) {
+    if (Number.isNaN(receivedAmount) || Math.abs(receivedAmount - expectedAmount) > 0.01) {
       console.error(
-        `[PayFast ITN] ❌ Amount mismatch. Expected: ${expectedAmount}, Got: ${receivedAmount}`
+        `[PayFast ITN] Amount mismatch for ${paymentId}. Expected: ${expectedAmount}, Got: ${receivedAmount}`
       );
       return responseOk;
     }
-    console.log("[PayFast ITN] ✅ Amount confirmed: R", receivedAmount);
 
-    // ── Step 4: Query PayFast validation endpoint ───────────────────────────
     const valid = await validateWithPayFast({ ...pfData });
     if (!valid) {
-      console.error("[PayFast ITN] ❌ PayFast validation failed");
+      console.error("[PayFast ITN] PayFast validation failed:", paymentId);
       return responseOk;
     }
-    console.log("[PayFast ITN] ✅ PayFast server confirmed payment");
-
-    // ── Step 5: Handle payment status ──────────────────────────────────────
-    const paymentStatus = pfData.payment_status;
 
     switch (paymentStatus) {
-      case "COMPLETE": console.log("[PayFast ITN] 🟢 Payment COMPLETE — fulfilling order:", paymentId);
-        await supabaseAdmin
-          .from("orders")
-          .update({
-            payment_status: "paid",
-            payment_method: "payfast",
-            notes: `PayFast payment confirmed. PF ID: ${pfData.pf_payment_id || ""}`,
-          })
-          .eq("m_payment_id", paymentId);
+      case "COMPLETE": {
+        const result = await completeOrderPayfast(
+          supabaseAdmin,
+          paymentId,
+          "payfast-itn",
+          payfastPaymentId
+        );
+        if (result.status !== "not_found" && result.status !== "error") {
+          const emailResult = await maybeSendPayfastOrderConfirmationEmail(
+            supabaseAdmin,
+            result,
+            "payfast-itn"
+          );
+          if (!emailResult.sent && !emailResult.skipped) {
+            console.error(
+              "[PayFast ITN] Legacy order updated but confirmation email failed:",
+              paymentId,
+              emailResult.error
+            );
+          }
+        }
+        break;
+      }
+
+      case "FAILED":
+        await recordFailedOrderPayment(supabaseAdmin, {
+          mPaymentId: paymentId,
+          payfastPaymentId,
+          testSource: "payfast-itn",
+        });
         break;
 
-      case "FAILED": console.warn("[PayFast ITN] 🔴 Payment FAILED:", paymentId);
-        await supabaseAdmin
-          .from("orders")
-          .update({ payment_status: "failed" })
-          .eq("m_payment_id", paymentId);
-        break;
-
-      case "PENDING": console.warn("[PayFast ITN] 🟡 Payment PENDING:", paymentId);
-        // EFT via PayFast may remain pending — leave status as awaiting_payment
+      case "PENDING":
         break;
 
       default:
-        console.warn("[PayFast ITN] Unknown status:", paymentStatus);
+        break;
     }
   } catch (err) {
-    console.error("[PayFast ITN] Exception:", err);
+    console.error("[PayFast ITN] Exception:", err instanceof Error ? err.message : err);
   }
 
   return responseOk;

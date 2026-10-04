@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import AppImage from "@/components/ui/AppImage";
 import Icon from "@/components/ui/AppIcon";
 import { createClient } from "@/lib/supabase/client";
+import { getHomepageSectionVisibility } from "@/lib/homepage-sections";
 
 interface FeaturedItem {
   id: string;
@@ -19,84 +21,127 @@ interface FeaturedItem {
   orders: number;
 }
 
+const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1594040815648-9251e9baabc8';
+
+function activateReveals(container: HTMLElement) {
+  container.querySelectorAll('.fm-reveal').forEach((el, i) => {
+    setTimeout(() => {
+      el.classList.add('active');
+      el.classList.remove('hidden-init');
+    }, i * 100);
+  });
+}
+
 export default function FeaturedMenu() {
+  const pathname = usePathname();
   const sectionRef = useRef<HTMLDivElement>(null);
   const [featured, setFeatured] = useState<FeaturedItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sectionVisible, setSectionVisible] = useState<boolean | null>(null);
 
-  useEffect(() => {
-    const fetchFeatured = async () => {
-      try {
-        const supabase = createClient();
-        const { data, error, count } = await supabase
+  const loadFeatured = useCallback(async (attempt = 0) => {
+    setLoading(true);
+    try {
+      const supabase = createClient();
+      const [visible, productsResult] = await Promise.all([
+        getHomepageSectionVisibility('customer_favourites', true),
+        supabase
           .from('products')
-          .select('*', { count: 'exact' })
+          .select('id, name, category, price, image_path, tags, badge')
           .eq('featured', true)
-          .eq('available', true)
+          .neq('available', false)
           .order('sort_order', { ascending: true })
-          .limit(5);
+          .limit(5),
+      ]);
 
-        if (error) {
-          console.error('FeaturedMenu fetch error:', error.message, error.code, error.details);
-          setFeatured([]);
-          return;
-        }
-
-        console.log('FeaturedMenu: query returned', count, 'total,', data?.length, 'rows:', data);
-
-        const items = await Promise.all(
-          (data || []).map(async (p) => {
-            let imageUrl = 'https://images.unsplash.com/photo-1594040815648-9251e9baabc8';
-            if (p.image_path) {
-              const { data: urlData } = supabase.storage
-                .from('product-images')
-                .getPublicUrl(p.image_path);
-              imageUrl = urlData?.publicUrl || imageUrl;
-            }
-            return {
-              id: p.id,
-              name: p.name,
-              category: p.category,
-              price: p.price,
-              image: imageUrl,
-              imageAlt: `${p.name} - ${p.category}`,
-              tags: p.tags || [],
-              badge: p.badge || null,
-              rating: 4.8,
-              orders: 0,
-            } as FeaturedItem;
-          })
-        );
-        setFeatured(items);
-      } catch (err) {
-        console.log('FeaturedMenu fetch error:', err);
+      setSectionVisible(visible);
+      if (!visible) {
         setFeatured([]);
-      } finally {
         setLoading(false);
+        return;
       }
-    };
-    fetchFeatured();
+
+      const { data, error } = productsResult;
+      if (error) {
+        const msg = error.message?.toLowerCase() ?? '';
+        const isSchemaCache =
+          msg.includes('schema cache') ||
+          msg.includes('could not query the database') ||
+          msg.includes('retrying');
+        // Retry up to 3 times on schema cache errors (transient Supabase cold-start issue)
+        if (attempt < 3 && isSchemaCache) {
+          setTimeout(() => loadFeatured(attempt + 1), 3000);
+          return; // keep loading=true while retrying
+        }
+        console.error('FeaturedMenu fetch error:', error.message);
+        setFeatured([]);
+        setLoading(false);
+        return;
+      }
+
+      const items = (data || []).map((p) => {
+        let imageUrl = FALLBACK_IMAGE;
+        if (p.image_path) {
+          const { data: urlData } = supabase.storage.from('product-images').getPublicUrl(p.image_path);
+          imageUrl = urlData?.publicUrl || FALLBACK_IMAGE;
+        }
+        return {
+          id: p.id,
+          name: p.name,
+          category: p.category,
+          price: p.price,
+          image: imageUrl,
+          imageAlt: `${p.name} - ${p.category}`,
+          tags: p.tags || [],
+          badge: p.badge || null,
+          rating: 4.8,
+          orders: 0,
+        } as FeaturedItem;
+      });
+      setFeatured(items);
+      setLoading(false);
+    } catch {
+      setFeatured([]);
+      setLoading(false);
+    }
   }, []);
 
+  // Load on mount and when user navigates back to the homepage
   useEffect(() => {
+    loadFeatured();
+  }, [loadFeatured, pathname]);
+
+  // Reveal cards AFTER they render — observer on mount ran too early (cards were still loading)
+  useEffect(() => {
+    if (loading || featured.length === 0 || !sectionRef.current) return;
+
+    const section = sectionRef.current;
+    const rect = section.getBoundingClientRect();
+    const alreadyInView = rect.top < window.innerHeight * 0.95 && rect.bottom > 0;
+
+    if (alreadyInView) {
+      activateReveals(section);
+      return;
+    }
+
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
-            entry.target.querySelectorAll(".fm-reveal").forEach((el, i) => {
-              setTimeout(() => {
-                el.classList.add("active");
-                el.classList.remove("hidden-init");
-              }, i * 100);
-            });
+            activateReveals(entry.target as HTMLElement);
+            observer.disconnect();
           }
         });
       },
       { threshold: 0.05 }
     );
-    if (sectionRef?.current) observer?.observe(sectionRef?.current);
-    return () => observer?.disconnect();
-  }, []);
+    observer.observe(section);
+    return () => observer.disconnect();
+  }, [loading, featured]);
+
+  if (sectionVisible === false) return null;
+
+  const showSkeleton = sectionVisible === null || loading;
 
   return (
     <section ref={sectionRef} className="py-24 md:py-32 bg-[#EDE7DA] overflow-hidden">
@@ -105,7 +150,7 @@ export default function FeaturedMenu() {
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
           <div>
             <p className="text-xs font-mono uppercase tracking-widest text-[#C4622D] mb-3">
-              02 / Customer Favourites
+              / Customer Favourites
             </p>
             <h2 className="font-display text-4xl md:text-6xl font-semibold tracking-tight text-[#1A1612] leading-tight">
               Menu
@@ -121,8 +166,8 @@ export default function FeaturedMenu() {
           </Link>
         </div>
 
-        {/* Loading skeletons */}
-        {loading && (
+        {/* Loading skeletons — also while section visibility is being checked */}
+        {showSkeleton && (
           <div className="flex md:grid md:grid-cols-5 gap-5 overflow-x-auto md:overflow-visible pb-4 md:pb-0 -mx-4 md:mx-0 px-4 md:px-0">
             {Array.from({ length: 5 }).map((_, i) => (
               <div
@@ -141,14 +186,14 @@ export default function FeaturedMenu() {
         )}
 
         {/* Empty state */}
-        {!loading && featured.length === 0 && (
+        {!showSkeleton && featured.length === 0 && (
           <p className="text-[#8C8278] text-sm">
             Our featured menu items will appear here shortly.
           </p>
         )}
 
         {/* Cards */}
-        {!loading && featured.length > 0 && (
+        {!showSkeleton && featured.length > 0 && (
           <div className="flex md:grid md:grid-cols-5 gap-5 overflow-x-auto md:overflow-visible pb-4 md:pb-0 -mx-4 md:mx-0 px-4 md:px-0 snap-x snap-mandatory">
             {featured?.map((item) => (
               <div

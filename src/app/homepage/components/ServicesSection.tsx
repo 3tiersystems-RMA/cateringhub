@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import AppImage from "@/components/ui/AppImage";
 import Icon from "@/components/ui/AppIcon";
+import { getHomepageSectionVisibility } from "@/lib/homepage-sections";
 
 // Currency: South African Rand (R)
 const services = [
@@ -28,7 +29,7 @@ const services = [
   description:
   "Chef-crafted meals portioned for your household, delivered every Sunday. Eat well without the effort.",
   image:
-  "https://img.rocket.new/generatedImages/rocket_gen_img_126780fad-1767071716470.png",
+  "https://img.rocket.new/generatedImages/rocket_gen_img_1be60ee83-1767672039305.png",
   imageAlt: "Neatly arranged meal prep containers with colorful healthy food",
   badge: "New",
   badgeColor: "bg-[#D4A853] text-[#1A1612]",
@@ -56,6 +57,11 @@ const services = [
 
 export default function ServicesSection() {
   const sectionRef = useRef<HTMLDivElement>(null);
+  const [sectionVisible, setSectionVisible] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    getHomepageSectionVisibility('what_we_do', true)?.then(setSectionVisible);
+  }, []);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -77,14 +83,16 @@ export default function ServicesSection() {
     return () => observer?.disconnect();
   }, []);
 
+  if (sectionVisible === false) return null;
+
   return (
-    <section id="services" ref={sectionRef} className="py-24 md:py-32 bg-[#F5F0E8]">
+    <section id="services" ref={sectionRef} className="py-24 md:py-32 bg-[#e9e0cf]">
       <div className="max-w-7xl mx-auto px-4 md:px-8">
         {/* Header */}
         <div className="srv-reveal reveal hidden-init flex flex-col md:flex-row md:items-end justify-between gap-6 mb-14">
           <div>
             <p className="text-xs font-mono uppercase tracking-widest text-[#C4622D] mb-3">
-              01 / What We Do
+              / What We Do
             </p>
             <h2 className="font-display text-4xl md:text-6xl font-semibold tracking-tight text-[#1A1612] leading-tight">
               Three Ways to

@@ -6,9 +6,10 @@ import { createClient } from '@/lib/supabase/client';
 import AppLogo from '@/components/ui/AppLogo';
 import AppIcon from '@/components/ui/AppIcon';
 import Link from 'next/link';
+import { calculateOrderTotal, isFulfillmentStatusLocked } from '@/lib/order-totals';
 
-type PaymentStatus = 'pending' | 'paid' | 'failed' | 'awaiting_payment' | 'refunded' | 'discounted';
-type FulfillmentStatus = 'new' | 'confirmed' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
+type PaymentStatus = 'pending' | 'paid' | 'failed' | 'awaiting_payment' | 'refunded' | 'discounted' | 'unpaid';
+type FulfillmentStatus = 'new' | 'confirmed' | 'preparing' | 'ready' | 'delivered' | 'collected' | 'cancelled';
 
 interface OrderItem {
   id: string;
@@ -55,6 +56,7 @@ const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
   awaiting_payment: 'Awaiting Payment',
   refunded: 'Refunded',
   discounted: 'Discounted',
+  unpaid: 'Unpaid',
 };
 
 const PAYMENT_STATUS_COLORS: Record<PaymentStatus, string> = {
@@ -64,6 +66,7 @@ const PAYMENT_STATUS_COLORS: Record<PaymentStatus, string> = {
   awaiting_payment: 'bg-blue-100 text-blue-700 border-blue-200',
   refunded: 'bg-gray-100 text-gray-600 border-gray-200',
   discounted: 'bg-purple-100 text-purple-700 border-purple-200',
+  unpaid: 'bg-red-100 text-red-700 border-red-200',
 };
 
 const FULFILLMENT_STATUS_LABELS: Record<FulfillmentStatus, string> = {
@@ -72,6 +75,7 @@ const FULFILLMENT_STATUS_LABELS: Record<FulfillmentStatus, string> = {
   preparing: 'Preparing',
   ready: 'Ready',
   delivered: 'Delivered',
+  collected: 'Collected',
   cancelled: 'Cancelled',
 };
 
@@ -81,11 +85,12 @@ const FULFILLMENT_STATUS_COLORS: Record<FulfillmentStatus, string> = {
   preparing: 'bg-orange-100 text-orange-700 border-orange-200',
   ready: 'bg-teal-100 text-teal-700 border-teal-200',
   delivered: 'bg-green-100 text-green-700 border-green-200',
+  collected: 'bg-teal-600 text-white border-teal-600',
   cancelled: 'bg-red-100 text-red-600 border-red-200',
 };
 
-const FULFILLMENT_OPTIONS: FulfillmentStatus[] = ['new', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled'];
-const PAYMENT_OPTIONS: PaymentStatus[] = ['awaiting_payment', 'paid', 'refunded', 'pending', 'failed', 'discounted'];
+const FULFILLMENT_OPTIONS: FulfillmentStatus[] = ['new', 'confirmed', 'preparing', 'ready', 'delivered', 'collected', 'cancelled'];
+const PAYMENT_OPTIONS: PaymentStatus[] = ['awaiting_payment', 'paid', 'refunded', 'pending', 'failed', 'discounted', 'unpaid'];
 
 export default function StaffOrdersPage() {
   const router = useRouter();
@@ -134,7 +139,7 @@ export default function StaffOrdersPage() {
         .from('user_profiles')
         .select('role')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
       if (profile?.role === 'super_admin') {
         setIsSuperAdmin(true);
       }
@@ -188,7 +193,7 @@ export default function StaffOrdersPage() {
         .from('orders')
         .select('payment_status');
       // Start with the full known list (including 'discounted')
-      const allStatuses: PaymentStatus[] = ['awaiting_payment', 'paid', 'refunded', 'pending', 'failed', 'discounted'];
+      const allStatuses: PaymentStatus[] = ['awaiting_payment', 'paid', 'refunded', 'pending', 'failed', 'discounted', 'unpaid'];
       if (ordersData) {
         // Append any future enum values found in DB that aren't in our list
         ordersData.forEach((o) => {
@@ -271,6 +276,8 @@ export default function StaffOrdersPage() {
   };
 
   const handleFulfillmentUpdate = async (orderId: string, newStatus: FulfillmentStatus) => {
+    const existing = orders.find((o) => o.id === orderId);
+    if (existing && isFulfillmentStatusLocked(existing.fulfillment_status)) return;
     setOrderUpdateField(orderId, { fulfillmentSaving: true, fulfillmentSuccess: false, fulfillmentError: '' });
     try {
       const updatePayload: Record<string, unknown> = { fulfillment_status: newStatus };
@@ -356,7 +363,7 @@ export default function StaffOrdersPage() {
         body: JSON.stringify({}),
       });
       const data = await res.json();
-      const outstandingCount = orders.filter((o) => o.payment_status === 'awaiting_payment').length;
+      const outstandingCount = orders.filter((o) => o.payment_status === 'unpaid').length;
       setAllReminderResult({ sent: data.sent ?? 0, total: outstandingCount });
       setTimeout(() => setAllReminderResult(null), 5000);
     } catch {
@@ -392,7 +399,7 @@ export default function StaffOrdersPage() {
     `R${Number(amount || 0).toFixed(2)}`;
 
   return (
-    <div className="min-h-screen bg-[#F5F0E8]">
+    <div className="min-h-screen bg-[#e9e0cf]">
       {/* Header */}
       <header className="bg-[#1A1612] border-b border-[#3D342D] px-6 py-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
@@ -445,7 +452,7 @@ export default function StaffOrdersPage() {
           </div>
           <div className="flex items-center gap-2">
             {/* Send All Reminders */}
-            {orders.some((o) => o.payment_status === 'awaiting_payment') && (
+            {orders.some((o) => o.payment_status === 'unpaid') && (
               <button
                 onClick={handleSendAllReminders}
                 disabled={sendingAllReminders}
@@ -475,6 +482,49 @@ export default function StaffOrdersPage() {
           </div>
         </div>
 
+        {/* Payment Status Stats */}
+        <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-3 mb-3">
+          {(Object.keys(PAYMENT_STATUS_LABELS) as PaymentStatus[]).map((status) => {
+            const count = orders.filter((o) => o.payment_status === status).length;
+            const colorMap: Record<PaymentStatus, string> = {
+              pending: 'text-amber-600',
+              paid: 'text-green-600',
+              failed: 'text-red-600',
+              awaiting_payment: 'text-blue-600',
+              refunded: 'text-gray-500',
+              discounted: 'text-purple-600',
+              unpaid: 'text-red-700',
+            };
+            return (
+              <div key={status} className="bg-white border border-[#E8DDD0] rounded-xl p-4">
+                <p className="text-xs text-[#8C7B6B] uppercase tracking-wide font-medium leading-tight">{PAYMENT_STATUS_LABELS[status]}</p>
+                <p className={`text-2xl font-bold mt-1 ${colorMap[status] ?? 'text-[#2C2420]'}`}>{count}</p>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Fulfillment Status Stats */}
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 mb-6">
+          {(Object.keys(FULFILLMENT_STATUS_LABELS) as FulfillmentStatus[]).map((status) => {
+            const count = orders.filter((o) => o.fulfillment_status === status).length;
+            const colorMap: Record<FulfillmentStatus, string> = {
+              new: 'text-blue-600',
+              confirmed: 'text-purple-600',
+              preparing: 'text-orange-500',
+              ready: 'text-teal-600',
+              delivered: 'text-green-600',
+              cancelled: 'text-red-600',
+            };
+            return (
+              <div key={status} className="bg-white border border-[#E8DDD0] rounded-xl p-4">
+                <p className="text-xs text-[#8C7B6B] uppercase tracking-wide font-medium leading-tight">{FULFILLMENT_STATUS_LABELS[status]}</p>
+                <p className={`text-2xl font-bold mt-1 ${colorMap[status]}`}>{count}</p>
+              </div>
+            );
+          })}
+        </div>
+
         {/* Filters */}
         <div className="bg-white rounded-2xl border border-[#DDD5C8] p-4 mb-6">
           <div className="flex flex-col sm:flex-row gap-3">
@@ -486,8 +536,18 @@ export default function StaffOrdersPage() {
                 placeholder="Search by customer name, email, or order ID..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-2.5 border border-[#DDD5C8] rounded-xl text-sm text-[#1A1612] placeholder-[#B5ADA5] focus:outline-none focus:border-[#C4622D] transition-colors"
+                className="w-full pl-9 pr-10 py-2.5 border border-[#DDD5C8] rounded-xl text-sm text-[#1A1612] placeholder-[#B5ADA5] focus:outline-none focus:border-[#C4622D] transition-colors"
               />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#B5ADA5] hover:text-[#5C5347] transition-colors"
+                  aria-label="Clear search"
+                >
+                  <AppIcon name="XMarkIcon" size={16} />
+                </button>
+              )}
             </div>
             {/* Payment Filter */}
             <select
@@ -546,7 +606,7 @@ export default function StaffOrdersPage() {
         ) : (
           <div className="bg-white rounded-2xl border border-[#DDD5C8] overflow-hidden">
             {/* Table Header */}
-            <div className="hidden lg:grid grid-cols-[1fr_1.5fr_1fr_minmax(80px,auto)_minmax(140px,auto)_minmax(140px,auto)_minmax(80px,auto)] gap-4 px-5 py-3 bg-[#F5F0E8] border-b border-[#DDD5C8] text-xs font-semibold text-[#8C8278] uppercase tracking-wider">
+            <div className="hidden lg:grid grid-cols-[1fr_1.5fr_1fr_minmax(80px,auto)_minmax(140px,auto)_minmax(140px,auto)_minmax(80px,auto)] gap-4 px-5 py-3 bg-[#e9e0cf] border-b border-[#DDD5C8] text-xs font-semibold text-[#8C8278] uppercase tracking-wider">
               <span className="text-left pl-[22px]">Order ID</span>
               <span className="text-left">Customer</span>
               <span className="text-left">Items</span>
@@ -605,7 +665,7 @@ export default function StaffOrdersPage() {
 
                       {/* Total */}
                       <div className="flex items-center">
-                        <span className="text-sm font-bold text-[#1A1612]">{formatCurrency(order.total)}</span>
+                        <span className="text-sm font-bold text-[#1A1612]">{formatCurrency(calculateOrderTotal(order))}</span>
                       </div>
 
                       {/* Payment Status — editable dropdown */}
@@ -614,8 +674,8 @@ export default function StaffOrdersPage() {
                           <select
                             value={order.payment_status}
                             onChange={(e) => handlePaymentUpdate(order.id, e.target.value as PaymentStatus)}
-                            disabled={updateState.paymentSaving}
-                            className={`text-xs font-semibold border rounded-full px-2.5 py-1 focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30 transition-colors cursor-pointer disabled:opacity-50 ${PAYMENT_STATUS_COLORS[order.payment_status]}`}
+                            disabled={updateState.paymentSaving || order.payment_status === 'paid' || order.payment_status === 'refunded'}
+                            className={`text-xs font-semibold border rounded-full px-2.5 py-1 focus:outline-none focus:ring-2 focus:ring-[#C4622D]/30 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${PAYMENT_STATUS_COLORS[order.payment_status]}`}
                           >
                             {PAYMENT_OPTIONS.map((s) => (
                               <option key={s} value={s}>{PAYMENT_STATUS_LABELS[s]}</option>
@@ -642,12 +702,12 @@ export default function StaffOrdersPage() {
                       {/* Fulfillment Status — editable dropdown */}
                       <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                         <div className="flex flex-col items-start gap-0.5">
-                          {order.fulfillment_status === 'delivered' && !isSuperAdmin ? (
+                          {(order.fulfillment_status === 'delivered' || order.fulfillment_status === 'cancelled') ? (
                             <div className="flex items-center gap-1.5">
-                              <span className={`text-xs font-semibold border rounded-full px-2.5 py-1 ${FULFILLMENT_STATUS_COLORS['delivered']}`}>
-                                Delivered
+                              <span className={`text-xs font-semibold border rounded-full px-2.5 py-1 ${FULFILLMENT_STATUS_COLORS[order.fulfillment_status]}`}>
+                                {FULFILLMENT_STATUS_LABELS[order.fulfillment_status]}
                               </span>
-                              <span title="Only Super Admin can change a Delivered order's fulfillment status">
+                              <span title={`Order is ${FULFILLMENT_STATUS_LABELS[order.fulfillment_status]} — fulfillment status is locked`}>
                                 <AppIcon name="LockClosedIcon" size={12} className="text-[#B5ADA5]" />
                               </span>
                             </div>
@@ -693,9 +753,9 @@ export default function StaffOrdersPage() {
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 pt-4">
                           {/* Customer Details */}
                           <div className="bg-white rounded-xl border border-[#DDD5C8] p-4">
-                            <h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                            <h4 style={{ color: '#8C8278' }} className="text-xs font-semibold uppercase tracking-wider mb-3 flex items-center gap-1.5">
                               <AppIcon name="UserIcon" size={13} />
-                              Customer Details
+                              <span>Customer Details</span>
                             </h4>
                             <div className="space-y-2">
                               <div>
@@ -748,9 +808,9 @@ export default function StaffOrdersPage() {
 
                           {/* Items Ordered */}
                           <div className="bg-white rounded-xl border border-[#DDD5C8] p-4">
-                            <h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                            <h4 style={{ color: '#8C8278' }} className="text-xs font-semibold uppercase tracking-wider mb-3 flex items-center gap-1.5">
                               <AppIcon name="ShoppingBagIcon" size={13} />
-                              Items Ordered
+                              <span>Items Ordered</span>
                             </h4>
                             {Array.isArray(order.items) && order.items.length > 0 ? (
                               <div className="space-y-2">
@@ -776,9 +836,9 @@ export default function StaffOrdersPage() {
 
                           {/* Payment Summary */}
                           <div className="bg-white rounded-xl border border-[#DDD5C8] p-4">
-                            <h4 className="text-xs font-semibold text-[#8C8278] uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                            <h4 style={{ color: '#8C8278' }} className="text-xs font-semibold uppercase tracking-wider mb-3 flex items-center gap-1.5">
                               <AppIcon name="CreditCardIcon" size={13} />
-                              Payment Summary
+                              <span>Payment Summary</span>
                             </h4>
                             <div className="space-y-2">
                               <div className="flex justify-between text-sm">
@@ -801,7 +861,7 @@ export default function StaffOrdersPage() {
                               </div>
                               <div className="flex justify-between text-sm font-bold border-t border-[#EDE7DA] pt-2">
                                 <span className="text-[#1A1612]">Total</span>
-                                <span className="text-[#C4622D]">{formatCurrency(order.total)}</span>
+                                <span className="text-[#C4622D]">{formatCurrency(calculateOrderTotal(order))}</span>
                               </div>
                               <div className="pt-2 space-y-1.5">
                                 <div>
@@ -817,8 +877,8 @@ export default function StaffOrdersPage() {
                                   </div>
                                 )}
                               </div>
-                              {/* Send Payment Reminder — only for awaiting_payment orders */}
-                              {order.payment_status === 'awaiting_payment' && (
+                              {/* Send Payment Reminder — only for unpaid orders */}
+                              {order.payment_status === 'unpaid' && (
                                 <div className="pt-3 border-t border-[#EDE7DA]">
                                   <button
                                     onClick={(e) => { e.stopPropagation(); handleSendReminder(order.id); }}

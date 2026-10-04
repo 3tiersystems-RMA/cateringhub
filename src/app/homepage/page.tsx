@@ -2,13 +2,14 @@ import type { Metadata } from "next";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import HeroSection from "./components/HeroSection";
-import MarqueeBanner from "./components/MarqueeBanner";
 import ServicesSection from "./components/ServicesSection";
 import FeaturedMenu from "./components/FeaturedMenu";
 import TestimonialSection from "./components/TestimonialSection";
 import HowItWorksSection from "./components/HowItWorksSection";
 import ContactBanner from "./components/ContactBanner";
 import AuthErrorHandler from "./components/AuthErrorHandler";
+import GallerySection from "./components/GallerySection";
+import CartSidebarWrapper from "./components/CartSidebarWrapper";
 import { APP_NAME } from "@/lib/constants";
 
 export const metadata: Metadata = {
@@ -23,13 +24,14 @@ export default function Homepage() {
     <>
       <AuthErrorHandler />
       <Header />
+      <CartSidebarWrapper />
       <main>
         <HeroSection />
-        <MarqueeBanner />
         <ServicesSection />
         <FeaturedMenu />
         <TestimonialSection />
         <HowItWorksSection />
+        <GallerySection />
         <ContactBanner />
       </main>
       <Footer />

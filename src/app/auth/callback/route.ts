@@ -4,7 +4,7 @@ import { type NextRequest } from 'next/server';
 
 const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL ||
-  'https://cateringhub-rk3rj04.public.builtwithrocket.new';
+  'https://cardamomkitchen.co.za';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -12,6 +12,7 @@ export async function GET(request: NextRequest) {
   const token_hash = searchParams.get('token_hash');
   const type = searchParams.get('type');
   const next = searchParams.get('next') ?? '/staff/workspace';
+  const flowType = type || 'email';
 
   const supabase = await createClient();
 
@@ -23,9 +24,11 @@ export async function GET(request: NextRequest) {
     });
 
     if (!error) {
-      // Invite and recovery both go to set-password page
-      if (type === 'recovery' || type === 'invite') {
-        return NextResponse.redirect(`${SITE_URL}/staff/reset-password`);
+      if (type === 'invite') {
+        return NextResponse.redirect(`${SITE_URL}/staff/reset-password?type=invite`);
+      }
+      if (type === 'recovery') {
+        return NextResponse.redirect(`${SITE_URL}/staff/reset-password?type=recovery`);
       }
       return NextResponse.redirect(`${SITE_URL}${next}`);
     }
@@ -35,13 +38,18 @@ export async function GET(request: NextRequest) {
   if (code) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
-      if (type === 'recovery' || type === 'invite') {
-        return NextResponse.redirect(`${SITE_URL}/staff/reset-password`);
+      if (flowType === 'invite') {
+        return NextResponse.redirect(`${SITE_URL}/staff/reset-password?type=invite`);
+      }
+      if (flowType === 'recovery') {
+        return NextResponse.redirect(`${SITE_URL}/staff/reset-password?type=recovery`);
       }
       return NextResponse.redirect(`${SITE_URL}${next}`);
     }
   }
 
-  // Both flows failed — redirect to login with error indicator
-  return NextResponse.redirect(`${SITE_URL}/staff/login?error=link_expired`);
+  // Forward to client confirm page (handles hash tokens and retries query params)
+  const confirmUrl = new URL(`${SITE_URL}/auth/confirm`);
+  searchParams.forEach((value, key) => confirmUrl.searchParams.set(key, value));
+  return NextResponse.redirect(confirmUrl.toString());
 }

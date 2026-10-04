@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import AppImage from "@/components/ui/AppImage";
 import Icon from "@/components/ui/AppIcon";
 import { createClient } from "@/lib/supabase/client";
+import { getHomepageSectionVisibility } from "@/lib/homepage-sections";
 
 interface Testimonial {
   id: string;
@@ -79,6 +80,11 @@ export default function TestimonialSection() {
   const [active, setActive] = useState(0);
   const [testimonials, setTestimonials] = useState<Testimonial[]>(FALLBACK_TESTIMONIALS);
   const sectionRef = useRef<HTMLDivElement>(null);
+  const [sectionVisible, setSectionVisible] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    getHomepageSectionVisibility('testimonials', true).then(setSectionVisible);
+  }, []);
 
   useEffect(() => {
     const fetchTestimonials = async () => {
@@ -105,6 +111,8 @@ export default function TestimonialSection() {
   }, [testimonials.length]);
 
   const t = testimonials?.[active];
+
+  if (sectionVisible === false) return null;
 
   return (
     <section

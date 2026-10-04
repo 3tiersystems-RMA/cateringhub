@@ -41,13 +41,14 @@ const SOCIAL_ICONS: { platform: string; label: string; Icon: React.FC }[] = [
   { platform: 'twitter',   label: 'X / Twitter', Icon: XIcon },
   { platform: 'instagram', label: 'Instagram', Icon: InstagramIcon },
   { platform: 'custom',    label: APP_NAME,    Icon: () => (
-    <img src="/favicon.ico" alt={APP_NAME} className="w-4 h-4 object-contain" />
+    <img src="/assets/images/Luv_Cape_Town-1779196261692.png" alt="Luv Cape Town" className="w-4 h-4 object-contain rounded-full" />
   )},
 ];
 
 export default function Footer() {
   const [socialLinks, setSocialLinks] = useState<SocialLink[]>([]);
   const [currentYear, setCurrentYear] = useState<number>(2026);
+  const [isStaffMember, setIsStaffMember] = useState(false);
   const supabase = createClient();
   const pathname = usePathname();
 
@@ -66,13 +67,35 @@ export default function Footer() {
     load();
   }, []);
 
+  useEffect(() => {
+    const checkStaffAccess = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setIsStaffMember(false);
+        return;
+      }
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('role')
+        .eq('id', user.id)
+        .maybeSingle();
+      setIsStaffMember(!!profile?.role);
+    };
+    checkStaffAccess();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+      checkStaffAccess();
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
   const getUrl = (platform: string) =>
     socialLinks.find(s => s.platform === platform)?.url || '#';
 
   const isHomepage = pathname === '/homepage' || pathname === '/';
 
   return (
-    <footer className="border-t border-[#DDD5C8] bg-[#F5F0E8]">
+    <footer className="border-t border-[#DDD5C8] bg-[#e9e0cf]">
       <div className="max-w-7xl mx-auto px-4 md:px-8 py-16">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-8">
           {/* Brand */}
@@ -95,15 +118,14 @@ export default function Footer() {
             <Link href="/products" className="hover:text-[#C4622D] transition-colors">
               Menu & Order
             </Link>
-            <Link href="/weekly-menu" className="hover:text-[#C4622D] transition-colors">
-              Weekly Menu
-            </Link>
-            <a href={isHomepage ? '#services' : '/homepage#services'} className="hover:text-[#C4622D] transition-colors">
-              Services
-            </a>
             <Link href="/contact" className="hover:text-[#C4622D] transition-colors">
               Contact
             </Link>
+            {isStaffMember && (
+              <Link href="/staff/login" className="hover:text-[#C4622D] transition-colors">
+                Admin Portal
+              </Link>
+            )}
           </nav>
 
           {/* Social + Copyright */}
@@ -125,7 +147,7 @@ export default function Footer() {
               ))}
             </div>
             <p className="text-xs text-[#B5ADA5]">
-              © {currentYear} {APP_NAME} · Privacy · Terms | Powered by SERiTi Digital Studio
+              © {currentYear} {APP_NAME} · <Link href="/privacy" className="hover:text-[#C4622D] transition-colors">Privacy</Link> · <Link href="/terms" className="hover:text-[#C4622D] transition-colors">Terms</Link> | Powered by SERiTi Digital Studio
             </p>
           </div>
         </div>

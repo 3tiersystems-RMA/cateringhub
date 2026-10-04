@@ -17,6 +17,8 @@ interface AppImageProps {
     sizes?: string;
     onClick?: () => void;
     fallbackSrc?: string;
+    loading?: 'lazy' | 'eager';
+    decoding?: 'async' | 'sync' | 'auto';
     [key: string]: any;
 }
 
@@ -34,6 +36,8 @@ function AppImage({
     sizes,
     onClick,
     fallbackSrc = '/assets/images/no_image.png',
+    loading = 'lazy',
+    decoding = 'async',
     ...props
 }: AppImageProps) {
     const [imageSrc, setImageSrc] = useState(src);
@@ -76,6 +80,9 @@ function AppImage({
                         onError={handleError}
                         onLoad={handleLoad}
                         onClick={onClick}
+                        loading={priority ? 'eager' : loading}
+                        decoding={decoding}
+                        fetchPriority={priority ? 'high' : 'auto'}
                         style={imgStyle}
                         {...props}
                     />
@@ -91,6 +98,9 @@ function AppImage({
                 onError={handleError}
                 onLoad={handleLoad}
                 onClick={onClick}
+                loading={priority ? 'eager' : loading}
+                decoding={decoding}
+                fetchPriority={priority ? 'high' : 'auto'}
                 style={imgStyle}
                 {...props}
             />

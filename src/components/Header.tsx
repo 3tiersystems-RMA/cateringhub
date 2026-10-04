@@ -9,21 +9,23 @@ import Icon from "@/components/ui/AppIcon";
 const navLinks = [
   { label: "Home", href: "/homepage" },
   { label: "Menu & Order", href: "/products" },
-  { label: "Meal Vouchers", href: "/vouchers" },
 ];
 
 const eventsSubLinks = [
-  { label: "Current Events", href: "/events#current" },
-  { label: "Past Events", href: "/events#past" },
+  { label: "Current", href: "/events#current" },
+  { label: "Past", href: "/events#past" },
 ];
 
 const customerProfileSubLinks = [
   { label: "View Profile", href: "/customer-profile" },
   { label: "Order History", href: "/order-history" },
+  { label: "Booking Query", href: "/booking-query" },
+  { label: "Voucher Dashboard", href: "/customer-dashboard" },
 ];
 
 export default function Header() {
   const pathname = usePathname();
+  const [mounted, setMounted] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
@@ -32,6 +34,10 @@ export default function Header() {
   const [mobileEventsOpen, setMobileEventsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const eventsDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -53,13 +59,13 @@ export default function Header() {
   }, []);
 
   const isCustomerProfileActive =
-    pathname === "/customer-profile" || pathname === "/order-history";
-  const isEventsActive = pathname === "/events";
+    mounted && (pathname === "/customer-profile" || pathname === "/order-history" || pathname === "/booking-query" || pathname === "/customer-dashboard");
+  const isEventsActive = mounted && pathname === "/events";
 
   return (
     <header
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
-        scrolled
+        mounted && scrolled
           ? "bg-black/95 backdrop-blur-xl shadow-warm border-b border-[#333]"
           : "bg-black"
       }`}
@@ -68,12 +74,17 @@ export default function Header() {
         {/* Logo */}
         <Link href="/homepage" className="flex items-center gap-2 group">
           <AppLogo size={80} />
+          <img
+            src="/assets/images/SANHA_CK_Transparent-1774211701949.png"
+            alt="SANHA Halaal certified logo"
+            className="h-12 w-auto object-contain"
+          />
         </Link>
 
         {/* Desktop Nav */}
         <nav className="hidden md:flex items-center gap-8">
           {navLinks?.map((link) => {
-            const isActive = pathname === link?.href;
+            const isActive = mounted && pathname === link?.href;
             return (
               <Link
                 key={link?.href}
@@ -104,7 +115,7 @@ export default function Header() {
                   : "text-[#D4CFC9] hover:text-white"
               }`}
             >
-              Events
+              Classes & Events
               <Icon
                 name={eventsDropdownOpen ? "ChevronUpIcon" : "ChevronDownIcon"}
                 size={14}
@@ -128,7 +139,7 @@ export default function Header() {
                   }`}
                 >
                   <Icon name="CalendarDaysIcon" size={15} />
-                  Current Events
+                  Current
                 </Link>
                 <Link
                   href="/events?tab=past"
@@ -136,7 +147,7 @@ export default function Header() {
                   className="flex items-center gap-2.5 px-4 py-3 text-sm transition-colors text-[#D4CFC9] hover:bg-[#1E1E1E] hover:text-white"
                 >
                   <Icon name="ClockIcon" size={15} />
-                  Past Events
+                  Past
                 </Link>
               </div>
             )}
@@ -181,7 +192,7 @@ export default function Header() {
                       }`}
                     >
                       <Icon
-                        name={sub.label === "View Profile" ? "UserCircleIcon" : "ClipboardDocumentListIcon"}
+                        name={sub.label === "View Profile" ? "UserCircleIcon" : sub.label === "Voucher Dashboard" ? "TicketIcon" : sub.label === "Booking Query" ? "CalendarDaysIcon" : "ClipboardDocumentListIcon"}
                         size={15}
                       />
                       {sub.label}
@@ -244,7 +255,7 @@ export default function Header() {
                 isEventsActive ? "text-[#C4622D]" : "text-[#D4CFC9]"
               }`}
             >
-              Events
+              Classes & Events
               <Icon
                 name={mobileEventsOpen ? "ChevronUpIcon" : "ChevronDownIcon"}
                 size={16}
@@ -258,7 +269,7 @@ export default function Header() {
                   className="flex items-center gap-2 py-2 text-sm transition-colors text-[#A09890] hover:text-white"
                 >
                   <Icon name="CalendarDaysIcon" size={14} />
-                  Current Events
+                  Current
                 </Link>
                 <Link
                   href="/events?tab=past"
@@ -266,7 +277,7 @@ export default function Header() {
                   className="flex items-center gap-2 py-2 text-sm transition-colors text-[#A09890] hover:text-white"
                 >
                   <Icon name="ClockIcon" size={14} />
-                  Past Events
+                  Past
                 </Link>
               </div>
             )}
@@ -300,7 +311,7 @@ export default function Header() {
                       }`}
                     >
                       <Icon
-                        name={sub.label === "View Profile" ? "UserCircleIcon" : "ClipboardDocumentListIcon"}
+                        name={sub.label === "View Profile" ? "UserCircleIcon" : sub.label === "Voucher Dashboard" ? "TicketIcon" : sub.label === "Booking Query" ? "CalendarDaysIcon" : "ClipboardDocumentListIcon"}
                         size={14}
                       />
                       {sub.label}

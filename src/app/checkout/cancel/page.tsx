@@ -1,23 +1,51 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { Suspense } from "react";
+import { Suspense, useEffect, useRef } from "react";
 import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import Icon from "@/components/ui/AppIcon";
+import { parseCheckoutReturnParams } from "@/lib/checkout-return";
+
+const PENDING_ORDER_REF_KEY = "order_pending_m_payment_id";
 
 function CancelContent() {
   const searchParams = useSearchParams();
-  // PayFast returns m_payment_id on cancel; fallback to order_id
-  const orderId =
-    searchParams?.get("m_payment_id") ||
-    searchParams?.get("order_id") ||
-    "";
-  const isPayFast = !!searchParams?.get("m_payment_id");
+  const { orderId, isPayFastReturn: isPayFast } =
+    parseCheckoutReturnParams(searchParams);
+
+  const failedRecordedRef = useRef(false);
+
+  useEffect(() => {
+    const mPaymentId =
+      orderId ||
+      (() => {
+        try {
+          return sessionStorage.getItem(PENDING_ORDER_REF_KEY)?.trim() || "";
+        } catch {
+          return "";
+        }
+      })();
+
+    if (!isPayFast || !mPaymentId || failedRecordedRef.current) return;
+    failedRecordedRef.current = true;
+
+    fetch("/api/bookings/record-failed-payment", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        bookingType: "order",
+        mPaymentId,
+        paymentStatus: searchParams?.get("payment_status") || "CANCELLED",
+      }),
+    }).catch(() => {
+      // Non-blocking — ITN may still record the failure
+    });
+  }, [isPayFast, orderId, searchParams]);
 
   return (
-    <main className="pt-20 min-h-screen bg-[#F5F0E8] flex items-center justify-center px-4">
+    <main className="pt-20 min-h-screen bg-[#e9e0cf] flex items-center justify-center px-4">
       <div className="max-w-md w-full">
         <div className="bg-white rounded-3xl shadow-xl p-8 text-center space-y-6">
           {/* Cancel Icon */}
@@ -85,7 +113,7 @@ export default function CheckoutCancelPage() {
       <Header />
       <Suspense
         fallback={
-          <main className="pt-20 min-h-screen bg-[#F5F0E8] flex items-center justify-center">
+          <main className="pt-20 min-h-screen bg-[#e9e0cf] flex items-center justify-center">
             <div className="animate-spin w-8 h-8 border-4 border-[#C4622D] border-t-transparent rounded-full" />
           </main>
         }

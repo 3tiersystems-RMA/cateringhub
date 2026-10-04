@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Icon from "@/components/ui/AppIcon";
+import { getHomepageSectionVisibility } from "@/lib/homepage-sections";
 
 const steps = [
   {
@@ -41,6 +42,11 @@ const steps = [
 
 export default function HowItWorksSection() {
   const sectionRef = useRef<HTMLDivElement>(null);
+  const [sectionVisible, setSectionVisible] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    getHomepageSectionVisibility('the_process', true).then(setSectionVisible);
+  }, []);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -62,13 +68,15 @@ export default function HowItWorksSection() {
     return () => observer.disconnect();
   }, []);
 
+  if (sectionVisible === false) return null;
+
   return (
     <section id="how-it-works" ref={sectionRef} className="py-24 md:py-32 bg-[#F5F0E8]">
       <div className="max-w-7xl mx-auto px-4 md:px-8">
         {/* Header */}
         <div className="hiw-reveal reveal hidden-init text-center mb-16">
           <p className="text-xs font-mono uppercase tracking-widest text-[#C4622D] mb-3">
-            03 / The Process
+            / The Process
           </p>
           <h2 className="font-display text-4xl md:text-6xl font-semibold tracking-tight text-[#1A1612] leading-tight">
             Effortless From

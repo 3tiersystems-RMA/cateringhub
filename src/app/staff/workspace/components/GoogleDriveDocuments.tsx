@@ -19,7 +19,7 @@ interface DriveDoc {
 }
 
 interface GoogleDriveDocumentsProps {
-  isSuperAdmin: boolean;
+  canManage: boolean;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -263,7 +263,7 @@ function EditModal({
         <div className="flex gap-3 mt-6">
           <button
             onClick={onClose}
-            className="flex-1 border border-[#DDD5C8] text-[#5C5347] px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#F5F0E8] transition-colors"
+            className="flex-1 border border-[#DDD5C8] text-[#5C5347] px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#e9e0cf] transition-colors"
           >
             Cancel
           </button>
@@ -283,12 +283,12 @@ function EditModal({
 // ─── DocRow ───────────────────────────────────────────────────────────────────
 function DocRow({
   doc,
-  isSuperAdmin,
+  canManage,
   onRemove,
   onEdit,
 }: {
   doc: DriveDoc;
-  isSuperAdmin: boolean;
+  canManage: boolean;
   onRemove: (id: string) => void;
   onEdit: (doc: DriveDoc) => void;
 }) {
@@ -317,7 +317,7 @@ function DocRow({
           </div>
         </div>
 
-        <span className="hidden sm:inline-flex text-xs text-[#8C8278] bg-[#F5F0E8] px-2 py-0.5 rounded-full border border-[#EDE7DA] flex-shrink-0 self-center">
+        <span className="hidden sm:inline-flex text-xs text-[#8C8278] bg-[#e9e0cf] px-2 py-0.5 rounded-full border border-[#EDE7DA] flex-shrink-0 self-center">
           {TYPE_LABELS[doc.type]}
         </span>
 
@@ -346,8 +346,8 @@ function DocRow({
             </svg>
           </a>
 
-          {/* Edit — Super Admin only */}
-          {isSuperAdmin && (
+          {/* Edit — managers (admin & super_admin) only */}
+          {canManage && (
             <button
               onClick={() => onEdit(doc)}
               title="Edit file name or folder"
@@ -359,8 +359,8 @@ function DocRow({
             </button>
           )}
 
-          {/* Remove — Super Admin only */}
-          {isSuperAdmin && (
+          {/* Remove — managers (admin & super_admin) only */}
+          {canManage && (
             <button
               onClick={() => onRemove(doc.id)}
               title="Remove document"
@@ -375,7 +375,7 @@ function DocRow({
       </div>
 
       {expanded && (
-        <div className="relative bg-[#F5F0E8]" style={{ paddingBottom: '56.25%' }}>
+        <div className="relative bg-[#e9e0cf]" style={{ paddingBottom: '56.25%' }}>
           <iframe
             src={doc.embedUrl}
             title={doc.title}
@@ -394,13 +394,13 @@ function DocRow({
 function FolderGroup({
   folderName,
   items,
-  isSuperAdmin,
+  canManage,
   onRemove,
   onEdit,
 }: {
   folderName: string;
   items: DriveDoc[];
-  isSuperAdmin: boolean;
+  canManage: boolean;
   onRemove: (id: string) => void;
   onEdit: (doc: DriveDoc) => void;
 }) {
@@ -410,7 +410,7 @@ function FolderGroup({
     <div className="bg-[#FDFAF6] rounded-2xl border border-[#DDD5C8] overflow-hidden">
       <button
         onClick={() => setCollapsed((v) => !v)}
-        className="w-full flex items-center gap-2.5 px-4 py-3 bg-[#F5F0E8] border-b border-[#EDE7DA] hover:bg-[#EDE7DA] transition-colors"
+        className="w-full flex items-center gap-2.5 px-4 py-3 bg-[#e9e0cf] border-b border-[#EDE7DA] hover:bg-[#EDE7DA] transition-colors"
       >
         <FolderIcon size={18} />
         <span className="flex-1 text-left text-sm font-bold text-[#3D3530]">{folderName}</span>
@@ -429,7 +429,7 @@ function FolderGroup({
             <DocRow
               key={doc.id}
               doc={doc}
-              isSuperAdmin={isSuperAdmin}
+              canManage={canManage}
               onRemove={onRemove}
               onEdit={onEdit}
             />
@@ -441,7 +441,7 @@ function FolderGroup({
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
-export default function GoogleDriveDocuments({ isSuperAdmin }: GoogleDriveDocumentsProps) {
+export default function GoogleDriveDocuments({ canManage }: GoogleDriveDocumentsProps) {
   const supabase = createClient();
   const [documents, setDocuments] = useState<DriveDoc[]>([]);
   const [urlInput, setUrlInput] = useState('');
@@ -573,7 +573,21 @@ export default function GoogleDriveDocuments({ isSuperAdmin }: GoogleDriveDocume
 
   // ── Remove document ──
   const handleRemove = async (id: string) => {
-    await supabase.from('drive_documents').delete().eq('id', id);
+    setFormError(null);
+    // .select() lets us confirm a row was actually deleted. If RLS blocks the
+    // delete it returns 0 rows — surface that instead of silently dropping it
+    // from the UI while it lingers in the database.
+    const { data, error } = await supabase
+      .from('drive_documents')
+      .delete()
+      .eq('id', id)
+      .select('id');
+
+    if (error || !data || data.length === 0) {
+      setFormError('Could not remove the document — you may not have permission to remove documents.');
+      await loadDocuments();
+      return;
+    }
     setDocuments((prev) => prev.filter((d) => d.id !== id));
   };
 
@@ -605,6 +619,13 @@ export default function GoogleDriveDocuments({ isSuperAdmin }: GoogleDriveDocume
 
   return (
     <div className="space-y-6">
+      <div>
+        <h2 className="text-lg font-bold text-[#1A1612]">Document Management</h2>
+        <p className="text-xs text-[#8C8278] mt-0.5">
+          View and manage Google Drive documents linked to the workspace
+        </p>
+      </div>
+
       {/* Edit Modal */}
       {editingDoc && (
         <EditModal
@@ -614,8 +635,8 @@ export default function GoogleDriveDocuments({ isSuperAdmin }: GoogleDriveDocume
         />
       )}
 
-      {/* ── Add Document Form — Super Admin only ── */}
-      {isSuperAdmin && (
+      {/* ── Add Document Form — managers (admin & super_admin) only ── */}
+      {canManage && (
         <div className="bg-white rounded-2xl border border-[#DDD5C8] p-5">
           <div className="flex items-center gap-2 mb-4">
             <svg className="h-5 w-5 flex-shrink-0" viewBox="0 0 87.3 78" fill="none">
@@ -742,7 +763,7 @@ export default function GoogleDriveDocuments({ isSuperAdmin }: GoogleDriveDocume
           </div>
           <p className="text-sm font-semibold text-[#8C8278]">No documents added yet</p>
           <p className="text-xs text-[#B5ADA5] mt-1">
-            {isSuperAdmin
+            {canManage
               ? 'Paste a public Google Drive file link above to add a document.'
               : 'No documents have been shared yet.'}
           </p>
@@ -754,7 +775,7 @@ export default function GoogleDriveDocuments({ isSuperAdmin }: GoogleDriveDocume
               key={folder}
               folderName={folder}
               items={grouped[folder]}
-              isSuperAdmin={isSuperAdmin}
+              canManage={canManage}
               onRemove={handleRemove}
               onEdit={setEditingDoc}
             />

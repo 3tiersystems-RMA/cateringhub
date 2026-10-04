@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { createClient as createServerClient } from "@/lib/supabase/server";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -7,6 +8,20 @@ const supabaseAdmin = createClient(
 );
 
 export async function POST(req: NextRequest) {
+  // ── POPIA: require authenticated session ──────────────────────────────────
+  const supabaseServer = await createServerClient();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabaseServer.auth.getUser();
+
+  if (authError || !user) {
+    return NextResponse.json(
+      { error: "You must be logged in to access voucher details." },
+      { status: 401 }
+    );
+  }
+
   try {
     const body = await req.json();
     const { codes } = body as { codes: string[] };

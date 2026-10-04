@@ -1,34 +1,25 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { useState, useMemo, useEffect, useRef, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+
 import Icon from "@/components/ui/AppIcon";
 import ProductCard from "./ProductCard";
 import CartSidebar from "./CartSidebar";
 import ProductModal from "./ProductModal";
-import { CartProvider, useCart } from "./CartContext";
+import { useCart } from "./CartContext";
 import { createClient } from "@/lib/supabase/client";
+import {
+  mapProductRows,
+  PRODUCT_LIST_COLUMNS,
+  type CatalogProduct,
+  type ProductsCatalog,
+} from "@/lib/products-catalog";
 import type { VoucherData } from "./CartContext";
 import VoucherErrorModal from "@/components/ui/VoucherErrorModal";
+import VoucherMealsList from "./VoucherMealsList";
 
-interface Product {
-  id: string;
-  name: string;
-  category: string;
-  price: number;
-  unit: string;
-  image: string;
-  imageAlt: string;
-  tags: string[];
-  rating: number;
-  reviews: number;
-  description: string;
-  minOrder?: number;
-  badge?: string;
-  available: boolean;
-  packageType?: string;
-}
+type Product = CatalogProduct;
 
 function CartButton() {
   const { totalItems, setIsOpen } = useCart();
@@ -225,84 +216,269 @@ function ApplyVoucherBanner() {
   );
 }
 
-function ProductsContent() {
+// ─── Section-grouped product layout ───────────────────────────────────────────
+const SECTION_CATEGORIES = ["Frozen Meals", "Wellness", "Fadwah Mugs"];
+
+const SECTION_SUBTITLES: Record<string, string> = {
+  "Fadwah Mugs": "A charitable collection supporting children with spina bifida",
+};
+
+interface ProductSectionsProps {
+  products: Product[];
+  onOpenModal: (product: Product) => void;
+  sectionRef: React.RefObject<HTMLDivElement>;
+}
+
+function ProductSections({ products, onOpenModal, sectionRef }: ProductSectionsProps) {
+  // Group products by category, preserving section order
+  const sections = SECTION_CATEGORIES.map((cat) => ({
+    category: cat,
+    items: products.filter((p) => p.category === cat),
+  })).filter((s) => s.items.length > 0);
+
+  // Products not in any named section
+  const otherProducts = products.filter(
+    (p) => !SECTION_CATEGORIES.includes(p.category)
+  );
+
+  // Combine: named sections first, then "other" as a catch-all
+  const allSections = [
+    ...sections,
+    ...(otherProducts.length > 0
+      ? [{ category: "Other", items: otherProducts }]
+      : []),
+  ];
+
+  if (allSections.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 gap-4">
+        <p className="text-[#8C8278] text-base font-medium">No items match your search.</p>
+      </div>
+    );
+  }
+
+  let globalIndex = 0;
+
+  return (
+    <div ref={sectionRef}>
+      {allSections.map((section, sIdx) => {
+        const subtitle = SECTION_SUBTITLES[section.category];
+        return (
+          <div key={section.category}>
+            {/* Horizontal rule separator (not before first section) */}
+            {sIdx > 0 && (
+              <hr
+                style={{
+                  border: "none",
+                  borderTop: "0.5px solid #E2DDD6",
+                  margin: "0 0 2.5rem 0",
+                }}
+              />
+            )}
+
+            {/* Section heading block */}
+            <div style={{ marginBottom: "1.25rem", marginTop: sIdx === 0 ? 0 : "2.5rem" }}>
+              <div className="flex items-baseline gap-3 flex-wrap">
+                <h2
+                  style={{
+                    fontFamily: "'Cormorant Garamond', serif",
+                    fontSize: "clamp(22px, 4vw, 28px)",
+                    fontWeight: 400,
+                    color: "#1E3D2F",
+                    margin: 0,
+                    lineHeight: 1.2,
+                  }}
+                >
+                  {section.category}
+                </h2>
+                <span
+                  style={{
+                    fontFamily: "DM Sans, sans-serif",
+                    fontSize: "14px",
+                    color: "#8A8A82",
+                    fontWeight: 400,
+                  }}
+                >
+                  {section.items.length} item{section.items.length !== 1 ? "s" : ""}
+                </span>
+              </div>
+              {subtitle && (
+                <p
+                  style={{
+                    fontFamily: "DM Sans, sans-serif",
+                    fontSize: "13px",
+                    fontStyle: "italic",
+                    color: "#8A8A82",
+                    marginTop: "4px",
+                    marginBottom: 0,
+                  }}
+                >
+                  {subtitle}
+                </p>
+              )}
+            </div>
+
+            {/* Product grid */}
+            <div
+              className="product-section-grid"
+              style={{ marginBottom: "2.5rem" }}
+            >
+              {section.items.map((product) => {
+                const idx = globalIndex++;
+                return (
+                  <div
+                    key={`${product.category}-${product.id}`}
+                    className="pc-reveal"
+                    style={{
+                      opacity: 0,
+                      transform: "translateY(24px)",
+                      transition: `opacity 0.6s cubic-bezier(0.16,1,0.3,1) ${idx * 0.05}s, transform 0.6s cubic-bezier(0.16,1,0.3,1) ${idx * 0.05}s`,
+                      display: "flex",
+                      flexDirection: "column",
+                    }}
+                  >
+                    <ProductCard
+                      product={product}
+                      onOpenModal={onOpenModal}
+                      imagePriority={idx < 3}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
+function ProductCardSkeleton() {
+  return (
+    <div className="bg-[#FAF7F2] border border-[#DDD5C8] rounded-3xl overflow-hidden animate-pulse">
+      <div className="h-52 bg-[#DDD5C8]" />
+      <div className="p-5 space-y-3">
+        <div className="flex gap-2">
+          <div className="h-5 w-16 bg-[#DDD5C8] rounded-full" />
+          <div className="h-5 w-20 bg-[#DDD5C8] rounded-full" />
+        </div>
+        <div className="h-5 bg-[#DDD5C8] rounded w-3/4" />
+        <div className="h-4 bg-[#DDD5C8] rounded w-full" />
+        <div className="flex justify-between items-end pt-2">
+          <div className="h-6 bg-[#DDD5C8] rounded w-16" />
+          <div className="h-9 w-20 bg-[#DDD5C8] rounded-full" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function activateProductReveals(container: HTMLElement) {
+  container.querySelectorAll('.pc-reveal').forEach((el, i) => {
+    setTimeout(() => {
+      const node = el as HTMLElement;
+      node.style.opacity = '1';
+      node.style.transform = 'translateY(0)';
+    }, i * 80);
+  });
+}
+
+interface ProductsContentProps {
+  initialCatalog?: ProductsCatalog;
+}
+
+function ProductsContent({ initialCatalog }: ProductsContentProps) {
+  const isPrefetched = initialCatalog !== undefined;
   const [activeCategory, setActiveCategory] = useState<string>("All");
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<"default" | "price-asc" | "price-desc" | "rating">("default");
-  const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [products, setProducts] = useState<Product[]>(initialCatalog?.products ?? []);
+  const [categories, setCategories] = useState<string[]>(initialCatalog?.categories ?? []);
+  const [loading, setLoading] = useState(!isPrefetched);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [modalAdded, setModalAdded] = useState(false);
+  const [visiblePackages, setVisiblePackages] = useState<Set<string>>(
+    () => new Set(initialCatalog?.visiblePackages ?? [])
+  );
+  const [visibilityLoaded, setVisibilityLoaded] = useState(isPrefetched);
   const sectionRef = useRef<HTMLDivElement>(null);
   const { addItem, appliedVoucher } = useCart();
+  const [showCustomizePopup, setShowCustomizePopup] = useState(false);
 
+  // Apply category from URL on first render
   useEffect(() => {
-    const fetchData = async () => {
+    const categoryParam = searchParams.get("category");
+    if (categoryParam) setActiveCategory(categoryParam);
+  }, [searchParams]);
+
+  // Client refresh only when server did not prefetch (e.g. client navigation edge cases)
+  useEffect(() => {
+    // Also re-fetch client-side if server returned empty products (schema cache error on cold start)
+    const serverReturnedEmpty = isPrefetched && (initialCatalog?.products?.length ?? 0) === 0;
+    if (isPrefetched && !serverReturnedEmpty) return;
+
+    let cancelled = false;
+    let retryTimeout: ReturnType<typeof setTimeout> | null = null;
+
+    const fetchData = async (attempt = 0) => {
       setLoading(true);
       try {
         const supabase = createClient();
+        const [catResult, pvResult, productsResult] = await Promise.all([
+          supabase
+            .from('categories')
+            .select('name')
+            .order('sort_order', { ascending: true }),
+          supabase.from('package_visibility').select('package_name, is_visible'),
+          supabase
+            .from('products')
+            .select(PRODUCT_LIST_COLUMNS)
+            .neq('available', false)
+            .order('sort_order', { ascending: true }),
+        ]);
 
-        const { data: catData } = await supabase
-          .from('categories')
-          .select('name')
-          .eq('active', true)
-          .order('sort_order', { ascending: true });
+        if (cancelled) return;
 
-        const activeCategories = (catData || []).map((c: any) => c.name as string);
-        setCategories(activeCategories);
-
-        const { data, error } = await supabase
-          .from('products')
-          .select('*')
-          .eq('available', true)
-          .order('sort_order', { ascending: true });
-
-        if (error || !data || data.length === 0) {
-          setProducts([]);
-          setLoading(false);
+        // Retry once on schema cache errors (transient Supabase cold-start issue)
+        if (
+          attempt === 0 &&
+          (productsResult.error?.message?.toLowerCase().includes('schema cache') ||
+            catResult.error?.message?.toLowerCase().includes('schema cache'))
+        ) {
+          retryTimeout = setTimeout(() => fetchData(1), 2500);
           return;
         }
 
-        const withImages = await Promise.all(
-          data.map(async (p) => {
-            let imageUrl = '/assets/images/no_image.png';
-            if (p.image_path) {
-              const { data: urlData } = supabase.storage
-                .from('product-images')
-                .getPublicUrl(p.image_path);
-              imageUrl = urlData?.publicUrl || imageUrl;
-            }
-            return {
-              id: p.id,
-              name: p.name,
-              category: p.category as string,
-              price: p.price,
-              unit: p.unit,
-              image: imageUrl,
-              imageAlt: `${p.name} - ${p.category}`,
-              tags: p.tags || [],
-              rating: 4.8,
-              reviews: 0,
-              description: p.description,
-              minOrder: p.min_order || undefined,
-              badge: p.badge || undefined,
-              available: p.available,
-              packageType: p.package_type || 'none',
-            } as Product;
-          })
+        setCategories((catResult.data || []).map((c) => c.name as string));
+        setVisiblePackages(
+          new Set(
+            (pvResult.data || [])
+              .filter((p) => p.is_visible)
+              .map((p) => p.package_name as string)
+          )
         );
-        setProducts(withImages);
-      } catch (err) {
-        console.log('Error fetching products:', err);
-        setProducts([]);
+        setVisibilityLoaded(true);
+
+        if (productsResult.error || !productsResult.data) {
+          setProducts([]);
+        } else {
+          setProducts(mapProductRows(productsResult.data));
+        }
+      } catch {
+        if (!cancelled) setProducts([]);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
     fetchData();
-  }, []);
+    return () => {
+      cancelled = true;
+      if (retryTimeout) clearTimeout(retryTimeout);
+    };
+  }, [isPrefetched, initialCatalog]);
 
   const filtered = useMemo(() => {
     let result = products;
@@ -339,24 +515,31 @@ function ProductsContent() {
   }, [activeCategory, search, sortBy, products, appliedVoucher]);
 
   useEffect(() => {
+    if (loading || filtered.length === 0 || !sectionRef.current) return;
+
+    const section = sectionRef.current;
+    const rect = section.getBoundingClientRect();
+    const alreadyInView = rect.top < window.innerHeight * 0.95 && rect.bottom > 0;
+
+    if (alreadyInView) {
+      activateProductReveals(section);
+      return;
+    }
+
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
-            entry.target.querySelectorAll(".pc-reveal").forEach((el, i) => {
-              setTimeout(() => {
-                (el as HTMLElement).style.opacity = "1";
-                (el as HTMLElement).style.transform = "translateY(0)";
-              }, i * 80);
-            });
+            activateProductReveals(entry.target as HTMLElement);
+            observer.disconnect();
           }
         });
       },
       { threshold: 0.05 }
     );
-    if (sectionRef.current) observer.observe(sectionRef.current);
+    observer.observe(section);
     return () => observer.disconnect();
-  }, [filtered]);
+  }, [loading, filtered]);
 
   const handleOpenModal = (product: Product) => {
     setSelectedProduct(product);
@@ -376,8 +559,8 @@ function ProductsContent() {
   };
 
   const displayCategories = (() => {
-    const desiredOrder = ["All", "Weekly Menu", "Packaged Meals", "Voucher Meals", "Frozen Meals", "Prepared Meals", "À La Carte"];
-    const available = ["All", "Weekly Menu", ...categories];
+    const desiredOrder = ["All", "Packaged Meals", "Voucher Meals", "Frozen Meals", "Prepared Meals", "À La Carte", "Wellness", "Retail POD", "Fadwah Mugs"];
+    const available = ["All", ...categories];
     return desiredOrder.filter((c) => available.includes(c));
   })();
 
@@ -412,38 +595,50 @@ function ProductsContent() {
             </h1>
           </div>
           <div className="flex items-center gap-3">
-            <Link
-              href="/vouchers"
+            <button
+              onClick={() => setShowCustomizePopup(true)}
               className="flex items-center gap-2 bg-white border border-[#C4622D]/40 text-[#C4622D] px-4 py-2.5 rounded-full text-sm font-semibold hover:bg-[#F5EDE6] transition-all"
+            >
+              <Icon name="AdjustmentsHorizontalIcon" size={15} />
+              Customize Meal Package
+            </button>
+            <span
+              className="flex items-center gap-2 bg-white border border-gray-300 text-gray-400 px-4 py-2.5 rounded-full text-sm font-semibold cursor-not-allowed opacity-60 select-none"
+              title="Meal Vouchers (currently unavailable)"
             >
               <Icon name="TicketIcon" size={15} />
               Meal Vouchers
-            </Link>
+            </span>
             <CartButton />
           </div>
         </div>
+
+        {/* Customize Meal Package popup */}
+        {showCustomizePopup && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowCustomizePopup(false)}>
+            <div className="bg-white rounded-2xl shadow-xl px-8 py-7 max-w-sm w-full mx-4 text-center" onClick={e => e.stopPropagation()}>
+              <div className="flex justify-center mb-4">
+                <span className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-[#F5EDE6]">
+                  <Icon name="AdjustmentsHorizontalIcon" size={24} className="text-[#C4622D]" />
+                </span>
+              </div>
+              <h3 className="text-lg font-bold text-[#2C1810] mb-2">Coming Soon</h3>
+              <p className="text-[#6B4226] text-sm mb-6">This OPTION will be available in our next release.</p>
+              <button
+                onClick={() => setShowCustomizePopup(false)}
+                className="bg-[#C4622D] text-white px-6 py-2.5 rounded-full text-sm font-semibold hover:bg-[#A8522A] transition-all"
+              >
+                Got it
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* ─── Apply Voucher Banner ─── */}
         <ApplyVoucherBanner />
 
         {/* Filters & Search */}
-        <div className="flex flex-col sm:flex-row gap-4 mb-8">
-          {/* Search */}
-          <div className="relative flex-1 max-w-sm">
-            <Icon
-              name="MagnifyingGlassIcon"
-              size={16}
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-[#B5ADA5]"
-            />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search menu..."
-              className="w-full bg-white border border-[#DDD5C8] rounded-full pl-10 pr-4 py-2.5 text-sm text-[#1A1612] placeholder-[#B5ADA5] focus:outline-none focus:border-[#C4622D] transition-colors"
-            />
-          </div>
-
+        <div className="flex flex-wrap items-center gap-3 mb-8">
           {/* Sort */}
           <div className="relative">
             <select
@@ -462,72 +657,125 @@ function ProductsContent() {
               className="absolute right-4 top-1/2 -translate-y-1/2 text-[#8C8278] pointer-events-none"
             />
           </div>
-        </div>
 
-        {/* Category Tabs — hidden when voucher is active (products already filtered) */}
-        {!appliedVoucher?.package_type || appliedVoucher.package_type === "none" ? (
-          <div className="flex flex-wrap gap-2 mb-10">
-            {displayCategories.map((cat) => (
+          {/* Search */}
+          <div className="relative w-40">
+            <Icon
+              name="MagnifyingGlassIcon"
+              size={16}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-[#B5ADA5]"
+            />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search..."
+              className="w-full bg-white border border-[#DDD5C8] rounded-full pl-8 pr-8 py-2.5 text-sm text-[#1A1612] placeholder-[#B5ADA5] focus:outline-none focus:border-[#C4622D] transition-colors"
+            />
+            {search && (
               <button
-                key={cat}
-                onClick={() => {
-                  if (cat === "Weekly Menu") {
-                    router.push("/weekly-menu");
-                  } else {
-                    setActiveCategory(cat);
-                  }
-                }}
-                className={`px-5 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-                  activeCategory === cat
-                    ? "bg-[#C4622D] text-white shadow-terra"
-                    : "bg-white border border-[#DDD5C8] text-[#5C5347] hover:border-[#C4622D]/40 hover:text-[#C4622D]"
-                }`}
+                type="button"
+                onClick={() => setSearch('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#B5ADA5] hover:text-[#5C5347] transition-colors"
+                aria-label="Clear search"
               >
-                {cat}
-                <span
-                  className={`ml-2 text-xs ${
-                    activeCategory === cat ? "text-white/70" : "text-[#B5ADA5]"
-                  }`}
-                >
-                  {cat !== "Weekly Menu" && `(${getCategoryCount(cat)})`}
-                </span>
+                <Icon name="XMarkIcon" size={16} />
               </button>
-            ))}
+            )}
           </div>
-        ) : (
-          <div className="mb-10 flex items-center gap-2 text-sm text-[#8C8278]">
-            <Icon name="FunnelIcon" size={14} className="text-[#C4622D]" />
-            <span>Showing <strong className="text-[#1A1612]">{PACKAGE_LABEL[appliedVoucher.package_type]}</strong> products only — remove voucher to browse all items</span>
-          </div>
-        )}
+
+          {/* Category Filter Buttons — hidden when voucher is active */}
+          {!appliedVoucher?.package_type || appliedVoucher.package_type === "none" ? (
+            <>
+              {displayCategories.map((cat) => {
+                const count = getCategoryCount(cat);
+                const isZero = cat !== "All" && count === 0;
+                if (isZero) return null;
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => {
+                      setActiveCategory(cat);
+                    }}
+                    className={`px-5 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                      activeCategory === cat
+                        ? "bg-[#C4622D] text-white shadow-terra"
+                        : "bg-white border border-[#DDD5C8] text-[#5C5347] hover:border-[#C4622D]/40 hover:text-[#C4622D]"
+                    }`}
+                  >
+                    {cat}
+                    <span
+                      className={`ml-2 text-xs ${
+                        activeCategory === cat ? "text-white/70" : "text-[#B5ADA5]"
+                      }`}
+                    >
+                      {`(${count})`}
+                    </span>
+                  </button>
+                );
+              })}
+              {(search || activeCategory !== "All") && (
+                <button
+                  onClick={() => { setSearch(""); setActiveCategory("All"); }}
+                  className="text-xs text-[#C4622D] hover:underline font-medium"
+                >
+                  Clear filters
+                </button>
+              )}
+            </>
+          ) : (
+            <div className="flex items-center gap-2 text-sm text-[#8C8278]">
+              <Icon name="FunnelIcon" size={14} className="text-[#C4622D]" />
+              <span>Showing <strong className="text-[#1A1612]">{PACKAGE_LABEL[appliedVoucher.package_type]}</strong> products only — remove voucher to browse all items</span>
+            </div>
+          )}
+        </div>
 
         {/* Results count */}
         <div className="flex items-center justify-between mb-6">
           <p className="text-sm text-[#8C8278] font-mono">
             {loading ? 'Loading products...' : `${filtered.length} item${filtered.length !== 1 ? "s" : ""} to choose from`}
           </p>
-          {(search || activeCategory !== "All") && (
-            <button
-              onClick={() => { setSearch(""); setActiveCategory("All"); }}
-              className="text-xs text-[#C4622D] hover:underline font-medium"
-            >
-              Clear filters
-            </button>
-          )}
         </div>
 
         {/* Product Grid */}
         {loading ? (
-          <div className="flex items-center justify-center py-24">
-            <svg className="animate-spin h-10 w-10 text-[#C4622D]" viewBox="0 0 24 24" fill="none">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-            </svg>
+          <div className="product-section-grid">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <ProductCardSkeleton key={i} />
+            ))}
           </div>
+        ) : activeCategory === "Voucher Meals" ? (
+          <VoucherMealsList products={filtered.filter((p) => {
+            const hasUnit = p.unit && p.unit.trim() !== '';
+            const priceIsZeroOrBlank = !p.price || p.price === 0;
+            const pkgType = p.packageType || 'none';
+            const isVisible = visibilityLoaded && visiblePackages.has(pkgType);
+            return hasUnit && priceIsZeroOrBlank && isVisible;
+          }).map((p) => ({
+            id: p.id,
+            name: p.name,
+            price: p.price,
+            unit: p.unit,
+            description: p.description,
+            image: p.image,
+            imageAlt: p.imageAlt,
+            available: p.available,
+            packageType: p.packageType,
+            imageFit: p.imageFit,
+          }))} />
+        ) : activeCategory === "All" && !appliedVoucher?.package_type ? (
+          // Grouped section layout for "All" view
+          <ProductSections
+            products={filtered}
+            onOpenModal={handleOpenModal}
+            sectionRef={sectionRef}
+          />
         ) : (
+          // Single flat grid for filtered category view
           <div
             ref={sectionRef}
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5"
+            className="product-section-grid"
           >
             {filtered.length > 0 ? (
               filtered.map((product, i) => (
@@ -538,9 +786,15 @@ function ProductsContent() {
                     opacity: 0,
                     transform: "translateY(24px)",
                     transition: `opacity 0.6s cubic-bezier(0.16,1,0.3,1) ${i * 0.05}s, transform 0.6s cubic-bezier(0.16,1,0.3,1) ${i * 0.05}s`,
+                    display: "flex",
+                    flexDirection: "column",
                   }}
                 >
-                  <ProductCard product={product} onOpenModal={handleOpenModal} />
+                  <ProductCard
+                    product={product}
+                    onOpenModal={handleOpenModal}
+                    imagePriority={i < 3}
+                  />
                 </div>
               ))
             ) : (
@@ -591,10 +845,24 @@ function ProductsContent() {
   );
 }
 
-export default function ProductsInteractive() {
+interface ProductsInteractiveProps {
+  initialCatalog?: ProductsCatalog;
+}
+
+export default function ProductsInteractive({ initialCatalog }: ProductsInteractiveProps) {
   return (
-    <CartProvider>
-      <ProductsContent />
-    </CartProvider>
+    <Suspense
+      fallback={
+        <div className="max-w-7xl mx-auto px-4 md:px-8 py-10">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <ProductCardSkeleton key={i} />
+            ))}
+          </div>
+        </div>
+      }
+    >
+      <ProductsContent initialCatalog={initialCatalog} />
+    </Suspense>
   );
 }
